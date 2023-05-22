@@ -9,7 +9,6 @@ package oidc4ci
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"golang.org/x/oauth2"
 
@@ -35,7 +34,7 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		return "", err
 	}
 
-	resp, err := s.oAuth2Client.Exchange(ctx, oauth2.Config{
+	oauth2Client := oauth2.Config{
 		ClientID:     profile.OIDCConfig.ClientID,
 		ClientSecret: profile.OIDCConfig.ClientSecretHandle,
 		Endpoint: oauth2.Endpoint{
@@ -45,7 +44,11 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		},
 		RedirectURL: tx.RedirectURI,
 		Scopes:      tx.Scope,
-	}, tx.IssuerAuthCode, s.httpClient.(*http.Client)) // TODO: Fix this!
+	}
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
+	resp, err := oauth2Client.Exchange(ctx, tx.IssuerAuthCode)
 	if err != nil {
 		s.sendFailedEvent(ctx, tx, err)
 		return "", err

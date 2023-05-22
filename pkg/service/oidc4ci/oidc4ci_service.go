@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector
 
 package oidc4ci
 
@@ -20,11 +20,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
@@ -81,20 +79,6 @@ type profileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
-type oAuth2Client interface {
-	Exchange(
-		ctx context.Context,
-		cfg oauth2.Config,
-		code string,
-		client *http.Client,
-		opts ...oauth2client.AuthCodeOption,
-	) (*oauth2.Token, error)
-}
-
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 type eventService interface {
 	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
@@ -118,8 +102,7 @@ type Config struct {
 	WellKnownService              wellKnownService
 	ProfileService                profileService
 	IssuerVCSPublicHost           string
-	OAuth2Client                  oAuth2Client
-	HTTPClient                    httpClient
+	HTTPClient                    *http.Client
 	EventService                  eventService
 	PinGenerator                  pinGenerator
 	EventTopic                    string
@@ -135,8 +118,7 @@ type Service struct {
 	wellKnownService              wellKnownService
 	profileService                profileService
 	issuerVCSPublicHost           string
-	oAuth2Client                  oAuth2Client
-	httpClient                    httpClient
+	httpClient                    *http.Client
 	eventSvc                      eventService
 	eventTopic                    string
 	pinGenerator                  pinGenerator
@@ -153,7 +135,6 @@ func NewService(config *Config) (*Service, error) {
 		wellKnownService:              config.WellKnownService,
 		profileService:                config.ProfileService,
 		issuerVCSPublicHost:           config.IssuerVCSPublicHost,
-		oAuth2Client:                  config.OAuth2Client,
 		httpClient:                    config.HTTPClient,
 		eventSvc:                      config.EventService,
 		eventTopic:                    config.EventTopic,

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	fositedto "github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -23,7 +23,7 @@ import (
 func TestBoostrapOidc(t *testing.T) {
 	secret := uuid.NewString()
 
-	oauthClient := fositedto.Client{
+	oauthClient := oauth2client.Client{
 		ID:            "id",
 		Secret:        []byte("secret"),
 		RedirectURIs:  []string{"https://example.com/redirect"},
@@ -43,22 +43,24 @@ func TestBoostrapOidc(t *testing.T) {
 		assert.NoError(t, clientErr)
 
 		t.Run("success", func(t *testing.T) {
-			provider, err := bootstrapOAuthProvider(
-				context.TODO(), secret, "", mongoClient, nil, []fositedto.Client{oauthClient})
+			provider, manager, err := bootstrapOAuthProvider(
+				context.TODO(), secret, "", mongoClient, nil, []oauth2client.Client{oauthClient})
 			assert.NoError(t, err)
 			assert.NotNil(t, provider)
+			assert.NotNil(t, manager)
 		})
 
 		t.Run("success with duplicate oauth clients", func(t *testing.T) {
-			oauthClients := []fositedto.Client{
+			oauthClients := []oauth2client.Client{
 				oauthClient,
 				{ID: oauthClient.ID},
 			}
 
-			provider, err := bootstrapOAuthProvider(
+			provider, manager, err := bootstrapOAuthProvider(
 				context.TODO(), secret, "", mongoClient, nil, oauthClients)
 			assert.NoError(t, err)
 			assert.NotNil(t, provider)
+			assert.NotNil(t, manager)
 		})
 	})
 
@@ -72,30 +74,33 @@ func TestBoostrapOidc(t *testing.T) {
 		assert.NoError(t, err)
 
 		t.Run("success", func(t *testing.T) {
-			provider, err := bootstrapOAuthProvider(
-				context.TODO(), secret, redisStore, nil, redisClient, []fositedto.Client{oauthClient})
+			provider, manager, err := bootstrapOAuthProvider(
+				context.TODO(), secret, redisStore, nil, redisClient, []oauth2client.Client{oauthClient})
 			assert.NoError(t, err)
 			assert.NotNil(t, provider)
+			assert.NotNil(t, manager)
 		})
 
 		t.Run("success with duplicate oauth clients", func(t *testing.T) {
-			oauthClients := []fositedto.Client{
+			oauthClients := []oauth2client.Client{
 				oauthClient,
 				{ID: oauthClient.ID},
 			}
 
-			provider, err := bootstrapOAuthProvider(
+			provider, manager, err := bootstrapOAuthProvider(
 				context.TODO(), secret, redisStore, nil, redisClient, oauthClients)
 			assert.NoError(t, err)
 			assert.NotNil(t, provider)
+			assert.NotNil(t, manager)
 		})
 	})
 }
 
 func TestBoostrapWithInvalidSecret(t *testing.T) {
-	provider, err := bootstrapOAuthProvider(
-		context.TODO(), "", "", nil, nil, []fositedto.Client{})
+	provider, manager, err := bootstrapOAuthProvider(
+		context.TODO(), "", "", nil, nil, []oauth2client.Client{})
 	assert.Nil(t, provider)
+	assert.Nil(t, manager)
 	assert.ErrorContains(t, err, "invalid secret")
 }
 
@@ -113,8 +118,9 @@ func TestBoostrapOidcWithExpiredContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	provider, err := bootstrapOAuthProvider(ctx, secret, "", client, nil, []fositedto.Client{})
+	provider, manager, err := bootstrapOAuthProvider(ctx, secret, "", client, nil, []oauth2client.Client{})
 
 	assert.Nil(t, provider)
+	assert.Nil(t, manager)
 	assert.ErrorContains(t, err, "context canceled")
 }

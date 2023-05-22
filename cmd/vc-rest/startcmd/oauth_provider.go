@@ -17,13 +17,17 @@ import (
 	"github.com/ory/fosite/token/hmac"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	fositedto "github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	fositemongo "github.com/trustbloc/vcs/component/oidc/fosite/mongo"
 	fositeredis "github.com/trustbloc/vcs/component/oidc/fosite/redis"
-	fosite_ext "github.com/trustbloc/vcs/pkg/restapi/handlers"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
+	fositeext "github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
+
+type oauth2ClientStore interface {
+	InsertClient(ctx context.Context, client oauth2client.Client) (string, error)
+}
 
 func bootstrapOAuthProvider(
 	ctx context.Context,
@@ -31,10 +35,10 @@ func bootstrapOAuthProvider(
 	transientDataStoreType string,
 	mongoClient *mongodb.Client,
 	redisClient *redis.Client,
-	oauth2Clients []fositedto.Client,
-) (fosite.OAuth2Provider, error) {
+	oauth2Clients []oauth2client.Client,
+) (fosite.OAuth2Provider, interface{}, error) {
 	if len(secret) == 0 {
-		return nil, errors.New("invalid secret")
+		return nil, nil, errors.New("invalid secret")
 	}
 
 	config := new(fosite.Config)
@@ -52,7 +56,7 @@ func bootstrapOAuthProvider(
 
 	store, err := bootstrapOAuthStorage(ctx, transientDataStoreType, mongoClient, redisClient, oauth2Clients)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return compose.Compose(config, store, hmacStrategy,
@@ -60,8 +64,8 @@ func bootstrapOAuthProvider(
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
 		compose.OAuth2TokenIntrospectionFactory,
-		fosite_ext.OAuth2PreAuthorizeFactory,
-	), nil
+		fositeext.OAuth2PreAuthorizeFactory,
+	), store, nil
 }
 
 func bootstrapOAuthStorage(
@@ -69,9 +73,10 @@ func bootstrapOAuthStorage(
 	transientDataStoreType string,
 	mongoClient *mongodb.Client,
 	redisClient *redis.Client,
-	oauth2Clients []fositedto.Client) (interface{}, error) {
+	oauth2Clients []oauth2client.Client) (interface{}, error) {
 	var store interface{}
 	var err error
+
 	switch transientDataStoreType {
 	case redisStore:
 		logger.Info("Redis oAuth store is used")
@@ -84,9 +89,7 @@ func bootstrapOAuthStorage(
 		logger.Info("Mongo oAuth store is used")
 	}
 
-	if inserter, ok := store.(interface {
-		InsertClient(ctx context.Context, client fositedto.Client) (string, error)
-	}); ok {
+	if inserter, ok := store.(oauth2ClientStore); ok {
 		for _, c := range oauth2Clients {
 			if _, err = inserter.InsertClient(ctx, c); err != nil {
 				if mongo.IsDuplicateKeyError(err) {
@@ -94,7 +97,9 @@ func bootstrapOAuthStorage(
 				}
 
 				return nil, err
+
 			}
+
 		}
 	}
 

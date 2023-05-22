@@ -16,6 +16,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -33,7 +34,7 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 
 	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
 		ID: uuid.New(),
-		Client: &dto.Client{
+		Client: &oauth2client.Client{
 			ID: uuid.New(),
 		},
 		RequestedScope:    []string{"scope1"},
@@ -64,7 +65,7 @@ func TestCreateSessionWithAccessRequest(t *testing.T) {
 	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.AccessRequest{
 		Request: fosite.Request{
 			ID: uuid.New(),
-			Client: &dto.Client{
+			Client: &oauth2client.Client{
 				ID: uuid.New(),
 			},
 			RequestedScope:    []string{"scope1"},
@@ -113,7 +114,7 @@ func TestCreateExpiredSession(t *testing.T) {
 
 	s := NewStore(client)
 
-	dbClient := &dto.Client{
+	dbClient := &oauth2client.Client{
 		ID: uuid.New(),
 	}
 
@@ -122,7 +123,7 @@ func TestCreateExpiredSession(t *testing.T) {
 
 	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
 		ID: uuid.New(),
-		Client: &dto.Client{
+		Client: &oauth2client.Client{
 			ID: uuid.New(),
 		},
 		RequestedScope:    []string{"scope1"},

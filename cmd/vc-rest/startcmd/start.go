@@ -34,7 +34,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
-	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
 	echopprof "github.com/sevenNt/echo-pprof"
 	"github.com/spf13/cobra"
@@ -48,7 +47,6 @@ import (
 	"github.com/trustbloc/vcs/component/credentialstatus"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/healthchecks"
-	fositedto "github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/cslmanager"
@@ -80,6 +78,7 @@ import (
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
+	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -649,7 +648,6 @@ func buildEchoHandler(
 		WellKnownService:              wellknown.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
 		ProfileService:                issuerProfileSvc,
 		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
-		OAuth2Client:                  oauth2client.NewOAuth2Client(),
 		HTTPClient:                    getHTTPClient(metricsProvider.ClientOIDC4CI),
 		EventService:                  eventSvc,
 		PinGenerator:                  otp.NewPinGenerator(),
@@ -693,7 +691,7 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to create issuer interaction client: %w", err)
 	}
 
-	var oauth2Clients []fositedto.Client
+	var oauth2Clients []oauth2client.Client
 
 	if conf.StartupParameters.oAuthClientsFilePath != "" {
 		if oauth2Clients, err = getOAuth2Clients(conf.StartupParameters.oAuthClientsFilePath); err != nil {
@@ -701,9 +699,7 @@ func buildEchoHandler(
 		}
 	}
 
-	var oauthProvider fosite.OAuth2Provider
-
-	oauthProvider, err = bootstrapOAuthProvider(
+	oauthProvider, fositeStore, err := bootstrapOAuthProvider(
 		context.Background(),
 		conf.StartupParameters.oAuthSecret,
 		conf.StartupParameters.transientDataParams.storeType,
@@ -721,21 +717,14 @@ func buildEchoHandler(
 
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
+		OAuth2ClientManager:     clientmanager.NewService(fositeStore.(oauth2ClientStore)),
 		StateStore:              oidc4ciStateStore,
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
-		DefaultHTTPClient:       getHTTPClient(metricsProvider.ClientOIDC4CIV1),
-		OAuth2Client:            oauth2client.NewOAuth2Client(),
+		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		PreAuthorizeClient: func() *http.Client {
-			client := getHTTPClient(metricsProvider.ClientPreAuth)
-			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			}
-			return client
-		}(),
-		JWTVerifier: jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
-		Tracer:      conf.Tracer,
+		JWTVerifier:             jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
+		Tracer:                  conf.Tracer,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
@@ -1250,14 +1239,14 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	return true
 }
 
-func getOAuth2Clients(path string) ([]fositedto.Client, error) {
+func getOAuth2Clients(path string) ([]oauth2client.Client, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var clients []fositedto.Client
+	var clients []oauth2client.Client
 
 	if err = json.NewDecoder(f).Decode(&clients); err != nil {
 		return nil, err

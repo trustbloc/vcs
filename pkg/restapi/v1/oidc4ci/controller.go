@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,OAuth2Client
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,OAuth2ClientManager,IssuerInteractionClient,HTTPClient
 
 package oidc4ci
 
@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/valyala/fastjson"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
@@ -36,6 +38,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -50,6 +53,8 @@ const (
 	cNonceSize                 = 15
 )
 
+var logger = log.New("oidc4ci")
+
 // StateStore stores authorization request/response state.
 type StateStore interface {
 	SaveAuthorizeState(
@@ -59,38 +64,21 @@ type StateStore interface {
 		params ...func(insertOptions *oidc4ci.InsertOptions),
 	) error
 
-	GetAuthorizeState(
-		ctx context.Context,
-		opState string,
-	) (*oidc4ci.AuthorizeState, error)
+	GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci.AuthorizeState, error)
 }
 
+// HTTPClient defines HTTP client interface.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-type OAuth2Client interface {
-	GeneratePKCE() (verifier string, challenge string, method string, err error)
-	AuthCodeURL(_ context.Context, cfg oauth2.Config, state string, opts ...oauth2client.AuthCodeOption) string
-	Exchange(
-		ctx context.Context,
-		cfg oauth2.Config,
-		code string,
-		client *http.Client,
-		opts ...oauth2client.AuthCodeOption,
-	) (*oauth2.Token, error)
-	AuthCodeURLWithPAR(
-		ctx context.Context,
-		cfg oauth2.Config,
-		parEndpoint string,
-		state string,
-		client *http.Client,
-		opts ...oauth2client.AuthCodeOption,
-	) (string, error)
-}
-
 // OAuth2Provider provides functionality for OAuth2 handlers.
 type OAuth2Provider fosite.OAuth2Provider
+
+// OAuth2ClientManager defines OAuth2 client manager.
+type OAuth2ClientManager interface {
+	CreateClient(ctx context.Context, req *clientmanager.CreateClientRequest) (*oauth2client.Client, error)
+}
 
 // IssuerInteractionClient defines API client for interaction with issuer private API.
 type IssuerInteractionClient issuer.ClientInterface
@@ -98,28 +86,26 @@ type IssuerInteractionClient issuer.ClientInterface
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider          OAuth2Provider
+	OAuth2ClientManager     OAuth2ClientManager
 	StateStore              StateStore
+	HTTPClient              HTTPClient
 	IssuerInteractionClient IssuerInteractionClient
-	IssuerVCSPublicHost     string
-	OAuth2Client            OAuth2Client
-	PreAuthorizeClient      HTTPClient
-	DefaultHTTPClient       *http.Client
 	JWTVerifier             jose.SignatureVerifier
 	Tracer                  trace.Tracer
+	IssuerVCSPublicHost     string
 	ExternalHostURL         string
 }
 
 // Controller for OIDC credential issuance API.
 type Controller struct {
 	oauth2Provider          OAuth2Provider
+	oauth2ClientManager     OAuth2ClientManager
 	stateStore              StateStore
+	httpClient              HTTPClient
 	issuerInteractionClient IssuerInteractionClient
-	issuerVCSPublicHost     string
-	oAuth2Client            OAuth2Client
-	preAuthorizeClient      HTTPClient
-	defaultHTTPClient       *http.Client
 	jwtVerifier             jose.SignatureVerifier
 	tracer                  trace.Tracer
+	issuerVCSPublicHost     string
 	internalHostURL         string
 }
 
@@ -127,14 +113,13 @@ type Controller struct {
 func NewController(config *Config) *Controller {
 	return &Controller{
 		oauth2Provider:          config.OAuth2Provider,
+		oauth2ClientManager:     config.OAuth2ClientManager,
 		stateStore:              config.StateStore,
+		httpClient:              config.HTTPClient,
 		issuerInteractionClient: config.IssuerInteractionClient,
-		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
-		oAuth2Client:            config.OAuth2Client,
-		preAuthorizeClient:      config.PreAuthorizeClient,
-		defaultHTTPClient:       config.DefaultHTTPClient,
 		jwtVerifier:             config.JWTVerifier,
 		tracer:                  config.Tracer,
+		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
 		internalHostURL:         config.ExternalHostURL,
 	}
 }
@@ -302,22 +287,82 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	}
 
 	var authCodeURL string
+
 	if len(lo.FromPtr(claimDataAuth.PushedAuthorizationRequestEndpoint)) > 0 {
-		authCodeURL, err = c.oAuth2Client.AuthCodeURLWithPAR(
-			ctx,
+		authCodeURL, err = c.buildAuthCodeURLWithPAR(ctx,
 			oauthConfig,
 			*claimDataAuth.PushedAuthorizationRequestEndpoint,
 			params.IssuerState,
-			c.defaultHTTPClient,
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		authCodeURL = c.oAuth2Client.AuthCodeURL(ctx, oauthConfig, params.IssuerState)
+		authCodeURL = oauthConfig.AuthCodeURL(params.IssuerState)
 	}
 
 	return e.Redirect(http.StatusSeeOther, authCodeURL)
+}
+
+type parResponse struct {
+	RequestURI string `json:"request_uri"`
+	ExpiresIn  int    `json:"expires_in"`
+}
+
+func (c *Controller) buildAuthCodeURLWithPAR(
+	ctx context.Context,
+	cfg oauth2.Config,
+	parEndpoint string,
+	state string,
+) (string, error) {
+	v := url.Values{
+		"response_type": {"code"},
+		"client_id":     {cfg.ClientID},
+		"state":         {state},
+	}
+
+	if cfg.RedirectURL != "" {
+		v.Set("redirect_uri", cfg.RedirectURL)
+	}
+
+	if len(cfg.Scopes) > 0 {
+		v.Set("scope", strings.Join(cfg.Scopes, " "))
+	}
+
+	req, err := http.NewRequest(http.MethodPost, parEndpoint, strings.NewReader(v.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("new request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.httpClient.Do(req.WithContext(ctx)) //nolint:bodyclose // closed in defer
+	if err != nil {
+		return "", fmt.Errorf("post form: %w", err)
+	}
+
+	defer func(Body io.ReadCloser) {
+		if err = Body.Close(); err != nil {
+			logger.Error("Failed to close response body", log.WithError(err))
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("unexpected status code %v", resp.StatusCode)
+	}
+
+	var response parResponse
+	if err = json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", fmt.Errorf("decode par response: %w", err)
+	}
+
+	return fmt.Sprintf("%v?%v",
+		cfg.Endpoint.AuthURL,
+		url.Values{
+			"client_id":   {cfg.ClientID},
+			"request_uri": {response.RequestURI},
+		}.Encode(),
+	), nil
 }
 
 // OidcRedirect handles OIDC redirect (GET /oidc/redirect).
@@ -653,6 +698,45 @@ func (c *Controller) oidcPreAuthorizedCode(
 	}
 
 	return &validateResponse, nil
+}
+
+// OidcRegisterDynamicClient handles OIDC Dynamic Client Registration (POST /oidc/register).
+func (c *Controller) OidcRegisterDynamicClient(e echo.Context) error {
+	req := e.Request()
+	ctx := req.Context()
+
+	_, span := c.tracer.Start(ctx, "OidcRegisterDynamicClient")
+	defer span.End()
+
+	var registrationReq ClientRegistrationRequest
+
+	if err := e.Bind(&registrationReq); err != nil {
+		return fmt.Errorf("bind client registration request: %w", err)
+	}
+
+	createReq := &clientmanager.CreateClientRequest{
+		Name:                    lo.FromPtr(registrationReq.ClientName),
+		URI:                     lo.FromPtr(registrationReq.ClientUri),
+		RedirectURIs:            lo.FromPtr(registrationReq.RedirectUris),
+		GrantTypes:              registrationReq.GrantTypes,
+		ResponseTypes:           lo.FromPtr(registrationReq.ResponseTypes),
+		Scope:                   lo.FromPtr(registrationReq.Scope),
+		TokenEndpointAuthMethod: lo.FromPtr(registrationReq.TokenEndpointAuthMethod),
+	}
+
+	oauth2Client, err := c.oauth2ClientManager.CreateClient(ctx, createReq)
+	if err != nil {
+		return fmt.Errorf("create oauth2 client: %w", err)
+	}
+
+	return apiUtil.WriteOutput(e)(ClientRegistrationResponse{
+		ClientId:      oauth2Client.ID,
+		ClientSecret:  lo.ToPtr(string(oauth2Client.Secret)),
+		GrantTypes:    lo.ToPtr(oauth2Client.GrantTypes),
+		RedirectUris:  lo.ToPtr(oauth2Client.RedirectURIs),
+		ResponseTypes: lo.ToPtr(oauth2Client.ResponseTypes),
+		Scope:         lo.ToPtr(strings.Join(oauth2Client.Scopes, " ")),
+	}, nil)
 }
 
 type interactionError struct { // in fact its CustomError

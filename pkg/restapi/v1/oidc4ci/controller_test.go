@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +32,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
@@ -192,7 +192,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
 		mockStateStore        = NewMockStateStore(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
-		oauth2Client          = NewMockOAuth2Client(gomock.NewController(t))
+		mockHTTPClient        = NewMockHTTPClient(gomock.NewController(t))
 		params                oidc4ci.OidcAuthorizeParams
 	)
 
@@ -216,17 +216,8 @@ func TestController_OidcAuthorize(t *testing.T) {
 					Request: fosite.Request{RequestedScope: scope},
 				}, nil)
 
-				oauth2Client.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						_ context.Context,
-						cfg oauth2.Config,
-						state string,
-						opts ...oauth2client.AuthCodeOption,
-					) string {
-						return (&cfg).AuthCodeURL(state)
-					})
-				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(
 						ctx context.Context,
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
@@ -234,7 +225,8 @@ func TestController_OidcAuthorize(t *testing.T) {
 						assert.Equal(t, params.IssuerState, ar.(*fosite.AuthorizeRequest).State)
 
 						return &fosite.AuthorizeResponse{}, nil
-					})
+					},
+				)
 
 				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
 					AuthorizationRequest: issuer.OAuthParameters{},
@@ -291,23 +283,17 @@ func TestController_OidcAuthorize(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				oauth2Client.EXPECT().AuthCodeURLWithPAR(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						cfg oauth2.Config,
-						parURL string,
-						state string,
-						client *http.Client,
-						opts ...oauth2client.AuthCodeOption,
-					) (string, error) {
-						assert.Equal(t, parEndpoint, parURL)
-						assert.Equal(t, params.IssuerState, state)
+				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(
+					func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusCreated,
+							Body:       io.NopCloser(bytes.NewBufferString(fmt.Sprintf(`{"request_uri":"%s"}`, parResponse))),
+						}, nil
+					},
+				)
 
-						return parResponse, nil
-					})
-
-				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(
 						ctx context.Context,
 						req issuer.PrepareAuthorizationRequestJSONRequestBody,
 						reqEditors ...issuer.RequestEditorFn,
@@ -320,7 +306,8 @@ func TestController_OidcAuthorize(t *testing.T) {
 							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBuffer(b)),
 						}, nil
-					})
+					},
+				)
 
 				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), params.IssuerState, gomock.Any()).Return(nil)
 			},
@@ -331,7 +318,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 			},
 		},
 		{
-			name: "success with issuer par",
+			name: "par error",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
@@ -355,11 +342,17 @@ func TestController_OidcAuthorize(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				oauth2Client.EXPECT().AuthCodeURLWithPAR(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return("", errors.New("issuer par error"))
+				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(
+					func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewBufferString("")),
+						}, nil
+					},
+				)
 
-				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(
 						ctx context.Context,
 						req issuer.PrepareAuthorizationRequestJSONRequestBody,
 						reqEditors ...issuer.RequestEditorFn,
@@ -372,12 +365,13 @@ func TestController_OidcAuthorize(t *testing.T) {
 							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBuffer(b)),
 						}, nil
-					})
+					},
+				)
 
 				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), params.IssuerState, gomock.Any()).Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "issuer par error")
+				assert.ErrorContains(t, err, "unexpected status code")
 			},
 		},
 		{
@@ -388,7 +382,8 @@ func TestController_OidcAuthorize(t *testing.T) {
 					IssuerState:  "opState",
 				}
 
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil, errors.New("authorize error"))
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil,
+					errors.New("authorize error"))
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "authorize error")
@@ -405,9 +400,11 @@ func TestController_OidcAuthorize(t *testing.T) {
 
 				scope := []string{"openid", "profile"}
 
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
-					Request: fosite.Request{RequestedScope: scope},
-				}, nil)
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(
+					&fosite.AuthorizeRequest{
+						Request: fosite.Request{RequestedScope: scope},
+					}, nil,
+				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "authorization_details")
@@ -609,8 +606,8 @@ func TestController_OidcAuthorize(t *testing.T) {
 				OAuth2Provider:          mockOAuthProvider,
 				StateStore:              mockStateStore,
 				IssuerInteractionClient: mockInteractionClient,
+				HTTPClient:              mockHTTPClient,
 				IssuerVCSPublicHost:     "https://issuer.example.com",
-				OAuth2Client:            oauth2Client,
 			})
 
 			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
@@ -1349,8 +1346,6 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
-		oauthClient           = NewMockOAuth2Client(gomock.NewController(t))
-		preAuthorizeClient    = NewMockHTTPClient(gomock.NewController(t))
 	)
 
 	tests := []struct {
@@ -1555,8 +1550,6 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
-				OAuth2Client:            oauthClient,
-				PreAuthorizeClient:      preAuthorizeClient,
 				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 			})
 
@@ -1566,6 +1559,84 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			err := controller.OidcToken(echo.New().NewContext(req, rec))
+			tt.check(t, rec, err)
+		})
+	}
+}
+
+func TestController_OidcRegisterDynamicClient(t *testing.T) {
+	var (
+		mockClientManager = NewMockOAuth2ClientManager(gomock.NewController(t))
+		requestBody       []byte
+	)
+
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
+	}{
+		{
+			name: "success",
+			setup: func() {
+				mockClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(
+					&oauth2client.Client{
+						ID:            "client-id",
+						Secret:        []byte("client-secret"),
+						GrantTypes:    []string{"authorization_code"},
+						ResponseTypes: []string{"code"},
+						Scopes:        []string{"foo", "bar"},
+					}, nil)
+
+				var err error
+				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
+					GrantTypes:              []string{"authorization_code"},
+					ResponseTypes:           lo.ToPtr([]string{"code"}),
+					Scope:                   lo.ToPtr("foo bar"),
+					TokenEndpointAuthMethod: lo.ToPtr("none"),
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "service error",
+			setup: func() {
+				mockClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(nil,
+					errors.New("create client error"))
+
+				var err error
+				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
+					GrantTypes:              []string{"authorization_code"},
+					ResponseTypes:           lo.ToPtr([]string{"code"}),
+					Scope:                   lo.ToPtr("foo bar"),
+					TokenEndpointAuthMethod: lo.ToPtr("none"),
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "create oauth2 client")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			controller := oidc4ci.NewController(&oidc4ci.Config{
+				OAuth2ClientManager: mockClientManager,
+				Tracer:              trace.NewNoopTracerProvider().Tracer(""),
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+			rec := httptest.NewRecorder()
+
+			err := controller.OidcRegisterDynamicClient(echo.New().NewContext(req, rec))
 			tt.check(t, rec, err)
 		})
 	}
