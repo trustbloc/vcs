@@ -44,6 +44,12 @@ func main() {
 	k8SvcName := os.Getenv("K8_HEADLESS_SVC")
 	port := strings.Split(apiAddress, ":")[1]
 
+	minHealthyMembers, _ := strconv.Atoi(os.Getenv("CLUSTER_MINIMUM_HEALTHY_MEMBERS"))
+	if minHealthyMembers == 0 {
+		logger.Warn("CLUSTER_MINIMUM_HEALTHY_MEMBERS is not set, using 1")
+		minHealthyMembers = 1
+	}
+
 	var redisTls *tls.Config
 	tlsDisabled, _ := strconv.ParseBool(os.Getenv("REDIS_DISABLE_TLS"))
 	if !tlsDisabled {
@@ -83,13 +89,41 @@ func main() {
 		return c.String(http.StatusOK, "ok")
 	})
 
-	e.GET("/nodes", func(c echo.Context) error {
+	e.GET("/cluster/nodes", func(c echo.Context) error {
 		members, err := getClusterMembers(c.Request().Context(), rdb)
 		if err != nil {
 			return c.String(http.StatusBadRequest, err.Error())
 		}
 
 		return c.JSON(http.StatusOK, members)
+	})
+
+	e.GET("/cluster/ready", func(c echo.Context) error {
+		clusterMembers, err := getClusterMembers(c.Request().Context(), rdb)
+		if err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
+
+		healthyMembers := map[string]string{}
+		for member, url := range clusterMembers {
+			_, hError := req.Get(url)
+			if hError != nil {
+				logger.Error(fmt.Sprintf("error checking health for node [%v] and url [%v] with error [%v]",
+					member, url, hError))
+
+				_ = rdb.HDel(c.Request().Context(), orchestratorKey, member)
+				continue
+			}
+
+			healthyMembers[member] = url
+		}
+
+		if minHealthyMembers > len(healthyMembers) {
+			return c.String(http.StatusBadGateway, fmt.Sprintf("expected to have %v members ready. got %v",
+				minHealthyMembers, len(healthyMembers)))
+		}
+
+		return c.JSON(http.StatusOK, healthyMembers)
 	})
 
 	e.POST("/run", func(c echo.Context) error {

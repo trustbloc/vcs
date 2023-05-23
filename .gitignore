@@ -40,3 +40,5 @@ gomocks_test.go
 cmd/vc-rest/.env
 
 test/stress/cmd/.env
+
+test/stress/.env
