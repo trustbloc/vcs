@@ -104,6 +104,10 @@ func main() {
 			return c.String(http.StatusBadRequest, err.Error())
 		}
 
+		resp := clusterStatusResponse{
+			Ready:            false,
+			MinHealthMembers: minHealthyMembers,
+		}
 		healthyMembers := map[string]string{}
 		for member, url := range clusterMembers {
 			_, hError := req.Get(url)
@@ -117,13 +121,13 @@ func main() {
 
 			healthyMembers[member] = url
 		}
+		resp.Nodes = healthyMembers
 
-		if minHealthyMembers > len(healthyMembers) {
-			return c.String(http.StatusBadGateway, fmt.Sprintf("expected to have %v members ready. got %v",
-				minHealthyMembers, len(healthyMembers)))
+		if len(healthyMembers) >= minHealthyMembers {
+			resp.Ready = true
 		}
 
-		return c.JSON(http.StatusOK, healthyMembers)
+		return c.JSON(http.StatusOK, resp)
 	})
 
 	e.POST("/run", func(c echo.Context) error {

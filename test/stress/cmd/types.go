@@ -25,6 +25,12 @@ type metric struct {
 	Min  string `json:"min"`
 }
 
+type clusterStatusResponse struct {
+	Ready            bool              `json:"ready"`
+	MinHealthMembers int               `json:"min_health_members"`
+	Nodes            map[string]string `json:"nodes"`
+}
+
 type request struct {
 	ID string `json:"id"`
 	stress.Config
