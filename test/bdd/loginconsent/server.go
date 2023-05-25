@@ -353,10 +353,127 @@ func (s *server) claimDataHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 
-	err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"familyName": "Doe",
-		"givenName":  "John",
-	})
+	var claims map[string]interface{}
+
+	switch r.URL.Query().Get("credentialType") {
+	case "VerifiedEmployee":
+		claims = map[string]interface{}{
+			"familyName": "Doe",
+			"givenName":  "John",
+		}
+	case "UniversityDegreeCredential":
+		claims = map[string]interface{}{
+			"degree": map[string]string{
+				"type":   "BachelorDegree",
+				"degree": "MIT",
+			},
+			"name":   "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		}
+	case "PermanentResidentCard":
+		claims = map[string]interface{}{
+			"type": []string{
+				"PermanentResident",
+				"Person",
+			},
+			"givenName":              "JOHN",
+			"familyName":             "SMITH",
+			"gender":                 "Male",
+			"image":                  "data:image/png;base64,iVBORw0KGgo...kJggg==",
+			"residentSince":          "2015-01-01",
+			"lprCategory":            "C09",
+			"lprNumber":              "999-999-999",
+			"commuterClassification": "C1",
+			"birthCountry":           "Bahamas",
+			"birthDate":              "1958-07-17",
+		}
+	case "CrudeProductCredential":
+		claims = map[string]interface{}{
+			"producer":    "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
+			"category":    "Western Canadian Select",
+			"hsCode":      "270900",
+			"identifier":  "3a185b8f-078a-4646-8343-76a45c2856a5",
+			"name":        "Heavy Sour Dilbit",
+			"description": "Crude oil stream, produced from diluted bitumen.",
+			"volume":      "10000",
+			"address": map[string]string{
+				"address":   "Edmonton, CAN",
+				"latitude":  "53.5461",
+				"longitude": "113.4938",
+			},
+			"productionDate": "2020-03-30T07:23:14.206Z",
+			"predecessorOf":  "c98f2452-ab18-4cbe-bf89-635fb8ae7f33",
+			"successorOf":    "",
+			"physicalSpecs": map[string]interface{}{
+				"uom":                                "barrel",
+				"minimumQuantity":                    "1000",
+				"apiGravity":                         21,
+				"viscosityAt10C":                     "302",
+				"viscosityAt20C":                     "157",
+				"viscosityAt30C":                     "89.6",
+				"viscosityAt40C":                     "55.3",
+				"viscosityAt45C":                     "44.4",
+				"pourPoint":                          "-30",
+				"vapourPressure":                     "51.7",
+				"density":                            "928",
+				"naphtha":                            "",
+				"distillateAt350To650F":              "",
+				"gasOilAt650To980F":                  "",
+				"residAt980F":                        "41",
+				"deemedButane":                       "1.9",
+				"tan":                                "1.05",
+				"ron":                                "",
+				"mon":                                "",
+				"boilingPoint":                       "",
+				"freezingPoint":                      "",
+				"criticalTemperature":                "",
+				"criticalPressure":                   "",
+				"autoIgnitionTemperatureInAirAt1atm": "",
+				"solubilityInTrichloroethylene":      "",
+				"penetrationAt25C100g5sec":           "",
+				"softeningPoint":                     "",
+				"ductilityAt25C":                     "",
+				"olefin":                             "",
+				"color":                              "",
+				"odor":                               "",
+				"grossCalorificValueAt15C":           "",
+				"netCalorificValueAt15C":             "",
+				"airRequiredForCombustion":           "",
+				"copperCorrosionAt38CFor1Hour":       "",
+			},
+			"chemicalSpecs": map[string]string{
+				"microCarbonResidue":       "9.68",
+				"aromaticsTotalBTEX":       "0.23",
+				"sedimentAndWater":         "188",
+				"liquidPhaseH2S":           "",
+				"mercury":                  "",
+				"oxygenates":               "",
+				"filterableSolids":         "",
+				"phosphorousVolatile":      "",
+				"mediumChainTriglycerides": "",
+				"benzene":                  "",
+				"particulates":             "",
+				"organicChlorides":         "",
+				"nickel":                   "54",
+				"vanadium":                 "132.5",
+				"water":                    "",
+				"molecularWeight":          "",
+				"sulphur":                  "3.66",
+				"naphthenes":               "",
+				"chloride":                 "",
+				"arsenic":                  "",
+				"lead":                     "",
+				"ethene":                   "",
+				"propane":                  "",
+				"isoButane":                "",
+				"nButane":                  "",
+				"hydrocarbonsHeavier":      "",
+				"unsaturatedHydrocarbons":  "",
+			},
+		}
+	}
+
+	err := json.NewEncoder(w).Encode(claims)
 	if err != nil {
 		log.Printf("failed to write response: %s", err.Error())
 	}

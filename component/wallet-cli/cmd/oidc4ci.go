@@ -19,6 +19,8 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 const (
@@ -115,7 +117,7 @@ func NewOIDC4CICommand() *cobra.Command {
 
 			providerOpts := []vcprovider.ConfigOption{
 				func(c *vcprovider.Config) {
-					c.VCFormat = flags.VCFormat
+					c.VCFormat = verifiable.OIDCFormat(flags.VCFormat)
 					c.Debug = flags.Debug
 
 					if contextProvider != "" {
@@ -141,7 +143,7 @@ func NewOIDC4CICommand() *cobra.Command {
 
 					c.StorageProvider = flags.StorageProvider
 					c.StorageProviderConnString = flags.StorageProviderConnString
-					c.InsecureTls = flags.InsecureTls
+					c.TLS.InsecureSkipVerify = flags.InsecureTls
 					c.DidMethod = flags.DidMethod
 					c.DidKeyType = flags.DidKeyType
 				},

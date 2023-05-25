@@ -8,6 +8,7 @@ package walletrunner
 
 import (
 	"crypto/tls"
+	_ "embed"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
@@ -15,11 +16,14 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -30,7 +34,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -43,9 +46,60 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 )
 
+// nolint:gochecknoglobals //embedded test contexts
+var (
+	//go:embed contexts/lds-jws2020-v1.jsonld
+	jws2020V1Vocab []byte
+	//go:embed contexts/citizenship-v1.jsonld
+	citizenshipVocab []byte
+	//go:embed contexts/examples-v1.jsonld
+	examplesVocab []byte
+	//go:embed contexts/examples-ext-v1.jsonld
+	examplesExtVocab []byte
+	//go:embed contexts/examples-crude-product-v1.jsonld
+	examplesCrudeProductVocab []byte
+	//go:embed contexts/odrl.jsonld
+	odrl []byte
+	//go:embed contexts/revocation-list-2021.jsonld
+	revocationList2021 []byte
+)
+
 const (
 	vdrResolveMaxRetry = 10
 )
+
+var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
+	{
+		URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		Content: jws2020V1Vocab,
+	},
+	{
+		URL:         "https://w3id.org/citizenship/v1",
+		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", //resolvable
+		Content:     citizenshipVocab,
+	},
+	{
+		URL:     "https://www.w3.org/2018/credentials/examples/v1",
+		Content: examplesVocab,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld",
+		Content: examplesExtVocab,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld",
+		Content: examplesCrudeProductVocab,
+	},
+	{
+		URL:     "https://www.w3.org/ns/odrl.jsonld",
+		Content: odrl,
+	},
+	{
+		URL:         "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
+		DocumentURL: "https://raw.githubusercontent.com/w3c-ccg/vc-status-list-2021/343b8b59cddba4525e1ef355356ae760fc75904e/contexts/v1.jsonld",
+		Content:     revocationList2021,
+	},
+}
 
 type Service struct {
 	ariesServices  *ariesServices
@@ -77,7 +131,7 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 	httpClient := &http.Client{
 		Jar: cookie,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureTls},
+			TLSClientConfig: config.TLS,
 		},
 	}
 
@@ -130,7 +184,7 @@ func (s *Service) GetPerfInfo() *PerfInfo {
 	return s.perfInfo
 }
 
-func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, error) {
+func (s *Service) createAgentServices(vcProviderConf *vcprovider.Config) (*ariesServices, error) {
 	var storageProvider storage.Provider
 	switch strings.ToLower(s.vcProviderConf.StorageProvider) {
 	case "mongodb":
@@ -155,7 +209,7 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 		return nil, err
 	}
 
-	loader, err := createJSONLDDocumentLoader(ldStore, tlsConfig,
+	loader, err := createJSONLDDocumentLoader(ldStore, vcProviderConf.TLS,
 		[]string{s.vcProviderConf.ContextProviderURL}, true)
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
@@ -186,7 +240,7 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 	}
 	provider.kms = localKMS
 
-	vrd, err := createVDR(s.vcProviderConf.UniResolverURL, tlsConfig)
+	vrd, err := createVDR(vcProviderConf)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +269,7 @@ func createLDStore(storageProvider storage.Provider) (*ldStoreProvider, error) {
 
 func createJSONLDDocumentLoader(ldStore *ldStoreProvider, tlsConfig *tls.Config,
 	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
-	var loaderOpts []ld.DocumentLoaderOpts
+	loaderOpts := []ld.DocumentLoaderOpts{ld.WithExtraContexts(extraContexts...)}
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -255,14 +309,14 @@ func acceptsDID(method string) bool {
 		method == didMethodKey || method == didMethodION
 }
 
-func createVDR(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry, error) {
+func createVDR(vcProviderConf *vcprovider.Config) (vdrapi.Registry, error) {
 	var opts []vdr.Option
 
-	if universalResolver != "" {
-		universalResolverVDRI, err := httpbinding.New(universalResolver,
+	if vcProviderConf.UniResolverURL != "" {
+		universalResolverVDRI, err := httpbinding.New(vcProviderConf.UniResolverURL,
 			httpbinding.WithAccept(acceptsDID), httpbinding.WithHTTPClient(&http.Client{
 				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
+					TLSClientConfig: vcProviderConf.TLS,
 				},
 			}))
 		if err != nil {
@@ -273,12 +327,21 @@ func createVDR(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry
 		opts = append(opts, vdr.WithVDR(universalResolverVDRI))
 	}
 
+	vdrService, err := orb.New(nil,
+		orb.WithDomain(vcProviderConf.DidDomain),
+		orb.WithTLSConfig(vcProviderConf.TLS),
+		orb.WithAuthToken(vcProviderConf.DidServiceAuthToken))
+	if err != nil {
+		return nil, err
+	}
+
 	longForm, err := longform.New()
 	if err != nil {
 		return nil, err
 	}
 
 	opts = append(opts,
+		vdr.WithVDR(vdrService),
 		vdr.WithVDR(longForm),
 		vdr.WithVDR(key.New()),
 		vdr.WithVDR(jwk.New()),
@@ -286,7 +349,7 @@ func createVDR(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry
 			&webVDR{
 				http: &http.Client{
 					Transport: &http.Transport{
-						TLSClientConfig: tlsConfig,
+						TLSClientConfig: vcProviderConf.TLS,
 					},
 				},
 				VDR: web.New(),

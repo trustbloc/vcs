@@ -30,18 +30,18 @@ type Config struct {
 	IssueVCURL           string
 	DidDomain            string
 	DidServiceAuthToken  string
-	VCFormat             string
+	VCFormat             vcs.OIDCFormat
 	OrgName              string
 	OrgSecret            string
 	Debug                bool
 	SkipSchemaValidation bool
-	InsecureTls          bool
 
 	WalletUserId                    string // initial config
 	WalletPassPhrase                string // initial config
 	StorageProvider                 string // initial config
 	StorageProviderConnString       string // initial config
 	OIDC4VPShouldFetchCredentials   bool
+	WalletDidCount                  int
 	WalletDidKeyID                  string
 	WalletDidID                     string
 	DidMethod                       string
@@ -54,8 +54,8 @@ type WalletParams struct {
 	Token      string
 	Passphrase string
 	UserID     string
-	DidID      string
-	DidKeyID   string
+	DidID      []string
+	DidKeyID   []string
 	SignType   vcs.SignatureType
 }
 

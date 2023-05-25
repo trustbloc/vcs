@@ -10,30 +10,37 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
-	verifiable2 "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-func (e *Steps) issueVC(credential, vcFormat, profileVersionedID, organizationName, signatureRepresentation string) error {
+// nolint: gochecknoglobals
+var vcsFormatToOIDC4CI = map[vcsverifiable.Format]vcsverifiable.OIDCFormat{ //nolint
+	vcsverifiable.Jwt: vcsverifiable.JwtVCJsonLD,
+	vcsverifiable.Ldp: vcsverifiable.LdpVC,
+}
+
+func (e *Steps) issueVC(credential, profileVersionedID, organizationName string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	if _, err := e.createCredential(credentialServiceURL,
-		credential, vcFormat, profileID, profileVersion, organizationName, 0); err != nil {
+		credential, profileID, profileVersion, organizationName, 0); err != nil {
 		return err
 	}
 
 	credBytes := e.bddContext.CreatedCredential
 	checkProof := true
 
-	if vcFormat == string(verifiable2.JwtVCJsonLD) {
+	if e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Format == vcsverifiable.Jwt {
 		loader, err := bddutil.DocumentLoader()
 		if err != nil {
 			return fmt.Errorf("create document loader: %w", err)
@@ -55,13 +62,12 @@ func (e *Steps) issueVC(credential, vcFormat, profileVersionedID, organizationNa
 		checkProof = false
 	}
 
-	return e.checkVC(credBytes, profileVersionedID, signatureRepresentation, checkProof)
+	return e.checkVC(credBytes, profileVersionedID, checkProof)
 }
 
 func (e *Steps) createCredential(
 	issueCredentialURL,
 	credential,
-	vcFormat,
 	profileID,
 	profileVersion,
 	organizationName string,
@@ -96,7 +102,10 @@ func (e *Steps) createCredential(
 		subjs[0].ID = e.bddContext.CredentialSubject[didIndex]
 	}
 
-	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, vcFormat)
+	issuerVCFormat := e.bddContext.IssuerProfiles[fmt.Sprintf("%s/%s", profileID, profileVersion)].VCConfig.Format
+	oidcVCFormat := vcsFormatToOIDC4CI[issuerVCFormat]
+
+	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, oidcVCFormat)
 	if err != nil {
 		return cred.ID, fmt.Errorf("unable to get issue credential request data: %w", err)
 	}
@@ -169,6 +178,21 @@ func (e *Steps) verifyRevokedVC(profileVersionedID, organizationName string) err
 
 	if checks[0] != expectedCheck {
 		return fmt.Errorf("vc is not revoked. Cheks: %+v", checks)
+	}
+
+	return nil
+}
+
+func (e *Steps) verifyVCInvalidFormat(verifierProfileVersionedID, organizationName string) error {
+	chunks := strings.Split(verifierProfileVersionedID, "/")
+	profileID, profileVersion := chunks[0], chunks[1]
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, organizationName)
+	if result != nil {
+		return fmt.Errorf("verification result is not nil")
+	}
+
+	if err == nil || !strings.Contains(err.Error(), "invalid format, should be") {
+		return fmt.Errorf("error expectd, but got nil")
 	}
 
 	return nil
@@ -297,7 +321,7 @@ func (e *Steps) getVerificationResult(
 	return payload, nil
 }
 
-func (e *Steps) checkVC(vcBytes []byte, profileVersionedID, signatureRepresentation string, checkProof bool) error {
+func (e *Steps) checkVC(vcBytes []byte, profileVersionedID string, checkProof bool) error {
 	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
 		return err
@@ -315,14 +339,14 @@ func (e *Steps) checkVC(vcBytes []byte, profileVersionedID, signatureRepresentat
 	}
 
 	if checkProof {
-		return e.checkSignatureHolder(vcMap, signatureRepresentation)
+		return e.checkSignatureHolder(vcMap, profileVersionedID)
 	}
 
 	return nil
 }
 
 func (e *Steps) checkSignatureHolder(vcMap map[string]interface{},
-	signatureRepresentation string) error {
+	profileVersionedID string) error {
 	proof, found := vcMap["proof"]
 	if !found {
 		return fmt.Errorf("unable to find proof in VC map")
@@ -333,14 +357,16 @@ func (e *Steps) checkSignatureHolder(vcMap map[string]interface{},
 		return fmt.Errorf("unable to assert proof field type as map[string]interface{}")
 	}
 
-	switch signatureRepresentation {
-	case "JWS":
-		_, found := proofMap["jws"]
+	profileSigRepresentation := e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.SignatureRepresentation
+
+	switch profileSigRepresentation {
+	case verifiable.SignatureJWS:
+		_, found = proofMap["jws"]
 		if !found {
 			return fmt.Errorf("unable to find jws in proof")
 		}
-	case "ProofValue":
-		_, found := proofMap["proofValue"]
+	case verifiable.SignatureProofValue:
+		_, found = proofMap["proofValue"]
 		if !found {
 			return fmt.Errorf("unable to find proofValue in proof")
 		}

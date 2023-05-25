@@ -30,7 +30,7 @@ const (
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
 	Args                  map[string]string
-	CreatedCredential     []byte
+	CreatedCredential     []byte // Holds either issued JWT and LSON-LD VC.
 	CreatedCredentialsSet [][]byte
 	VDRI                  vdrapi.Registry
 	TLSConfig             *tls.Config

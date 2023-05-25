@@ -58,7 +58,7 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.authorizeOrganization)
 	s.Step(`^"([^"]*)" Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
 		e.authorizeOrganizationForStressTest)
-	s.Step(`^V1 New verifiable credential is created from "([^"]*)" in "([^"]*)" format under "([^"]*)" profile for organization "([^"]*)" with signature representation "([^"]*)"$`,
+	s.Step(`^V1 New verifiable credential is issued from "([^"]*)" under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.issueVC)
 	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyVC)
@@ -66,13 +66,14 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.revokeVCWithError)
 	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.revokeVC)
-	s.Step(`^V1 verifiable credential is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyRevokedVC)
+	s.Step(`^V1 verifiable credential with wrong format is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
+		e.verifyVCInvalidFormat)
 	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 
-	s.Step(`^New verifiable credentials is created from table:$`,
-		e.createCredentialsFromTable)
+	s.Step(`^New verifiable credentials is created from table:$`, e.createCredentialsFromTable)
 }
 
 func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
@@ -109,7 +110,7 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 		profileID, profileVersion := chunks[0], chunks[1]
 		_, err = e.createCredential(
 			credentialServiceURL,
-			p.Credential, p.VCFormat, profileID, profileVersion, p.Organization, p.DIDIndex)
+			p.Credential, profileID, profileVersion, p.Organization, p.DIDIndex)
 		if err != nil {
 			return err
 		}

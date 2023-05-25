@@ -20,6 +20,7 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 type oidc4vpCommandFlags struct {
@@ -145,7 +146,7 @@ func getWalletRunnerConfig(cmd *cobra.Command, flags *oidc4vpCommandFlags) (*run
 
 	runnerOptions := []vcprovider.ConfigOption{
 		func(c *vcprovider.Config) {
-			c.VCFormat = vcFormat
+			c.VCFormat = verifiable.OIDCFormat(vcFormat)
 		},
 	}
 
@@ -191,7 +192,7 @@ func getWalletRunnerConfig(cmd *cobra.Command, flags *oidc4vpCommandFlags) (*run
 		c.WalletDidKeyID = flags.WalletDidKeyID
 		c.WalletDidID = flags.WalletDidID
 
-		c.InsecureTls = flags.InsecureTls
+		c.TLS.InsecureSkipVerify = flags.InsecureTls
 		c.OIDC4VPShouldFetchCredentials = flags.OIDC4VPShouldFetchCredentials
 		c.DidMethod = flags.DidMethod
 		c.DidKeyType = flags.DidKeyType

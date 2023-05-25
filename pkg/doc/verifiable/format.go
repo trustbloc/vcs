@@ -15,21 +15,17 @@ type OIDCFormat string
 
 type Format string
 
+// For mapping between Format and OIDCFormat see oidc4ci.SelectProperOIDCFormat.
 const (
 	Jwt Format = "jwt"
 	Ldp Format = "ldp"
 )
 
 const (
-	JwtVCJsonLD = OIDCFormat("jwt_vc_json-ld")
-	JwtVCJson   = OIDCFormat("jwt_vc_json")
-	LdpVC       = OIDCFormat("ldp_vc")
+	JwtVCJsonLD OIDCFormat = "jwt_vc_json-ld"
+	JwtVCJson   OIDCFormat = "jwt_vc_json"
+	LdpVC       OIDCFormat = "ldp_vc"
 )
-
-var oldFormatToNew = map[Format]OIDCFormat{ //nolint
-	Jwt: JwtVCJsonLD,
-	Ldp: LdpVC,
-}
 
 func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 	strRep, isStr := data.(string)
@@ -38,7 +34,7 @@ func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 
 	if isStr {
 		if !isFormatSupported(Jwt, formats) {
-			return nil, fmt.Errorf("invlaid format, should be %s", Jwt)
+			return nil, fmt.Errorf("invalid format, should be %s", Jwt)
 		}
 
 		dataBytes = []byte(strRep)
@@ -46,7 +42,7 @@ func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 
 	if !isStr {
 		if !isFormatSupported(Ldp, formats) {
-			return nil, fmt.Errorf("invlaid format, should be %s", Ldp)
+			return nil, fmt.Errorf("invalid format, should be %s", Ldp)
 		}
 
 		var err error

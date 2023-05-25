@@ -34,12 +34,12 @@ func (e *Steps) authorizeOrganizationForStressTest(accessTokenURLEnv, orgIDEnv, 
 		return err
 	}
 
-	clientID, err := getEnv(clientIDEnv, "test_org")
+	clientID, err := getEnv(clientIDEnv, "f13d1va9lp403pb9lyj89vk55")
 	if err != nil {
 		return err
 	}
 
-	secret, err := getEnv(secretEnv, "test-org-secret")
+	secret, err := getEnv(secretEnv, "ejqxi9jb1vew2jbdnogpjcgrz")
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,6 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 			verifyProfileName:    verifyProfileID,
 			organizationName:     orgID,
 			credential:           "university_degree.json",
-			vcFormat:             "ldp_vc",
 			steps:                e,
 		}
 
@@ -179,7 +178,6 @@ type stressRequest struct {
 	issuerUrl            string
 	verifyUrl            string
 	credential           string
-	vcFormat             string
 	issuerProfileName    string
 	issuerProfileVersion string
 	verifyProfileName    string
@@ -197,7 +195,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 
 	startTime := time.Now()
 
-	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential, r.vcFormat,
+	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential,
 		r.issuerProfileName, r.issuerProfileVersion, r.organizationName, 0)
 	if err != nil {
 		return credentialID, nil, fmt.Errorf("create vc %w", err)

@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -62,6 +62,16 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 		return err
 	}
 
+	initiateOIDC4VPPayload, err := json.Marshal(&initiateOIDC4VPData{
+		PresentationDefinitionId: "32f54163-no-limit-disclosure-single-field",
+		PresentationDefinitionFilters: &presentationDefinitionFilters{
+			Fields: &([]string{"degree_type_id"}),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
 	chunks := strings.Split(verifyProfile, "/")
 	if len(chunks) != 2 {
 		return fmt.Errorf("invalid verifyProfileIDEnv")
@@ -82,21 +92,14 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 
 	for i := 0; i < totalRequests; i++ {
 		r := &stressRequest{
-			vpFlowExecutor: &VPFlowExecutor{
-				tlsConfig:      e.tlsConfig,
-				ariesServices:  e.ariesServices,
-				wallet:         e.wallet,
-				walletToken:    e.walletToken,
-				walletDidID:    e.walletDidID,
-				walletDidKeyID: e.walletDidKeyID,
-				URLs: &VPFlowExecutorURLs{
-					InitiateOidcInteractionURLFormat:   initiateInteractionURLFormat,
-					RetrieveInteractionsClaimURLFormat: retrieveClaimURLFormat,
-				},
-			},
-			authToken:      authToken,
-			profileID:      chunks[0],
-			profileVersion: chunks[1],
+			wallerRunner:                 e.walletRunner,
+			vpFlowExecutor:               e.walletRunner.NewVPFlowExecutor(false),
+			authToken:                    authToken,
+			profileID:                    chunks[0],
+			profileVersion:               chunks[1],
+			initiateOIDC4VPData:          initiateOIDC4VPPayload,
+			initiateInteractionURLFormat: initiateInteractionURLFormat,
+			retrieveClaimURLFormat:       retrieveClaimURLFormat,
 		}
 
 		createPool.Submit(r)
@@ -161,76 +164,6 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 	fmt.Println("------")
 
 	return nil
-}
-
-type stressRequest struct {
-	vpFlowExecutor *VPFlowExecutor
-
-	authToken      string
-	profileID      string
-	profileVersion string
-}
-
-type stressRequestPerfInfo struct {
-	initiateHTTPTime                  int64
-	checkAuthorizedResponseHTTPTime   int64
-	retrieveInteractionsClaimHTTPTime int64
-}
-
-func (r *stressRequest) Invoke() (string, interface{}, error) {
-	perfInfo := stressRequestPerfInfo{}
-
-	println("initiateInteraction started")
-
-	startTime := time.Now()
-	err := r.vpFlowExecutor.initiateInteraction(r.profileID, r.profileVersion, r.authToken, nil)
-	if err != nil {
-		return "", nil, fmt.Errorf("initiate interaction %w", err)
-	}
-
-	perfInfo.initiateHTTPTime = time.Since(startTime).Milliseconds()
-
-	println("fetchRequestObject started")
-
-	rawRequestObject, err := r.vpFlowExecutor.fetchRequestObject()
-	if err != nil {
-		return "", nil, fmt.Errorf("featch request object %w", err)
-	}
-
-	err = r.vpFlowExecutor.verifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
-	if err != nil {
-		return "", nil, fmt.Errorf("verify authorization request %w", err)
-	}
-
-	err = r.vpFlowExecutor.queryCredentialFromWallet()
-	if err != nil {
-		return "", nil, fmt.Errorf("query credential from wallet %w", err)
-	}
-
-	authorizedResponse, err := r.vpFlowExecutor.createAuthorizedResponse()
-	if err != nil {
-		return "", nil, err
-	}
-
-	startTime = time.Now()
-
-	err = r.vpFlowExecutor.sendAuthorizedResponse(authorizedResponse)
-	if err != nil {
-		return "", nil, err
-	}
-
-	perfInfo.checkAuthorizedResponseHTTPTime = time.Since(startTime).Milliseconds()
-
-	startTime = time.Now()
-
-	err = r.vpFlowExecutor.retrieveInteractionsClaim(r.vpFlowExecutor.transactionID, r.authToken, http.StatusOK)
-	if err != nil {
-		return "", nil, err
-	}
-
-	perfInfo.retrieveInteractionsClaimHTTPTime = time.Since(startTime).Milliseconds()
-
-	return "", perfInfo, nil
 }
 
 func getEnv(env, defaultValue string) (string, error) {

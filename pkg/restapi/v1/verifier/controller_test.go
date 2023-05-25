@@ -1708,6 +1708,19 @@ func TestMatchField(t *testing.T) {
 	})
 }
 
+func TestCopyPresentationDefinition(t *testing.T) {
+	t.Run("Success - supply fields filter", func(t *testing.T) {
+		var pd *presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
+		require.NoError(t, err)
+
+		copied, err := copyPresentationDefinition(pd)
+		require.NoError(t, err)
+		require.Equal(t, pd, copied)
+	})
+}
+
 func TestApplyFieldsFilter(t *testing.T) {
 	t.Run("Success - supply fields filter", func(t *testing.T) {
 		var pd presexch.PresentationDefinition

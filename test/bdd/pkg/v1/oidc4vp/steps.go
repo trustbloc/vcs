@@ -10,8 +10,8 @@ import (
 	"crypto/tls"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
@@ -30,17 +30,11 @@ func getOrgAuthTokenKey(org string) string {
 
 // Steps is steps for VC BDD tests
 type Steps struct {
-	bddContext       *bddcontext.BDDContext
-	tlsConfig        *tls.Config
-	wallet           *wallet.Wallet
-	ariesServices    *ariesServices
-	walletPassphrase string
-	walletToken      string
-	walletUserID     string
-	walletDidCount   int
-	walletDidID      []string
-	walletDidKeyID   []string
-	vpFlowExecutor   *VPFlowExecutor
+	bddContext              *bddcontext.BDDContext
+	tlsConfig               *tls.Config
+	walletRunner            *walletrunner.Service
+	vpFlowExecutor          *walletrunner.VPFlowExecutor
+	initiateOIDC4VPResponse *walletrunner.InitiateOIDC4VPResponse
 }
 
 // NewSteps returns new agent from client SDK
@@ -50,7 +44,6 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 		tlsConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
-		walletDidCount: 1,
 	}
 }
 
@@ -60,19 +53,11 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^User saves credentials into wallet$`, e.saveCredentialsInWallet)
 	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.initiateInteraction)
-	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)"$`,
-		e.initiateInteractionWithPresentationIDAndFields)
 	s.Step(`^Verifier form organization "([^"]*)" requests interactions claims$`,
 		e.retrieveInteractionsClaim)
-	s.Step(`^Verifier form organization "([^"]*)" waits for interaction succeeded event$`,
-		e.waitForOIDCInteractionSucceededEvent)
-	s.Step(`^Verifier form organization "([^"]*)" requests expired interactions claims$`,
-		e.retrieveExpiredOrDeletedInteractionsClaim)
-	s.Step(`^Verifier form organization "([^"]*)" requests deleted interactions claims$`,
-		e.retrieveExpiredOrDeletedInteractionsClaim)
 
 	s.Step(`^Wallet verify authorization request and decode claims$`, e.verifyAuthorizationRequestAndDecodeClaims)
-	s.Step("^Wallet looks for credential that match authorization$", e.queryCredentialFromWallet)
+	s.Step("^Wallet looks for credential that match authorization multi VP$", e.queryCredentialFromWalletMultiVP)
 	s.Step("^Wallet send authorization response$", e.sendAuthorizedResponse)
 
 	s.Step(`^"([^"]*)" users execute oidc4vp flow with init "([^"]*)" url, with retrieve "([^"]*)" url, for verify profile "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,

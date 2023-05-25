@@ -24,8 +24,3 @@ type initiateOIDC4CIResponse struct {
 	TxId               string  `json:"tx_id"`
 	UserPin            *string `json:"user_pin"`
 }
-
-type initiateOIDC4VPResponse struct {
-	AuthorizationRequest string `json:"authorizationRequest"`
-	TxID                 string `json:"txID"`
-}

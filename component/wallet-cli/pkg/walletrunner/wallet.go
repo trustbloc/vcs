@@ -13,12 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -37,6 +32,10 @@ const (
 	didMethodION     = "ion"
 )
 
+func (s *Service) GetWallet() *wallet.Wallet {
+	return s.wallet
+}
+
 func (s *Service) CreateWallet() error {
 	shouldCreateWallet := s.vcProviderConf.WalletUserId == ""
 
@@ -51,7 +50,7 @@ func (s *Service) CreateWallet() error {
 	}
 
 	if s.wallet == nil {
-		services, err := s.createAgentServices(s.vcProviderConf.TLS)
+		services, err := s.createAgentServices(s.vcProviderConf)
 		if err != nil {
 			return fmt.Errorf("wallet services setup failed: %w", err)
 		}
@@ -82,38 +81,25 @@ func (s *Service) CreateWallet() error {
 		s.vcProviderConf.WalletParams.Token = token
 	}
 
-	vdrService, err := orb.New(nil,
-		orb.WithDomain(s.vcProviderConf.DidDomain),
-		orb.WithTLSConfig(s.vcProviderConf.TLS),
-		orb.WithAuthToken(s.vcProviderConf.DidServiceAuthToken))
-	if err != nil {
-		return err
-	}
-
-	lf, err := longform.New()
-	if err != nil {
-		return err
-	}
-
-	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()), vdrapi.WithVDR(lf),
-		vdrapi.WithVDR(jwk.New()))
-
 	if shouldCreateWallet {
-		createRes, err := vdrutil.DefaultVdrUtil.Create(
-			s.vcProviderConf.DidMethod,
-			kms.KeyType(s.vcProviderConf.DidKeyType),
-			vdrRegistry,
-			s.ariesServices.kms,
-		)
-		if err != nil {
-			return err
-		}
+		var createRes *vdrutil.CreateResult
+		for i := 0; i < s.vcProviderConf.WalletDidCount; i++ {
+			createRes, err = vdrutil.DefaultVdrUtil.Create(
+				s.vcProviderConf.DidMethod,
+				kms.KeyType(s.vcProviderConf.DidKeyType),
+				s.ariesServices.vdrRegistry,
+				s.ariesServices.kms,
+			)
+			if err != nil {
+				return err
+			}
 
-		s.vcProviderConf.WalletParams.DidID = createRes.DidID
-		s.vcProviderConf.WalletParams.DidKeyID = createRes.KeyID
+			s.vcProviderConf.WalletParams.DidID = append(s.vcProviderConf.WalletParams.DidID, createRes.DidID)
+			s.vcProviderConf.WalletParams.DidKeyID = append(s.vcProviderConf.WalletParams.DidKeyID, createRes.KeyID)
+		}
 	} else {
-		s.vcProviderConf.WalletParams.DidID = s.vcProviderConf.WalletDidID
-		s.vcProviderConf.WalletParams.DidKeyID = s.vcProviderConf.WalletDidKeyID
+		s.vcProviderConf.WalletParams.DidID = append(s.vcProviderConf.WalletParams.DidID, s.vcProviderConf.WalletDidID)
+		s.vcProviderConf.WalletParams.DidKeyID = append(s.vcProviderConf.WalletParams.DidKeyID, s.vcProviderConf.WalletDidKeyID)
 	}
 
 	switch s.vcProviderConf.DidKeyType {
@@ -125,13 +111,15 @@ func (s *Service) CreateWallet() error {
 		s.vcProviderConf.WalletParams.SignType = vcs.ES384
 	}
 
-	for i := 1; i <= vdrResolveMaxRetry; i++ {
-		_, err = vdrRegistry.Resolve(s.vcProviderConf.WalletParams.DidID)
-		if err == nil {
-			break
-		}
+	for i := 0; i < s.vcProviderConf.WalletDidCount; i++ {
+		for j := 1; j <= vdrResolveMaxRetry; j++ {
+			_, err = s.ariesServices.vdrRegistry.Resolve(s.vcProviderConf.WalletParams.DidID[i])
+			if err == nil {
+				break
+			}
 
-		time.Sleep(1 * time.Second)
+			time.Sleep(1 * time.Second)
+		}
 	}
 
 	storageType := strings.ToLower(s.vcProviderConf.StorageProvider)
