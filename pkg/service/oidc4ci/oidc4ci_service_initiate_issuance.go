@@ -193,7 +193,7 @@ func (s *Service) extendTransactionWithOIDCConfig(
 		data.Scope = profile.OIDCConfig.Scope
 	}
 
-	data.RedirectURI = profile.OIDCConfig.RedirectURI
+	data.RedirectURI = fmt.Sprintf("%s/%s", s.issuerVCSPublicHost, "oidc/redirect")
 
 	return nil
 }

@@ -74,7 +74,6 @@ type OIDC4CIConfig struct {
 	ClientID           string   `json:"client_id"`
 	ClientSecretHandle string   `json:"client_secret_handle"`
 	Scope              []string `json:"scope"`
-	RedirectURI        string   `json:"redirect_uri"`
 }
 
 // VCConfig describes how to sign verifiable credentials.
