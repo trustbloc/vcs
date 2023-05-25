@@ -374,7 +374,6 @@
             "openid",
             "profile"
           ],
-          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
           "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration"
         },
         "credentialTemplates": [
