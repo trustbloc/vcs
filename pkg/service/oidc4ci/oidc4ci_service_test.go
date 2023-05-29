@@ -781,8 +781,8 @@ func TestService_PrepareCredential(t *testing.T) {
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
 		eventMock            = NewMockEventService(gomock.NewController(t))
-		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
 		crypto               = NewMockDataProtector(gomock.NewController(t))
+		httpClient           *http.Client
 		req                  *oidc4ci.PrepareCredential
 	)
 
@@ -807,15 +807,17 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
-					req *http.Request,
-				) (*http.Response, error) {
-					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
-					}, nil
-				})
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+							}, nil
+						},
+					},
+				}
 
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
@@ -857,15 +859,17 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
-					req *http.Request,
-				) (*http.Response, error) {
-					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
-					}, nil
-				})
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+							}, nil
+						},
+					},
+				}
 
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
@@ -912,15 +916,17 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
-					req *http.Request,
-				) (*http.Response, error) {
-					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
-					}, nil
-				})
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+							}, nil
+						},
+					},
+				}
 
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
@@ -1154,8 +1160,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(
 					nil, errors.New("get error"))
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
-
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -1180,8 +1184,6 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
-
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -1201,7 +1203,13 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("http error"))
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							return &http.Response{}, errors.New("http error")
+						},
+					},
+				}
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -1221,10 +1229,16 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body:       io.NopCloser(bytes.NewBuffer(nil)),
-				}, nil)
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							return &http.Response{
+								StatusCode: http.StatusInternalServerError,
+								Body:       io.NopCloser(bytes.NewBuffer(nil)),
+							}, nil
+						},
+					},
+				}
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -1244,10 +1258,16 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewBuffer([]byte("invalid"))),
-				}, nil)
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte("invalid"))),
+							}, nil
+						},
+					},
+				}
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -1266,7 +1286,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore: mockTransactionStore,
 				ClaimDataStore:   mockClaimDataStore,
-				HTTPClient:       mockHTTPClient,
+				HTTPClient:       httpClient,
 				EventService:     eventMock,
 				EventTopic:       spi.IssuerEventTopic,
 				DataProtector:    crypto,

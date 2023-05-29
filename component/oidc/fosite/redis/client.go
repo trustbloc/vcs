@@ -14,6 +14,7 @@ import (
 	"github.com/ory/fosite"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
 // GetClient loads the client by its ID or returns an error
@@ -23,7 +24,7 @@ func (s *Store) GetClient(ctx context.Context, id string) (fosite.Client, error)
 		return &fosite.DefaultClient{}, nil
 	}
 
-	return getInternal[dto.Client](ctx, s.redisClient, dto.ClientsSegment, id)
+	return getInternal[oauth2client.Client](ctx, s.redisClient, dto.ClientsSegment, id)
 }
 
 // ClientAssertionJWTValid returns an error if the JTI is

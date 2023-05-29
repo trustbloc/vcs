@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -42,12 +43,12 @@ func TestPar(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			dbClient := &dto.Client{
+			oauth2Client := &oauth2client.Client{
 				ID:     uuid.New(),
 				Scopes: []string{"awesome"},
 			}
 
-			_, err := s.InsertClient(context.Background(), *dbClient)
+			_, err := s.InsertClient(context.Background(), *oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()
@@ -58,7 +59,7 @@ func TestPar(t *testing.T) {
 				ResponseMode:         "dsfdsaf",
 				DefaultResponseMode:  "gfdsgsfdgdf",
 				Request: fosite.Request{
-					Client: dbClient,
+					Client: oauth2Client,
 				},
 			}
 
@@ -68,7 +69,7 @@ func TestPar(t *testing.T) {
 			dbSes, err := s.GetPARSession(context.TODO(), sign)
 			assert.NoError(t, err)
 			assert.Equal(t, ses, dbSes)
-			assert.Equal(t, dbClient.ID, dbSes.GetClient().GetID())
+			assert.Equal(t, oauth2Client.ID, dbSes.GetClient().GetID())
 
 			err = s.DeletePARSession(context.TODO(), sign)
 			assert.NoError(t, err)
@@ -120,7 +121,7 @@ func TestRequestInvalidParSessionWithoutClient(t *testing.T) {
 	assert.Nil(t, dbSes)
 	assert.ErrorIs(t, err, dto.ErrDataNotFound)
 
-	dbClient := &dto.Client{
+	oauth2Client := &oauth2client.Client{
 		ID:     uuid.New(),
 		Scopes: []string{"awesome"},
 	}
@@ -133,7 +134,7 @@ func TestRequestInvalidParSessionWithoutClient(t *testing.T) {
 		ResponseMode:         "dsfdsaf",
 		DefaultResponseMode:  "gfdsgsfdgdf",
 		Request: fosite.Request{
-			Client: dbClient,
+			Client: oauth2Client,
 		},
 	}
 

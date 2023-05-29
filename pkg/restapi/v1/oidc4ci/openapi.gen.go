@@ -35,6 +35,66 @@ type AccessTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
+// Client registration request.
+type ClientRegistrationRequest struct {
+	// Human-readable string name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// URL string of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
+	GrantTypes []string `json:"grant_types"`
+
+	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
+	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+}
+
+// Response with registered metadata for the client.
+type ClientRegistrationResponse struct {
+	// Client identifier.
+	ClientId string `json:"client_id"`
+
+	// Time at which the client identifier was issued.
+	ClientIdIssuedAt *string `json:"client_id_issued_at,omitempty"`
+
+	// Registered name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// Client secret. This value is used by the confidential client to authenticate to the token endpoint.
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// Time at which the client secret will expire or 0 if it will not expire.
+	ClientSecretExpiresAt *string `json:"client_secret_expires_at,omitempty"`
+
+	// Registered URL of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Registered array of OAuth 2.0 grant types that the client is allowed to use.
+	GrantTypes *[]string `json:"grant_types,omitempty"`
+
+	// Registered array of allowed redirection URI strings for the client.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Registered array of OAuth 2.0 response types that the client can use at the authorization endpoint.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// Registered space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// Registered client authentication method for the token endpoint.
+	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+}
+
 // Model for OIDC Credential request.
 type CredentialRequest struct {
 	// Format of the credential being issued.
@@ -127,8 +187,14 @@ type OidcRedirectParams struct {
 	State string `form:"state" json:"state"`
 }
 
+// OidcRegisterDynamicClientJSONBody defines parameters for OidcRegisterDynamicClient.
+type OidcRegisterDynamicClientJSONBody = ClientRegistrationRequest
+
 // OidcCredentialJSONRequestBody defines body for OidcCredential for application/json ContentType.
 type OidcCredentialJSONRequestBody = OidcCredentialJSONBody
+
+// OidcRegisterDynamicClientJSONRequestBody defines body for OidcRegisterDynamicClient for application/json ContentType.
+type OidcRegisterDynamicClientJSONRequestBody = OidcRegisterDynamicClientJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -144,6 +210,9 @@ type ServerInterface interface {
 	// OIDC Redirect
 	// (GET /oidc/redirect)
 	OidcRedirect(ctx echo.Context, params OidcRedirectParams) error
+	// OIDC Dynamic Client Registration
+	// (POST /oidc/register)
+	OidcRegisterDynamicClient(ctx echo.Context) error
 	// OIDC Token Request
 	// (POST /oidc/token)
 	OidcToken(ctx echo.Context) error
@@ -285,6 +354,15 @@ func (w *ServerInterfaceWrapper) OidcRedirect(ctx echo.Context) error {
 	return err
 }
 
+// OidcRegisterDynamicClient converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcRegisterDynamicClient(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OidcRegisterDynamicClient(ctx)
+	return err
+}
+
 // OidcToken converts echo context to params.
 func (w *ServerInterfaceWrapper) OidcToken(ctx echo.Context) error {
 	var err error
@@ -326,6 +404,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)
 	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)
+	router.POST(baseURL+"/oidc/register", wrapper.OidcRegisterDynamicClient)
 	router.POST(baseURL+"/oidc/token", wrapper.OidcToken)
 
 }

@@ -16,16 +16,17 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
 // GetClient loads the client by its ID or returns an error
 // if the client does not exist or another error occurred.
 func (s *Store) GetClient(ctx context.Context, id string) (fosite.Client, error) {
-	if id == "" { // for pre-auth we dont have client
+	if id == "" { // for pre-auth, we don't have client
 		return &fosite.DefaultClient{}, nil
 	}
 
-	return getInternal[dto.Client](ctx, s.mongoClient, dto.ClientsSegment, id)
+	return getInternal[oauth2client.Client](ctx, s.mongoClient, dto.ClientsSegment, id)
 }
 
 // ClientAssertionJWTValid returns an error if the JTI is
@@ -57,4 +58,23 @@ func (s *Store) SetClientAssertionJWT(ctx context.Context, jti string, exp time.
 	_, err := collection.InsertOne(ctx, obj)
 
 	return err
+}
+
+func (s *Store) InsertClient(ctx context.Context, client oauth2client.Client) (string, error) {
+	collection := s.mongoClient.Database().Collection(dto.ClientsSegment)
+
+	obj := &genericDocument[oauth2client.Client]{
+		ID:       primitive.ObjectID{},
+		LookupID: client.ID,
+		Record:   client,
+	}
+
+	result, err := collection.InsertOne(ctx, obj)
+	if err != nil {
+		return "", err
+	}
+
+	insertedID := result.InsertedID.(primitive.ObjectID) //nolint: errcheck
+
+	return insertedID.Hex(), nil
 }

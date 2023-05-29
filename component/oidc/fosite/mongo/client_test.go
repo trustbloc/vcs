@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ory/fosite"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -77,4 +79,28 @@ func TestClientAssertingWithExpiration(t *testing.T) {
 			assert.Equal(t, testCase.err, err)
 		})
 	}
+}
+
+func TestInsertClient(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+
+	defer func() {
+		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
+	assert.NoError(t, mongoErr)
+
+	s, err := NewStore(context.Background(), client)
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	cancel()
+
+	_, err = s.InsertClient(ctx, oauth2client.Client{
+		ID:     uuid.New().String(),
+		Scopes: []string{"scope"},
+	})
+
+	assert.ErrorContains(t, err, "context canceled")
 }

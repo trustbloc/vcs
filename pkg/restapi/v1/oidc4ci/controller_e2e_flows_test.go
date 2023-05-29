@@ -38,7 +38,6 @@ import (
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -100,17 +99,6 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		compose.OAuth2TokenIntrospectionFactory,
 	)
 
-	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
-	oauth2Client.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(
-			_ context.Context,
-			cfg oauth2.Config,
-			state string,
-			opts ...oauth2client.AuthCodeOption,
-		) string {
-			return (&cfg).AuthCodeURL(state)
-		})
-
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
@@ -127,7 +115,6 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cisrv.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
-		OAuth2Client:            oauth2Client,
 		JWTVerifier:             verifier,
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 	})
@@ -240,7 +227,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	)
 
 	interaction := NewMockIssuerInteractionClient(gomock.NewController(t))
-	preAuthClient := NewMockHTTPClient(gomock.NewController(t))
+	httpClient := NewMockHTTPClient(gomock.NewController(t))
 
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
@@ -248,9 +235,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		IssuerInteractionClient: interaction,
 		IssuerVCSPublicHost:     srv.URL,
 		ExternalHostURL:         srv.URL,
-		OAuth2Client:            oauth2client.NewOAuth2Client(),
-		PreAuthorizeClient:      preAuthClient,
-		DefaultHTTPClient:       http.DefaultClient,
+		HTTPClient:              httpClient,
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 	})
 

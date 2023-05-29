@@ -13,7 +13,7 @@ import (
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -32,7 +32,7 @@ func TestStoreFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	_, err = s.InsertClient(ctx, dto.Client{
+	_, err = s.InsertClient(ctx, oauth2client.Client{
 		ID:     uuid.New(),
 		Scopes: []string{"awesome"},
 	})
