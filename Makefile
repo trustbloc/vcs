@@ -11,10 +11,12 @@ VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 OPENAPIGEN_VERSION 					?=v1.11.0
+ARIES_FRAMEWORK_VERSION				=	0445e9664e8e53e834a2d0087a7f7ae297829903
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
+
 
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
 VC_REST_VERSION ?= $(subst v,,"$(shell git name-rev --tags --name-only $(shell git rev-parse HEAD))+$(BUILD_DATE)")
@@ -175,3 +177,14 @@ clean:
 	@rm -rf ./.build
 	@rm -rf coverage*.out
 	@rm -Rf ./test/bdd/docker-compose.log
+
+.PHONY: update-aries
+update-aries:
+	@cd ./ && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./cmd/vc-rest && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./component/credentialstatus && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./component/event && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./component/profile/reader/file && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./component/wallet-cli && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./test/bdd && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@cd ./test/stress && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
