@@ -79,14 +79,14 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			{
 				name:              "signing with domain option",
 				signingOpts:       []SigningOpts{WithDomain("example.com")},
-				responsePurpose:   "assertionMethod",
+				responsePurpose:   "authentication",
 				responseVerMethod: "did:trustbloc:abc#key1",
 				responseDomain:    "example.com",
 			},
 			{
 				name:              "signing with domain option",
 				signingOpts:       []SigningOpts{WithChallenge("challenge")},
-				responsePurpose:   "assertionMethod",
+				responsePurpose:   "authentication",
 				responseVerMethod: "did:trustbloc:abc#key1",
 				responseChallenge: "challenge",
 			},
@@ -115,7 +115,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			{
 				name:              "signing with verification method & purpose options",
 				signingOpts:       []SigningOpts{},
-				responsePurpose:   "assertionMethod",
+				responsePurpose:   "authentication",
 				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
@@ -132,7 +132,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSignatureType("JsonWebSignature2020"),
 				},
-				responsePurpose:   AssertionMethod,
+				responsePurpose:   "authentication",
 				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
@@ -141,7 +141,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSignatureType("EcdsaSecp256k1Signature2019"),
 				},
-				responsePurpose:   AssertionMethod,
+				responsePurpose:   "authentication",
 				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
