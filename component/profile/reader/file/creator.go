@@ -100,29 +100,11 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 	}
 
 	authentication := methods[0]
-	assertion := methods[0]
-	capabilityDelegation := methods[1]
-	capabilityInvocation := methods[2]
 
 	doc := &did.Doc{
 		Authentication: []did.Verification{{
 			VerificationMethod: *authentication,
 			Relationship:       did.Authentication,
-			Embedded:           true,
-		}},
-		AssertionMethod: []did.Verification{{
-			VerificationMethod: *assertion,
-			Relationship:       did.AssertionMethod,
-			Embedded:           true,
-		}},
-		CapabilityDelegation: []did.Verification{{
-			VerificationMethod: *capabilityDelegation,
-			Relationship:       did.CapabilityDelegation,
-			Embedded:           true,
-		}},
-		CapabilityInvocation: []did.Verification{{
-			VerificationMethod: *capabilityInvocation,
-			Relationship:       did.CapabilityInvocation,
 			Embedded:           true,
 		}},
 	}
@@ -154,8 +136,8 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 
 	return &createResult{
 		didID:          didResolution.DIDDocument.ID,
-		creator:        didResolution.DIDDocument.ID + "#" + assertion.ID,
-		kmsKeyID:       assertion.ID,
+		creator:        didResolution.DIDDocument.ID + "#" + authentication.ID,
+		kmsKeyID:       authentication.ID,
 		updateKeyURL:   updateURL,
 		recoveryKeyURL: recoveryURL,
 	}, nil
@@ -246,11 +228,6 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	vm := verMethod[0]
 
 	didDoc := &did.Doc{
-		AssertionMethod: []did.Verification{{
-			VerificationMethod: *vm,
-			Relationship:       did.AssertionMethod,
-			Embedded:           true,
-		}},
 		Authentication: []did.Verification{{
 			VerificationMethod: *vm,
 			Relationship:       did.Authentication,

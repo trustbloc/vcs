@@ -178,6 +178,10 @@ func (c *Crypto) signCredentialLDP(
 		signatureType = signOpts.SignatureType
 	}
 
+	if signOpts.Purpose == "" {
+		signOpts.Purpose = Authentication
+	}
+
 	signingCtx, err := c.getLinkedDataProofContext(signerData, signerData.KMS, signatureType, Authentication,
 		signerData.SignatureRepresentation, signOpts)
 	if err != nil {
