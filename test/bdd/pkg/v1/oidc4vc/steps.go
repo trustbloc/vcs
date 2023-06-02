@@ -28,11 +28,14 @@ type Steps struct {
 	tlsConfig                  *tls.Config
 	cookie                     *cookiejar.Jar
 	issuerProfile              *profileapi.Issuer
+	verifierProfile            *profileapi.Verifier
 	walletRunner               *walletrunner.Service
 	dl                         *ld.DocumentLoader
 	issuedCredentialType       string
 	issuedCredentialTemplateID string
 	vpClaimsTransactionID      string
+
+	presentationDefinitionID string
 
 	// Stress testing
 	usersNum      int

@@ -131,7 +131,9 @@ func (r *stressRequest) sendAuthorizedResponse(responseBody string) error {
 func (r *stressRequest) retrieveInteractionsClaim() error {
 	endpointURL := fmt.Sprintf(r.retrieveClaimURLFormat, r.initiateOIDC4VPResponse.TxId)
 
-	return r.vpFlowExecutor.RetrieveInteractionsClaim(endpointURL, r.authToken)
+	_, err := r.vpFlowExecutor.RetrieveInteractionsClaim(endpointURL, r.authToken)
+
+	return err
 }
 
 type initiateOIDC4VPData struct {

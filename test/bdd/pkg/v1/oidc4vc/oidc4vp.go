@@ -16,6 +16,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -38,6 +42,9 @@ const (
 )
 
 func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, fields string) error {
+	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
+	s.presentationDefinitionID = pdID
+
 	providerConf := s.walletRunner.GetConfig()
 	providerConf.WalletUserId = providerConf.WalletParams.UserID
 	providerConf.WalletPassPhrase = providerConf.WalletParams.Passphrase
@@ -111,7 +118,64 @@ func (s *Steps) retrieveInteractionsClaim(organizationName string) error {
 	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
 
-	return s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
+	claims, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
+	if err != nil {
+		return err
+	}
+
+	return s.validateRetrievedInteractionsClaim(claims)
+}
+
+func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
+	var claims map[string]interface{}
+	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
+		return err
+	}
+
+	// Check amount.
+	var pd *presexch.PresentationDefinition
+	for _, verifierPD := range s.verifierProfile.PresentationDefinitions {
+		if verifierPD.ID == s.presentationDefinitionID {
+			pd = verifierPD
+			break
+		}
+	}
+
+	if len(claims) != len(pd.InputDescriptors) {
+		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
+			len(pd.InputDescriptors),
+			len(claims),
+		)
+	}
+
+	// Check whether credentials are known.
+	credentialMap, err := s.walletRunner.GetWallet().GetAll(
+		s.walletRunner.GetConfig().WalletParams.Token, wallet.Credential)
+	if err != nil {
+		return fmt.Errorf("wallet.GetAll(): %w", err)
+	}
+
+	issuedVCID := make(map[string]struct{}, len(credentialMap))
+	for _, vcBytes := range credentialMap {
+		var vcParsed *verifiable.Credential
+		vcParsed, err = verifiable.ParseCredential(vcBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(s.dl))
+		if err != nil {
+			return fmt.Errorf("parse credential from wallet: %w", err)
+		}
+
+		issuedVCID[vcParsed.ID] = struct{}{}
+	}
+
+	for retrievedVCID := range claims {
+		_, exist := issuedVCID[retrievedVCID]
+		if !exist {
+			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
+		}
+	}
+
+	return nil
 }
 
 func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(organizationName string) error {
@@ -119,7 +183,7 @@ func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(organizationName strin
 
 	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
 
-	if err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token); err == nil {
+	if _, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token); err == nil {
 		return fmt.Errorf("error expected, but got nil")
 	}
 

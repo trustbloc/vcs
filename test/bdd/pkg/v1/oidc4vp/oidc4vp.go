@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -50,6 +52,7 @@ func (e *Steps) initiateInteractionHelper(profileVersionedID, organizationName s
 	}
 
 	e.initiateOIDC4VPResponse = initiateInteractionResult
+	e.verifierProfileVersionedID = profileVersionedID
 
 	return nil
 }
@@ -104,7 +107,60 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 
 	endpointURL := fmt.Sprintf(retrieveInteractionsClaimURLFormat, txID)
 
-	return e.vpFlowExecutor.RetrieveInteractionsClaim(endpointURL, token)
+	claims, err := e.vpFlowExecutor.RetrieveInteractionsClaim(endpointURL, token)
+	if err != nil {
+		return fmt.Errorf("e.vpFlowExecutor.RetrieveInteractionsClaim: %w", err)
+	}
+
+	return e.validateRetrievedInteractionsClaim(claims)
+}
+
+func (e *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
+	var claims map[string]interface{}
+	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
+		return err
+	}
+
+	verifierProfile := e.bddContext.VerifierProfiles[e.verifierProfileVersionedID]
+
+	// Check amount.
+	if len(claims) != len(verifierProfile.PresentationDefinitions[0].InputDescriptors) {
+		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
+			len(verifierProfile.PresentationDefinitions[0].InputDescriptors),
+			len(claims),
+		)
+	}
+
+	dl, err := bddutil.DocumentLoader()
+	if err != nil {
+		return err
+	}
+
+	// Check whether credentials are known.
+	issuedVCID := make(map[string]struct{}, len(e.bddContext.CreatedCredentialsSet))
+
+	for _, issuedVCBytes := range e.bddContext.CreatedCredentialsSet {
+		var issuedVC *verifiable.Credential
+
+		issuedVC, err = verifiable.ParseCredential(
+			issuedVCBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(dl))
+		if err != nil {
+			return err
+		}
+
+		issuedVCID[issuedVC.ID] = struct{}{}
+	}
+
+	for retrievedVCID := range claims {
+		_, exist := issuedVCID[retrievedVCID]
+		if !exist {
+			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
+		}
+	}
+
+	return nil
 }
 
 func (e *Steps) waitForEvent(eventType string) (string, error) {

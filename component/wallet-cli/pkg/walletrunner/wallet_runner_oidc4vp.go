@@ -97,7 +97,9 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 		return err
 	}
 	s.perfInfo.QueryCredentialFromWallet = time.Since(startTime)
-	s.wallet.Close()
+	if !s.vcProviderConf.KeepWalletOpen {
+		s.wallet.Close()
+	}
 
 	log.Println("Creating authorized response")
 	startTime = time.Now()
@@ -204,25 +206,25 @@ func (e *VPFlowExecutor) RequestPresentations() []*verifiable.Presentation {
 	return e.requestPresentation
 }
 
-func (e *VPFlowExecutor) RetrieveInteractionsClaim(url, authToken string) error {
+func (e *VPFlowExecutor) RetrieveInteractionsClaim(url, authToken string) ([]byte, error) {
 	resp, err := httputil.HTTPSDo(http.MethodGet, url, "application/json", authToken, //nolint: bodyclose
 		nil, e.tlsConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
+		return nil, fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
 			http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	return nil
+	return respBytes, nil
 }
 
 func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObject string) error {
