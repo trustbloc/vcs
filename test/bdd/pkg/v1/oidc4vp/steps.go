@@ -30,11 +30,12 @@ func getOrgAuthTokenKey(org string) string {
 
 // Steps is steps for VC BDD tests
 type Steps struct {
-	bddContext              *bddcontext.BDDContext
-	tlsConfig               *tls.Config
-	walletRunner            *walletrunner.Service
-	vpFlowExecutor          *walletrunner.VPFlowExecutor
-	initiateOIDC4VPResponse *walletrunner.InitiateOIDC4VPResponse
+	bddContext                 *bddcontext.BDDContext
+	tlsConfig                  *tls.Config
+	walletRunner               *walletrunner.Service
+	vpFlowExecutor             *walletrunner.VPFlowExecutor
+	initiateOIDC4VPResponse    *walletrunner.InitiateOIDC4VPResponse
+	verifierProfileVersionedID string
 }
 
 // NewSteps returns new agent from client SDK

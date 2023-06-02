@@ -38,10 +38,12 @@ type BDDContext struct {
 	Data                  map[string]interface{}
 	CredentialSubject     []string
 	IssuerProfiles        map[string]*profile.Issuer
+	VerifierProfiles      map[string]*profile.Verifier
 }
 
 type profilesFileData struct {
-	Issuers []*issuerRecord `json:"issuers"`
+	Issuers   []*issuerRecord   `json:"issuers"`
+	Verifiers []*verifierRecord `json:"verifiers"`
 }
 
 type issuerRecord struct {
@@ -49,6 +51,10 @@ type issuerRecord struct {
 	CreateDID           bool            `json:"createDID"`
 	DIDDomain           string          `json:"didDomain"`
 	DIDServiceAuthToken string          `json:"didServiceAuthToken"`
+}
+
+type verifierRecord struct {
+	Verifier *profile.Verifier `json:"verifier"`
 }
 
 // NewBDDContext create new BDDContext
@@ -96,13 +102,20 @@ func NewBDDContext(caCertPath, testDataPath, profilesDataPath string) (*BDDConte
 		issuerProfiles[fmt.Sprintf("%s/%s", issuer.Issuer.ID, issuer.Issuer.Version)] = issuer.Issuer
 	}
 
+	verifierProfiles := make(map[string]*profile.Verifier)
+
+	for _, verifier := range profilesData.Verifiers {
+		verifierProfiles[fmt.Sprintf("%s/%s", verifier.Verifier.ID, verifier.Verifier.Version)] = verifier.Verifier
+	}
+
 	instance := BDDContext{
-		Args:           make(map[string]string),
-		VDRI:           vdr,
-		TLSConfig:      tlsConf,
-		TestData:       testData,
-		Data:           make(map[string]interface{}),
-		IssuerProfiles: issuerProfiles,
+		Args:             make(map[string]string),
+		VDRI:             vdr,
+		TLSConfig:        tlsConf,
+		TestData:         testData,
+		Data:             make(map[string]interface{}),
+		IssuerProfiles:   issuerProfiles,
+		VerifierProfiles: verifierProfiles,
 	}
 
 	return &instance, nil
