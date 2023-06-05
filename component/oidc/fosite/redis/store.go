@@ -21,5 +21,5 @@ func (s *Store) InsertClient(ctx context.Context, client oauth2client.Client) (s
 		Record: client,
 	}
 
-	return key, s.redisClient.API().Set(ctx, key, obj, defaultTTL).Err()
+	return key, s.redisClient.API().Set(ctx, key, obj, 0).Err()
 }
