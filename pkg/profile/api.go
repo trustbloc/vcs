@@ -70,10 +70,12 @@ type CredentialMetaData struct {
 
 // OIDC4CIConfig is issuer's OIDC configuration used during OIDC credential issuance flow.
 type OIDC4CIConfig struct {
-	IssuerWellKnownURL string   `json:"issuer_well_known"`
-	ClientID           string   `json:"client_id"`
-	ClientSecretHandle string   `json:"client_secret_handle"`
-	Scope              []string `json:"scope"`
+	IssuerWellKnownURL              string   `json:"issuer_well_known"`
+	ClientID                        string   `json:"client_id"`
+	ClientSecretHandle              string   `json:"client_secret_handle"`
+	Scope                           []string `json:"scope"`
+	EnableDynamicClientRegistration bool     `json:"enable_dynamic_client_registration"`
+	InitialAccessTokenLifespan      string   `json:"initial_access_token_lifespan"`
 }
 
 // VCConfig describes how to sign verifiable credentials.

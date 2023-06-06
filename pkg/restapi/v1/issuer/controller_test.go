@@ -33,6 +33,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
@@ -1599,6 +1600,72 @@ func TestOpenIdConfiguration(t *testing.T) {
 		result, err := c.getOpenIDConfig(profileID, profileVersion)
 		assert.Nil(t, result)
 		assert.ErrorContains(t, err, "unexpected error")
+	})
+}
+
+func TestOpenIdConfiguration_EnableDynamicClientRegistration(t *testing.T) {
+	const host = "https://localhost"
+
+	svc := NewMockProfileService(gomock.NewController(t))
+	svc.EXPECT().GetProfile(profileID, profileVersion).Return(
+		&profileapi.Issuer{
+			Name: "test issuer",
+			OIDCConfig: &profileapi.OIDC4CIConfig{
+				EnableDynamicClientRegistration: true,
+			},
+		}, nil)
+
+	c := &Controller{
+		externalHostURL: host,
+		profileSvc:      svc,
+	}
+
+	config, err := c.getOpenIDConfig(profileID, profileVersion)
+	assert.NoError(t, err)
+	assert.NotNil(t, config.RegistrationEndpoint)
+	assert.Equal(t, host+"/oidc/register", lo.FromPtr(config.RegistrationEndpoint))
+}
+
+func TestController_RegisterOauthClient(t *testing.T) {
+	body, err := json.Marshal(
+		&RegisterOAuthClientRequest{
+			Data: ClientRegistrationData{
+				ClientName:   "test",
+				ClientUri:    "https://test.com",
+				GrantTypes:   []string{"authorization_code"},
+				RedirectUris: []string{"https://test.com/callback"},
+			},
+			OpState: "1234",
+		},
+	)
+	require.NoError(t, err)
+
+	t.Run("success", func(t *testing.T) {
+		mockOAuth2ClientManager := NewMockOAuth2ClientManager(gomock.NewController(t))
+		mockOAuth2ClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(
+			&oauth2client.Client{
+				ID: "1234",
+			}, nil)
+
+		c := &Controller{
+			oauth2ClientManager: mockOAuth2ClientManager,
+		}
+
+		ctx := echoContext(withRequestBody(body))
+		assert.NoError(t, c.RegisterOauthClient(ctx))
+	})
+
+	t.Run("create client error", func(t *testing.T) {
+		mockOAuth2ClientManager := NewMockOAuth2ClientManager(gomock.NewController(t))
+		mockOAuth2ClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(nil,
+			fmt.Errorf("create client error"))
+
+		c := &Controller{
+			oauth2ClientManager: mockOAuth2ClientManager,
+		}
+
+		ctx := echoContext(withRequestBody(body))
+		assert.ErrorContains(t, c.RegisterOauthClient(ctx), "create oauth2 client")
 	})
 }
 

@@ -717,7 +717,6 @@ func buildEchoHandler(
 
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
-		OAuth2ClientManager:     clientmanager.NewService(fositeStore.(oauth2ClientStore)),
 		StateStore:              oidc4ciStateStore,
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
@@ -741,6 +740,7 @@ func buildEchoHandler(
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
+		OAuth2ClientManager:    clientmanager.NewService(fositeStore.(oauth2ClientStore)),
 		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
 		Tracer:                 conf.Tracer,
 	}))

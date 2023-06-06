@@ -34,7 +34,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
@@ -1566,8 +1565,8 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 
 func TestController_OidcRegisterDynamicClient(t *testing.T) {
 	var (
-		mockClientManager = NewMockOAuth2ClientManager(gomock.NewController(t))
-		requestBody       []byte
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		requestBody           []byte
 	)
 
 	tests := []struct {
@@ -1578,16 +1577,19 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
-				mockClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(
-					&oauth2client.Client{
-						ID:            "client-id",
-						Secret:        []byte("client-secret"),
-						GrantTypes:    []string{"authorization_code"},
-						ResponseTypes: []string{"code"},
-						Scopes:        []string{"foo", "bar"},
+				b, err := json.Marshal(
+					oidc4ci.ClientRegistrationResponse{
+						ClientId: "foo",
+					},
+				)
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer(b)),
 					}, nil)
 
-				var err error
 				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
 					GrantTypes:              []string{"authorization_code"},
 					ResponseTypes:           lo.ToPtr([]string{"code"}),
@@ -1598,14 +1600,14 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, rec.Code)
+				require.Equal(t, http.StatusCreated, rec.Code)
 			},
 		},
 		{
-			name: "service error",
+			name: "issuer interaction error",
 			setup: func() {
-				mockClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(nil,
-					errors.New("create client error"))
+				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(nil,
+					fmt.Errorf("issuer interaction error"))
 
 				var err error
 				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
@@ -1617,18 +1619,45 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "create oauth2 client")
+				require.ErrorContains(t, err, "issuer interaction error")
+			},
+		},
+		{
+			name: "fail to register oauth client",
+			setup: func() {
+				b, err := json.Marshal(
+					oidc4ci.ClientRegistrationResponse{
+						ClientId: "foo",
+					},
+				)
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(bytes.NewBuffer(b)),
+					}, nil)
+
+				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
+					GrantTypes:              []string{"authorization_code"},
+					ResponseTypes:           lo.ToPtr([]string{"code"}),
+					Scope:                   lo.ToPtr("foo bar"),
+					TokenEndpointAuthMethod: lo.ToPtr("none"),
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "register oauth client: status code 500")
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
 			controller := oidc4ci.NewController(&oidc4ci.Config{
-				OAuth2ClientManager: mockClientManager,
-				Tracer:              trace.NewNoopTracerProvider().Tracer(""),
+				IssuerInteractionClient: mockInteractionClient,
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))

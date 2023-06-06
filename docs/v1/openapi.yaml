@@ -190,6 +190,25 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4CIRequest'
       tags:
         - issuer
+  /issuer/interactions/register-oauth-client:
+    post:
+      summary: Register OAuth Client
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterOAuthClientResponse'
+      operationId: register-oauth-client
+      description: Used by VCS OIDC public endpoint to register OAuth 2.0 client dynamically.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterOAuthClientRequest'
   /issuer/interactions/push-authorization-request:
     post:
       summary: Push Authorization Details
@@ -756,21 +775,26 @@ components:
       x-tags:
         - issuer
       type: object
+      description: OpenID Config response.
       properties:
         authorization_endpoint:
           type: string
+          description: URL of the OP's OAuth 2.0 Authorization Endpoint.
         token_endpoint:
           type: string
+          description: URL of the OP's OAuth 2.0 Token Endpoint.
         response_types_supported:
           type: array
+          description: JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
           items:
             type: string
+        registration_endpoint:
+          type: string
+          description: URL of the OP's Dynamic Client Registration Endpoint.
       required:
         - authorization_endpoint
         - token_endpoint
         - response_types_supported
-        - credential_supported
-      description: OpenID Config response.
     WellKnownOpenIDIssuerConfiguration:
       title: WellKnownOpenIDIssuerConfiguration response
       x-tags:
@@ -1329,6 +1353,110 @@ components:
       required:
         - access_token
         - token_type
+    RegisterOAuthClientRequest:
+      title: RegisterOAuthClientRequest
+      x-tags:
+        - issuer
+      type: object
+      description: Model for RegisterOAuthClient request.
+      properties:
+        op_state:
+          type: string
+        data:
+          $ref: '#/components/schemas/ClientRegistrationData'
+      required:
+        - op_state
+        - data
+    ClientRegistrationData:
+      title: ClientRegistrationData
+      x-tags:
+        - issuer
+      type: object
+      description: Client registration metadata.
+      properties:
+        redirect_uris:
+          type: array
+          description: Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+          items:
+            type: string
+        token_endpoint_auth_method:
+          type: string
+          description: 'Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.'
+        grant_types:
+          type: array
+          description: 'Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.'
+          items:
+            type: string
+        response_types:
+          type: array
+          description: 'Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.'
+          items:
+            type: string
+        scope:
+          type: string
+          description: String containing a space-separated list of scope values that the client can use when requesting access tokens.
+        client_name:
+          type: string
+          description: Human-readable string name of the client to be presented to the end-user during authorization.
+        client_uri:
+          type: string
+          description: URL string of a web page providing information about the client.
+      required:
+        - redirect_uris
+        - token_endpoint_auth_method
+        - grant_types
+        - response_types
+        - scope
+        - client_name
+        - client_uri
+    RegisterOAuthClientResponse:
+      title: RegisterOAuthClientResponse
+      x-tags:
+        - issuer
+      type: object
+      description: Response with registered metadata for the client.
+      properties:
+        client_id:
+          type: string
+          description: Client identifier.
+        client_secret:
+          type: string
+          description: Client secret. This value is used by the confidential client to authenticate to the token endpoint.
+        client_id_issued_at:
+          type: string
+          description: Time at which the client identifier was issued.
+        client_secret_expires_at:
+          type: string
+          description: Time at which the client secret will expire or 0 if it will not expire.
+        redirect_uris:
+          type: array
+          description: Registered array of allowed redirection URI strings for the client.
+          items:
+            type: string
+        token_endpoint_auth_method:
+          type: string
+          description: Registered client authentication method for the token endpoint.
+        grant_types:
+          type: array
+          description: Registered array of OAuth 2.0 grant types that the client is allowed to use.
+          items:
+            type: string
+        response_types:
+          type: array
+          description: Registered array of OAuth 2.0 response types that the client can use at the authorization endpoint.
+          items:
+            type: string
+        scope:
+          type: string
+          description: Registered space-separated list of scope values that the client can use when requesting access tokens.
+        client_name:
+          type: string
+          description: Registered name of the client to be presented to the end-user during authorization.
+        client_uri:
+          type: string
+          description: Registered URL of a web page providing information about the client.
+      required:
+        - client_id
     PushAuthorizationDetailsRequest:
       title: PushAuthorizationDetailsRequest
       x-tags:
@@ -1486,8 +1614,12 @@ components:
         client_uri:
           type: string
           description: URL string of a web page providing information about the client.
+        issuer_state:
+          type: string
+          description: Issuer state to correlate request with issuer.
       required:
         - grant_types
+        - issuer_state
     ClientRegistrationResponse:
       title: ClientRegistrationResponse
       x-tags:

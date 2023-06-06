@@ -34,8 +34,8 @@ func NewService(store store) *Service {
 	}
 }
 
-// CreateClientRequest is a request to create an OAuth2 client.
-type CreateClientRequest struct {
+// ClientMetadata contains the metadata for an OAuth2 client.
+type ClientMetadata struct {
 	Name                    string   `json:"client_name"`
 	URI                     string   `json:"client_uri"`
 	RedirectURIs            []string `json:"redirect_uris"`
@@ -46,7 +46,7 @@ type CreateClientRequest struct {
 }
 
 // CreateClient creates an OAuth2 client and inserts it into the store.
-func (s *Service) CreateClient(ctx context.Context, req *CreateClientRequest) (*oauth2client.Client, error) {
+func (s *Service) CreateClient(ctx context.Context, data *ClientMetadata) (*oauth2client.Client, error) {
 	// TODO: validate request
 
 	secret, err := generateSecret()
@@ -56,10 +56,10 @@ func (s *Service) CreateClient(ctx context.Context, req *CreateClientRequest) (*
 
 	oauth2Client := oauth2client.Client{
 		Secret:        secret,
-		RedirectURIs:  req.RedirectURIs,
-		GrantTypes:    req.GrantTypes,
-		ResponseTypes: req.ResponseTypes,
-		Scopes:        strings.Split(req.Scope, " "),
+		RedirectURIs:  data.RedirectURIs,
+		GrantTypes:    data.GrantTypes,
+		ResponseTypes: data.ResponseTypes,
+		Scopes:        strings.Split(data.Scope, " "),
 	}
 
 	clientID, err := s.store.InsertClient(ctx, oauth2Client)

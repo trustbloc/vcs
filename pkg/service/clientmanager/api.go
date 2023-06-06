@@ -13,5 +13,5 @@ import (
 )
 
 type ServiceInterface interface {
-	CreateClient(ctx context.Context, req *CreateClientRequest) (*oauth2client.Client, error)
+	CreateClient(ctx context.Context, req *ClientMetadata) (*oauth2client.Client, error)
 }
