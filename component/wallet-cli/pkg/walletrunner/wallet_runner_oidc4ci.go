@@ -30,6 +30,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -47,11 +48,16 @@ type OIDC4CIConfig struct {
 	Password            string
 }
 
-func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
+func (s *Service) RunOIDC4CI(
+	config *OIDC4CIConfig,
+) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
+		config.InitiateIssuanceURL,
+		s.httpClient,
+	)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
@@ -62,7 +68,9 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
 
-	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
+		offerResponse.CredentialIssuer,
+	)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
@@ -80,7 +88,11 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 			return fmt.Errorf("listen: %w", err)
 		}
 
-		redirectURL.Host = fmt.Sprintf("%s:%d", redirectURL.Hostname(), listener.Addr().(*net.TCPAddr).Port)
+		redirectURL.Host = fmt.Sprintf(
+			"%s:%d",
+			redirectURL.Hostname(),
+			listener.Addr().(*net.TCPAddr).Port,
+		)
 	}
 
 	s.oauthClient = &oauth2.Config{
@@ -152,7 +164,11 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	}
 
 	s.print("Getting credential")
-	vc, _, err := s.getCredential(oidcIssuerCredentialConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
+	vc, _, err := s.getCredential(
+		oidcIssuerCredentialConfig.CredentialEndpoint,
+		config.CredentialType,
+		config.CredentialFormat,
+	)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
 	}
@@ -175,7 +191,11 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("parse vc: %w", err)
 	}
 
-	log.Printf("Credential with ID [%s] and type [%v] added successfully", vcParsed.ID, config.CredentialType)
+	log.Printf(
+		"Credential with ID [%s] and type [%v] added successfully",
+		vcParsed.ID,
+		config.CredentialType,
+	)
 
 	if !s.keepWalletOpen {
 		s.wallet.Close()
@@ -184,7 +204,9 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	return nil
 }
 
-func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpenIDConfiguration, error) {
+func (s *Service) getIssuerOIDCConfig(
+	issuerURL string,
+) (*issuerv1.WellKnownOpenIDConfiguration, error) {
 	// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration
 	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-configuration")
 	if err != nil {
@@ -206,7 +228,9 @@ func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpen
 	return &oidcConfig, nil
 }
 
-func (s *Service) getIssuerCredentialsOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
+func (s *Service) getIssuerCredentialsOIDCConfig(
+	issuerURL string,
+) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
 	// GET /issuer/{profileID}/.well-known/openid-credential-issuer
 	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-credential-issuer")
 	if err != nil {
@@ -228,23 +252,37 @@ func (s *Service) getIssuerCredentialsOIDCConfig(issuerURL string) (*issuerv1.We
 	return &oidcConfig, nil
 }
 
-func (s *Service) getAuthCode(config *OIDC4CIConfig, authCodeURL string) (string, error) {
+func (s *Service) getAuthCode(
+	config *OIDC4CIConfig,
+	authCodeURL string,
+) (string, error) {
 	//var loginURL, consentURL *url.URL
 	var authCode string
 
 	httpClient := &http.Client{
 		Jar:       s.httpClient.Jar,
 		Transport: s.httpClient.Transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// intercept client auth code
-			if strings.HasPrefix(req.URL.String(), config.RedirectURI) {
-				authCode = req.URL.Query().Get("code")
+	}
 
-				return http.ErrUseLastResponse
-			}
+	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if strings.Contains(req.URL.String(), ".amazoncognito.com/login") {
+			s.print("got cognito consent screen")
+			return consent.NewCognito(
+				httpClient,
+				httpClient.Jar.Cookies(req.URL),
+				req.URL.String(),
+				config.Login, config.Password,
+			).Execute()
+		}
 
-			return nil
-		},
+		// intercept client auth code
+		if strings.HasPrefix(req.URL.String(), config.RedirectURI) {
+			authCode = req.URL.Query().Get("code")
+
+			return http.ErrUseLastResponse
+		}
+
+		return nil
 	}
 
 	s.print("Getting authorization code")
@@ -257,7 +295,10 @@ func (s *Service) getAuthCode(config *OIDC4CIConfig, authCodeURL string) (string
 	return authCode, nil
 }
 
-func (s *Service) getAuthCodeFromBrowser(listener net.Listener, authCodeURL string) (string, error) {
+func (s *Service) getAuthCodeFromBrowser(
+	listener net.Listener,
+	authCodeURL string,
+) (string, error) {
 	server := &callbackServer{
 		listener: listener,
 		codeChan: make(chan string, 1),
@@ -267,7 +308,10 @@ func (s *Service) getAuthCodeFromBrowser(listener net.Listener, authCodeURL stri
 		http.Serve(listener, server)
 	}()
 
-	log.Printf("Log in with a browser:\n\n%s\n\nor press [Enter] to open link in your default browser\n", authCodeURL)
+	log.Printf(
+		"Log in with a browser:\n\n%s\n\nor press [Enter] to open link in your default browser\n",
+		authCodeURL,
+	)
 
 	done := make(chan struct{})
 
@@ -298,7 +342,13 @@ func (s *Service) getCredential(
 
 	didKeyID := s.vcProviderConf.WalletParams.DidKeyID[0]
 
-	kmsSigner, err := signer.NewKMSSigner(km, cr, strings.Split(didKeyID, "#")[1], s.vcProviderConf.WalletParams.SignType, nil)
+	kmsSigner, err := signer.NewKMSSigner(
+		km,
+		cr,
+		strings.Split(didKeyID, "#")[1],
+		s.vcProviderConf.WalletParams.SignType,
+		nil,
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("create kms signer: %w", err)
 	}
@@ -364,7 +414,11 @@ func (s *Service) getCredential(
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
-		return nil, finalDuration, fmt.Errorf("get credential: status %s and body %s", resp.Status, string(b))
+		return nil, finalDuration, fmt.Errorf(
+			"get credential: status %s and body %s",
+			resp.Status,
+			string(b),
+		)
 	}
 
 	var credentialResp CredentialResponse
@@ -376,7 +430,9 @@ func (s *Service) getCredential(
 	return credentialResp.Credential, finalDuration, nil
 }
 
-func (s *Service) print(msg string) {
+func (s *Service) print(
+	msg string,
+) {
 	if s.debug {
 		fmt.Println()
 	}
@@ -384,7 +440,9 @@ func (s *Service) print(msg string) {
 	log.Printf("%s\n\n", msg)
 }
 
-func waitForEnter(done chan<- struct{}) {
+func waitForEnter(
+	done chan<- struct{},
+) {
 	_, _ = fmt.Scanln()
 	done <- struct{}{}
 }
@@ -394,7 +452,10 @@ type callbackServer struct {
 	codeChan chan string
 }
 
-func (s *callbackServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *callbackServer) ServeHTTP(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	if r.URL.Path != "/callback" {
 		http.NotFound(w, r)
 
