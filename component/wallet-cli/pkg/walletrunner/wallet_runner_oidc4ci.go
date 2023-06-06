@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/cli/browser"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -257,9 +256,6 @@ func (s *Service) getAuthCode(
 	config *OIDC4CIConfig,
 	authCodeURL string,
 ) (string, error) {
-	fmt.Println("AUTH CODE URL IS")
-	fmt.Println(authCodeURL)
-
 	//var loginURL, consentURL *url.URL
 	var authCode string
 
@@ -269,15 +265,8 @@ func (s *Service) getAuthCode(
 	}
 
 	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		fmt.Println("GOT REDIRECT")
-		fmt.Println(req.URL.String())
-
 		if strings.Contains(req.URL.String(), ".amazoncognito.com/login") {
 			s.print("got cognito consent screen")
-			for _, jar := range httpClient.Jar.Cookies(req.URL) {
-				fmt.Println(jar.Name)
-			}
-			fmt.Println(spew.Sdump(httpClient.Jar))
 			return consent.NewCognito(
 				httpClient,
 				httpClient.Jar.Cookies(req.URL),
