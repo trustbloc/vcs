@@ -172,7 +172,7 @@ func NewOIDC4CICommand() *cobra.Command {
 				return err
 			}
 
-			return runner.RunOIDC4CI(config)
+			return runner.RunOIDC4CI(config, nil)
 		},
 	}
 

@@ -48,9 +48,19 @@ type OIDC4CIConfig struct {
 	Password            string
 }
 
-func (s *Service) RunOIDC4CI(
-	config *OIDC4CIConfig,
-) error {
+type OauthClientOpt func(config *oauth2.Config)
+
+type Hooks struct {
+	BeforeTokenRequest []OauthClientOpt
+}
+
+func WithClientID(clientID string) OauthClientOpt {
+	return func(config *oauth2.Config) {
+		config.ClientID = clientID
+	}
+}
+
+func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
@@ -147,6 +157,16 @@ func (s *Service) RunOIDC4CI(
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
+
+	var beforeTokenRequestHooks []OauthClientOpt
+
+	if hooks != nil {
+		beforeTokenRequestHooks = hooks.BeforeTokenRequest
+	}
+
+	for _, f := range beforeTokenRequestHooks {
+		f(s.oauthClient)
+	}
 
 	s.print("Exchanging authorization code for access token")
 	token, err := s.oauthClient.Exchange(ctx, authCode,

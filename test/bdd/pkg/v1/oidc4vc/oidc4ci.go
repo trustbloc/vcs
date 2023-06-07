@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ory/fosite"
+	"golang.org/x/oauth2"
 	"io"
 	"net/http"
 	"net/url"
@@ -205,18 +207,8 @@ func (s *Steps) credentialTypeTemplateID(issuedCredentialType, issuedCredentialT
 	return nil
 }
 
-func (s *Steps) runOIDC4CIAuth() error {
-	initiateIssuanceRequest := initiateOIDC4CIRequest{
-		ClaimEndpoint:        claimDataURL + "?credentialType=" + s.issuedCredentialType,
-		CredentialTemplateId: s.issuedCredentialTemplateID,
-		GrantType:            "authorization_code",
-		OpState:              uuid.New().String(),
-		ResponseType:         "code",
-		Scope:                []string{"openid", "profile"},
-		UserPinRequired:      false,
-	}
-
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(initiateIssuanceRequest)
+func (s *Steps) runOIDC4CIAuthWithError(updatedClientID, errorContains string) error {
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
@@ -230,12 +222,75 @@ func (s *Steps) runOIDC4CIAuth() error {
 		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
 		Login:               "bdd-test",
 		Password:            "bdd-test-pass",
-	})
+	}, &walletrunner.Hooks{
+		BeforeTokenRequest: []walletrunner.OauthClientOpt{
+			walletrunner.WithClientID(updatedClientID),
+		}})
+
+	if err == nil {
+		return fmt.Errorf("error expected, got nil")
+	}
+
+	switch errorContains {
+	case fosite.ErrInvalidClient.ErrorField:
+		var oauthError *oauth2.RetrieveError
+		if !errors.As(err, &oauthError) {
+			return fmt.Errorf("unexpected err type: %w", err)
+		}
+
+		if oauthError.Response.StatusCode != http.StatusUnauthorized {
+			return fmt.Errorf("unexpected status code %d", oauthError.Response.StatusCode)
+		}
+
+		var rfcError fosite.RFC6749Error
+		if err = json.Unmarshal(oauthError.Body, &rfcError); err != nil {
+			return fmt.Errorf("unmarshal RFC6749Error: %w", err)
+		}
+
+		if rfcError.ErrorField != errorContains {
+			return fmt.Errorf("unexpected ErrorField: %w", rfcError.ErrorField)
+		}
+
+	default:
+		return fmt.Errorf("unexpected err: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4CIAuth() error {
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	if err != nil {
+		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+	}
+
+	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
+		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:            "oidc4vc_client",
+		Scope:               []string{"openid", "profile"},
+		RedirectURI:         "http://127.0.0.1/callback",
+		CredentialType:      s.issuedCredentialType,
+		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:               "bdd-test",
+		Password:            "bdd-test-pass",
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CI: %w", err)
 	}
 
 	return nil
+}
+
+func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4CIRequest {
+	return initiateOIDC4CIRequest{
+		ClaimEndpoint:        claimDataURL + "?credentialType=" + s.issuedCredentialType,
+		CredentialTemplateId: s.issuedCredentialTemplateID,
+		GrantType:            "authorization_code",
+		OpState:              uuid.New().String(),
+		ResponseType:         "code",
+		Scope:                []string{"openid", "profile"},
+		UserPinRequired:      false,
+	}
 }
 
 func getOrgAuthTokenKey(org string) string {
