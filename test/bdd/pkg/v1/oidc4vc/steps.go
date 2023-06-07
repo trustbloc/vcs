@@ -98,6 +98,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Verifier form organization "([^"]*)" requests expired interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
 	sc.Step(`^Verifier form organization "([^"]*)" waits for interaction succeeded event$`, s.waitForOIDCInteractionSucceededEvent)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)" and receives "([^"]*)" error$`, s.runOIDC4VPFlowWithError)
+	sc.Step(`^Malicious attacker stealing auth code from User and using "([^"]*)" ClientID makes /token request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithError)
 
 	// Stress test.
 	sc.Step(`^number of users "([^"]*)" making "([^"]*)" concurrent requests$`, s.getUsersNum)
