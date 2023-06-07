@@ -46,6 +46,9 @@ type ClientRegistrationRequest struct {
 	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
 	GrantTypes []string `json:"grant_types"`
 
+	// Issuer state to correlate request with issuer.
+	IssuerState string `json:"issuer_state"`
+
 	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
 	RedirectUris *[]string `json:"redirect_uris,omitempty"`
 

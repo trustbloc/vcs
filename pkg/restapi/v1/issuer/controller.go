@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService,oauth2ClientManager=MockOAuth2ClientManager
 
 package issuer
 
@@ -34,11 +34,13 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -76,6 +78,10 @@ type vcStatusManager interface {
 	credentialstatus.ServiceInterface
 }
 
+type oauth2ClientManager interface {
+	CreateClient(ctx context.Context, req *clientmanager.ClientMetadata) (*oauth2client.Client, error)
+}
+
 type Config struct {
 	EventSvc               eventService
 	ProfileSvc             profileService
@@ -84,6 +90,7 @@ type Config struct {
 	IssueCredentialService issuecredential.ServiceInterface
 	OIDC4CIService         oidc4ciService
 	VcStatusManager        vcStatusManager
+	OAuth2ClientManager    oauth2ClientManager
 	ExternalHostURL        string
 	Tracer                 trace.Tracer
 }
@@ -96,6 +103,7 @@ type Controller struct {
 	issueCredentialService issuecredential.ServiceInterface
 	oidc4ciService         oidc4ciService
 	vcStatusManager        vcStatusManager
+	oauth2ClientManager    oauth2ClientManager
 	externalHostURL        string
 	tracer                 trace.Tracer
 }
@@ -109,6 +117,7 @@ func NewController(config *Config) *Controller {
 		issueCredentialService: config.IssueCredentialService,
 		oidc4ciService:         config.OIDC4CIService,
 		vcStatusManager:        config.VcStatusManager,
+		oauth2ClientManager:    config.OAuth2ClientManager,
 		externalHostURL:        config.ExternalHostURL,
 		tracer:                 config.Tracer,
 	}
@@ -762,16 +771,61 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		host += "/"
 	}
 
-	_, err := c.profileSvc.GetProfile(profileID, profileVersion) // no need currently
-	if err != nil {
-		return nil, err
-	}
-
-	return &WellKnownOpenIDConfiguration{
+	config := &WellKnownOpenIDConfiguration{
 		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
 		ResponseTypesSupported: []string{
 			"code",
 		},
 		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
-	}, nil
+	}
+
+	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	if profile.OIDCConfig != nil && profile.OIDCConfig.EnableDynamicClientRegistration {
+		config.RegistrationEndpoint = lo.ToPtr(fmt.Sprintf("%soidc/register", host))
+	}
+
+	return config, nil
+}
+
+// RegisterOauthClient registers OAuth client.
+// POST /issuer/interactions/register-oauth-client.
+func (c *Controller) RegisterOauthClient(e echo.Context) error {
+	var body RegisterOAuthClientRequest
+
+	if err := util.ReadBody(e, &body); err != nil {
+		return err
+	}
+
+	data := &clientmanager.ClientMetadata{
+		Name:                    body.Data.ClientName,
+		URI:                     body.Data.ClientUri,
+		RedirectURIs:            body.Data.RedirectUris,
+		GrantTypes:              body.Data.GrantTypes,
+		ResponseTypes:           body.Data.ResponseTypes,
+		Scope:                   body.Data.Scope,
+		TokenEndpointAuthMethod: body.Data.TokenEndpointAuthMethod,
+	}
+
+	client, err := c.oauth2ClientManager.CreateClient(e.Request().Context(), data)
+	if err != nil {
+		return fmt.Errorf("create oauth2 client: %w", err)
+	}
+
+	return util.WriteOutput(e)(RegisterOAuthClientResponse{
+		ClientId:                client.ID,
+		ClientIdIssuedAt:        nil,
+		ClientName:              nil,
+		ClientSecret:            lo.ToPtr(string(client.Secret)),
+		ClientSecretExpiresAt:   nil,
+		ClientUri:               nil,
+		GrantTypes:              lo.ToPtr(client.GrantTypes),
+		RedirectUris:            lo.ToPtr(client.RedirectURIs),
+		ResponseTypes:           lo.ToPtr(client.ResponseTypes),
+		Scope:                   lo.ToPtr(strings.Join(client.Scopes, " ")),
+		TokenEndpointAuthMethod: nil,
+	}, nil)
 }

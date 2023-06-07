@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,OAuth2ClientManager,IssuerInteractionClient,HTTPClient
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient
 
 package oidc4ci
 
@@ -32,13 +32,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -75,18 +73,12 @@ type HTTPClient interface {
 // OAuth2Provider provides functionality for OAuth2 handlers.
 type OAuth2Provider fosite.OAuth2Provider
 
-// OAuth2ClientManager defines OAuth2 client manager.
-type OAuth2ClientManager interface {
-	CreateClient(ctx context.Context, req *clientmanager.CreateClientRequest) (*oauth2client.Client, error)
-}
-
 // IssuerInteractionClient defines API client for interaction with issuer private API.
 type IssuerInteractionClient issuer.ClientInterface
 
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider          OAuth2Provider
-	OAuth2ClientManager     OAuth2ClientManager
 	StateStore              StateStore
 	HTTPClient              HTTPClient
 	IssuerInteractionClient IssuerInteractionClient
@@ -99,7 +91,6 @@ type Config struct {
 // Controller for OIDC credential issuance API.
 type Controller struct {
 	oauth2Provider          OAuth2Provider
-	oauth2ClientManager     OAuth2ClientManager
 	stateStore              StateStore
 	httpClient              HTTPClient
 	issuerInteractionClient IssuerInteractionClient
@@ -113,7 +104,6 @@ type Controller struct {
 func NewController(config *Config) *Controller {
 	return &Controller{
 		oauth2Provider:          config.OAuth2Provider,
-		oauth2ClientManager:     config.OAuth2ClientManager,
 		stateStore:              config.StateStore,
 		httpClient:              config.HTTPClient,
 		issuerInteractionClient: config.IssuerInteractionClient,
@@ -714,29 +704,45 @@ func (c *Controller) OidcRegisterDynamicClient(e echo.Context) error {
 		return fmt.Errorf("bind client registration request: %w", err)
 	}
 
-	createReq := &clientmanager.CreateClientRequest{
-		Name:                    lo.FromPtr(registrationReq.ClientName),
-		URI:                     lo.FromPtr(registrationReq.ClientUri),
-		RedirectURIs:            lo.FromPtr(registrationReq.RedirectUris),
-		GrantTypes:              registrationReq.GrantTypes,
-		ResponseTypes:           lo.FromPtr(registrationReq.ResponseTypes),
-		Scope:                   lo.FromPtr(registrationReq.Scope),
-		TokenEndpointAuthMethod: lo.FromPtr(registrationReq.TokenEndpointAuthMethod),
-	}
-
-	oauth2Client, err := c.oauth2ClientManager.CreateClient(ctx, createReq)
+	resp, err := c.issuerInteractionClient.RegisterOauthClient(ctx,
+		issuer.RegisterOAuthClientRequest{
+			Data: issuer.ClientRegistrationData{
+				ClientName:              lo.FromPtr(registrationReq.ClientName),
+				ClientUri:               lo.FromPtr(registrationReq.ClientUri),
+				GrantTypes:              registrationReq.GrantTypes,
+				RedirectUris:            lo.FromPtr(registrationReq.RedirectUris),
+				ResponseTypes:           lo.FromPtr(registrationReq.ResponseTypes),
+				Scope:                   lo.FromPtr(registrationReq.Scope),
+				TokenEndpointAuthMethod: lo.FromPtr(registrationReq.TokenEndpointAuthMethod),
+			},
+			OpState: registrationReq.IssuerState,
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("create oauth2 client: %w", err)
+		return err
 	}
 
-	return apiUtil.WriteOutput(e)(ClientRegistrationResponse{
-		ClientId:      oauth2Client.ID,
-		ClientSecret:  lo.ToPtr(string(oauth2Client.Secret)),
-		GrantTypes:    lo.ToPtr(oauth2Client.GrantTypes),
-		RedirectUris:  lo.ToPtr(oauth2Client.RedirectURIs),
-		ResponseTypes: lo.ToPtr(oauth2Client.ResponseTypes),
-		Scope:         lo.ToPtr(strings.Join(oauth2Client.Scopes, " ")),
-	}, nil)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("register oauth client: status code %d, %w",
+			resp.StatusCode,
+			parseInteractionError(resp.Body),
+		)
+	}
+
+	var registrationResp ClientRegistrationResponse
+
+	if err = json.NewDecoder(resp.Body).Decode(&registrationResp); err != nil {
+		return fmt.Errorf("decode client registration response: %w", err)
+	}
+
+	b, err := json.Marshal(registrationResp)
+	if err != nil {
+		return fmt.Errorf("marshal client registration response: %w", err)
+	}
+
+	return e.JSONBlob(http.StatusCreated, b)
 }
 
 type interactionError struct { // in fact its CustomError

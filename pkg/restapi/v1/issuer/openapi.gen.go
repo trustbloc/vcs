@@ -20,6 +20,30 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
+// Client registration metadata.
+type ClientRegistrationData struct {
+	// Human-readable string name of the client to be presented to the end-user during authorization.
+	ClientName string `json:"client_name"`
+
+	// URL string of a web page providing information about the client.
+	ClientUri string `json:"client_uri"`
+
+	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
+	GrantTypes []string `json:"grant_types"`
+
+	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+	RedirectUris []string `json:"redirect_uris"`
+
+	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
+	ResponseTypes []string `json:"response_types"`
+
+	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
+	Scope string `json:"scope"`
+
+	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+}
+
 // CredentialDisplay defines model for CredentialDisplay.
 type CredentialDisplay struct {
 	Locale *string `json:"locale,omitempty"`
@@ -213,6 +237,49 @@ type PushAuthorizationDetailsRequest struct {
 	OpState              string                            `json:"op_state"`
 }
 
+// Model for RegisterOAuthClient request.
+type RegisterOAuthClientRequest struct {
+	// Client registration metadata.
+	Data    ClientRegistrationData `json:"data"`
+	OpState string                 `json:"op_state"`
+}
+
+// Response with registered metadata for the client.
+type RegisterOAuthClientResponse struct {
+	// Client identifier.
+	ClientId string `json:"client_id"`
+
+	// Time at which the client identifier was issued.
+	ClientIdIssuedAt *string `json:"client_id_issued_at,omitempty"`
+
+	// Registered name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// Client secret. This value is used by the confidential client to authenticate to the token endpoint.
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// Time at which the client secret will expire or 0 if it will not expire.
+	ClientSecretExpiresAt *string `json:"client_secret_expires_at,omitempty"`
+
+	// Registered URL of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Registered array of OAuth 2.0 grant types that the client is allowed to use.
+	GrantTypes *[]string `json:"grant_types,omitempty"`
+
+	// Registered array of allowed redirection URI strings for the client.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Registered array of OAuth 2.0 response types that the client can use at the authorization endpoint.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// Registered space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// Registered client authentication method for the token endpoint.
+	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+}
+
 // Model for storing auth code from issuer oauth
 type StoreAuthorizationCodeRequest struct {
 	Code    string `json:"code"`
@@ -257,9 +324,17 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
-	AuthorizationEndpoint  string   `json:"authorization_endpoint"`
+	// URL of the OP's OAuth 2.0 Authorization Endpoint.
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+
+	// URL of the OP's Dynamic Client Registration Endpoint.
+	RegistrationEndpoint *string `json:"registration_endpoint,omitempty"`
+
+	// JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
 	ResponseTypesSupported []string `json:"response_types_supported"`
-	TokenEndpoint          string   `json:"token_endpoint"`
+
+	// URL of the OP's OAuth 2.0 Token Endpoint.
+	TokenEndpoint string `json:"token_endpoint"`
 }
 
 // OpenID Config response.
@@ -287,6 +362,9 @@ type PrepareCredentialJSONBody = PrepareCredential
 // PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
 type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
 
+// RegisterOauthClientJSONBody defines parameters for RegisterOauthClient.
+type RegisterOauthClientJSONBody = RegisterOAuthClientRequest
+
 // StoreAuthorizationCodeRequestJSONBody defines parameters for StoreAuthorizationCodeRequest.
 type StoreAuthorizationCodeRequestJSONBody = StoreAuthorizationCodeRequest
 
@@ -313,6 +391,9 @@ type PrepareCredentialJSONRequestBody = PrepareCredentialJSONBody
 
 // PushAuthorizationDetailsJSONRequestBody defines body for PushAuthorizationDetails for application/json ContentType.
 type PushAuthorizationDetailsJSONRequestBody = PushAuthorizationDetailsJSONBody
+
+// RegisterOauthClientJSONRequestBody defines body for RegisterOauthClient for application/json ContentType.
+type RegisterOauthClientJSONRequestBody = RegisterOauthClientJSONBody
 
 // StoreAuthorizationCodeRequestJSONRequestBody defines body for StoreAuthorizationCodeRequest for application/json ContentType.
 type StoreAuthorizationCodeRequestJSONRequestBody = StoreAuthorizationCodeRequestJSONBody
@@ -426,6 +507,11 @@ type ClientInterface interface {
 	PushAuthorizationDetailsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PushAuthorizationDetails(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterOauthClient request with any body
+	RegisterOauthClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterOauthClient(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StoreAuthorizationCodeRequest request with any body
 	StoreAuthorizationCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -576,6 +662,30 @@ func (c *Client) PushAuthorizationDetailsWithBody(ctx context.Context, contentTy
 
 func (c *Client) PushAuthorizationDetails(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPushAuthorizationDetailsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterOauthClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterOauthClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterOauthClient(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterOauthClientRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -947,6 +1057,46 @@ func NewPushAuthorizationDetailsRequestWithBody(server string, contentType strin
 	return req, nil
 }
 
+// NewRegisterOauthClientRequest calls the generic RegisterOauthClient builder with application/json body
+func NewRegisterOauthClientRequest(server string, body RegisterOauthClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterOauthClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterOauthClientRequestWithBody generates requests for RegisterOauthClient with any type of body
+func NewRegisterOauthClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/register-oauth-client")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewStoreAuthorizationCodeRequestRequest calls the generic StoreAuthorizationCodeRequest builder with application/json body
 func NewStoreAuthorizationCodeRequestRequest(server string, body StoreAuthorizationCodeRequestJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1288,6 +1438,11 @@ type ClientWithResponsesInterface interface {
 
 	PushAuthorizationDetailsWithResponse(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error)
 
+	// RegisterOauthClient request with any body
+	RegisterOauthClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error)
+
+	RegisterOauthClientWithResponse(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error)
+
 	// StoreAuthorizationCodeRequest request with any body
 	StoreAuthorizationCodeRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StoreAuthorizationCodeRequestResponse, error)
 
@@ -1440,6 +1595,28 @@ func (r PushAuthorizationDetailsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PushAuthorizationDetailsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RegisterOauthClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RegisterOAuthClientResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterOauthClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterOauthClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1670,6 +1847,23 @@ func (c *ClientWithResponses) PushAuthorizationDetailsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParsePushAuthorizationDetailsResponse(rsp)
+}
+
+// RegisterOauthClientWithBodyWithResponse request with arbitrary body returning *RegisterOauthClientResponse
+func (c *ClientWithResponses) RegisterOauthClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error) {
+	rsp, err := c.RegisterOauthClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterOauthClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterOauthClientWithResponse(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error) {
+	rsp, err := c.RegisterOauthClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterOauthClientResponse(rsp)
 }
 
 // StoreAuthorizationCodeRequestWithBodyWithResponse request with arbitrary body returning *StoreAuthorizationCodeRequestResponse
@@ -1904,6 +2098,32 @@ func ParsePushAuthorizationDetailsResponse(rsp *http.Response) (*PushAuthorizati
 	return response, nil
 }
 
+// ParseRegisterOauthClientResponse parses an HTTP response from a RegisterOauthClientWithResponse call
+func ParseRegisterOauthClientResponse(rsp *http.Response) (*RegisterOauthClientResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterOauthClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegisterOAuthClientResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStoreAuthorizationCodeRequestResponse parses an HTTP response from a StoreAuthorizationCodeRequestWithResponse call
 func ParseStoreAuthorizationCodeRequestResponse(rsp *http.Response) (*StoreAuthorizationCodeRequestResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2080,6 +2300,9 @@ type ServerInterface interface {
 	// Push Authorization Details
 	// (POST /issuer/interactions/push-authorization-request)
 	PushAuthorizationDetails(ctx echo.Context) error
+	// Register OAuth Client
+	// (POST /issuer/interactions/register-oauth-client)
+	RegisterOauthClient(ctx echo.Context) error
 	// Stores authorization code from issuer oauth provider
 	// (POST /issuer/interactions/store-authorization-code)
 	StoreAuthorizationCodeRequest(ctx echo.Context) error
@@ -2171,6 +2394,15 @@ func (w *ServerInterfaceWrapper) PushAuthorizationDetails(ctx echo.Context) erro
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PushAuthorizationDetails(ctx)
+	return err
+}
+
+// RegisterOauthClient converts echo context to params.
+func (w *ServerInterfaceWrapper) RegisterOauthClient(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.RegisterOauthClient(ctx)
 	return err
 }
 
@@ -2322,6 +2554,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareAuthorizationRequest)
 	router.POST(baseURL+"/issuer/interactions/prepare-credential", wrapper.PrepareCredential)
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
+	router.POST(baseURL+"/issuer/interactions/register-oauth-client", wrapper.RegisterOauthClient)
 	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)

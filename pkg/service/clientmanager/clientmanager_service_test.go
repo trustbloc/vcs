@@ -25,7 +25,7 @@ func TestService_CreateClient(t *testing.T) {
 
 		svc := clientmanager.NewService(mockStore)
 
-		oauth2Client, err := svc.CreateClient(context.Background(), &clientmanager.CreateClientRequest{})
+		oauth2Client, err := svc.CreateClient(context.Background(), &clientmanager.ClientMetadata{})
 		require.NoError(t, err)
 		require.NotNil(t, oauth2Client)
 	})
@@ -36,7 +36,7 @@ func TestService_CreateClient(t *testing.T) {
 
 		svc := clientmanager.NewService(mockStore)
 
-		oauth2Client, err := svc.CreateClient(context.Background(), &clientmanager.CreateClientRequest{})
+		oauth2Client, err := svc.CreateClient(context.Background(), &clientmanager.ClientMetadata{})
 		require.ErrorContains(t, err, "insert client")
 		require.Nil(t, oauth2Client)
 	})
