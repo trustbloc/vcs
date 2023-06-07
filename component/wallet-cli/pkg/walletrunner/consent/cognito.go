@@ -80,7 +80,9 @@ func (c *Cognito) Execute() error {
 		return postErr
 	}
 
-	if postResp.StatusCode != http.StatusFound {
+	if postResp.StatusCode != http.StatusFound &&
+		postResp.StatusCode != http.StatusSeeOther &&
+		postResp.StatusCode != http.StatusMovedPermanently {
 		var body []byte
 		if postResp.Body != nil {
 			body, _ = io.ReadAll(postResp.Body)
