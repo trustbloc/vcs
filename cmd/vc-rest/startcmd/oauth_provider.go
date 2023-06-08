@@ -26,7 +26,7 @@ import (
 )
 
 type oauth2ClientStore interface {
-	InsertClient(ctx context.Context, client oauth2client.Client) (string, error)
+	InsertClient(ctx context.Context, client *oauth2client.Client) (string, error)
 }
 
 func bootstrapOAuthProvider(
@@ -91,7 +91,7 @@ func bootstrapOAuthStorage(
 
 	if inserter, ok := store.(oauth2ClientStore); ok {
 		for _, c := range oauth2Clients {
-			if _, err = inserter.InsertClient(ctx, c); err != nil {
+			if _, err = inserter.InsertClient(ctx, &c); err != nil {
 				if mongo.IsDuplicateKeyError(err) {
 					continue
 				}

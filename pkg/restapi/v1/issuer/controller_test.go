@@ -749,7 +749,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		ID:             profileID,
 		Version:        profileVersion,
 		Active:         true,
-		OIDCConfig:     &profileapi.OIDC4CIConfig{},
+		OIDCConfig:     &profileapi.OIDCConfig{},
 		CredentialTemplates: []*profileapi.CredentialTemplate{
 			{
 				ID: "templateID",
@@ -1033,7 +1033,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 
 		mockProfileService := NewMockProfileService(gomock.NewController(t))
 		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
-			OIDCConfig: &profileapi.OIDC4CIConfig{},
+			OIDCConfig: &profileapi.OIDCConfig{},
 		}, nil)
 
 		c := &Controller{
@@ -1610,7 +1610,7 @@ func TestOpenIdConfiguration_EnableDynamicClientRegistration(t *testing.T) {
 	svc.EXPECT().GetProfile(profileID, profileVersion).Return(
 		&profileapi.Issuer{
 			Name: "test issuer",
-			OIDCConfig: &profileapi.OIDC4CIConfig{
+			OIDCConfig: &profileapi.OIDCConfig{
 				EnableDynamicClientRegistration: true,
 			},
 		}, nil)
@@ -1629,7 +1629,7 @@ func TestOpenIdConfiguration_EnableDynamicClientRegistration(t *testing.T) {
 func TestController_RegisterOauthClient(t *testing.T) {
 	body, err := json.Marshal(
 		&RegisterOAuthClientRequest{
-			Data: ClientRegistrationData{
+			Data: OAuthClientRegistrationData{
 				ClientName:   "test",
 				ClientUri:    "https://test.com",
 				GrantTypes:   []string{"authorization_code"},
@@ -1641,14 +1641,14 @@ func TestController_RegisterOauthClient(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
-		mockOAuth2ClientManager := NewMockOAuth2ClientManager(gomock.NewController(t))
-		mockOAuth2ClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(
+		mockClientManager := NewMockClientManager(gomock.NewController(t))
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			&oauth2client.Client{
 				ID: "1234",
 			}, nil)
 
 		c := &Controller{
-			oauth2ClientManager: mockOAuth2ClientManager,
+			clientManager: mockClientManager,
 		}
 
 		ctx := echoContext(withRequestBody(body))
@@ -1656,12 +1656,12 @@ func TestController_RegisterOauthClient(t *testing.T) {
 	})
 
 	t.Run("create client error", func(t *testing.T) {
-		mockOAuth2ClientManager := NewMockOAuth2ClientManager(gomock.NewController(t))
-		mockOAuth2ClientManager.EXPECT().CreateClient(gomock.Any(), gomock.Any()).Return(nil,
+		mockClientManager := NewMockClientManager(gomock.NewController(t))
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
 			fmt.Errorf("create client error"))
 
 		c := &Controller{
-			oauth2ClientManager: mockOAuth2ClientManager,
+			clientManager: mockClientManager,
 		}
 
 		ctx := echoContext(withRequestBody(body))

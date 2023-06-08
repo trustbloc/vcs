@@ -32,7 +32,7 @@ func TestStoreFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	_, err = s.InsertClient(ctx, oauth2client.Client{
+	_, err = s.InsertClient(ctx, &oauth2client.Client{
 		ID:     uuid.New(),
 		Scopes: []string{"awesome"},
 	})

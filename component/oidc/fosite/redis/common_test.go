@@ -118,7 +118,7 @@ func TestCreateExpiredSession(t *testing.T) {
 		ID: uuid.New(),
 	}
 
-	_, err = s.InsertClient(context.Background(), *dbClient)
+	_, err = s.InsertClient(context.Background(), dbClient)
 	assert.NoError(t, err)
 
 	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{

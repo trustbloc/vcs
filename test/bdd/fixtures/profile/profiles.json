@@ -150,12 +150,21 @@
         "oidcConfig": {
           "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
           "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
-          "scope": [
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
             "openid",
             "profile"
           ],
-          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
-          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration"
+          "grant_types_supported": [
+            "authorization_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "client_secret_basic"
+          ]
         },
         "credentialTemplates": [
           {
@@ -485,12 +494,21 @@
         "oidcConfig": {
           "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
           "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
-          "scope": [
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
             "openid",
             "profile"
           ],
-          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
-          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration"
+          "grant_types_supported": [
+            "authorization_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "client_secret_basic"
+          ]
         },
         "credentialTemplates": [
           {
@@ -652,11 +670,20 @@
         "oidcConfig": {
           "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
           "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
-          "scope": [
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
             "openid",
             "profile"
           ],
-          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration"
+          "grant_types_supported": [
+            "authorization_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "client_secret_basic"
+          ]
         },
         "credentialTemplates": [
           {

@@ -535,7 +535,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &profileapi.Issuer{
 					Active:     false,
-					OIDCConfig: &profileapi.OIDC4CIConfig{},
+					OIDCConfig: &profileapi.OIDCConfig{},
 					VCConfig:   &profileapi.VCConfig{},
 				}
 			},
@@ -576,7 +576,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &profileapi.Issuer{
 					Active:     true,
-					OIDCConfig: &profileapi.OIDC4CIConfig{},
+					OIDCConfig: &profileapi.OIDCConfig{},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -598,7 +598,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &profileapi.Issuer{
 					Active:     true,
-					OIDCConfig: &profileapi.OIDC4CIConfig{},
+					OIDCConfig: &profileapi.OIDCConfig{},
 					VCConfig:   &profileapi.VCConfig{},
 				}
 			},

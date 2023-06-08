@@ -1,10 +1,10 @@
 [
   {
-    "id": "oidc4vc_client",
+    "client_id": "oidc4vc_client",
     "redirect_uris": ["http://127.0.0.1/callback"],
     "grant_types": ["authorization_code"],
-    "response_types": ["code","token"],
+    "response_types": ["code"],
     "scopes": ["openid","profile"],
-    "public": true
+    "token_endpoint_auth_method": "none"
   }
 ]

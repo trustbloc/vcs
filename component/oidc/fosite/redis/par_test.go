@@ -48,7 +48,7 @@ func TestPar(t *testing.T) {
 				Scopes: []string{"awesome"},
 			}
 
-			_, err := s.InsertClient(context.Background(), *oauth2Client)
+			_, err := s.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()

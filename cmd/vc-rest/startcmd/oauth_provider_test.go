@@ -30,7 +30,6 @@ func TestBoostrapOidc(t *testing.T) {
 		GrantTypes:    []string{"authorization_code"},
 		ResponseTypes: []string{"code"},
 		Scopes:        []string{"openid", "profile", "email", "offline_access"},
-		Public:        true,
 	}
 
 	t.Run("mongo", func(t *testing.T) {

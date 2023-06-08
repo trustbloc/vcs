@@ -740,14 +740,22 @@ func (c *Controller) OidcRegisterDynamicClient(e echo.Context) error {
 
 	resp, err := c.issuerInteractionClient.RegisterOauthClient(ctx,
 		issuer.RegisterOAuthClientRequest{
-			Data: issuer.ClientRegistrationData{
+			Data: issuer.OAuthClientRegistrationData{
 				ClientName:              lo.FromPtr(registrationReq.ClientName),
 				ClientUri:               lo.FromPtr(registrationReq.ClientUri),
+				Contacts:                lo.FromPtr(registrationReq.Contacts),
 				GrantTypes:              registrationReq.GrantTypes,
+				Jwks:                    lo.FromPtr(registrationReq.Jwks),
+				JwksUri:                 lo.FromPtr(registrationReq.JwksUri),
+				LogoUri:                 lo.FromPtr(registrationReq.LogoUri),
+				PolicyUri:               lo.FromPtr(registrationReq.PolicyUri),
 				RedirectUris:            lo.FromPtr(registrationReq.RedirectUris),
 				ResponseTypes:           lo.FromPtr(registrationReq.ResponseTypes),
 				Scope:                   lo.FromPtr(registrationReq.Scope),
+				SoftwareId:              lo.FromPtr(registrationReq.SoftwareId),
+				SoftwareVersion:         lo.FromPtr(registrationReq.SoftwareVersion),
 				TokenEndpointAuthMethod: lo.FromPtr(registrationReq.TokenEndpointAuthMethod),
+				TosUri:                  lo.FromPtr(registrationReq.TosUri),
 			},
 			OpState: registrationReq.IssuerState,
 		},

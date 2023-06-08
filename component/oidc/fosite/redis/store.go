@@ -14,10 +14,10 @@ import (
 )
 
 // InsertClient is not required by original interfaces, can be used for testing or data seeding.
-func (s *Store) InsertClient(ctx context.Context, client oauth2client.Client) (string, error) {
+func (s *Store) InsertClient(ctx context.Context, client *oauth2client.Client) (string, error) {
 	key := resolveRedisKey(dto.ClientsSegment, client.ID)
 
-	obj := &genericDocument[oauth2client.Client]{
+	obj := &genericDocument[*oauth2client.Client]{
 		Record: client,
 	}
 

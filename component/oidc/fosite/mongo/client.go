@@ -60,10 +60,10 @@ func (s *Store) SetClientAssertionJWT(ctx context.Context, jti string, exp time.
 	return err
 }
 
-func (s *Store) InsertClient(ctx context.Context, client oauth2client.Client) (string, error) {
+func (s *Store) InsertClient(ctx context.Context, client *oauth2client.Client) (string, error) {
 	collection := s.mongoClient.Database().Collection(dto.ClientsSegment)
 
-	obj := &genericDocument[oauth2client.Client]{
+	obj := &genericDocument[*oauth2client.Client]{
 		ID:       primitive.ObjectID{},
 		LookupID: client.ID,
 		Record:   client,

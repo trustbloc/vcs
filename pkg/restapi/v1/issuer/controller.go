@@ -5,20 +5,23 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService,oauth2ClientManager=MockOAuth2ClientManager
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService,clientManager=MockClientManager
 
 package issuer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
@@ -34,7 +37,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
-	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -78,8 +80,8 @@ type vcStatusManager interface {
 	credentialstatus.ServiceInterface
 }
 
-type oauth2ClientManager interface {
-	CreateClient(ctx context.Context, req *clientmanager.ClientMetadata) (*oauth2client.Client, error)
+type clientManager interface {
+	clientmanager.ServiceInterface
 }
 
 type Config struct {
@@ -90,7 +92,7 @@ type Config struct {
 	IssueCredentialService issuecredential.ServiceInterface
 	OIDC4CIService         oidc4ciService
 	VcStatusManager        vcStatusManager
-	OAuth2ClientManager    oauth2ClientManager
+	ClientManager          clientManager
 	ExternalHostURL        string
 	Tracer                 trace.Tracer
 }
@@ -103,7 +105,7 @@ type Controller struct {
 	issueCredentialService issuecredential.ServiceInterface
 	oidc4ciService         oidc4ciService
 	vcStatusManager        vcStatusManager
-	oauth2ClientManager    oauth2ClientManager
+	clientManager          clientManager
 	externalHostURL        string
 	tracer                 trace.Tracer
 }
@@ -117,7 +119,7 @@ func NewController(config *Config) *Controller {
 		issueCredentialService: config.IssueCredentialService,
 		oidc4ciService:         config.OIDC4CIService,
 		vcStatusManager:        config.VcStatusManager,
-		oauth2ClientManager:    config.OAuth2ClientManager,
+		clientManager:          config.ClientManager,
 		externalHostURL:        config.ExternalHostURL,
 		tracer:                 config.Tracer,
 	}
@@ -797,7 +799,7 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 }
 
 // RegisterOauthClient registers OAuth client.
-// POST /issuer/interactions/register-oauth-client.
+// POST /issuer/oauth2/register.
 func (c *Controller) RegisterOauthClient(e echo.Context) error {
 	var body RegisterOAuthClientRequest
 
@@ -812,25 +814,67 @@ func (c *Controller) RegisterOauthClient(e echo.Context) error {
 		GrantTypes:              body.Data.GrantTypes,
 		ResponseTypes:           body.Data.ResponseTypes,
 		Scope:                   body.Data.Scope,
+		LogoURI:                 body.Data.LogoUri,
+		Contacts:                body.Data.Contacts,
+		TermsOfServiceURI:       body.Data.TosUri,
+		PolicyURI:               body.Data.PolicyUri,
+		JSONWebKeysURI:          body.Data.JwksUri,
+		JSONWebKeys:             body.Data.Jwks,
+		SoftwareID:              body.Data.SoftwareId,
+		SoftwareVersion:         body.Data.SoftwareVersion,
 		TokenEndpointAuthMethod: body.Data.TokenEndpointAuthMethod,
 	}
 
-	client, err := c.oauth2ClientManager.CreateClient(e.Request().Context(), data)
+	// TODO: Resolve using body.OpState parameter
+	var profileID, profileVersion string
+
+	client, err := c.clientManager.Create(e.Request().Context(), profileID, profileVersion, data)
 	if err != nil {
+		// TODO: Handle different types of errors
 		return fmt.Errorf("create oauth2 client: %w", err)
 	}
 
+	jwks, err := jwksToMap(client.JSONWebKeys)
+	if err != nil {
+		return fmt.Errorf("convert jwks to map: %w", err)
+	}
+
 	return util.WriteOutput(e)(RegisterOAuthClientResponse{
-		ClientId:                client.ID,
-		ClientIdIssuedAt:        nil,
-		ClientName:              nil,
-		ClientSecret:            lo.ToPtr(string(client.Secret)),
-		ClientSecretExpiresAt:   nil,
-		ClientUri:               nil,
-		GrantTypes:              lo.ToPtr(client.GrantTypes),
-		RedirectUris:            lo.ToPtr(client.RedirectURIs),
-		ResponseTypes:           lo.ToPtr(client.ResponseTypes),
-		Scope:                   lo.ToPtr(strings.Join(client.Scopes, " ")),
-		TokenEndpointAuthMethod: nil,
+		ClientId:              client.ID,
+		ClientIdIssuedAt:      strconv.FormatInt(client.CreatedAt.Unix(), 10),
+		ClientSecret:          string(client.Secret),
+		ClientSecretExpiresAt: strconv.FormatInt(client.SecretExpiresAt.Unix(), 10),
+		Data: OAuthClientRegistrationData{
+			ClientName:              client.Name,
+			ClientUri:               client.URI,
+			Contacts:                client.Contacts,
+			GrantTypes:              client.GrantTypes,
+			Jwks:                    jwks,
+			JwksUri:                 client.JSONWebKeysURI,
+			LogoUri:                 client.LogoURI,
+			PolicyUri:               client.PolicyURI,
+			RedirectUris:            client.RedirectURIs,
+			ResponseTypes:           client.ResponseTypes,
+			Scope:                   strings.Join(client.Scopes, " "),
+			SoftwareId:              client.SoftwareID,
+			SoftwareVersion:         client.SoftwareVersion,
+			TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
+			TosUri:                  client.TermsOfServiceURI,
+		},
 	}, nil)
+}
+
+func jwksToMap(jwks *jose.JSONWebKeySet) (map[string]interface{}, error) {
+	b, err := json.Marshal(jwks)
+	if err != nil {
+		return nil, err
+	}
+
+	var m map[string]interface{}
+
+	if err = json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
