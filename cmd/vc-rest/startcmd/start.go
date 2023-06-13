@@ -1177,7 +1177,7 @@ func NewMetrics(parameters *startupParameters, e *echo.Echo, options startOpts) 
 		cfg.Version = options.version
 		e.Use(echoprometheus.MetricsMiddlewareWithConfig(cfg))
 
-		return promMetricsProvider.GetMetrics(), nil
+		return promMetricsProvider.GetMetrics(cfg.Version, cfg.Domain, cfg.Scope), nil
 	default:
 		return noopMetricsProvider.GetMetrics(), nil
 	}

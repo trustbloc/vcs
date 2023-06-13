@@ -66,7 +66,11 @@ type Provider interface {
 	// Destroy destroys the metrics provider instance
 	Destroy() error
 	// Metrics providers metrics
-	Metrics() Metrics
+	Metrics(
+		version string,
+		domain string,
+		scope string,
+	) Metrics
 }
 
 // Metrics is an interface for the metrics to be supported by the provider.

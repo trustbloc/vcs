@@ -27,6 +27,9 @@ const (
 	clientIDLabel = "clientID"
 	codeLabel     = "code"
 	methodLabel   = "method"
+	versionLabel  = "version"
+	scopeLabel    = "scope"
+	domainLabel   = "domain"
 )
 
 var (
@@ -63,8 +66,12 @@ func (pp *promProvider) Create() error {
 }
 
 // Metrics returns supported metrics.
-func (pp *promProvider) Metrics() metrics.Metrics {
-	return GetMetrics()
+func (pp *promProvider) Metrics(
+	version string,
+	domain string,
+	scope string,
+) metrics.Metrics {
+	return GetMetrics(version, domain, scope)
 }
 
 // Destroy destroys the prometheus metrics provider.
@@ -77,9 +84,13 @@ func (pp *promProvider) Destroy() error {
 }
 
 // GetMetrics returns metrics implementation.
-func GetMetrics() metrics.Metrics {
+func GetMetrics(
+	version string,
+	domain string,
+	scope string,
+) metrics.Metrics {
 	createOnce.Do(func() {
-		instance = NewMetrics()
+		instance = NewMetrics(version, domain, scope)
 	})
 
 	return instance
@@ -97,7 +108,11 @@ type PromMetrics struct {
 }
 
 // NewMetrics creates instance of prometheus metrics.
-func NewMetrics() metrics.Metrics {
+func NewMetrics(
+	version string,
+	domain string,
+	scope string,
+) metrics.Metrics {
 	httpClients := []metrics.ClientID{
 		metrics.ClientPreAuth, metrics.ClientCredentialStatus,
 		metrics.ClientIssuerProfile, metrics.ClientVerifierProfile,
@@ -107,13 +122,13 @@ func NewMetrics() metrics.Metrics {
 	}
 
 	pm := &PromMetrics{
-		httpInFlight:        newHTTPClientInFlightRequests(httpClients),
-		httpTotalRequests:   newHTTPClientTotalRequests(httpClients),
-		httpRequestDuration: newHTTPClientRequestTime(httpClients),
+		httpInFlight:        newHTTPClientInFlightRequests(httpClients, version, domain, scope),
+		httpTotalRequests:   newHTTPClientTotalRequests(httpClients, version, domain, scope),
+		httpRequestDuration: newHTTPClientRequestTime(httpClients, version, domain, scope),
 
-		signTime:          newSignTime(),
-		checkAuthRespTime: newCheckAuthRespTime(),
-		verifyOIDCVPTime:  newVerifyOIDCVPTime(),
+		signTime:          newSignTime(version, domain, scope),
+		checkAuthRespTime: newCheckAuthRespTime(version, domain, scope),
+		verifyOIDCVPTime:  newVerifyOIDCVPTime(version, domain, scope),
 	}
 
 	pm.register()
@@ -228,61 +243,115 @@ func newHistogramVec(subsystem, name, help string, labels prometheus.Labels,
 	}, varLabels)
 }
 
-func newSignTime() prometheus.Histogram {
+func newSignTime(
+	version string,
+	domain string,
+	scope string,
+) prometheus.Histogram {
 	return newHistogram(
 		metrics.Crypto, metrics.CryptoSignTimeMetric,
 		"The time (in seconds) it takes to run crypto sign.",
-		nil,
+		prometheus.Labels{
+			versionLabel: version,
+			domainLabel:  domain,
+			scopeLabel:   scope,
+		},
 	)
 }
 
-func newCheckAuthRespTime() prometheus.Histogram {
+func newCheckAuthRespTime(
+	version string,
+	domain string,
+	scope string,
+) prometheus.Histogram {
 	return newHistogram(
 		metrics.Controller, metrics.ControllerCheckAuthRespMetric,
 		"The time (in seconds) it takes to execute checkAuthorizationResponse controller endpoint call.",
-		nil,
+		prometheus.Labels{
+			versionLabel: version,
+			domainLabel:  domain,
+			scopeLabel:   scope,
+		},
 	)
 }
 
-func newVerifyOIDCVPTime() prometheus.Histogram {
+func newVerifyOIDCVPTime(
+	version string,
+	domain string,
+	scope string,
+) prometheus.Histogram {
 	return newHistogram(
 		metrics.Service, metrics.VerifyOIDCVP,
 		"The time (in seconds) it takes to execute VerifyOIDCVerifiablePresentation service call.",
-		nil,
+		prometheus.Labels{
+			versionLabel: version,
+			domainLabel:  domain,
+			scopeLabel:   scope,
+		},
 	)
 }
 
-func newHTTPClientInFlightRequests(clients []metrics.ClientID) map[metrics.ClientID]prometheus.Gauge {
+func newHTTPClientInFlightRequests(
+	clients []metrics.ClientID,
+	version string,
+	domain string,
+	scope string,
+) map[metrics.ClientID]prometheus.Gauge {
 	m := make(map[metrics.ClientID]prometheus.Gauge)
 
 	for _, id := range clients {
 		m[id] = newGauge(metrics.HTTPClient, metrics.HTTPClientInFlightRequests,
 			"The number of in-flight requests for the HTTP client.",
-			prometheus.Labels{clientIDLabel: string(id)})
+			prometheus.Labels{
+				clientIDLabel: string(id),
+				versionLabel:  version,
+				domainLabel:   domain,
+				scopeLabel:    scope,
+			})
 	}
 
 	return m
 }
 
-func newHTTPClientTotalRequests(clients []metrics.ClientID) map[metrics.ClientID]*prometheus.CounterVec {
+func newHTTPClientTotalRequests(
+	clients []metrics.ClientID,
+	version string,
+	domain string,
+	scope string,
+) map[metrics.ClientID]*prometheus.CounterVec {
 	m := make(map[metrics.ClientID]*prometheus.CounterVec)
 
 	for _, id := range clients {
 		m[id] = newCounterVec(metrics.HTTPClient, metrics.HTTPClientTotalRequests,
 			"The total number of requests for the HTTP client.",
-			prometheus.Labels{clientIDLabel: string(id)}, codeLabel, methodLabel)
+			prometheus.Labels{
+				clientIDLabel: string(id),
+				versionLabel:  version,
+				domainLabel:   domain,
+				scopeLabel:    scope,
+			}, codeLabel, methodLabel)
 	}
 
 	return m
 }
 
-func newHTTPClientRequestTime(clients []metrics.ClientID) map[metrics.ClientID]prometheus.ObserverVec {
+func newHTTPClientRequestTime(
+	clients []metrics.ClientID,
+	version string,
+	domain string,
+	scope string,
+) map[metrics.ClientID]prometheus.ObserverVec {
 	m := make(map[metrics.ClientID]prometheus.ObserverVec)
 
 	for _, id := range clients {
 		m[id] = newHistogramVec(metrics.HTTPClient, metrics.HTTPClientRequestDuration,
 			"The duration (in seconds) of an HTTP request.",
-			prometheus.Labels{clientIDLabel: string(id)}, methodLabel,
+			prometheus.Labels{
+				clientIDLabel: string(id),
+				versionLabel:  version,
+				domainLabel:   domain,
+				scopeLabel:    scope,
+			}, methodLabel,
 		)
 	}
 
