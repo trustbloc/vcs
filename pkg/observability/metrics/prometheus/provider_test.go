@@ -25,7 +25,7 @@ func TestPromProvider(t *testing.T) {
 	err := provider.Create()
 	require.NoError(t, err)
 
-	m := provider.Metrics()
+	m := provider.Metrics("1.0.0.0", "domain", "scope")
 	require.NotNil(t, m)
 
 	err = provider.Destroy()
@@ -33,9 +33,9 @@ func TestPromProvider(t *testing.T) {
 }
 
 func TestMetrics(t *testing.T) {
-	m := GetMetrics()
+	m := GetMetrics("1.0.0.0", "domain", "scope")
 	require.NotNil(t, m)
-	require.True(t, m == GetMetrics())
+	require.True(t, m == GetMetrics("1.0.0.0", "domain", "scope"))
 
 	t.Run("VCS Activity", func(t *testing.T) {
 		require.NotPanics(t, func() { m.SignTime(time.Second) })
@@ -61,7 +61,7 @@ func TestNewHistogram(t *testing.T) {
 }
 
 func TestMetrics_InstrumentHTTPTransport(t *testing.T) {
-	m := GetMetrics()
+	m := GetMetrics("1.0.0.0", "domain", "scope")
 	require.NotNil(t, m)
 
 	t1 := http.DefaultTransport

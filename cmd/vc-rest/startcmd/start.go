@@ -27,7 +27,6 @@ import (
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
-	echoPrometheus "github.com/globocom/echo-prometheus"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
@@ -45,6 +44,7 @@ import (
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
+	echoprometheus "github.com/trustbloc/vcs/component/echo"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/healthchecks"
 	"github.com/trustbloc/vcs/component/oidc/vp"
@@ -406,7 +406,7 @@ func buildEchoHandler(
 
 	e.HTTPErrorHandler = resterr.HTTPErrorHandler(conf.Tracer)
 
-	metrics, err := NewMetrics(conf.StartupParameters, e)
+	metrics, err := NewMetrics(conf.StartupParameters, e, options)
 	if err != nil {
 		return nil, err
 	}
@@ -1166,15 +1166,18 @@ func newHTTPClient(tlsConfig *tls.Config, params *startupParameters,
 	}
 }
 
-func NewMetrics(parameters *startupParameters, e *echo.Echo) (metricsProvider.Metrics, error) {
+func NewMetrics(parameters *startupParameters, e *echo.Echo, options startOpts) (metricsProvider.Metrics, error) {
 	switch parameters.metricsProviderName {
 	case "prometheus":
-		cfg := echoPrometheus.DefaultConfig
+		cfg := echoprometheus.DefaultConfig
 		cfg.Namespace = metricsProvider.Namespace
 		cfg.Subsystem = metricsProvider.HTTPServer
+		cfg.Scope = metricsProvider.HTTPServer
+		cfg.Domain = "vcs"
+		cfg.Version = options.version
+		e.Use(echoprometheus.MetricsMiddlewareWithConfig(cfg))
 
-		e.Use(echoPrometheus.MetricsMiddlewareWithConfig(cfg))
-		return promMetricsProvider.GetMetrics(), nil
+		return promMetricsProvider.GetMetrics(cfg.Version, cfg.Domain, cfg.Scope), nil
 	default:
 		return noopMetricsProvider.GetMetrics(), nil
 	}
