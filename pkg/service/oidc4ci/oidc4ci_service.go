@@ -464,5 +464,5 @@ func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, event
 
 func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, err error) {
 	e := s.sendEventWithError(ctx, tx, spi.IssuerOIDCInteractionFailed, err)
-	logger.Debug("sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
+	logger.Debugc(ctx, "sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
 }

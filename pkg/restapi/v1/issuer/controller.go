@@ -178,7 +178,7 @@ func (c *Controller) issueCredential(
 		finalCredentials = c.buildCredentialsFromTemplate(credentialTemplate, profile, body)
 	}
 
-	credentialParsed, err := c.parseCredential(finalCredentials, enforceStrictValidation, profile.VCConfig.Format)
+	credentialParsed, err := c.parseCredential(ctx, finalCredentials, enforceStrictValidation, profile.VCConfig.Format)
 	if err != nil {
 		return nil, err
 	}
@@ -260,10 +260,15 @@ func (c *Controller) buildCredentialsFromTemplate(
 	return vcc
 }
 
-func (c *Controller) parseCredential(cred interface{},
-	enforceStrictValidation bool, issuerProfileVCFormat vcsverifiable.Format) (*verifiable.Credential, error) {
+func (c *Controller) parseCredential(
+	ctx context.Context,
+	cred interface{},
+	enforceStrictValidation bool,
+	issuerProfileVCFormat vcsverifiable.Format,
+) (*verifiable.Credential, error) {
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 	credential, err := vc.ValidateCredential(
+		ctx,
 		cred,
 		[]vcsverifiable.Format{issuerProfileVCFormat},
 		false,

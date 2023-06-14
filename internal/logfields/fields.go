@@ -21,6 +21,7 @@ const (
 	FieldDockerComposeCmd    = "dockerComposeCmd"
 	FieldEvent               = "event"
 	FieldIDToken             = "idToken"
+	FieldTransactionID       = "transactionId"
 	FieldJSONQuery           = "JSONQuery"
 	FieldJSONResolution      = "JSONResolution"
 	FieldPresDefID           = "presDefID"
@@ -65,6 +66,11 @@ func WithEvent(event interface{}) zap.Field {
 // WithIDToken sets the id token field.
 func WithIDToken(idToken string) zap.Field {
 	return zap.String(FieldIDToken, idToken)
+}
+
+// WithTransactionID sets the id token field.
+func WithTransactionID(transactionID string) zap.Field {
+	return zap.String(FieldTransactionID, transactionID)
 }
 
 // WithJSONQuery sets the JSON Query field.

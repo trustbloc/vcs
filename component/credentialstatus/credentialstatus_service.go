@@ -129,7 +129,7 @@ func New(config *Config) (*Service, error) {
 // UpdateVCStatus fetches credential based on UpdateVCStatusParams.CredentialID
 // and updates associated credentialstatus.CSL to UpdateVCStatusParams.DesiredStatus.
 func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.UpdateVCStatusParams) error {
-	logger.Debug("UpdateVCStatus begin",
+	logger.Debugc(ctx, "UpdateVCStatus begin",
 		logfields.WithProfileID(params.ProfileID),
 		logfields.WithProfileVersion(params.ProfileVersion),
 		logfields.WithCredentialID(params.CredentialID))
@@ -160,7 +160,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		return fmt.Errorf("updateVCStatus failed: %w", err)
 	}
 
-	logger.Debug("UpdateVCStatus success")
+	logger.Debugc(ctx, "UpdateVCStatus success")
 
 	return nil
 }
@@ -171,7 +171,7 @@ func (s *Service) CreateStatusListEntry(
 	profileID profileapi.ID,
 	profileVersion profileapi.Version,
 	credentialID string) (*credentialstatus.StatusListEntry, error) {
-	logger.Debug("CreateStatusListEntry begin",
+	logger.Debugc(ctx, "CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
 		logfields.WithProfileVersion(profileVersion),
 		logfields.WithCredentialID(credentialID))
@@ -193,7 +193,7 @@ func (s *Service) CreateStatusListEntry(
 // Used for handling public HTTP requests.
 func (s *Service) GetStatusListVC(
 	ctx context.Context, groupID profileapi.ID, listID string) (*credentialstatus.CSL, error) {
-	logger.Debug("GetStatusListVC begin", logfields.WithProfileID(groupID), log.WithID(listID))
+	logger.Debugc(ctx, "GetStatusListVC begin", logfields.WithProfileID(groupID), log.WithID(listID))
 
 	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *Service) GetStatusListVC(
 		return nil, fmt.Errorf("get CSL wrapper: %w", err)
 	}
 
-	logger.Debug("GetStatusListVC success")
+	logger.Debugc(ctx, "GetStatusListVC success")
 
 	return cslWrapper.VC, nil
 }
@@ -214,15 +214,15 @@ func (s *Service) GetStatusListVC(
 // Used for credential verification.
 // statusListVCURI might be either HTTP URL or DID URL.
 func (s *Service) Resolve(ctx context.Context, statusListVCURI string) (*credentialstatus.CSL, error) {
-	logger.Debug("ResolveStatusListVCURI begin", log.WithURL(statusListVCURI))
+	logger.Debugc(ctx, "ResolveStatusListVCURI begin", log.WithURL(statusListVCURI))
 	var vcBytes []byte
 	var err error
 	switch {
 	case strings.HasPrefix(statusListVCURI, "did:"):
-		logger.Debug("statusListVCURI is DID document", log.WithURL(statusListVCURI))
+		logger.Debugc(ctx, "statusListVCURI is DID document", log.WithURL(statusListVCURI))
 		vcBytes, err = s.resolveDIDRelativeURL(ctx, statusListVCURI)
 	default:
-		logger.Debug("statusListVCURI is URL", log.WithURL(statusListVCURI))
+		logger.Debugc(ctx, "statusListVCURI is URL", log.WithURL(statusListVCURI))
 		vcBytes, err = s.resolveHTTPUrl(ctx, statusListVCURI)
 	}
 
@@ -235,7 +235,7 @@ func (s *Service) Resolve(ctx context.Context, statusListVCURI string) (*credent
 		return nil, fmt.Errorf("parse and verify status vc: %w", err)
 	}
 
-	logger.Debug("ResolveStatusListVCURI successful", log.WithURL(statusListVCURI))
+	logger.Debugc(ctx, "ResolveStatusListVCURI successful", log.WithURL(statusListVCURI))
 
 	return csl, nil
 }

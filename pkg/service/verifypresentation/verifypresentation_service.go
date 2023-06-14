@@ -67,7 +67,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 ) ([]PresentationVerificationCheckResult, error) {
 	startTime := time.Now().UTC()
 	defer func() {
-		logger.Debug("VerifyPresentation", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(ctx, "VerifyPresentation", log.WithDuration(time.Since(startTime)))
 	}()
 
 	s.claimKeys = map[string][]string{}
@@ -99,11 +99,11 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 			})
 		}
 
-		logger.Debug(fmt.Sprintf("Checks.Presentation.Proof took %v", time.Since(st)))
+		logger.Debugc(ctx, "Checks.Presentation.Proof", log.WithDuration(time.Since(st)))
 	}
 
 	if profile.Checks.Credential.CredentialExpiry {
-		err := s.checkCredentialExpiry(lazyCredentials)
+		err := s.checkCredentialExpiry(ctx, lazyCredentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialExpiry",
@@ -123,7 +123,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 			})
 		}
 
-		logger.Debug(fmt.Sprintf("Checks.Credential.Proof took %v", time.Since(st)))
+		logger.Debugc(ctx, "Checks.Credential.Proof", log.WithDuration(time.Since(st)))
 	}
 
 	if profile.Checks.Credential.Status {
@@ -135,7 +135,8 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 				Error: err.Error(),
 			})
 		}
-		logger.Debug(fmt.Sprintf("Checks.Credential.Status took %v", time.Since(st)))
+
+		logger.Debugc(ctx, "Checks.Credential.Status", log.WithDuration(time.Since(st)))
 	}
 
 	if profile.Checks.Credential.LinkedDomain {
@@ -147,31 +148,30 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 				Error: err.Error(),
 			})
 		}
-		logger.Debug(fmt.Sprintf("Checks.Credential.LinkedDomain took %v", time.Since(st)))
+		logger.Debugc(ctx, "Checks.Credential.LinkedDomain", log.WithDuration(time.Since(st)))
 	}
 
 	if profile.Checks.Credential.Strict {
 		st := time.Now()
 
-		err := s.checkCredentialStrict(lazyCredentials)
+		err := s.checkCredentialStrict(ctx, lazyCredentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStrict",
 				Error: err.Error(),
 			})
 		}
-
-		logger.Debug(fmt.Sprintf("Checks.Credential.Strict took %v", time.Since(st)))
+		logger.Debugc(ctx, "Checks.Credential.Strict", log.WithDuration(time.Since(st)))
 	}
 
 	return result, nil
 }
 
-func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint:gocognit
+func (s *Service) checkCredentialStrict(ctx context.Context, lazy []*LazyCredential) error { //nolint:gocognit
 	for _, input := range lazy {
 		cred, ok := input.Raw().(*verifiable.Credential)
 		if !ok {
-			logger.Warn(fmt.Sprintf("can not validate strict. unexpected type %v",
+			logger.Warnc(ctx, fmt.Sprintf("can not validate strict. unexpected type %v",
 				reflect.TypeOf(input).String()))
 			return nil
 		}
@@ -211,7 +211,7 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 		s.claimKeys[cred.ID] = claimKeys
 
 		if logger.IsEnabled(log.DEBUG) {
-			logger.Debug("verifier strict validation check",
+			logger.Debugc(ctx, "verifier strict validation check",
 				logfields.WithClaimKeys(claimKeys),
 				logfields.WithCredentialID(cred.ID),
 			)
@@ -228,11 +228,11 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 	return nil
 }
 
-func (s *Service) checkCredentialExpiry(lazy []*LazyCredential) error {
+func (s *Service) checkCredentialExpiry(ctx context.Context, lazy []*LazyCredential) error {
 	for _, input := range lazy {
 		credential, ok := input.Raw().(*verifiable.Credential)
 		if !ok {
-			logger.Warn(fmt.Sprintf("can not validate expiry. unexpected type %v",
+			logger.Warnc(ctx, fmt.Sprintf("can not validate expiry. unexpected type %v",
 				reflect.TypeOf(input).String()))
 			return nil
 		}

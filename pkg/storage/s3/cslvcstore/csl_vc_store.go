@@ -83,8 +83,8 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVC
 		Key:    aws.String(p.resolveCSLS3Key(cslURL)),
 	})
 	if err != nil {
-		logger.Error("CSL S3 GET",
-			log.WithError(err), log.WithURL(cslURL), log.WithPath(p.resolveCSLS3Key(cslURL)))
+		logger.Errorc(ctx, "CSL S3 GET",
+			log.WithError(err), log.WithURL(cslURL), log.WithURL(p.resolveCSLS3Key(cslURL)))
 
 		var awsError *types.NoSuchKey
 		if errors.As(err, &awsError) {

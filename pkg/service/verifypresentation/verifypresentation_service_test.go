@@ -821,6 +821,6 @@ func TestCredentialStrict(t *testing.T) {
 	s := New(&Config{
 		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
 	})
-	assert.NoError(t, s.checkCredentialStrict([]*LazyCredential{l}))
+	assert.NoError(t, s.checkCredentialStrict(context.TODO(), []*LazyCredential{l}))
 	assert.ElementsMatch(t, []string{"type", "degree"}, s.GetClaimKeys()["credentialID"])
 }

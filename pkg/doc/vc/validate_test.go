@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	_ "embed"
@@ -336,6 +337,7 @@ func TestValidateCredential(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ValidateCredential(
+				context.TODO(),
 				tt.args.cred(t),
 				[]vcsverifiable.Format{
 					tt.args.format,
@@ -429,7 +431,7 @@ func Test_validateSDJWTCredential(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			credential := tt.args.getCredential()
 			documentLoader := testutil.DocumentLoader(t)
-			got, err := validateSDJWTCredential(tt.args.getCredential(), documentLoader)
+			got, err := validateSDJWTCredential(context.TODO(), tt.args.getCredential(), documentLoader)
 			if (err != nil) != tt.wantErr {
 				t.Errorf(fmt.Sprintf("validateSDJWTCredential(%v, %v) err %s", credential, documentLoader, err.Error()))
 			}

@@ -9,7 +9,6 @@ package devapi
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -85,7 +84,7 @@ func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID, 
 // RequestObjectByUuid Receive request object by uuid.
 // GET /request-object/{uuid}.
 func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { //nolint:stylecheck,revive
-	logger.Info(fmt.Sprintf("RequestObjectByUuid begin %s", uuid))
+	logger.Infoc(ctx.Request().Context(), "RequestObjectByUuid begin")
 	record, err := c.requestObjectStoreService.Get(ctx.Request().Context(), uuid)
 
 	if errors.Is(err, requestobject.ErrDataNotFound) {
@@ -96,6 +95,6 @@ func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { 
 		return err
 	}
 
-	logger.Info("RequestObjectByUuid end")
+	logger.Infoc(ctx.Request().Context(), "RequestObjectByUuid end")
 	return ctx.String(http.StatusOK, record.Content)
 }

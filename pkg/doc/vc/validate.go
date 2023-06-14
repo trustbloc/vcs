@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -30,6 +31,7 @@ const (
 var logger = log.New("vc-validate-credentials")
 
 func ValidateCredential(
+	ctx context.Context,
 	cred interface{},
 	formats []vcsverifiable.Format,
 	checkExpiration bool,
@@ -62,13 +64,13 @@ func ValidateCredential(
 	if enforceStrictValidation && isJWT(cred) {
 		// If it's SDJWT
 		if credential.SDJWTHashAlg != "" {
-			return validateSDJWTCredential(credential, documentLoader)
+			return validateSDJWTCredential(ctx, credential, documentLoader)
 		}
 
 		jwtRepresentation := credential.JWT
 		credential.JWT = ""
 
-		err = validateCredentialClaims(credential, documentLoader)
+		err = validateCredentialClaims(ctx, credential, documentLoader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate JWT credential claims: %w", err)
 		}
@@ -80,13 +82,16 @@ func ValidateCredential(
 }
 
 func validateSDJWTCredential(
-	credential *verifiable.Credential, documentLoader jsonld.DocumentLoader) (*verifiable.Credential, error) {
+	ctx context.Context,
+	credential *verifiable.Credential,
+	documentLoader jsonld.DocumentLoader,
+) (*verifiable.Credential, error) {
 	displayCredential, err := credential.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create display credential: %w", err)
 	}
 
-	err = validateCredentialClaims(displayCredential, documentLoader)
+	err = validateCredentialClaims(ctx, displayCredential, documentLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate SDJWT credential claims: %w", err)
 	}
@@ -94,14 +99,18 @@ func validateSDJWTCredential(
 	return credential, nil
 }
 
-func validateCredentialClaims(credential *verifiable.Credential, documentLoader jsonld.DocumentLoader) error {
+func validateCredentialClaims(
+	ctx context.Context,
+	credential *verifiable.Credential,
+	documentLoader jsonld.DocumentLoader,
+) error {
 	if logger.IsEnabled(log.DEBUG) {
 		var claimsKeys []string
 		for k := range credential.CustomFields {
 			claimsKeys = append(claimsKeys, k)
 		}
 
-		logger.Debug("strict validation check",
+		logger.Debugc(ctx, "strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(credential.ID),
 		)
