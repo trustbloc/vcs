@@ -95,7 +95,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 				claimKeys = append(claimKeys, k)
 			}
 
-			logger.Debug("issuer claim keys", logfields.WithClaimKeys(claimKeys))
+			logger.Debugc(ctx, "issuer claim keys", logfields.WithClaimKeys(claimKeys))
 		}
 
 		claimData, errEncrypt := s.EncryptClaims(ctx, req.ClaimData)
@@ -301,8 +301,8 @@ func (s *Service) buildInitiateIssuanceURL(
 	} else if req.ClientWellKnownURL != "" {
 		c, err := s.wellKnownService.GetOIDCConfiguration(ctx, req.ClientWellKnownURL)
 		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to get OIDC configuration from well-known %q", req.ClientWellKnownURL),
-				log.WithError(err))
+			logger.Errorc(ctx, "Failed to get OIDC configuration from well-known",
+				log.WithError(err), log.WithURL(req.ClientWellKnownURL))
 		} else {
 			initiateIssuanceURL = c.InitiateIssuanceEndpoint
 		}

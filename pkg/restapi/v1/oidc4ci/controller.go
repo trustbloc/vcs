@@ -333,7 +333,7 @@ func (c *Controller) buildAuthCodeURLWithPAR(
 
 	defer func(Body io.ReadCloser) {
 		if err = Body.Close(); err != nil {
-			logger.Error("Failed to close response body", log.WithError(err))
+			logger.Errorc(ctx, "Failed to close response body", log.WithError(err))
 		}
 	}(resp.Body)
 

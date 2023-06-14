@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/logutil-go/pkg/log"
+
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 
@@ -88,7 +89,7 @@ func New(config *Config) (*Manager, error) {
 // CreateCSLEntry creates CSL entry.
 func (s *Manager) CreateCSLEntry(ctx context.Context,
 	profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error) {
-	logger.Debug("CSL Manager - CreateCSLEntry",
+	logger.Debugc(ctx, "CSL Manager - CreateCSLEntry",
 		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
 
 	cslURL, statusBitIndex, err := s.getProfileCSLAndAssignedIndex(ctx, profile)
@@ -117,7 +118,7 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 
 func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
 	profile *profileapi.Issuer) (string, int, error) {
-	logger.Debug("CSL Manager - CreateCSLEntry",
+	logger.Debugc(ctx, "CSL Manager - CreateCSLEntry",
 		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
 
 	s.mutex.Lock()
@@ -137,7 +138,7 @@ func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
 	indexWrapper.UsedIndexes = append(indexWrapper.UsedIndexes, unusedStatusBitIndex)
 
 	// TODO: Remove
-	logger.Debug(fmt.Sprintf("updating CSL Index Wrapper for URL: %s", indexWrapper.CSLURL))
+	logger.Debugc(ctx, "updating CSL Index Wrapper for URL", log.WithURL(indexWrapper.CSLURL))
 
 	if err = s.updateCSLIndexWrapper(ctx, indexWrapper, profile); err != nil {
 		return "", 0, fmt.Errorf("failed to store CSL Index Wrapper: %w", err)
@@ -178,7 +179,7 @@ func (s *Manager) updateCSLIndexWrapper(ctx context.Context,
 	wrapper *credentialstatus.CSLIndexWrapper,
 	profile *profileapi.Issuer) error {
 	// TODO: Remove
-	logger.Debug(fmt.Sprintf("updating CSL VC with URL: %s", wrapper.CSLURL))
+	logger.Debugc(ctx, "updating CSL VC with URL", log.WithURL(wrapper.CSLURL))
 
 	err := s.cslIndexStore.Upsert(ctx, wrapper.CSLURL, wrapper)
 	if err != nil {
@@ -188,7 +189,7 @@ func (s *Manager) updateCSLIndexWrapper(ctx context.Context,
 	// If amount of used indexes is the same as list size - createCSLIndexWrapper new CSL (ListID, VC and Index Wrapper).
 	// TODO: We should have used indexes > some percent of list size (e.g. 75-90%) in order to avoid collisions.
 	if len(wrapper.UsedIndexes) == s.listSize {
-		logger.Debug("reached size limit for CSL, creating new CSL ...")
+		logger.Debugc(ctx, "reached size limit for CSL, creating new CSL ...")
 		_, createErr := s.createCSLIndexWrapper(ctx, profile)
 		if createErr != nil {
 			return fmt.Errorf("failed to createCSLIndexWrapper new CSL: %w", createErr)
@@ -241,7 +242,7 @@ func (s *Manager) createNewVCAndCSLIndexWrapper(ctx context.Context,
 		return nil, fmt.Errorf("failed to createCSLIndexWrapper CSL URL: %w", err)
 	}
 
-	logger.Debug(fmt.Sprintf("creating new CSL VC with URL: %s", cslURL))
+	logger.Debugc(ctx, "creating new CSL VC with URL", log.WithURL(cslURL))
 
 	err = s.createAndStoreVC(ctx, signer, cslURL)
 	if err != nil {

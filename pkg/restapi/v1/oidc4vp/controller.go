@@ -10,6 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,7 +73,7 @@ func (c *Controller) PresentAuthorizationResponse(e echo.Context) error {
 		return err
 	}
 
-	defer closeResponseBody(resp.Body)
+	defer closeResponseBody(e.Request().Context(), resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -87,9 +88,9 @@ func (c *Controller) PresentAuthorizationResponse(e echo.Context) error {
 }
 
 // closeResponseBody closes the response body.
-func closeResponseBody(respBody io.Closer) {
+func closeResponseBody(ctx context.Context, respBody io.Closer) {
 	err := respBody.Close()
 	if err != nil {
-		logger.Error("Failed to close response body", log.WithError(err))
+		logger.Errorc(ctx, "Failed to close response body", log.WithError(err))
 	}
 }

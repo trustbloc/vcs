@@ -56,13 +56,13 @@ func sendResponse(c echo.Context, code int, message interface{}) {
 	var err error
 	if !c.Response().Committed {
 		if c.Request().Method == http.MethodHead {
-			logger.Error("head error msg", log.WithError(fmt.Errorf("%v", message)))
+			logger.Errorc(c.Request().Context(), "head error msg", log.WithError(fmt.Errorf("%v", message)))
 			err = c.NoContent(code)
 		} else {
 			err = c.JSON(code, message)
 		}
 		if err != nil {
-			logger.Error("write http response", log.WithError(err))
+			logger.Errorc(c.Request().Context(), "write http response", log.WithError(err))
 		}
 	}
 }

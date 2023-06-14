@@ -167,7 +167,7 @@ func NewController(config *Config) *Controller {
 // PostVerifyCredentials Verify credential
 // (POST /verifier/profiles/{profileID}/{profileVersion}/credentials/verify).
 func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVersion string) error {
-	logger.Debug("PostVerifyCredentials begin")
+	logger.Debugc(e.Request().Context(), "PostVerifyCredentials begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "PostVerifyCredentials")
 	defer span.End()
@@ -206,6 +206,7 @@ func (c *Controller) verifyCredential(
 	}
 
 	credential, err := vc.ValidateCredential(
+		ctx,
 		body.Credential,
 		profile.Checks.Credential.Format,
 		profile.Checks.Credential.CredentialExpiry,
@@ -227,14 +228,14 @@ func (c *Controller) verifyCredential(
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
-	logger.Debug("PostVerifyCredentials success")
+	logger.Debugc(ctx, "PostVerifyCredentials success")
 	return mapVerifyCredentialChecks(verRes), nil
 }
 
 // PostVerifyPresentation Verify presentation.
 // (POST /verifier/profiles/{profileID}/{profileVersion}/presentations/verify).
 func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVersion string) error {
-	logger.Debug("PostVerifyPresentation begin")
+	logger.Debugc(e.Request().Context(), "PostVerifyPresentation begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "PostVerifyPresentation")
 	defer span.End()
@@ -284,14 +285,14 @@ func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresent
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
-	logger.Debug("PostVerifyPresentation success")
+	logger.Debugc(ctx, "PostVerifyPresentation success")
 	return mapVerifyPresentationChecks(verRes), nil
 }
 
 // InitiateOidcInteraction initiates OpenID presentation flow through VCS.
 // POST /verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc.
 func (c *Controller) InitiateOidcInteraction(e echo.Context, profileID, profileVersion string) error {
-	logger.Debug("InitiateOidcInteraction begin")
+	logger.Debugc(e.Request().Context(), "InitiateOidcInteraction begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateOidcInteraction")
 	defer span.End()
@@ -342,7 +343,7 @@ func (c *Controller) initiateOidcInteraction(
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
 	}
 
-	logger.Debug("InitiateOidcInteraction pd find", logfields.WithPresDefID(pd.ID))
+	logger.Debugc(ctx, "InitiateOidcInteraction pd find", logfields.WithPresDefID(pd.ID))
 
 	if data.PresentationDefinitionFilters != nil {
 		pd, err = applyPresentationDefinitionFilters(pd, data.PresentationDefinitionFilters)
@@ -350,7 +351,7 @@ func (c *Controller) initiateOidcInteraction(
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionFilters", err)
 		}
 
-		logger.Debug("InitiateOidcInteraction applied filters to pd", logfields.WithPresDefID(pd.ID))
+		logger.Debugc(ctx, "InitiateOidcInteraction applied filters to pd", logfields.WithPresDefID(pd.ID))
 	}
 
 	result, err := c.oidc4VPService.InitiateOidcInteraction(ctx, pd, strPtrToStr(data.Purpose), profile)
@@ -358,7 +359,7 @@ func (c *Controller) initiateOidcInteraction(
 		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
 	}
 
-	logger.Debug("InitiateOidcInteraction success", log.WithTxID(string(result.TxID)))
+	logger.Debugc(ctx, "InitiateOidcInteraction success", log.WithTxID(string(result.TxID)))
 	return &InitiateOIDC4VPResponse{
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxID:                 string(result.TxID),
@@ -439,7 +440,7 @@ func matchField(ids []string, target string) (string, bool, error) {
 // CheckAuthorizationResponse is used by verifier applications to initiate OpenID presentation flow through VCS.
 // (POST /verifier/interactions/authorization-response).
 func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
-	logger.Debug("CheckAuthorizationResponse begin")
+	logger.Debugc(e.Request().Context(), "CheckAuthorizationResponse begin")
 	startTime := time.Now()
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "CheckAuthorizationResponse")
@@ -447,7 +448,8 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 
 	defer func() {
 		c.metrics.CheckAuthorizationResponseTime(time.Since(startTime))
-		logger.Debug("CheckAuthorizationResponse end", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(e.Request().Context(), "CheckAuthorizationResponse end",
+			log.WithDuration(time.Since(startTime)))
 	}()
 
 	authResp, err := validateAuthorizationResponse(e)
@@ -455,7 +457,7 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 		return err
 	}
 
-	processedTokens, err := c.verifyAuthorizationResponseTokens(authResp)
+	processedTokens, err := c.verifyAuthorizationResponseTokens(ctx, authResp)
 	if err != nil {
 		return err
 	}
@@ -465,7 +467,7 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 		return err
 	}
 
-	logger.Debug("CheckAuthorizationResponse succeed")
+	logger.Debugc(ctx, "CheckAuthorizationResponse succeed")
 
 	return nil
 }
@@ -473,7 +475,7 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 // RetrieveInteractionsClaim is used by verifier applications to get claims obtained during oidc4vp interaction.
 // (GET /verifier/interactions/{txID}/claim).
 func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) error {
-	logger.Debug("RetrieveInteractionsClaim begin")
+	logger.Debugc(e.Request().Context(), "RetrieveInteractionsClaim begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "RetrieveInteractionsClaim")
 	defer span.End()
@@ -507,11 +509,10 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 
 	err = c.oidc4VPService.DeleteClaims(ctx, tx.ReceivedClaimsID)
 	if err != nil {
-		logger.Info(fmt.Sprintf("RetrieveInteractionsClaim failed to delete claims for txn ID[%s] - "+
-			"the claims will be expired", txID))
+		logger.Warnc(ctx, "RetrieveInteractionsClaim failed to delete claims", logfields.WithTransactionId(txID))
 	}
 
-	logger.Debug("RetrieveInteractionsClaim succeed")
+	logger.Debugc(ctx, "RetrieveInteractionsClaim succeed")
 
 	return util.WriteOutput(e)(claims, nil)
 }
@@ -528,16 +529,18 @@ func (c *Controller) accessOIDC4VPTx(ctx context.Context, txID string) (*oidc4vp
 		return nil, resterr.NewSystemError(oidc4vpSvcComponent, "GetTx", err)
 	}
 
-	logger.Debug("RetrieveInteractionsClaim tx found", log.WithTxID(string(tx.ID)))
+	logger.Debugc(ctx, "RetrieveInteractionsClaim tx found", log.WithTxID(string(tx.ID)))
 
 	return tx, nil
 }
 
-func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationResponse) (
-	[]*oidc4vp.ProcessedVPToken, error) {
+func (c *Controller) verifyAuthorizationResponseTokens(
+	ctx context.Context,
+	authResp *authorizationResponse,
+) ([]*oidc4vp.ProcessedVPToken, error) {
 	startTime := time.Now()
 	defer func() {
-		logger.Debug("validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(ctx, "validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
 	}()
 
 	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
@@ -545,7 +548,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 		return nil, err
 	}
 
-	logger.Debug("CheckAuthorizationResponse id_token verified")
+	logger.Debugc(ctx, "CheckAuthorizationResponse id_token verified")
 
 	var processedVPTokens []*oidc4vp.ProcessedVPToken
 
@@ -555,7 +558,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 			return nil, err
 		}
 
-		logger.Debug("CheckAuthorizationResponse vp_token verified")
+		logger.Debugc(ctx, "CheckAuthorizationResponse vp_token verified")
 
 		if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
@@ -572,7 +575,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 		}
 
-		logger.Debug("CheckAuthorizationResponse vp validated")
+		logger.Debugc(ctx, "CheckAuthorizationResponse vp validated")
 
 		presentation.JWT = vpt
 		if presentation.CustomFields == nil {
@@ -687,7 +690,8 @@ func verifyTokenSignature(rawJwt string, parseOps ...jwt.ParseOpt) (*jwt.JSONWeb
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {
 	startTime := time.Now().UTC()
 	defer func() {
-		logger.Debug("validateAuthorizationResponse", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(ctx.Request().Context(),
+			"validateAuthorizationResponse", log.WithDuration(time.Since(startTime)))
 	}()
 	req := ctx.Request()
 
@@ -708,7 +712,8 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
+	logger.Debugc(ctx.Request().Context(),
+		"AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
 
 	var vpTokenStr string
 
@@ -719,14 +724,14 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 
 	res.VPToken = getVPTokens(vpTokenStr)
 
-	logger.Debug("AuthorizationResponse vp_token decoded")
+	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse vp_token decoded")
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse state decoded", log.WithState(res.State))
+	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse state decoded", log.WithState(res.State))
 
 	return res, nil
 }

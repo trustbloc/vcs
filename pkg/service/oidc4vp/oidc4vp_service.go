@@ -214,7 +214,7 @@ func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, profi
 
 func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier, err error) {
 	e := s.sendEventWithError(ctx, tx, profile, spi.VerifierOIDCInteractionFailed, err)
-	logger.Debug("sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
+	logger.Debugc(ctx, "sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
 }
 
 func (s *Service) InitiateOidcInteraction(
@@ -223,7 +223,7 @@ func (s *Service) InitiateOidcInteraction(
 	purpose string,
 	profile *profileapi.Verifier,
 ) (*InteractionInfo, error) {
-	logger.Debug("InitiateOidcInteraction begin")
+	logger.Debugc(ctx, "InitiateOidcInteraction begin")
 
 	if profile.SigningDID == nil {
 		return nil, errors.New("profile signing did can't be nil")
@@ -234,7 +234,7 @@ func (s *Service) InitiateOidcInteraction(
 		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
 	}
 
-	logger.Debug("InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
+	logger.Debugc(ctx, "InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
 	if errSendEvent := s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
@@ -245,7 +245,7 @@ func (s *Service) InitiateOidcInteraction(
 		return nil, err
 	}
 
-	logger.Debug("InitiateOidcInteraction request object created")
+	logger.Debugc(ctx, "InitiateOidcInteraction request object created")
 
 	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned, nil)
 	if err != nil {
@@ -257,9 +257,9 @@ func (s *Service) InitiateOidcInteraction(
 		return nil, fmt.Errorf("fail publish request object: %w", err)
 	}
 
-	logger.Debug("InitiateOidcInteraction request object published")
+	logger.Debugc(ctx, "InitiateOidcInteraction request object published")
 
-	logger.Debug("InitiateOidcInteraction succeed")
+	logger.Debugc(ctx, "InitiateOidcInteraction succeed")
 
 	return &InteractionInfo{
 		AuthorizationRequest: "openid-vc://?request_uri=" + requestURI,
@@ -318,7 +318,7 @@ func (s *Service) verifyTokens(
 				return
 			}
 		}()
-		logger.Debug(" VerifyOIDCVerifiablePresentation verified")
+		logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation verified")
 	}
 	wg.Wait()
 
@@ -330,11 +330,11 @@ func (s *Service) verifyTokens(
 }
 
 func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, tokens []*ProcessedVPToken) error {
-	logger.Debug("VerifyOIDCVerifiablePresentation begin")
+	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation begin")
 	startTime := time.Now()
 
 	defer func() {
-		logger.Debug("VerifyOIDCVerifiablePresentation", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation", log.WithDuration(time.Since(startTime)))
 	}()
 
 	if len(tokens) == 0 {
@@ -352,36 +352,36 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 		return fmt.Errorf("invalid nonce")
 	}
 
-	logger.Debug("VerifyOIDCVerifiablePresentation nonce verified")
+	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation nonce verified")
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}
 
-	logger.Debug("VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
+	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
-	logger.Debug(fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(tokens)))
+	logger.Debugc(ctx, fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(tokens)))
 
 	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, tokens)
 	if err != nil {
 		return err
 	}
 
-	err = s.extractClaimData(tx, tokens, profile, verifiedPresentations)
+	err = s.extractClaimData(ctx, tx, tokens, profile, verifiedPresentations)
 	if err != nil {
 		s.sendFailedEvent(ctx, tx, profile, err)
 
 		return err
 	}
 
-	logger.Debug("extractClaimData claims stored")
+	logger.Debugc(ctx, "extractClaimData claims stored")
 
 	if err = s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
 	}
 
-	logger.Debug("VerifyOIDCVerifiablePresentation succeed")
+	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation succeed")
 	return nil
 }
 
@@ -390,7 +390,7 @@ func (s *Service) GetTx(ctx context.Context, id TxID) (*Transaction, error) {
 }
 
 func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[string]CredentialMetadata {
-	logger.Debug("RetrieveClaims begin")
+	logger.Debugc(ctx, "RetrieveClaims begin")
 	result := map[string]CredentialMetadata{}
 
 	for _, cred := range tx.ReceivedClaims.Credentials {
@@ -405,7 +405,7 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 		// but for SD-JWT case it returns verifiable.Credential with disclosed subject claims.
 		cred, err = cred.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 		if err != nil {
-			logger.Debug("RetrieveClaims - failed to CreateDisplayCredential", log.WithError(err))
+			logger.Debugc(ctx, "RetrieveClaims - failed to CreateDisplayCredential", log.WithError(err))
 			continue
 		}
 
@@ -418,17 +418,22 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 			ExpirationDate: cred.Expired,
 		}
 	}
-	logger.Debug("RetrieveClaims succeed")
+	logger.Debugc(ctx, "RetrieveClaims succeed")
 
 	return result
 }
 
-func (s *Service) DeleteClaims(ctx context.Context, claimsID string) error {
+func (s *Service) DeleteClaims(_ context.Context, claimsID string) error {
 	return s.transactionManager.DeleteReceivedClaims(claimsID)
 }
 
-func (s *Service) extractClaimData(tx *Transaction, tokens []*ProcessedVPToken,
-	profile *profileapi.Verifier, verifiedPresentations map[string]*ProcessedVPToken) error {
+func (s *Service) extractClaimData(
+	ctx context.Context,
+	tx *Transaction,
+	tokens []*ProcessedVPToken,
+	profile *profileapi.Verifier,
+	verifiedPresentations map[string]*ProcessedVPToken,
+) error {
 	var presentations []*verifiable.Presentation
 
 	for _, token := range tokens {
@@ -469,7 +474,7 @@ func (s *Service) extractClaimData(tx *Transaction, tokens []*ProcessedVPToken,
 				return fmt.Errorf("extractClaimData vc subject: %w", err)
 			}
 
-			logger.Debug("vc subject verified")
+			logger.Debugc(ctx, "vc subject verified")
 		}
 
 		storeCredentials[inputDescID] = mc.Credential
