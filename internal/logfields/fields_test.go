@@ -48,6 +48,7 @@ func TestStandardFields(t *testing.T) {
 		vpToken := "somVPToken"
 		workers := 5
 		claimKeys := []string{"1", "2"}
+		tranasctionID := "someTransactionID"
 
 		logger.Info(
 			"Some message",
@@ -58,6 +59,7 @@ func TestStandardFields(t *testing.T) {
 			WithEvent(event),
 			WithIDToken(idToken),
 			WithJSONQuery(jsonQuery),
+			WithTransactionID(tranasctionID),
 			WithJSONResolution(jsonResolution),
 			WithPresDefID(presDefID),
 			WithProfileID(profileID),
@@ -83,6 +85,7 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, jsonResolution, l.JSONResolution)
 		require.Equal(t, presDefID, l.PresDefID)
 		require.Equal(t, responses, l.Responses)
+		require.Equal(t, tranasctionID, l.TransactionID)
 		require.Equal(t, sleep.String(), l.Sleep)
 		require.Equal(t, totalRequests, l.TotalRequests)
 		require.Equal(t, userLoglevel, l.UserLogLevel)
@@ -117,6 +120,7 @@ type logData struct {
 	PresDefID           string      `json:"presDefID"`
 	ProfileID           string      `json:"profileID"`
 	Responses           int         `json:"responses"`
+	TransactionID       string      `json:"transactionID"`
 	Sleep               string      `json:"sleep"`
 	TotalRequests       int         `json:"totalRequests"`
 	UserLogLevel        string      `json:"userLogLevel"`
