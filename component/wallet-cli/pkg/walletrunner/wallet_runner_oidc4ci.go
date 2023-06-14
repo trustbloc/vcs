@@ -22,6 +22,7 @@ import (
 	"github.com/cli/browser"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -34,6 +35,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+)
+
+const (
+	jwtProofTypHeader = "openid4vci-proof+jwt"
 )
 
 type OIDC4CIConfig struct {
@@ -373,9 +378,15 @@ func (s *Service) getCredential(
 		return nil, 0, fmt.Errorf("create kms signer: %w", err)
 	}
 
+	parsedURL, err := url.Parse(s.oauthClient.Endpoint.TokenURL)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse token URL: %w", err)
+	}
+
 	claims := &JWTProofClaims{
 		Issuer:   s.oauthClient.ClientID,
 		IssuedAt: time.Now().Unix(),
+		Audience: fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host),
 		Nonce:    s.token.Extra("c_nonce").(string),
 	}
 
@@ -397,7 +408,11 @@ func (s *Service) getCredential(
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
 	}
 
-	signedJWT, err := jwt.NewSigned(claims, nil,
+	headers := map[string]interface{}{
+		jose.HeaderType: jwtProofTypHeader,
+	}
+
+	signedJWT, err := jwt.NewSigned(claims, headers,
 		NewJWSSigner(signerKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
 	if err != nil {
 		return nil, 0, fmt.Errorf("create signed jwt: %w", err)

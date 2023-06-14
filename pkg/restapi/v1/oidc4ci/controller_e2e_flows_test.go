@@ -48,6 +48,7 @@ import (
 
 const (
 	clientID = "test-client"
+	aud      = "https://server.example.com"
 )
 
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
@@ -165,10 +166,16 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	claims := &oidc4ci.JWTProofClaims{
 		Issuer:   clientID,
 		IssuedAt: time.Now().Unix(),
+		Audience: srv.URL,
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	signedJWT, err := jwt.NewSigned(claims, nil, jwt.NewEd25519Signer(priv))
+	headers := map[string]interface{}{
+		jose.HeaderType: "openid4vci-proof+jwt",
+	}
+
+	signedJWT, err := jwt.NewSigned(
+		claims, headers, NewJWSSigner("", "EdDSA", jwt.NewEd25519Signer(priv)))
 	require.NoError(t, err)
 
 	jws, err := signedJWT.Serialize(false)
@@ -419,4 +426,29 @@ func (s *memoryStateStore) SaveAuthorizeState(
 	s.kv[opState] = state
 
 	return nil
+}
+
+type JWSSigner struct {
+	keyID            string
+	signingAlgorithm string
+	signer           jose.Signer
+}
+
+func NewJWSSigner(keyID, signingAlgorithm string, signer jose.Signer) *JWSSigner {
+	return &JWSSigner{
+		keyID:            keyID,
+		signingAlgorithm: signingAlgorithm,
+		signer:           signer,
+	}
+}
+
+func (s *JWSSigner) Sign(data []byte) ([]byte, error) {
+	return s.signer.Sign(data)
+}
+
+func (s *JWSSigner) Headers() jose.Headers {
+	return jose.Headers{
+		jose.HeaderKeyID:     s.keyID,
+		jose.HeaderAlgorithm: s.signingAlgorithm,
+	}
 }

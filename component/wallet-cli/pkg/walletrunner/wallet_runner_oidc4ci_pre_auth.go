@@ -94,7 +94,12 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	}
 	_ = tokenResp.Body.Close()
 
-	s.oauthClient = &oauth2.Config{ClientID: "oidc4vc_client"} // todo dynamic client registration
+	s.oauthClient = &oauth2.Config{
+		ClientID: "oidc4vc_client",
+		Endpoint: oauth2.Endpoint{
+			TokenURL: oidcConfig.TokenEndpoint,
+		},
+	} // todo dynamic client registration
 	s.token = lo.ToPtr(oauth2.Token{AccessToken: token.AccessToken}).WithExtra(map[string]interface{}{
 		"c_nonce": *token.CNonce,
 	})
