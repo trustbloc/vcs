@@ -68,8 +68,8 @@ func WithIDToken(idToken string) zap.Field {
 	return zap.String(FieldIDToken, idToken)
 }
 
-// WithTransactionId sets the id token field.
-func WithTransactionId(transactionID string) zap.Field {
+// WithTransactionID sets the id token field.
+func WithTransactionID(transactionID string) zap.Field {
 	return zap.String(FieldTransactionID, transactionID)
 }
 

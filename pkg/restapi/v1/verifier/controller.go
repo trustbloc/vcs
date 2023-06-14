@@ -509,7 +509,7 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 
 	err = c.oidc4VPService.DeleteClaims(ctx, tx.ReceivedClaimsID)
 	if err != nil {
-		logger.Warnc(ctx, "RetrieveInteractionsClaim failed to delete claims", logfields.WithTransactionId(txID))
+		logger.Warnc(ctx, "RetrieveInteractionsClaim failed to delete claims", logfields.WithTransactionID(txID))
 	}
 
 	logger.Debugc(ctx, "RetrieveInteractionsClaim succeed")
