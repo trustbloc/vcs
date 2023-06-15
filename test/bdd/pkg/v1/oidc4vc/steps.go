@@ -86,6 +86,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	// CI.
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow$`, s.runOIDC4CIAuth)
+	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with dynamic client registration$`, s.runOIDC4CIAuthWithDynamicClient)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow$`, s.runOIDC4CIPreAuthWithValidClaims)
 
 	// VP.

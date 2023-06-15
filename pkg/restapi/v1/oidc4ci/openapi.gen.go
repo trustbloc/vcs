@@ -47,7 +47,7 @@ type ClientRegistrationRequest struct {
 	Contacts *[]string `json:"contacts,omitempty"`
 
 	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
-	GrantTypes []string `json:"grant_types"`
+	GrantTypes *[]string `json:"grant_types,omitempty"`
 
 	// Issuer state to correlate request with issuer.
 	IssuerState string `json:"issuer_state"`
@@ -92,7 +92,7 @@ type ClientRegistrationResponse struct {
 	ClientId string `json:"client_id"`
 
 	// Time at which the client identifier was issued.
-	ClientIdIssuedAt *string `json:"client_id_issued_at,omitempty"`
+	ClientIdIssuedAt string `json:"client_id_issued_at"`
 
 	// Registered name of the client to be presented to the end-user during authorization.
 	ClientName *string `json:"client_name,omitempty"`
@@ -110,7 +110,7 @@ type ClientRegistrationResponse struct {
 	Contacts *[]string `json:"contacts,omitempty"`
 
 	// Registered array of OAuth 2.0 grant types that the client is allowed to use.
-	GrantTypes *[]string `json:"grant_types,omitempty"`
+	GrantTypes []string `json:"grant_types"`
 
 	// Registered client's JSON Web Key Set document value, which contains the client's public keys.
 	Jwks *map[string]interface{} `json:"jwks,omitempty"`
@@ -140,7 +140,7 @@ type ClientRegistrationResponse struct {
 	SoftwareVersion *string `json:"software_version,omitempty"`
 
 	// Registered client authentication method for the token endpoint.
-	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
 
 	// Registered URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
 	TosUri *string `json:"tos_uri,omitempty"`

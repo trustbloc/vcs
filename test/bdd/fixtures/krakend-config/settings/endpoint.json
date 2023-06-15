@@ -104,6 +104,14 @@
       ]
     },
     {
+      "endpoint": "/oidc/register",
+      "method": "POST",
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/credentials/verify",
       "method": "POST",
       "protected": true,

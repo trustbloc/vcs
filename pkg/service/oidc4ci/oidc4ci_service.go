@@ -304,6 +304,20 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	return tx, nil
 }
 
+func (s *Service) ResolveProfile(ctx context.Context, opState string) (*profileapi.Issuer, error) {
+	tx, err := s.store.FindByOpState(ctx, opState)
+	if err != nil {
+		return nil, fmt.Errorf("get transaction by op state: %w", err)
+	}
+
+	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
+	if err != nil {
+		return nil, fmt.Errorf("get profile: %w", err)
+	}
+
+	return profile, nil
+}
+
 func (s *Service) PrepareCredential(
 	ctx context.Context,
 	req *PrepareCredential,

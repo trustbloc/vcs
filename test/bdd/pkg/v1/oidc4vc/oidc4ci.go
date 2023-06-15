@@ -12,8 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ory/fosite"
-	"golang.org/x/oauth2"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,6 +20,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/ory/fosite"
+	"github.com/samber/lo"
+	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -36,6 +37,7 @@ const (
 	oidcProviderURL                     = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
+	clientRegistrationURL               = vcsAPIGateway + "/oidc/register"
 )
 
 func (s *Steps) authorizeIssuer(profileVersionedID string) error {
@@ -279,6 +281,86 @@ func (s *Steps) runOIDC4CIAuth() error {
 	}
 
 	return nil
+}
+
+func (s *Steps) runOIDC4CIAuthWithDynamicClient() error {
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	if err != nil {
+		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+	}
+
+	clientID, err := s.registerOAuthClient(initiateOIDC4CIResponseData.OfferCredentialURL)
+	if err != nil {
+		return fmt.Errorf("register oauth client: %w", err)
+	}
+
+	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
+		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:            clientID,
+		Scope:               []string{"openid", "profile"},
+		RedirectURI:         "http://127.0.0.1/callback",
+		CredentialType:      s.issuedCredentialType,
+		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:               "bdd-test",
+		Password:            "bdd-test-pass",
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("s.walletRunner.RunOIDC4CI: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
+	u, err := url.Parse(offerCredentialURL)
+	if err != nil {
+		return "", fmt.Errorf("parse offer credential url: %w", err)
+	}
+
+	param := u.Query().Get("credential_offer")
+	if param == "" {
+		return "", fmt.Errorf("credential_offer param not found")
+	}
+
+	var offer credentialOfferResponse
+	if err = json.Unmarshal([]byte(param), &offer); err != nil {
+		return "", fmt.Errorf("unmarshal credential offer: %w", err)
+	}
+
+	body, err := json.Marshal(
+		&clientRegistrationRequest{
+			IssuerState:             offer.Grants.AuthorizationCode.IssuerState,
+			GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
+			RedirectUris:            lo.ToPtr([]string{"http://127.0.0.1/callback"}),
+			Scope:                   lo.ToPtr("openid profile"),
+			TokenEndpointAuthMethod: lo.ToPtr("none"),
+		},
+	)
+
+	resp, err := bddutil.HTTPSDo(http.MethodPost, clientRegistrationURL, "application/json", "",
+		bytes.NewReader(body), s.bddContext.TLSConfig)
+	if err != nil {
+		return "", fmt.Errorf("register dynamic client request: %w", err)
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read register dynamic client response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, b)
+	}
+
+	var r *clientRegistrationResponse
+
+	if err = json.Unmarshal(b, &r); err != nil {
+		return "", fmt.Errorf("unmarshal client registration response: %w", err)
+	}
+
+	return r.ClientId, nil
 }
 
 func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4CIRequest {

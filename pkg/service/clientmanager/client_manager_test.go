@@ -304,6 +304,63 @@ func TestManager_Create(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid redirect uri",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(
+						&profileapi.Issuer{
+							OIDCConfig: &profileapi.OIDCConfig{},
+						}, nil)
+
+				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
+
+				data = &clientmanager.ClientMetadata{
+					RedirectURIs: []string{"invalid"},
+				}
+			},
+			check: func(t *testing.T, client *oauth2client.Client, err error) {
+				require.ErrorContains(t, err, "invalid redirect uri")
+			},
+		},
+		{
+			name: "invalid scheme in redirect uri",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(
+						&profileapi.Issuer{
+							OIDCConfig: &profileapi.OIDCConfig{},
+						}, nil)
+
+				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
+
+				data = &clientmanager.ClientMetadata{
+					RedirectURIs: []string{"//example.com/redirect"},
+				}
+			},
+			check: func(t *testing.T, client *oauth2client.Client, err error) {
+				require.ErrorContains(t, err, "invalid redirect uri")
+			},
+		},
+		{
+			name: "redirect uri must not include a fragment component",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(
+						&profileapi.Issuer{
+							OIDCConfig: &profileapi.OIDCConfig{},
+						}, nil)
+
+				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
+
+				data = &clientmanager.ClientMetadata{
+					RedirectURIs: []string{"https://example.com/redirect#fragment"},
+				}
+			},
+			check: func(t *testing.T, client *oauth2client.Client, err error) {
+				require.ErrorContains(t, err, "invalid redirect uri")
+			},
+		},
+		{
 			name: "insert client store error",
 			setup: func() {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
