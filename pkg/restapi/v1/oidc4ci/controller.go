@@ -28,7 +28,6 @@ import (
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/valyala/fastjson"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -44,11 +43,18 @@ const (
 	sessionOpStateKey          = "opState"
 	authorizationDetailsKey    = "authDetails"
 	txIDKey                    = "txID"
+	preAuthKey                 = "preAuth"
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+	jwtProofTypHeader          = "openid4vci-proof+jwt"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
-	cNonceTTL                  = 5 * time.Minute
 	cNonceSize                 = 15
+	cNonceTTL                  = 5 * time.Minute
+
+	invalidOrMissingProofOIDCErr = "invalid_or_missing_proof"
+	invalidRequestOIDCErr        = "invalid_request"
+	invalidGrantOIDCErr          = "invalid_grant"
+	invalidTokenOIDCErr          = "invalid_token"
 )
 
 var logger = log.New("oidc4ci")
@@ -461,7 +467,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		txID = exchangeResult.TxId
 	}
 
-	c.setCNonceSession(session, nonce, txID)
+	c.setCNonceSession(session, nonce, txID, isPreAuthFlow)
 
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
@@ -486,8 +492,10 @@ func (c *Controller) setCNonceSession(
 	session *fosite.DefaultSession,
 	nonce string,
 	txID string,
+	isPreAuthFlow bool,
 ) {
 	session.Extra[txIDKey] = txID
+	session.Extra[preAuthKey] = isPreAuthFlow
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 }
@@ -520,19 +528,19 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
-		return resterr.NewOIDCError("invalid_token", errors.New("missing access token"))
+		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
 	}
 
 	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
 	if err != nil {
-		return resterr.NewOIDCError("invalid_token", fmt.Errorf("introspect token: %w", err))
+		return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
 	}
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	did, err := validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier)
+	did, err := c.validateProofClaims(ar.GetClient().GetID(), credentialRequest.Proof.Jwt, session)
 	if err != nil {
-		return resterr.NewOIDCError("invalid_or_missing_proof", err)
+		return err
 	}
 
 	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
@@ -595,46 +603,72 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 
 	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
 	if err != nil {
-		return resterr.NewOIDCError("invalid_request", err)
+		return resterr.NewOIDCError(invalidRequestOIDCErr, err)
 	}
 
 	if req.Proof == nil {
-		return resterr.NewOIDCError("invalid_request", errors.New("missing proof type"))
+		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing proof type"))
 	}
 
 	if req.Proof.ProofType != "jwt" || req.Proof.Jwt == "" {
-		return resterr.NewOIDCError("invalid_request", errors.New("invalid proof type"))
+		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
 	}
 
 	return nil
 }
 
-func validateProofClaims(
+//nolint:gocognit
+func (c *Controller) validateProofClaims(
+	clientID string,
 	rawJwt string,
 	session *fosite.DefaultSession,
-	verifier jose.SignatureVerifier,
 ) (string, error) {
 	jws, rawClaims, err := jwt.Parse(rawJwt,
-		jwt.WithSignatureVerifier(verifier),
+		jwt.WithSignatureVerifier(c.jwtVerifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
-		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("parse jwt: %w", err))
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, fmt.Errorf("parse jwt: %w", err))
 	}
 
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
-		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("nonce expired"))
 	}
 
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(float64); ok && int64(nonceExp) < time.Now().Unix() {
-		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("nonce expired"))
 	}
 
-	if nonce := session.Extra[cNonceKey].(string); fastjson.GetString(rawClaims, "nonce") != nonce { //nolint:errcheck
-		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("invalid nonce"))
+	var claims JWTProofClaims
+	if err = json.Unmarshal(rawClaims, &claims); err != nil {
+		return "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
 	}
 
-	keyID, _ := jws.Headers.KeyID()
+	if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid client_id"))
+	}
+
+	if claims.Audience == "" || claims.Audience != c.issuerVCSPublicHost {
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid aud"))
+	}
+
+	if claims.IssuedAt <= 0 || time.Unix(claims.IssuedAt, 0).After(time.Now()) {
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid iat"))
+	}
+
+	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid nonce"))
+	}
+
+	if typ, ok := jws.Headers.Type(); !ok || typ != jwtProofTypHeader {
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid typ"))
+	}
+
+	keyID, ok := jws.Headers.KeyID()
+	if !ok {
+		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid kid"))
+	}
+
 	return strings.Split(keyID, "#")[0], nil
 }
 
@@ -670,12 +704,12 @@ func (c *Controller) oidcPreAuthorizedCode(
 			case resterr.OIDCPreAuthorizeExpectPin:
 				fallthrough
 			case resterr.OIDCPreAuthorizeDoesNotExpectPin:
-				return nil, resterr.NewOIDCError("invalid_request", finalErr)
+				return nil, resterr.NewOIDCError(invalidRequestOIDCErr, finalErr)
 
 			case resterr.OIDCTxNotFound:
 				fallthrough
 			case resterr.OIDCPreAuthorizeInvalidPin:
-				return nil, resterr.NewOIDCError("invalid_grant", finalErr)
+				return nil, resterr.NewOIDCError(invalidGrantOIDCErr, finalErr)
 			}
 		}
 

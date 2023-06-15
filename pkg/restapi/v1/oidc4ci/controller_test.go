@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
@@ -871,13 +872,18 @@ func TestController_OidcCredential(t *testing.T) {
 	jwtVerifier, err := jwt.NewEd25519Verifier(publicKey)
 	require.NoError(t, err)
 
-	jwtSigner := jwt.NewEd25519Signer(privateKey)
+	jwtSigner := NewJWSSigner("", "EdDSA", jwt.NewEd25519Signer(privateKey))
+
+	headers := map[string]interface{}{
+		jose.HeaderType: "openid4vci-proof+jwt",
+	}
 
 	signedJWT, err := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 		Issuer:   clientID,
 		IssuedAt: time.Now().Unix(),
 		Nonce:    "c_nonce",
-	}, nil, jwtSigner)
+		Audience: aud,
+	}, headers, jwtSigner)
 	require.NoError(t, err)
 
 	jws, err := signedJWT.Serialize(false)
@@ -895,7 +901,7 @@ func TestController_OidcCredential(t *testing.T) {
 		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
 	}{
 		{
-			name: "success",
+			name: "success preAuth",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
 					Return(
@@ -905,10 +911,53 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
 						), nil)
+
+				b, marshalErr := json.Marshal(issuer.PrepareCredentialResult{
+					Credential: "credential in jwt format",
+					Format:     string(verifiable.Jwt),
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "success auth",
+			setup: func() {
+				ar := fosite.NewAccessRequest(
+					&fosite.DefaultSession{
+						Extra: map[string]interface{}{
+							"txID":            "tx_id",
+							"cNonce":          "c_nonce",
+							"preAuth":         false,
+							"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+						},
+					},
+				)
+				ar.Client = &fosite.DefaultClient{ID: clientID}
+
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken, ar, nil)
 
 				b, marshalErr := json.Marshal(issuer.PrepareCredentialResult{
 					Credential: "credential in jwt format",
@@ -1064,6 +1113,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(-time.Minute).Unix(),
 								},
 							},
@@ -1081,6 +1131,246 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid jwt claims",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				var signedJWTInvalid *jwt.JSONWebToken
+				signedJWTInvalid, err = jwt.NewSigned(map[string]interface{}{
+					"iss": 123,
+				}, nil, jwtSigner)
+				require.NoError(t, err)
+
+				var jwsInvalid string
+				jwsInvalid, err = signedJWTInvalid.Serialize(false)
+				require.NoError(t, err)
+
+				credentialReqInvalid := oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				}
+
+				requestBody, err = json.Marshal(credentialReqInvalid)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid jwt claims")
+			},
+		},
+		{
+			name: "invalid client_id - missing in session",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(fosite.AccessToken, fosite.NewAccessRequest(
+						&fosite.DefaultSession{
+							Extra: map[string]interface{}{
+								"txID":            "tx_id",
+								"cNonce":          "c_nonce",
+								"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+							},
+						},
+					), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid client_id")
+			},
+		},
+		{
+			name: "invalid client_id",
+			setup: func() {
+				ar := fosite.NewAccessRequest(
+					&fosite.DefaultSession{
+						Extra: map[string]interface{}{
+							"txID":            "tx_id",
+							"cNonce":          "c_nonce",
+							"preAuth":         false,
+							"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+						},
+					},
+				)
+
+				ar.Client = &fosite.DefaultClient{ID: "invalid"}
+
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(fosite.AccessToken, ar, nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid client_id")
+			},
+		},
+		{
+			name: "invalid aud",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				var signedJWTInvalid *jwt.JSONWebToken
+				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
+					Issuer:   clientID,
+					IssuedAt: time.Now().Unix(),
+					Nonce:    "c_nonce",
+					Audience: "invalid_aud",
+				}, nil, jwtSigner)
+				require.NoError(t, err)
+
+				var jwsInvalid string
+				jwsInvalid, err = signedJWTInvalid.Serialize(false)
+				require.NoError(t, err)
+
+				credentialReqInvalid := oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				}
+
+				requestBody, err = json.Marshal(credentialReqInvalid)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid aud")
+			},
+		},
+		{
+			name: "invalid iat - zero",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				var signedJWTInvalid *jwt.JSONWebToken
+				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
+					Issuer:   clientID,
+					IssuedAt: 0,
+					Nonce:    "c_nonce",
+					Audience: aud,
+				}, nil, jwtSigner)
+				require.NoError(t, err)
+
+				var jwsInvalid string
+				jwsInvalid, err = signedJWTInvalid.Serialize(false)
+				require.NoError(t, err)
+
+				credentialReqInvalid := oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				}
+
+				requestBody, err = json.Marshal(credentialReqInvalid)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid iat")
+			},
+		},
+		{
+			name: "invalid iat - future time",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				var signedJWTInvalid *jwt.JSONWebToken
+				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
+					Issuer:   clientID,
+					IssuedAt: time.Now().Add(time.Minute).Unix(),
+					Nonce:    "c_nonce",
+					Audience: aud,
+				}, nil, jwtSigner)
+				require.NoError(t, err)
+
+				var jwsInvalid string
+				jwsInvalid, err = signedJWTInvalid.Serialize(false)
+				require.NoError(t, err)
+
+				credentialReqInvalid := oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				}
+
+				requestBody, err = json.Marshal(credentialReqInvalid)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid iat")
+			},
+		},
+		{
 			name: "invalid nonce",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
@@ -1091,6 +1381,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1102,6 +1393,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
+					Audience: aud,
 					IssuedAt: time.Now().Unix(),
 					Nonce:    "invalid",
 				}, nil, jwtSigner)
@@ -1122,6 +1414,139 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "missed typ",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: time.Now().Unix(),
+					Nonce:    "c_nonce",
+				}, nil, jwt.NewEd25519Signer(privateKey))
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid typ")
+			},
+		},
+		{
+			name: "invalid typ",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				invalidHeaders := map[string]interface{}{
+					jose.HeaderType: jwt.TypeJWT,
+				}
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: time.Now().Unix(),
+					Nonce:    "c_nonce",
+				}, invalidHeaders, jwt.NewEd25519Signer(privateKey))
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid typ")
+			},
+		},
+		{
+			name: "invalid kid",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: time.Now().Unix(),
+					Nonce:    "c_nonce",
+				}, headers, jwt.NewEd25519Signer(privateKey))
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid kid")
+			},
+		},
+		{
 			name: "fail to prepare credential",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
@@ -1132,6 +1557,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1160,6 +1586,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1194,6 +1621,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1226,6 +1654,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1260,6 +1689,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1293,6 +1723,7 @@ func TestController_OidcCredential(t *testing.T) {
 								Extra: map[string]interface{}{
 									"txID":            "tx_id",
 									"cNonce":          "c_nonce",
+									"preAuth":         true,
 									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
 								},
 							},
@@ -1324,6 +1755,7 @@ func TestController_OidcCredential(t *testing.T) {
 				IssuerInteractionClient: mockInteractionClient,
 				JWTVerifier:             jwtVerifier,
 				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				IssuerVCSPublicHost:     aud,
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))

@@ -9,7 +9,7 @@ go 1.19
 require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230531115220-0445e9664e8e
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/spf13/cobra v1.6.1
@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
 	github.com/PaesslerAG/gval v1.2.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
@@ -70,11 +70,11 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230615070726-b02a3e01fc44 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect

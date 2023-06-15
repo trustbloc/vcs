@@ -11,10 +11,11 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230531115220-0445e9664e8e
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/jedib0t/go-pretty/v6 v6.4.6
+	github.com/ory/fosite v0.43.0
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/tidwall/gjson v1.14.4
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
@@ -26,7 +27,7 @@ require (
 )
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
 	github.com/PaesslerAG/gval v1.2.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
@@ -91,12 +92,12 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230615070726-b02a3e01fc44 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
@@ -128,7 +129,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/ory/fosite v0.43.0 // indirect
 	github.com/ory/go-acc v0.2.8 // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
 	github.com/ory/viper v1.7.5 // indirect

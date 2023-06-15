@@ -21,10 +21,10 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230531115220-0445e9664e8e
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230615070726-b02a3e01fc44
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/jinzhu/copier v0.3.5
@@ -59,7 +59,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/PaesslerAG/gval v1.2.0 // indirect
@@ -123,7 +123,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
