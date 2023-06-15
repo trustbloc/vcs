@@ -81,7 +81,7 @@ func TestExchangeCode(t *testing.T) {
 
 	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
-			OIDCConfig: &profile.OIDC4CIConfig{
+			OIDCConfig: &profile.OIDCConfig{
 				ClientID:           "clientID",
 				ClientSecretHandle: "clientSecret",
 			},
@@ -180,7 +180,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 
 	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
-			OIDCConfig: &profile.OIDC4CIConfig{
+			OIDCConfig: &profile.OIDCConfig{
 				ClientID:           "clientID",
 				ClientSecretHandle: "clientSecret",
 			},
@@ -238,7 +238,7 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 
 	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
-			OIDCConfig: &profile.OIDC4CIConfig{
+			OIDCConfig: &profile.OIDCConfig{
 				ClientID:           "clientID",
 				ClientSecretHandle: "clientSecret",
 			},
@@ -340,7 +340,7 @@ func TestExchangeCodePublishError(t *testing.T) {
 
 	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
-			OIDCConfig: &profile.OIDC4CIConfig{
+			OIDCConfig: &profile.OIDCConfig{
 				ClientID:           "clientID",
 				ClientSecretHandle: "clientSecret",
 			},

@@ -732,6 +732,13 @@ func buildEchoHandler(
 		Tracer:            conf.Tracer,
 	}))
 
+	clientManager := clientmanager.New(
+		&clientmanager.Config{
+			Store:          fositeStore.(oauth2ClientStore),
+			ProfileService: issuerProfileSvc,
+		},
+	)
+
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:               eventSvc,
 		ProfileSvc:             issuerProfileSvc,
@@ -740,7 +747,7 @@ func buildEchoHandler(
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
-		OAuth2ClientManager:    clientmanager.NewService(fositeStore.(oauth2ClientStore)),
+		ClientManager:          clientManager,
 		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
 		Tracer:                 conf.Tracer,
 	}))

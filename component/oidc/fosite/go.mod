@@ -1,3 +1,7 @@
+// Copyright SecureKey Technologies Inc. All Rights Reserved.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/trustbloc/vcs/component/oidc/fosite
 
 go 1.19
@@ -35,6 +39,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/ecordell/optgen v0.0.6 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect

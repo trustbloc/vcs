@@ -41,7 +41,7 @@ type Issuer struct {
 	Name                string                `json:"name,omitempty"`
 	URL                 string                `json:"url,omitempty"`
 	Active              bool                  `json:"active"`
-	OIDCConfig          *OIDC4CIConfig        `json:"oidcConfig"`
+	OIDCConfig          *OIDCConfig           `json:"oidcConfig"`
 	OrganizationID      string                `json:"organizationID,omitempty"`
 	VCConfig            *VCConfig             `json:"vcConfig"`
 	KMSConfig           *vcskms.Config        `json:"kmsConfig"`
@@ -68,14 +68,17 @@ type CredentialMetaData struct {
 	CredentialsSupported []map[string]interface{} `json:"credentials_supported"`
 }
 
-// OIDC4CIConfig is issuer's OIDC configuration used during OIDC credential issuance flow.
-type OIDC4CIConfig struct {
-	IssuerWellKnownURL              string   `json:"issuer_well_known"`
-	ClientID                        string   `json:"client_id"`
-	ClientSecretHandle              string   `json:"client_secret_handle"`
-	Scope                           []string `json:"scope"`
-	EnableDynamicClientRegistration bool     `json:"enable_dynamic_client_registration"`
-	InitialAccessTokenLifespan      string   `json:"initial_access_token_lifespan"`
+// OIDCConfig represents issuer's OIDC configuration.
+type OIDCConfig struct {
+	IssuerWellKnownURL                string        `json:"issuer_well_known"`
+	ClientID                          string        `json:"client_id"`
+	ClientSecretHandle                string        `json:"client_secret_handle"`
+	ScopesSupported                   []string      `json:"scopes_supported"`
+	GrantTypesSupported               []string      `json:"grant_types_supported"`
+	ResponseTypesSupported            []string      `json:"response_types_supported"`
+	TokenEndpointAuthMethodsSupported []string      `json:"token_endpoint_auth_methods_supported"`
+	EnableDynamicClientRegistration   bool          `json:"enable_dynamic_client_registration"`
+	InitialAccessTokenLifespan        time.Duration `json:"initial_access_token_lifespan"`
 }
 
 // VCConfig describes how to sign verifiable credentials.

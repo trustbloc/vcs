@@ -55,10 +55,9 @@ func TestAuthCode(t *testing.T) {
 				ResponseTypes:  nil,
 				Scopes:         []string{"awesome"},
 				Audience:       nil,
-				Public:         false,
 			}
 
-			_, err = s.InsertClient(context.Background(), *oauth2Client)
+			_, err = s.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()

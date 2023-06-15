@@ -190,7 +190,7 @@ func (s *Service) extendTransactionWithOIDCConfig(
 	data.TokenEndpoint = oidcConfig.TokenEndpoint
 
 	if len(data.Scope) == 0 { // set scopes only if we dont have it in request
-		data.Scope = profile.OIDCConfig.Scope
+		data.Scope = profile.OIDCConfig.ScopesSupported
 	}
 
 	data.RedirectURI = fmt.Sprintf("%s/%s", s.issuerVCSPublicHost, "oidc/redirect")

@@ -123,7 +123,7 @@ func TestCreateExpiredSession(t *testing.T) {
 	s, err := NewStore(context.Background(), client)
 	assert.NoError(t, err)
 
-	_, err = s.InsertClient(context.Background(), *oauth2Client)
+	_, err = s.InsertClient(context.Background(), oauth2Client)
 	assert.NoError(t, err)
 
 	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
