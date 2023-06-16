@@ -1626,6 +1626,34 @@ func TestOpenIdConfiguration_EnableDynamicClientRegistration(t *testing.T) {
 	assert.Equal(t, host+"/oidc/register", lo.FromPtr(config.RegistrationEndpoint))
 }
 
+func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T) {
+	const host = "https://localhost"
+
+	gt := []string{"authorization_code", "implicit"}
+	s := []string{"openid"}
+
+	svc := NewMockProfileService(gomock.NewController(t))
+	svc.EXPECT().GetProfile(profileID, profileVersion).Return(
+		&profileapi.Issuer{
+			Name: "test issuer",
+			OIDCConfig: &profileapi.OIDCConfig{
+				GrantTypesSupported: gt,
+				ScopesSupported:     s,
+			},
+		}, nil)
+
+	c := &Controller{
+		externalHostURL: host,
+		profileSvc:      svc,
+	}
+
+	config, err := c.getOpenIDConfig(profileID, profileVersion)
+	assert.NoError(t, err)
+
+	assert.Equal(t, config.GrantTypesSupported, gt)
+	assert.Equal(t, config.ScopesSupported, s)
+}
+
 func TestController_RegisterOauthClient(t *testing.T) {
 	body, err := json.Marshal(
 		&RegisterOAuthClientRequest{

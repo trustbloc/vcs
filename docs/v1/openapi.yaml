@@ -792,10 +792,22 @@ components:
         registration_endpoint:
           type: string
           description: URL of the OP's Dynamic Client Registration Endpoint.
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: JSON array containing a list of the OAuth 2.0 [RFC6749] scope values that this server supports.
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
       required:
         - authorization_endpoint
         - token_endpoint
         - response_types_supported
+        - scopes_supported
+        - grant_types_supported
     WellKnownOpenIDIssuerConfiguration:
       title: WellKnownOpenIDIssuerConfiguration response
       x-tags:
