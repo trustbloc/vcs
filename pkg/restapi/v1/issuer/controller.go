@@ -791,8 +791,13 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		return nil, err
 	}
 
-	if profile.OIDCConfig != nil && profile.OIDCConfig.EnableDynamicClientRegistration {
-		config.RegistrationEndpoint = lo.ToPtr(fmt.Sprintf("%soidc/register", host))
+	if profile.OIDCConfig != nil {
+		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
+		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
+
+		if profile.OIDCConfig.EnableDynamicClientRegistration {
+			config.RegistrationEndpoint = lo.ToPtr(fmt.Sprintf("%soidc/register", host))
+		}
 	}
 
 	return config, nil

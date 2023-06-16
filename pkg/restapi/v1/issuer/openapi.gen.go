@@ -333,11 +333,17 @@ type WellKnownOpenIDConfiguration struct {
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
+	// JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
+	GrantTypesSupported []string `json:"grant_types_supported"`
+
 	// URL of the OP's Dynamic Client Registration Endpoint.
 	RegistrationEndpoint *string `json:"registration_endpoint,omitempty"`
 
 	// JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
 	ResponseTypesSupported []string `json:"response_types_supported"`
+
+	// JSON array containing a list of the OAuth 2.0 [RFC6749] scope values that this server supports.
+	ScopesSupported []string `json:"scopes_supported"`
 
 	// URL of the OP's OAuth 2.0 Token Endpoint.
 	TokenEndpoint string `json:"token_endpoint"`

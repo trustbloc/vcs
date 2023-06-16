@@ -60,9 +60,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		CredentialFormat:      profile.VCConfig.Format,
 		OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, template),
 		ClaimEndpoint:         req.ClaimEndpoint,
-		GrantType:             req.GrantType,
 		ResponseType:          req.ResponseType,
-		Scope:                 req.Scope,
 		OpState:               req.OpState,
 		State:                 TransactionStateIssuanceInitiated,
 		WebHookURL:            profile.WebHook,
@@ -76,16 +74,16 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, err
 	}
 
-	if data.GrantType == "" {
-		data.GrantType = defaultGrantType
+	if err = setGrantType(data, profile.OIDCConfig.GrantTypesSupported, req.GrantType); err != nil {
+		return nil, err
+	}
+
+	if err = setScopes(data, profile.OIDCConfig.ScopesSupported, req.Scope); err != nil {
+		return nil, err
 	}
 
 	if data.ResponseType == "" {
 		data.ResponseType = defaultResponseType
-	}
-
-	if len(data.Scope) == 0 {
-		data.Scope = []string{defaultScope}
 	}
 
 	if isPreAuthorizeFlow {
@@ -141,6 +139,38 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}, nil
 }
 
+func setScopes(data *TransactionData, scopesSupported []string, requestScopes []string) error {
+	if len(requestScopes) == 0 {
+		data.Scope = scopesSupported
+		return nil
+	}
+
+	for _, s := range requestScopes {
+		if !lo.Contains(scopesSupported, s) {
+			return fmt.Errorf("unsupported scope %s", s)
+		}
+	}
+
+	data.Scope = requestScopes
+
+	return nil
+}
+
+func setGrantType(data *TransactionData, grantTypesSupported []string, requestGrantType string) error {
+	if requestGrantType == "" {
+		data.GrantType = defaultGrantType
+		return nil
+	}
+
+	if !lo.Contains(grantTypesSupported, requestGrantType) {
+		return fmt.Errorf("unsupported grant type %s", requestGrantType)
+	}
+
+	data.GrantType = requestGrantType
+
+	return nil
+}
+
 func (s *Service) SelectProperOIDCFormat(
 	format verifiable.Format,
 	template *profileapi.CredentialTemplate,
@@ -188,11 +218,6 @@ func (s *Service) extendTransactionWithOIDCConfig(
 	data.AuthorizationEndpoint = oidcConfig.AuthorizationEndpoint
 	data.PushedAuthorizationRequestEndpoint = oidcConfig.PushedAuthorizationRequestEndpoint
 	data.TokenEndpoint = oidcConfig.TokenEndpoint
-
-	if len(data.Scope) == 0 { // set scopes only if we dont have it in request
-		data.Scope = profile.OIDCConfig.ScopesSupported
-	}
-
 	data.RedirectURI = fmt.Sprintf("%s/%s", s.issuerVCSPublicHost, "oidc/redirect")
 
 	return nil

@@ -17,7 +17,14 @@
   "oidcConfig": {
     "client_id": "test_issuer_client_id",
     "client_secret_handle": "test_issuer_client_secret_handle",
-    "issuer_well_known": "https://issuer.example.com/.well-known/openid-configuration"
+    "issuer_well_known": "https://issuer.example.com/.well-known/openid-configuration",
+    "scopes_supported": [
+      "openid",
+      "profile"
+    ],
+    "grant_types_supported": [
+      "authorization_code"
+    ]
   },
   "credentialTemplates": [
     {

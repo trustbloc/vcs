@@ -103,6 +103,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					ClientWellKnownURL:   walletWellKnownURL,
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 					OpState:              "eyJhbGciOiJSU0Et",
+					GrantType:            "authorization_code",
+					Scope:                []string{"openid", "profile"},
 				}
 
 				profile = &testProfile
@@ -154,6 +156,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
 								UserPin:       "123456789",
+								GrantType:     "authorization_code",
+								Scope:         []string{"openid", "profile"},
 							},
 						}, nil
 					})
@@ -266,6 +270,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:              initialOpState,
 					UserPinRequired:      false,
 					ClaimData:            claimData,
+					GrantType:            "authorization_code",
+					Scope:                []string{"openid", "profile"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -407,6 +413,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:            initialOpState,
 					UserPinRequired:    false,
 					ClaimData:          claimData,
+					GrantType:          "authorization_code",
+					Scope:              []string{"openid", "profile"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -764,6 +772,51 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.Nil(t, resp)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "store error")
+			},
+		},
+		{
+			name: "Unsupported grant type",
+			setup: func() {
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID:      "templateID",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+					GrantType:                 "invalid_value",
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "unsupported grant type invalid_value")
+			},
+		},
+		{
+			name: "Unsupported scope",
+			setup: func() {
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID:      "templateID",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+					GrantType:                 "authorization_code",
+					Scope:                     []string{"invalid_value"},
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "unsupported scope invalid_value")
 			},
 		},
 	}
