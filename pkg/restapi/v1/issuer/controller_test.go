@@ -37,6 +37,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -1657,13 +1658,11 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 func TestController_RegisterOauthClient(t *testing.T) {
 	body, err := json.Marshal(
 		&RegisterOAuthClientRequest{
-			Data: OAuthClientRegistrationData{
-				ClientName:   "test",
-				ClientUri:    "https://test.com",
-				GrantTypes:   []string{"authorization_code"},
-				RedirectUris: []string{"https://test.com/callback"},
-			},
-			OpState: "1234",
+			ClientName:   lo.ToPtr("test"),
+			ClientUri:    lo.ToPtr("https://test.com"),
+			GrantTypes:   lo.ToPtr([]string{"authorization_code"}),
+			RedirectUris: lo.ToPtr([]string{"https://test.com/callback"}),
+			OpState:      "1234",
 		},
 	)
 	require.NoError(t, err)
@@ -1675,25 +1674,86 @@ func TestController_RegisterOauthClient(t *testing.T) {
 				ID: "1234",
 			}, nil)
 
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
+
 		c := &Controller{
-			clientManager: mockClientManager,
+			clientManager:  mockClientManager,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		ctx := echoContext(withRequestBody(body))
 		assert.NoError(t, c.RegisterOauthClient(ctx))
 	})
 
-	t.Run("create client error", func(t *testing.T) {
+	t.Run("resolve profile error", func(t *testing.T) {
 		mockClientManager := NewMockClientManager(gomock.NewController(t))
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
-			fmt.Errorf("create client error"))
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(nil,
+			fmt.Errorf("resolve profile error"))
 
 		c := &Controller{
-			clientManager: mockClientManager,
+			clientManager:  mockClientManager,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
-		ctx := echoContext(withRequestBody(body))
-		assert.ErrorContains(t, c.RegisterOauthClient(ctx), "create oauth2 client")
+		var expectedErr *resterr.CustomError
+
+		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &expectedErr)
+		assert.Equal(t, resterr.SystemError, expectedErr.Code)
+		assert.Equal(t, "OIDC4CIService", expectedErr.Component)
+		assert.Equal(t, "ResolveProfile", expectedErr.FailedOperation)
+	})
+
+	t.Run("client registration error", func(t *testing.T) {
+		mockClientManager := NewMockClientManager(gomock.NewController(t))
+
+		regErr := &clientmanager.RegistrationError{
+			Code:        clientmanager.ErrCodeInvalidClientMetadata,
+			Description: "scope invalid not supported",
+		}
+
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, regErr)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
+
+		c := &Controller{
+			clientManager:  mockClientManager,
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		var expectedErr *resterr.CustomError
+
+		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &expectedErr)
+		assert.Equal(t, resterr.InvalidValue, expectedErr.Code)
+		assert.Equal(t, string(clientmanager.ErrCodeInvalidClientMetadata), expectedErr.IncorrectValue)
+		assert.Equal(t, regErr, expectedErr.Err)
+	})
+
+	t.Run("create client error", func(t *testing.T) {
+		mockClientManager := NewMockClientManager(gomock.NewController(t))
+
+		createErr := fmt.Errorf("create client error")
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, createErr)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
+
+		c := &Controller{
+			clientManager:  mockClientManager,
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		var expectedErr *resterr.CustomError
+
+		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &expectedErr)
+		assert.Equal(t, resterr.SystemError, expectedErr.Code)
+		assert.Equal(t, "ClientManager", expectedErr.Component)
+		assert.Equal(t, "Create", expectedErr.FailedOperation)
+		assert.Equal(t, createErr, expectedErr.Err)
 	})
 }
 

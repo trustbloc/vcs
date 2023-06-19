@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -89,6 +90,7 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 	}
 
 	client := &oauth2client.Client{
+		ID:                uuid.New().String(),
 		Name:              data.Name,
 		URI:               data.URI,
 		RedirectURIs:      data.RedirectURIs,
@@ -122,33 +124,33 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		return nil, err
 	}
 
+	if client.TokenEndpointAuthMethod != "none" {
+		var secret []byte
+
+		if secret, err = generateSecret(); err != nil {
+			return nil, err
+		}
+
+		client.Secret = secret
+
+		if profile.OIDCConfig.InitialAccessTokenLifespan != 0 {
+			client.SecretExpiresAt = time.Now().Add(profile.OIDCConfig.InitialAccessTokenLifespan)
+		} else {
+			client.SecretExpiresAt = time.Now().Add(defaultInitialAccessTokenLifespan)
+		}
+	}
+
 	if err = setJSONWebKeys(client, data.JSONWebKeys); err != nil {
 		return nil, err
-	}
-
-	secret, err := generateSecret()
-	if err != nil {
-		return nil, err
-	}
-
-	client.Secret = secret
-
-	if profile.OIDCConfig.InitialAccessTokenLifespan != 0 {
-		client.SecretExpiresAt = time.Now().Add(profile.OIDCConfig.InitialAccessTokenLifespan)
-	} else {
-		client.SecretExpiresAt = time.Now().Add(defaultInitialAccessTokenLifespan)
 	}
 
 	if err = validateClient(client); err != nil {
 		return nil, err
 	}
 
-	clientID, err := m.store.InsertClient(ctx, client)
-	if err != nil {
+	if _, err = m.store.InsertClient(ctx, client); err != nil {
 		return nil, fmt.Errorf("insert client: %w", err)
 	}
-
-	client.ID = clientID
 
 	return client, nil
 }
@@ -283,6 +285,19 @@ func validateClient(client *oauth2client.Client) error {
 		}
 	}
 
+	if len(client.RedirectURIs) > 0 {
+		for _, uri := range client.RedirectURIs {
+			if u, err := url.Parse(uri); err == nil && isValidRedirectURI(u) {
+				continue
+			}
+
+			return &RegistrationError{
+				Code:        ErrCodeInvalidRedirectURI,
+				Description: fmt.Sprintf("invalid redirect uri: %s", uri),
+			}
+		}
+	}
+
 	if lo.Contains(client.GrantTypes, "authorization_code") && client.RedirectURIs == nil {
 		return &RegistrationError{
 			Code:        ErrCodeInvalidClientMetadata,
@@ -307,4 +322,21 @@ func validateClient(client *oauth2client.Client) error {
 	}
 
 	return nil
+}
+
+func isValidRedirectURI(uri *url.URL) bool {
+	u, err := url.ParseRequestURI(uri.String())
+	if err != nil {
+		return false
+	}
+
+	if len(u.Scheme) == 0 {
+		return false
+	}
+
+	if uri.Fragment != "" {
+		return false
+	}
+
+	return true
 }

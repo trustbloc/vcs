@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4vc
 
+import vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+
 type initiateOIDC4CIRequest struct {
 	ClaimData                 *map[string]interface{} `json:"claim_data,omitempty"`
 	ClaimEndpoint             string                  `json:"claim_endpoint,omitempty"`
@@ -23,4 +25,64 @@ type initiateOIDC4CIResponse struct {
 	OfferCredentialURL string  `json:"offer_credential_url"`
 	TxId               string  `json:"tx_id"`
 	UserPin            *string `json:"user_pin"`
+}
+
+type clientRegistrationRequest struct {
+	ClientName              *string                 `json:"client_name,omitempty"`
+	ClientUri               *string                 `json:"client_uri,omitempty"`
+	Contacts                *[]string               `json:"contacts,omitempty"`
+	GrantTypes              *[]string               `json:"grant_types,omitempty"`
+	IssuerState             string                  `json:"issuer_state"`
+	Jwks                    *map[string]interface{} `json:"jwks,omitempty"`
+	JwksUri                 *string                 `json:"jwks_uri,omitempty"`
+	LogoUri                 *string                 `json:"logo_uri,omitempty"`
+	PolicyUri               *string                 `json:"policy_uri,omitempty"`
+	RedirectUris            *[]string               `json:"redirect_uris,omitempty"`
+	ResponseTypes           *[]string               `json:"response_types,omitempty"`
+	Scope                   *string                 `json:"scope,omitempty"`
+	SoftwareId              *string                 `json:"software_id,omitempty"`
+	SoftwareVersion         *string                 `json:"software_version,omitempty"`
+	TokenEndpointAuthMethod *string                 `json:"token_endpoint_auth_method,omitempty"`
+	TosUri                  *string                 `json:"tos_uri,omitempty"`
+}
+
+type clientRegistrationResponse struct {
+	ClientId                string                  `json:"client_id"`
+	ClientIdIssuedAt        string                  `json:"client_id_issued_at"`
+	ClientName              *string                 `json:"client_name,omitempty"`
+	ClientSecret            *string                 `json:"client_secret,omitempty"`
+	ClientSecretExpiresAt   *string                 `json:"client_secret_expires_at,omitempty"`
+	ClientUri               *string                 `json:"client_uri,omitempty"`
+	Contacts                *[]string               `json:"contacts,omitempty"`
+	GrantTypes              []string                `json:"grant_types"`
+	Jwks                    *map[string]interface{} `json:"jwks,omitempty"`
+	JwksUri                 *string                 `json:"jwks_uri,omitempty"`
+	LogoUri                 *string                 `json:"logo_uri,omitempty"`
+	PolicyUri               *string                 `json:"policy_uri,omitempty"`
+	RedirectUris            *[]string               `json:"redirect_uris,omitempty"`
+	ResponseTypes           *[]string               `json:"response_types,omitempty"`
+	Scope                   *string                 `json:"scope,omitempty"`
+	SoftwareId              *string                 `json:"software_id,omitempty"`
+	SoftwareVersion         *string                 `json:"software_version,omitempty"`
+	TokenEndpointAuthMethod string                  `json:"token_endpoint_auth_method"`
+	TosUri                  *string                 `json:"tos_uri,omitempty"`
+}
+
+type credentialOfferResponse struct {
+	CredentialIssuer string               `json:"credential_issuer"`
+	Credentials      []credentialOffer    `json:"credentials"`
+	Grants           credentialOfferGrant `json:"grants"`
+}
+
+type credentialOffer struct {
+	Format vcsverifiable.OIDCFormat `json:"format"`
+	Types  []string                 `json:"types"`
+}
+
+type credentialOfferGrant struct {
+	AuthorizationCode *authorizationCodeGrant `json:"authorization_code,omitempty"`
+}
+
+type authorizationCodeGrant struct {
+	IssuerState string `json:"issuer_state"`
 }

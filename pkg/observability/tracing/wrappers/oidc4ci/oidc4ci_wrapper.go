@@ -107,3 +107,17 @@ func (w *Wrapper) PrepareCredential(
 
 	return res, nil
 }
+
+func (w *Wrapper) ResolveProfile(ctx context.Context, opState string) (*profileapi.Issuer, error) {
+	ctx, span := w.tracer.Start(ctx, "oidc4ci.ResolveProfile")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("op_state", opState))
+
+	profile, err := w.svc.ResolveProfile(ctx, opState)
+	if err != nil {
+		return nil, err
+	}
+
+	return profile, nil
+}

@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -399,7 +400,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid sate",
+			name: "invalid state",
 			setup: func() {
 				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
@@ -1320,4 +1321,64 @@ func TestSelectProperFormat(t *testing.T) {
 		assert.Equal(t, vcsverifiable.JwtVCJson, srv.SelectProperOIDCFormat(vcsverifiable.Jwt,
 			&profileapi.CredentialTemplate{}))
 	})
+}
+
+func TestService_ResolveProfile(t *testing.T) {
+	var (
+		mockStore      = NewMockTransactionStore(gomock.NewController(t))
+		mockProfileSvc = NewMockProfileService(gomock.NewController(t))
+	)
+
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, profile *profileapi.Issuer, err error)
+	}{
+		{
+			name: "Success",
+			setup: func() {
+				mockStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{}, nil)
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
+			},
+			check: func(t *testing.T, profile *profileapi.Issuer, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, profile)
+			},
+		},
+		{
+			name: "Fail to find transaction by op state",
+			setup: func() {
+				mockStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(nil, fmt.Errorf("find error"))
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Times(0)
+			},
+			check: func(t *testing.T, profile *profileapi.Issuer, err error) {
+				require.ErrorContains(t, err, "get transaction by op state")
+			},
+		},
+		{
+			name: "Fail to get profile",
+			setup: func() {
+				mockStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{}, nil)
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(nil,
+					fmt.Errorf("get profile error"))
+			},
+			check: func(t *testing.T, profile *profileapi.Issuer, err error) {
+				require.ErrorContains(t, err, "get profile")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			svc, err := oidc4ci.NewService(&oidc4ci.Config{
+				TransactionStore: mockStore,
+				ProfileService:   mockProfileSvc,
+			})
+			require.NoError(t, err)
+
+			profile, err := svc.ResolveProfile(context.Background(), "opState")
+			tt.check(t, profile, err)
+		})
+	}
 }

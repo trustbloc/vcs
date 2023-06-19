@@ -143,54 +143,6 @@ type IssueCredentialOptions struct {
 	VerificationMethod *string `json:"verificationMethod,omitempty"`
 }
 
-// Client registration metadata.
-type OAuthClientRegistrationData struct {
-	// Human-readable string name of the client to be presented to the end-user during authorization.
-	ClientName string `json:"client_name"`
-
-	// URL string of a web page providing information about the client.
-	ClientUri string `json:"client_uri"`
-
-	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
-	Contacts []string `json:"contacts"`
-
-	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
-	GrantTypes []string `json:"grant_types"`
-
-	// Client's JSON Web Key Set document value, which contains the client's public keys.
-	Jwks map[string]interface{} `json:"jwks"`
-
-	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
-	JwksUri string `json:"jwks_uri"`
-
-	// URL string that references a logo for the client.
-	LogoUri string `json:"logo_uri"`
-
-	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
-	PolicyUri string `json:"policy_uri"`
-
-	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
-	RedirectUris []string `json:"redirect_uris"`
-
-	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
-	ResponseTypes []string `json:"response_types"`
-
-	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
-	Scope string `json:"scope"`
-
-	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-	SoftwareId string `json:"software_id"`
-
-	// A version identifier string for the client software identified by "software_id".
-	SoftwareVersion string `json:"software_version"`
-
-	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
-	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
-
-	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-	TosUri string `json:"tos_uri"`
-}
-
 // Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
 type OAuthParameters struct {
 	ClientId     string   `json:"client_id"`
@@ -263,9 +215,51 @@ type PushAuthorizationDetailsRequest struct {
 
 // Model for RegisterOAuthClient request.
 type RegisterOAuthClientRequest struct {
-	// Client registration metadata.
-	Data    OAuthClientRegistrationData `json:"data"`
-	OpState string                      `json:"op_state"`
+	// Human-readable string name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// URL string of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
+	Contacts *[]string `json:"contacts,omitempty"`
+
+	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
+	GrantTypes *[]string `json:"grant_types,omitempty"`
+
+	// Client's JSON Web Key Set document value, which contains the client's public keys.
+	Jwks *map[string]interface{} `json:"jwks,omitempty"`
+
+	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
+	JwksUri *string `json:"jwks_uri,omitempty"`
+
+	// URL string that references a logo for the client.
+	LogoUri *string `json:"logo_uri,omitempty"`
+	OpState string  `json:"op_state"`
+
+	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
+	PolicyUri *string `json:"policy_uri,omitempty"`
+
+	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
+	SoftwareId *string `json:"software_id,omitempty"`
+
+	// A version identifier string for the client software identified by "software_id".
+	SoftwareVersion *string `json:"software_version,omitempty"`
+
+	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
+	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+
+	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
+	TosUri *string `json:"tos_uri,omitempty"`
 }
 
 // Response with registered metadata for the client.
@@ -276,14 +270,56 @@ type RegisterOAuthClientResponse struct {
 	// Time at which the client identifier was issued.
 	ClientIdIssuedAt string `json:"client_id_issued_at"`
 
+	// Human-readable string name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
 	// Client secret. This value is used by the confidential client to authenticate to the token endpoint.
-	ClientSecret string `json:"client_secret"`
+	ClientSecret *string `json:"client_secret,omitempty"`
 
 	// Time at which the client secret will expire or 0 if it will not expire.
-	ClientSecretExpiresAt string `json:"client_secret_expires_at"`
+	ClientSecretExpiresAt *string `json:"client_secret_expires_at,omitempty"`
 
-	// Client registration metadata.
-	Data OAuthClientRegistrationData `json:"data"`
+	// URL string of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
+	Contacts *[]string `json:"contacts,omitempty"`
+
+	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
+	GrantTypes []string `json:"grant_types"`
+
+	// Client's JSON Web Key Set document value, which contains the client's public keys.
+	Jwks *map[string]interface{} `json:"jwks,omitempty"`
+
+	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
+	JwksUri *string `json:"jwks_uri,omitempty"`
+
+	// URL string that references a logo for the client.
+	LogoUri *string `json:"logo_uri,omitempty"`
+
+	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
+	PolicyUri *string `json:"policy_uri,omitempty"`
+
+	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
+	SoftwareId *string `json:"software_id,omitempty"`
+
+	// A version identifier string for the client software identified by "software_id".
+	SoftwareVersion *string `json:"software_version,omitempty"`
+
+	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+
+	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
+	TosUri *string `json:"tos_uri,omitempty"`
 }
 
 // Model for storing auth code from issuer oauth

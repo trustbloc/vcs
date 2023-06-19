@@ -2023,7 +2023,7 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 					}, nil)
 
 				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              []string{"authorization_code"},
+					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
 					ResponseTypes:           lo.ToPtr([]string{"code"}),
 					Scope:                   lo.ToPtr("foo bar"),
 					TokenEndpointAuthMethod: lo.ToPtr("none"),
@@ -2043,7 +2043,7 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 
 				var err error
 				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              []string{"authorization_code"},
+					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
 					ResponseTypes:           lo.ToPtr([]string{"code"}),
 					Scope:                   lo.ToPtr("foo bar"),
 					TokenEndpointAuthMethod: lo.ToPtr("none"),
@@ -2071,7 +2071,7 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 					}, nil)
 
 				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              []string{"authorization_code"},
+					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
 					ResponseTypes:           lo.ToPtr([]string{"code"}),
 					Scope:                   lo.ToPtr("foo bar"),
 					TokenEndpointAuthMethod: lo.ToPtr("none"),

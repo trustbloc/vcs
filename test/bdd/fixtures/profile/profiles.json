@@ -163,7 +163,7 @@
             "code"
           ],
           "token_endpoint_auth_methods_supported": [
-            "client_secret_basic"
+            "none"
           ]
         },
         "credentialTemplates": [
@@ -507,7 +507,7 @@
             "code"
           ],
           "token_endpoint_auth_methods_supported": [
-            "client_secret_basic"
+            "none"
           ]
         },
         "credentialTemplates": [
@@ -682,7 +682,7 @@
             "code"
           ],
           "token_endpoint_auth_methods_supported": [
-            "client_secret_basic"
+            "none"
           ]
         },
         "credentialTemplates": [

@@ -813,30 +813,38 @@ func (c *Controller) RegisterOauthClient(e echo.Context) error {
 	}
 
 	data := &clientmanager.ClientMetadata{
-		Name:                    body.Data.ClientName,
-		URI:                     body.Data.ClientUri,
-		RedirectURIs:            body.Data.RedirectUris,
-		GrantTypes:              body.Data.GrantTypes,
-		ResponseTypes:           body.Data.ResponseTypes,
-		Scope:                   body.Data.Scope,
-		LogoURI:                 body.Data.LogoUri,
-		Contacts:                body.Data.Contacts,
-		TermsOfServiceURI:       body.Data.TosUri,
-		PolicyURI:               body.Data.PolicyUri,
-		JSONWebKeysURI:          body.Data.JwksUri,
-		JSONWebKeys:             body.Data.Jwks,
-		SoftwareID:              body.Data.SoftwareId,
-		SoftwareVersion:         body.Data.SoftwareVersion,
-		TokenEndpointAuthMethod: body.Data.TokenEndpointAuthMethod,
+		Name:                    lo.FromPtr(body.ClientName),
+		URI:                     lo.FromPtr(body.ClientUri),
+		RedirectURIs:            lo.FromPtr(body.RedirectUris),
+		GrantTypes:              lo.FromPtr(body.GrantTypes),
+		ResponseTypes:           lo.FromPtr(body.ResponseTypes),
+		Scope:                   lo.FromPtr(body.Scope),
+		LogoURI:                 lo.FromPtr(body.LogoUri),
+		Contacts:                lo.FromPtr(body.Contacts),
+		TermsOfServiceURI:       lo.FromPtr(body.TosUri),
+		PolicyURI:               lo.FromPtr(body.PolicyUri),
+		JSONWebKeysURI:          lo.FromPtr(body.JwksUri),
+		JSONWebKeys:             lo.FromPtr(body.Jwks),
+		SoftwareID:              lo.FromPtr(body.SoftwareId),
+		SoftwareVersion:         lo.FromPtr(body.SoftwareVersion),
+		TokenEndpointAuthMethod: lo.FromPtr(body.TokenEndpointAuthMethod),
 	}
 
-	// TODO: Resolve using body.OpState parameter
-	var profileID, profileVersion string
+	ctx := e.Request().Context()
 
-	client, err := c.clientManager.Create(e.Request().Context(), profileID, profileVersion, data)
+	profile, err := c.oidc4ciService.ResolveProfile(ctx, body.OpState)
 	if err != nil {
-		// TODO: Handle different types of errors
-		return fmt.Errorf("create oauth2 client: %w", err)
+		return resterr.NewSystemError("OIDC4CIService", "ResolveProfile", err)
+	}
+
+	client, err := c.clientManager.Create(ctx, profile.ID, profile.Version, data)
+	if err != nil {
+		var regErr *clientmanager.RegistrationError
+		if errors.As(err, &regErr) {
+			return resterr.NewValidationError(resterr.InvalidValue, string(regErr.Code), regErr)
+		}
+
+		return resterr.NewSystemError("ClientManager", "Create", err)
 	}
 
 	jwks, err := jwksToMap(client.JSONWebKeys)
@@ -845,27 +853,25 @@ func (c *Controller) RegisterOauthClient(e echo.Context) error {
 	}
 
 	return util.WriteOutput(e)(RegisterOAuthClientResponse{
-		ClientId:              client.ID,
-		ClientIdIssuedAt:      strconv.FormatInt(client.CreatedAt.Unix(), 10),
-		ClientSecret:          string(client.Secret),
-		ClientSecretExpiresAt: strconv.FormatInt(client.SecretExpiresAt.Unix(), 10),
-		Data: OAuthClientRegistrationData{
-			ClientName:              client.Name,
-			ClientUri:               client.URI,
-			Contacts:                client.Contacts,
-			GrantTypes:              client.GrantTypes,
-			Jwks:                    jwks,
-			JwksUri:                 client.JSONWebKeysURI,
-			LogoUri:                 client.LogoURI,
-			PolicyUri:               client.PolicyURI,
-			RedirectUris:            client.RedirectURIs,
-			ResponseTypes:           client.ResponseTypes,
-			Scope:                   strings.Join(client.Scopes, " "),
-			SoftwareId:              client.SoftwareID,
-			SoftwareVersion:         client.SoftwareVersion,
-			TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
-			TosUri:                  client.TermsOfServiceURI,
-		},
+		ClientId:                client.ID,
+		ClientIdIssuedAt:        strconv.FormatInt(client.CreatedAt.Unix(), 10),
+		ClientSecret:            lo.ToPtr(string(client.Secret)),
+		ClientSecretExpiresAt:   lo.ToPtr(strconv.FormatInt(client.SecretExpiresAt.Unix(), 10)),
+		ClientName:              lo.ToPtr(client.Name),
+		ClientUri:               lo.ToPtr(client.URI),
+		Contacts:                lo.ToPtr(client.Contacts),
+		GrantTypes:              client.GrantTypes,
+		Jwks:                    lo.ToPtr(jwks),
+		JwksUri:                 lo.ToPtr(client.JSONWebKeysURI),
+		LogoUri:                 lo.ToPtr(client.LogoURI),
+		PolicyUri:               lo.ToPtr(client.PolicyURI),
+		RedirectUris:            lo.ToPtr(client.RedirectURIs),
+		ResponseTypes:           lo.ToPtr(client.ResponseTypes),
+		Scope:                   lo.ToPtr(strings.Join(client.Scopes, " ")),
+		SoftwareId:              lo.ToPtr(client.SoftwareID),
+		SoftwareVersion:         lo.ToPtr(client.SoftwareVersion),
+		TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
+		TosUri:                  lo.ToPtr(client.TermsOfServiceURI),
 	}, nil)
 }
 
