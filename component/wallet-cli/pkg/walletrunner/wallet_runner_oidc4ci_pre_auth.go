@@ -60,6 +60,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 		"pre-authorized_code": []string{offerResponse.Grants.PreAuthorizationGrant.PreAuthorizedCode},
+		"client_id":           []string{config.ClientID},
 	}
 
 	if offerResponse.Grants.PreAuthorizationGrant.UserPinRequired {

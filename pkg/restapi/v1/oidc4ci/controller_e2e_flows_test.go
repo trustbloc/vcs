@@ -253,6 +253,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 
 	interaction.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+			ClientId:          lo.ToPtr(clientID),
 			PreAuthorizedCode: code,
 			UserPin:           lo.ToPtr(pin),
 		},
@@ -265,6 +266,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 		"pre-authorized_code": {code},
 		"user_pin":            {pin},
+		"client_id":           {clientID},
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)

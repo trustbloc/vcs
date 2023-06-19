@@ -25,6 +25,7 @@ const (
 	OIDCPreAuthorizeDoesNotExpectPin ErrorCode = "oidc-pre-authorize-does-not-expect-pin"
 	OIDCPreAuthorizeExpectPin        ErrorCode = "oidc-pre-authorize-expect-pin"
 	OIDCPreAuthorizeInvalidPin       ErrorCode = "oidc-pre-authorize-invalid-pin"
+	OIDCPreAuthorizeInvalidClientID  ErrorCode = "oidc-pre-authorize-invalid-client-id"
 	OIDCCredentialFormatNotSupported ErrorCode = "oidc-credential-format-not-supported" //nolint:gosec
 	OIDCCredentialTypeNotSupported   ErrorCode = "oidc-credential-type-not-supported"   //nolint:gosec
 )

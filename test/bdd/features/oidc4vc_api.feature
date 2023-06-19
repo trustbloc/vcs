@@ -74,6 +74,12 @@ Feature: OIDC4VC REST API
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
     Then Malicious attacker stealing auth code from User and using "malicious_attacker_id" ClientID makes /token request and receives "invalid_client" error
 
+  Scenario: OIDC credential issuance and verification Pre Auth flow (issuer has pre-authorized_grant_anonymous_access_supported disabled)
+    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
+    And   Issuer with id "i_disabled_preauth_without_client_id/v1.0" is authorized as a Profile user
+    And   User holds credential "VerifiedEmployee" with templateID "templateID"
+    Then User interacts with Wallet to initiate credential issuance using pre authorization code flow and receives "invalid_client" error
+
   Scenario Outline: OIDC credential issuance and verification Auth flow (Claims Expiry)
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
     And   Issuer with id "<issuerProfile>" is authorized as a Profile user
