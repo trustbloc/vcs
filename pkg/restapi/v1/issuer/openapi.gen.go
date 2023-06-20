@@ -345,6 +345,9 @@ type UpdateCredentialStatusRequest struct {
 
 // Model for validating pre-authorized code and pin.
 type ValidatePreAuthorizedCodeRequest struct {
+	// Client ID.
+	ClientId *string `json:"client_id,omitempty"`
+
 	// Pre authorized code.
 	PreAuthorizedCode string `json:"pre-authorized_code"`
 
@@ -371,6 +374,9 @@ type WellKnownOpenIDConfiguration struct {
 
 	// JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
 	GrantTypesSupported []string `json:"grant_types_supported"`
+
+	// JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
+	PreAuthorizedGrantAnonymousAccessSupported bool `json:"pre-authorized_grant_anonymous_access_supported"`
 
 	// URL of the OP's Dynamic Client Registration Endpoint.
 	RegistrationEndpoint *string `json:"registration_endpoint,omitempty"`

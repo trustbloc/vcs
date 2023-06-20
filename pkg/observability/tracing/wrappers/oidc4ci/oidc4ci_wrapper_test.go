@@ -89,11 +89,11 @@ func TestWrapper_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin").Return(&oidc4ci.Transaction{ID: "id"}, nil)
+	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin", "clientID").Return(&oidc4ci.Transaction{ID: "id"}, nil)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.ValidatePreAuthorizedCodeRequest(context.Background(), "code", "pin")
+	_, err := w.ValidatePreAuthorizedCodeRequest(context.Background(), "code", "pin", "clientID")
 	require.NoError(t, err)
 }
 

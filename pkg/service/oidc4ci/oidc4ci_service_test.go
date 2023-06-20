@@ -509,12 +509,14 @@ func TestValidatePreAuthCode(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		eventService := NewMockEventService(gomock.NewController(t))
 		pinGenerator := NewMockPinGenerator(gomock.NewController(t))
+		profileService := NewMockProfileService(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
 			EventService:     eventService,
 			EventTopic:       spi.IssuerEventTopic,
 			PinGenerator:     pinGenerator,
+			ProfileService:   profileService,
 		})
 		assert.NoError(t, err)
 
@@ -536,8 +538,17 @@ func TestValidatePreAuthCode(t *testing.T) {
 				return nil
 			})
 
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+			Return(&profileapi.Issuer{
+				OIDCConfig: &profileapi.OIDCConfig{
+					ClientID:           "clientID",
+					ClientSecretHandle: "clientSecret",
+					PreAuthorizedGrantAnonymousAccessSupported: true,
+				},
+			}, nil)
+
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -545,11 +556,13 @@ func TestValidatePreAuthCode(t *testing.T) {
 	t.Run("success without pin", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		eventMock := NewMockEventService(gomock.NewController(t))
+		profileService := NewMockProfileService(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
 			EventService:     eventMock,
 			EventTopic:       spi.IssuerEventTopic,
+			ProfileService:   profileService,
 		})
 		assert.NoError(t, err)
 
@@ -571,7 +584,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -605,7 +618,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
 		assert.ErrorContains(t, err, "unexpected error")
 		assert.Nil(t, resp)
 	})
@@ -631,7 +644,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111", "123abc")
 		assert.ErrorContains(t, err, "invalid pin")
 		assert.Nil(t, resp)
 	})
@@ -645,7 +658,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found"))
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
 		assert.ErrorContains(t, err, "not found")
 		assert.Nil(t, resp)
 	})
@@ -666,7 +679,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "123abc")
 		assert.ErrorContains(t, err, "unexpected transaction from 5 to 2")
 		assert.Nil(t, resp)
 	})
@@ -686,7 +699,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "123abc")
 		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin[]: server does not expect pin")
 		assert.Nil(t, resp)
 	})
@@ -707,8 +720,67 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
 		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin[]: server expects user pin")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("get profile error", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		profileService := NewMockProfileService(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+			ProfileService:   profileService,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode:          "1234",
+				PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+				UserPin:              "123",
+				State:                oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("some error"))
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "")
+		assert.ErrorContains(t, err, "some error")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("issuer does not accept Token Request with a Pre-Authorized Code but without a client_id", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		profileService := NewMockProfileService(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+			ProfileService:   profileService,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode:          "1234",
+				PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+				UserPin:              "123",
+				State:                oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+			Return(&profileapi.Issuer{
+				OIDCConfig: &profileapi.OIDCConfig{
+					ClientID:           "clientID",
+					ClientSecretHandle: "clientSecret",
+					PreAuthorizedGrantAnonymousAccessSupported: false,
+				},
+			}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-invalid-client-id[]: issuer does not accept "+
+			"Token Request with a Pre-Authorized Code but without a client_id")
 		assert.Nil(t, resp)
 	})
 
@@ -728,7 +800,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "123abc")
 		assert.ErrorContains(t, err, "oidc-tx-not-found[]: invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
@@ -749,7 +821,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "123abc")
 		assert.ErrorContains(t, err, "oidc-tx-not-found[]: invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
@@ -771,7 +843,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("store update error"))
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
 		assert.ErrorContains(t, err, "store update error")
 		assert.Nil(t, resp)
 	})

@@ -55,6 +55,7 @@ const (
 	invalidRequestOIDCErr        = "invalid_request"
 	invalidGrantOIDCErr          = "invalid_grant"
 	invalidTokenOIDCErr          = "invalid_token"
+	invalidClientOIDCErr         = "invalid_client"
 )
 
 var logger = log.New("oidc4ci")
@@ -432,6 +433,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 			ctx,
 			e.FormValue("pre-authorized_code"),
 			e.FormValue("user_pin"),
+			e.FormValue("client_id"),
 		)
 
 		if preAuthorizeErr != nil {
@@ -677,11 +679,13 @@ func (c *Controller) oidcPreAuthorizedCode(
 	ctx context.Context,
 	preAuthorizedCode string,
 	userPin string,
+	clientID string,
 ) (*issuer.ValidatePreAuthorizedCodeResponse, error) {
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 			PreAuthorizedCode: preAuthorizedCode,
 			UserPin:           lo.ToPtr(userPin),
+			ClientId:          lo.ToPtr(clientID),
 		})
 	if err != nil {
 		return nil, err
@@ -710,6 +714,8 @@ func (c *Controller) oidcPreAuthorizedCode(
 				fallthrough
 			case resterr.OIDCPreAuthorizeInvalidPin:
 				return nil, resterr.NewOIDCError(invalidGrantOIDCErr, finalErr)
+			case resterr.OIDCPreAuthorizeInvalidClientID:
+				return nil, resterr.NewOIDCError(invalidClientOIDCErr, finalErr)
 			}
 		}
 

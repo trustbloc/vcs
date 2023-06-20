@@ -255,10 +255,11 @@ func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *Authorizat
 	return nil
 }
 
-func (s *Service) ValidatePreAuthorizedCodeRequest(
+func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	ctx context.Context,
 	preAuthorizedCode string,
 	pin string,
+	clientID string,
 ) (*Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
@@ -273,6 +274,21 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	if len(pin) == 0 && len(tx.UserPin) > 0 {
 		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeExpectPin,
 			fmt.Errorf("server expects user pin"))
+	}
+
+	if clientID == "" {
+		var profile *profileapi.Issuer
+
+		profile, err = s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		// profile.OIDCConfig is not required for pre-auth flow, so no specific error for this case.
+		if profile.OIDCConfig != nil && !profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported {
+			return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidClientID,
+				fmt.Errorf("issuer does not accept Token Request with a Pre-Authorized Code but without a client_id"))
+		}
 	}
 
 	newState := TransactionStatePreAuthCodeValidated

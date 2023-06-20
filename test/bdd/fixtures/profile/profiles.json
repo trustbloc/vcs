@@ -164,7 +164,8 @@
           ],
           "token_endpoint_auth_methods_supported": [
             "none"
-          ]
+          ],
+          "pre-authorized_grant_anonymous_access_supported": true
         },
         "credentialTemplates": [
           {
@@ -508,7 +509,8 @@
           ],
           "token_endpoint_auth_methods_supported": [
             "none"
-          ]
+          ],
+          "pre-authorized_grant_anonymous_access_supported": true
         },
         "credentialTemplates": [
           {
@@ -683,7 +685,8 @@
           ],
           "token_endpoint_auth_methods_supported": [
             "none"
-          ]
+          ],
+          "pre-authorized_grant_anonymous_access_supported": true
         },
         "credentialTemplates": [
           {
@@ -939,6 +942,143 @@
       "createDID": true,
       "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_disabled_preauth_without_client_id",
+        "version": "v1.0",
+        "groupID": "group_i_disabled_preauth_without_client_id",
+        "name": "i_disabled_preauth_without_client_id",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "jwk",
+          "status": {
+            "type": "RevocationList2020Status"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "pre-authorized_grant_anonymous_access_supported": false
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://www.w3.org/2018/credentials/examples/v1"
+            ],
+            "type": "VerifiedEmployee",
+            "id": "templateID",
+            "issuer": "did:jwk:i_myprofile_cmtr_p256_ldp",
+            "checks": {
+              "strict": true
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "credentials_supported": [
+            {
+              "format": "ldp_vc",
+              "id": "VerifiedEmployee_LDP",
+              "types": [
+                "VerifiableCredential",
+                "VerifiedEmployee"
+              ],
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "url": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credentialSubject": {
+                "displayName": {
+                  "display": [
+                    {
+                      "name": "Employee",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "givenName": {
+                  "display": [
+                    {
+                      "name": "Given Name",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "jobTitle": {
+                  "display": [
+                    {
+                      "name": "Job Title",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "surname": {
+                  "display": [
+                    {
+                      "name": "Surname",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "preferredLanguage": {
+                  "display": [
+                    {
+                      "name": "Preferred Language",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "mail": {
+                  "display": [
+                    {
+                      "name": "Mail",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "photo": {
+                  "display": [
+                    {
+                      "name": "Photo"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "createDID": true
     }
   ],
   "verifiers": [

@@ -73,14 +73,15 @@ func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState string)
 	return w.svc.ExchangeAuthorizationCode(ctx, opState)
 }
 
-func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode string, pin string) (*oidc4ci.Transaction, error) {
+func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode, pin, clientID string) (*oidc4ci.Transaction, error) {
 	ctx, span := w.tracer.Start(ctx, "oidc4ci.ValidatePreAuthorizedCodeRequest")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("pre-authorized_code", preAuthorizedCode))
 	span.SetAttributes(attribute.String("pin", pin))
+	span.SetAttributes(attribute.String("client_id", clientID))
 
-	tx, err := w.svc.ValidatePreAuthorizedCodeRequest(ctx, preAuthorizedCode, pin)
+	tx, err := w.svc.ValidatePreAuthorizedCodeRequest(ctx, preAuthorizedCode, pin, clientID)
 	if err != nil {
 		return nil, err
 	}

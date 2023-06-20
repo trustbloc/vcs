@@ -202,6 +202,19 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 	return s.runOIDC4CIPreAuth(initiateIssuanceRequest)
 }
 
+func (s *Steps) runOIDC4CIPreAuthWithError(errorContains string) error {
+	err := s.runOIDC4CIPreAuthWithValidClaims()
+	if err == nil {
+		return errors.New("error expected")
+	}
+
+	if !strings.Contains(err.Error(), errorContains) {
+		return fmt.Errorf("unexpected error on runOIDC4CIPreAuthWithError: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Steps) credentialTypeTemplateID(issuedCredentialType, issuedCredentialTemplateID string) error {
 	s.issuedCredentialType = issuedCredentialType
 	s.issuedCredentialTemplateID = issuedCredentialTemplateID

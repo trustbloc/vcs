@@ -1183,7 +1183,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123").
 			Return(&oidc4ci.Transaction{
 				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
@@ -1195,14 +1195,14 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := `{"pre-authorized_code":"1234", "user_pin" : "5432" }` //nolint:lll
+		req := `{"pre-authorized_code":"1234", "user_pin" : "5432", "client_id": "123" }` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
 	})
 
 	t.Run("success without pin", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "").
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "", "123").
 			Return(&oidc4ci.Transaction{
 				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
@@ -1214,21 +1214,21 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := `{"pre-authorized_code":"1234" }` //nolint:lll
+		req := `{"pre-authorized_code":"1234", "client_id": "123" }` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
 	})
 
 	t.Run("fail with pin", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123").
 			Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := `{"pre-authorized_code":"1234", "user_pin" : "5432" }` //nolint:lll
+		req := `{"pre-authorized_code":"1234", "user_pin" : "5432", "client_id": "123" }` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.ValidatePreAuthorizedCodeRequest(ctx), "unexpected error")
 	})

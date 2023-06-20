@@ -1845,12 +1845,14 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"123456"},
 				"user_pin":            {"5678"},
+				"client_id":           {clientID},
 			}.Encode()),
 			setup: func() {
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 						PreAuthorizedCode: "123456",
 						UserPin:           lo.ToPtr("5678"),
+						ClientId:          lo.ToPtr(clientID),
 					}).Return(nil, errors.New("invalid pin"))
 
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1869,6 +1871,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"321"},
+				"client_id":           {clientID},
 			}.Encode()),
 			setup: func() {
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1881,6 +1884,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 						PreAuthorizedCode: "321",
 						UserPin:           lo.ToPtr(""),
+						ClientId:          lo.ToPtr(clientID),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader("{")),
 					StatusCode: http.StatusOK,
@@ -1895,6 +1899,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"321"},
+				"client_id":           {clientID},
 			}.Encode()),
 			setup: func() {
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1907,6 +1912,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 						PreAuthorizedCode: "321",
 						UserPin:           lo.ToPtr(""),
+						ClientId:          lo.ToPtr(clientID),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader("{}")),
 					StatusCode: http.StatusBadRequest,
@@ -1921,6 +1927,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"321"},
+				"client_id":           {clientID},
 			}.Encode()),
 			setup: func() {
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1933,6 +1940,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 						PreAuthorizedCode: "321",
 						UserPin:           lo.ToPtr(""),
+						ClientId:          lo.ToPtr(clientID),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-tx-not-found"}`)),
 					StatusCode: http.StatusBadRequest,
@@ -1949,6 +1957,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"321"},
+				"client_id":           {clientID},
 			}.Encode()),
 			setup: func() {
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1961,6 +1970,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 						PreAuthorizedCode: "321",
 						UserPin:           lo.ToPtr(""),
+						ClientId:          lo.ToPtr(clientID),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-expect-pin"}`)),
 					StatusCode: http.StatusBadRequest,
@@ -1970,6 +1980,35 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				assert.ErrorContains(t, err,
 					"oidc-error[]: validate pre-authorized code request: status code 400, "+
 						"code: oidc-pre-authorize-expect-pin")
+			},
+		},
+		{
+			name: "invalid client id pre authorize",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{},
+						},
+					}, nil)
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+						PreAuthorizedCode: "321",
+						UserPin:           lo.ToPtr(""),
+						ClientId:          lo.ToPtr(""),
+					}).Return(&http.Response{
+					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-invalid-client-id"}`)),
+					StatusCode: http.StatusBadRequest,
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err,
+					"oidc-error[]: validate pre-authorized code request: status code 400, "+
+						"code: oidc-pre-authorize-invalid-client-id")
 			},
 		},
 	}

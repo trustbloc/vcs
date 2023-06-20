@@ -593,7 +593,7 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	}
 
 	result, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
-		body.PreAuthorizedCode, lo.FromPtr(body.UserPin))
+		body.PreAuthorizedCode, lo.FromPtr(body.UserPin), lo.FromPtr(body.ClientId))
 
 	if err != nil {
 		return err
@@ -794,6 +794,7 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 	if profile.OIDCConfig != nil {
 		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
 		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
+		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
 
 		if profile.OIDCConfig.EnableDynamicClientRegistration {
 			config.RegistrationEndpoint = lo.ToPtr(fmt.Sprintf("%soidc/register", host))
