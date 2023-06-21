@@ -550,6 +550,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 	var processedVPTokens []*oidc4vp.ProcessedVPToken
 
 	for _, vpt := range authResp.VPToken {
+		logger.Info("vp token", log.WithID(vpt))
 		vpTokenClaims, signer, err := validateVPToken(vpt, c.jwtVerifier)
 		if err != nil {
 			return nil, err
