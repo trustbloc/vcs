@@ -135,3 +135,15 @@ func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 		"message":        e.Err.Error(),
 	}
 }
+
+// RegistrationError is used to indicate a validation error during dynamic client registration.
+// When a registration error condition occurs, the authorization server returns an HTTP 400 status code with content
+// type "application/json" consisting of a JSON object describing the error in the response body.
+type RegistrationError struct {
+	Code string
+	Err  error
+}
+
+func (e *RegistrationError) Error() string {
+	return e.Err.Error()
+}

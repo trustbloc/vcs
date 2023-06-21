@@ -2094,7 +2094,29 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 			},
 		},
 		{
-			name: "fail to register oauth client",
+			name: "client registration 400 error",
+			setup: func() {
+				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusBadRequest,
+						Body:       io.NopCloser(bytes.NewBufferString(`{"error":"invalid_client_metadata","error_description":"scope foo not supported"}`)), // nolint:lll
+					}, nil)
+
+				var err error
+				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
+					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
+					ResponseTypes:           lo.ToPtr([]string{"code"}),
+					Scope:                   lo.ToPtr("foo bar"),
+					TokenEndpointAuthMethod: lo.ToPtr("none"),
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "scope foo not supported")
+			},
+		},
+		{
+			name: "client registration 500 error",
 			setup: func() {
 				b, err := json.Marshal(
 					oidc4ci.ClientRegistrationResponse{

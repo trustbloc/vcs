@@ -9,6 +9,7 @@ package resterr
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,6 +53,18 @@ func TestHTTPErrorHandler_processError(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, code)
 		requireCode(t, resp, Unauthorized.Name())
 		requireMessage(t, resp, "unauthorized")
+	})
+
+	t.Run("client registration error", func(t *testing.T) {
+		code, resp := processError(&RegistrationError{
+			Code: "invalid_client_metadata",
+			Err:  fmt.Errorf("grant type implicit not supported"),
+		})
+		require.Equal(t, http.StatusBadRequest, code)
+
+		m, ok := resp.(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "grant type implicit not supported", m["error_description"])
 	})
 
 	t.Run("generic error", func(t *testing.T) {

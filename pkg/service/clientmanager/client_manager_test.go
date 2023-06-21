@@ -45,6 +45,7 @@ func TestManager_Create(t *testing.T) {
 								GrantTypesSupported:               []string{"authorization_code"},
 								ResponseTypesSupported:            []string{"code"},
 								TokenEndpointAuthMethodsSupported: []string{"client_secret_basic"},
+								EnableDynamicClientRegistration:   true,
 							},
 						}, nil)
 
@@ -74,7 +75,7 @@ func TestManager_Create(t *testing.T) {
 			},
 		},
 		{
-			name: "oidc not configured",
+			name: "empty oidc config",
 			setup: func() {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(&profileapi.Issuer{}, nil)
@@ -84,7 +85,26 @@ func TestManager_Create(t *testing.T) {
 				data = &clientmanager.ClientMetadata{}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "oidc not configured")
+				require.ErrorContains(t, err, "dynamic client registration not supported")
+			},
+		},
+		{
+			name: "dynamic client registration not supported",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(
+						&profileapi.Issuer{
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: false,
+							},
+						}, nil)
+
+				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
+
+				data = &clientmanager.ClientMetadata{}
+			},
+			check: func(t *testing.T, client *oauth2client.Client, err error) {
+				require.ErrorContains(t, err, "dynamic client registration not supported")
 			},
 		},
 		{
@@ -94,7 +114,8 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								ScopesSupported: []string{"foo", "bar"},
+								ScopesSupported:                 []string{"foo", "bar"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -105,7 +126,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "scope baz not supported")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "scope", regErr.InvalidValue)
+				require.Equal(t, "scope baz not supported", regErr.Error())
 			},
 		},
 		{
@@ -115,7 +141,8 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported: []string{"authorization_code"},
+								GrantTypesSupported:             []string{"authorization_code"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -126,7 +153,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "grant type client_credentials not supported")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "grant_types", regErr.InvalidValue)
+				require.Equal(t, "grant type client_credentials not supported", regErr.Error())
 			},
 		},
 		{
@@ -136,7 +168,8 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								ResponseTypesSupported: []string{"code"},
+								ResponseTypesSupported:          []string{"code"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -147,7 +180,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "response type token not supported")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "response_types", regErr.InvalidValue)
+				require.Equal(t, "response type token not supported", regErr.Error())
 			},
 		},
 		{
@@ -158,6 +196,7 @@ func TestManager_Create(t *testing.T) {
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
 								TokenEndpointAuthMethodsSupported: []string{"client_secret_basic"},
+								EnableDynamicClientRegistration:   true,
 							},
 						}, nil)
 
@@ -168,16 +207,23 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "token endpoint auth method none not supported")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "token_endpoint_auth_method", regErr.InvalidValue)
+				require.Equal(t, "token endpoint auth method none not supported", regErr.Error())
 			},
 		},
 		{
-			name: "invalid jwks error",
+			name: "marshal raw jwks error",
 			setup: func() {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(
 						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{},
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: true,
+							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
@@ -187,16 +233,23 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "invalid jwks:")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "jwks", regErr.InvalidValue)
+				require.ErrorContains(t, regErr, "marshal raw jwks:")
 			},
 		},
 		{
-			name: "invalid jwks format error",
+			name: "unmarshal raw jwks into key set error",
 			setup: func() {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(
 						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{},
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: true,
+							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
@@ -206,7 +259,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "invalid jwks format:")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "jwks", regErr.InvalidValue)
+				require.ErrorContains(t, regErr, "unmarshal raw jwks into key set:")
 			},
 		},
 		{
@@ -215,7 +273,9 @@ func TestManager_Create(t *testing.T) {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(
 						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{},
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: true,
+							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
@@ -232,7 +292,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "jwks_uri and jwks cannot both be set")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "", regErr.InvalidValue)
+				require.ErrorContains(t, regErr, "jwks_uri and jwks cannot both be set")
 			},
 		},
 		{
@@ -242,7 +307,8 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported: []string{"authorization_code"},
+								GrantTypesSupported:             []string{"authorization_code"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -253,7 +319,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "redirect_uris must be set for authorization_code grant type")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidRedirectURI, regErr.Code)
+				require.Equal(t, "redirect_uris", regErr.InvalidValue)
+				require.Equal(t, "redirect_uris must be set for authorization_code grant type", regErr.Error())
 			},
 		},
 		{
@@ -263,8 +334,9 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported:    []string{"authorization_code", "implicit"},
-								ResponseTypesSupported: []string{"code", "token"},
+								GrantTypesSupported:             []string{"authorization_code", "implicit"},
+								ResponseTypesSupported:          []string{"code", "token"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -277,7 +349,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "authorization_code grant type requires code response type")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "response_types", regErr.InvalidValue)
+				require.Equal(t, "authorization_code grant type requires code response type", regErr.Error())
 			},
 		},
 		{
@@ -287,8 +364,9 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported:    []string{"authorization_code", "implicit"},
-								ResponseTypesSupported: []string{"code", "token"},
+								GrantTypesSupported:             []string{"authorization_code", "implicit"},
+								ResponseTypesSupported:          []string{"code", "token"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -300,7 +378,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "implicit grant type requires token response type")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
+				require.Equal(t, "response_types", regErr.InvalidValue)
+				require.Equal(t, "implicit grant type requires token response type", regErr.Error())
 			},
 		},
 		{
@@ -309,7 +392,9 @@ func TestManager_Create(t *testing.T) {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(
 						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{},
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: true,
+							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
@@ -319,7 +404,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "invalid redirect uri")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidRedirectURI, regErr.Code)
+				require.Equal(t, "redirect_uris", regErr.InvalidValue)
+				require.Equal(t, "invalid redirect uri: invalid", regErr.Error())
 			},
 		},
 		{
@@ -328,7 +418,9 @@ func TestManager_Create(t *testing.T) {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(
 						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{},
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: true,
+							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
@@ -338,7 +430,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "invalid redirect uri")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidRedirectURI, regErr.Code)
+				require.Equal(t, "redirect_uris", regErr.InvalidValue)
+				require.Equal(t, "invalid redirect uri: //example.com/redirect", regErr.Error())
 			},
 		},
 		{
@@ -347,7 +444,9 @@ func TestManager_Create(t *testing.T) {
 				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 					Return(
 						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{},
+							OIDCConfig: &profileapi.OIDCConfig{
+								EnableDynamicClientRegistration: true,
+							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
@@ -357,7 +456,12 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "invalid redirect uri")
+				var regErr *clientmanager.RegistrationError
+
+				require.ErrorAs(t, err, &regErr)
+				require.Equal(t, clientmanager.ErrCodeInvalidRedirectURI, regErr.Code)
+				require.Equal(t, "redirect_uris", regErr.InvalidValue)
+				require.Equal(t, "invalid redirect uri: https://example.com/redirect#fragment", regErr.Error())
 			},
 		},
 		{
@@ -367,9 +471,10 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								ScopesSupported:        []string{"foo", "bar"},
-								GrantTypesSupported:    []string{"authorization_code"},
-								ResponseTypesSupported: []string{"code"},
+								ScopesSupported:                 []string{"foo", "bar"},
+								GrantTypesSupported:             []string{"authorization_code"},
+								ResponseTypesSupported:          []string{"code"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
@@ -381,7 +486,7 @@ func TestManager_Create(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				require.ErrorContains(t, err, "insert client:")
+				require.ErrorContains(t, err, "insert client: insert error")
 			},
 		},
 	}

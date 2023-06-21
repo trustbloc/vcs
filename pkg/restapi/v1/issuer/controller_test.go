@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -1658,10 +1659,10 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 func TestController_RegisterOauthClient(t *testing.T) {
 	body, err := json.Marshal(
 		&RegisterOAuthClientRequest{
-			ClientName:   lo.ToPtr("test"),
-			ClientUri:    lo.ToPtr("https://test.com"),
+			ClientName:   lo.ToPtr("client-name"),
+			ClientUri:    lo.ToPtr("https://example.com"),
 			GrantTypes:   lo.ToPtr([]string{"authorization_code"}),
-			RedirectUris: lo.ToPtr([]string{"https://test.com/callback"}),
+			RedirectUris: lo.ToPtr([]string{"https://example.com/callback"}),
 			OpState:      "1234",
 		},
 	)
@@ -1671,7 +1672,25 @@ func TestController_RegisterOauthClient(t *testing.T) {
 		mockClientManager := NewMockClientManager(gomock.NewController(t))
 		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			&oauth2client.Client{
-				ID: "1234",
+				ID:                      uuid.New().String(),
+				Name:                    "client-name",
+				URI:                     "https://example.com",
+				Secret:                  []byte("secret"),
+				SecretExpiresAt:         time.Now().Add(5 * time.Minute),
+				RedirectURIs:            []string{"https://example.com/callback"},
+				GrantTypes:              []string{"authorization_code"},
+				ResponseTypes:           []string{"code"},
+				Scopes:                  []string{"openid", "profile"},
+				LogoURI:                 "https://example.com/logo",
+				Contacts:                []string{"contact@example.com"},
+				TermsOfServiceURI:       "https://example.com/tos",
+				PolicyURI:               "https://example.com/policy",
+				JSONWebKeysURI:          "https://example.com/jwks",
+				JSONWebKeys:             &jose.JSONWebKeySet{},
+				SoftwareID:              "software-id",
+				SoftwareVersion:         "software-version",
+				TokenEndpointAuthMethod: "basic",
+				CreatedAt:               time.Now(),
 			}, nil)
 
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
@@ -1684,6 +1703,48 @@ func TestController_RegisterOauthClient(t *testing.T) {
 
 		ctx := echoContext(withRequestBody(body))
 		assert.NoError(t, c.RegisterOauthClient(ctx))
+	})
+
+	t.Run("no empty metadata fields", func(t *testing.T) {
+		mockClientManager := NewMockClientManager(gomock.NewController(t))
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			&oauth2client.Client{
+				ID: uuid.New().String(),
+			}, nil)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
+
+		c := &Controller{
+			clientManager:  mockClientManager,
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		rec := httptest.NewRecorder()
+
+		ctx := echoContext(withRequestBody(body), withResponseRecorder(rec))
+		assert.NoError(t, c.RegisterOauthClient(ctx))
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp RegisterOAuthClientResponse
+		assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+
+		assert.Nil(t, resp.ClientName)
+		assert.Nil(t, resp.ClientSecret)
+		assert.Nil(t, resp.ClientSecretExpiresAt)
+		assert.Nil(t, resp.ClientUri)
+		assert.Nil(t, resp.Contacts)
+		assert.Nil(t, resp.Jwks)
+		assert.Nil(t, resp.JwksUri)
+		assert.Nil(t, resp.LogoUri)
+		assert.Nil(t, resp.PolicyUri)
+		assert.Nil(t, resp.RedirectUris)
+		assert.Nil(t, resp.ResponseTypes)
+		assert.Nil(t, resp.Scope)
+		assert.Nil(t, resp.SoftwareId)
+		assert.Nil(t, resp.SoftwareVersion)
+		assert.Nil(t, resp.TosUri)
 	})
 
 	t.Run("resolve profile error", func(t *testing.T) {
@@ -1699,23 +1760,24 @@ func TestController_RegisterOauthClient(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		var expectedErr *resterr.CustomError
+		var customErr *resterr.CustomError
 
-		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &expectedErr)
-		assert.Equal(t, resterr.SystemError, expectedErr.Code)
-		assert.Equal(t, "OIDC4CIService", expectedErr.Component)
-		assert.Equal(t, "ResolveProfile", expectedErr.FailedOperation)
+		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &customErr)
+		assert.Equal(t, resterr.SystemError, customErr.Code)
+		assert.Equal(t, "OIDC4CIService", customErr.Component)
+		assert.Equal(t, "ResolveProfile", customErr.FailedOperation)
 	})
 
 	t.Run("client registration error", func(t *testing.T) {
 		mockClientManager := NewMockClientManager(gomock.NewController(t))
 
-		regErr := &clientmanager.RegistrationError{
-			Code:        clientmanager.ErrCodeInvalidClientMetadata,
-			Description: "scope invalid not supported",
+		retErr := &clientmanager.RegistrationError{
+			Code:         clientmanager.ErrCodeInvalidClientMetadata,
+			InvalidValue: "scope",
+			Err:          fmt.Errorf("scope invalid not supported"),
 		}
 
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, regErr)
+		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, retErr)
 
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
@@ -1725,12 +1787,11 @@ func TestController_RegisterOauthClient(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		var expectedErr *resterr.CustomError
+		var regErr *resterr.RegistrationError
 
-		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &expectedErr)
-		assert.Equal(t, resterr.InvalidValue, expectedErr.Code)
-		assert.Equal(t, string(clientmanager.ErrCodeInvalidClientMetadata), expectedErr.IncorrectValue)
-		assert.Equal(t, regErr, expectedErr.Err)
+		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &regErr)
+		assert.Equal(t, "invalid_client_metadata", regErr.Code)
+		assert.Equal(t, retErr.Err.Error(), regErr.Err.Error())
 	})
 
 	t.Run("create client error", func(t *testing.T) {
@@ -1747,19 +1808,20 @@ func TestController_RegisterOauthClient(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		var expectedErr *resterr.CustomError
+		var customErr *resterr.CustomError
 
-		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &expectedErr)
-		assert.Equal(t, resterr.SystemError, expectedErr.Code)
-		assert.Equal(t, "ClientManager", expectedErr.Component)
-		assert.Equal(t, "Create", expectedErr.FailedOperation)
-		assert.Equal(t, createErr, expectedErr.Err)
+		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &customErr)
+		assert.Equal(t, resterr.SystemError, customErr.Code)
+		assert.Equal(t, "ClientManager", customErr.Component)
+		assert.Equal(t, "Create", customErr.FailedOperation)
+		assert.Equal(t, createErr, customErr.Err)
 	})
 }
 
 type options struct {
 	tenantID    string
 	requestBody []byte
+	recorder    *httptest.ResponseRecorder
 }
 
 type contextOpt func(*options)
@@ -1776,9 +1838,16 @@ func withRequestBody(body []byte) contextOpt {
 	}
 }
 
+func withResponseRecorder(rec *httptest.ResponseRecorder) contextOpt {
+	return func(o *options) {
+		o.recorder = rec
+	}
+}
+
 func echoContext(opts ...contextOpt) echo.Context {
 	o := &options{
 		tenantID: orgID,
+		recorder: httptest.NewRecorder(),
 	}
 
 	for _, fn := range opts {
@@ -1800,8 +1869,7 @@ func echoContext(opts ...contextOpt) echo.Context {
 		req.Header.Set("X-Tenant-ID", o.tenantID)
 	}
 
-	rec := httptest.NewRecorder()
-	return e.NewContext(req, rec)
+	return e.NewContext(req, o.recorder)
 }
 
 func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
