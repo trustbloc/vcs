@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -854,14 +853,14 @@ func (c *Controller) RegisterOauthClient(e echo.Context) error { //nolint:funlen
 
 	response := &RegisterOAuthClientResponse{
 		ClientId:                client.ID,
-		ClientIdIssuedAt:        strconv.FormatInt(client.CreatedAt.Unix(), 10),
+		ClientIdIssuedAt:        int(client.CreatedAt.Unix()),
 		GrantTypes:              client.GrantTypes,
 		TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
 	}
 
 	if client.Secret != nil {
 		response.ClientSecret = lo.ToPtr(string(client.Secret))
-		response.ClientSecretExpiresAt = lo.ToPtr(strconv.FormatInt(client.SecretExpiresAt.Unix(), 10))
+		response.ClientSecretExpiresAt = lo.ToPtr(int(client.SecretExpiresAt.Unix()))
 	}
 
 	if client.Name != "" {

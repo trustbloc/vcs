@@ -92,7 +92,7 @@ type ClientRegistrationResponse struct {
 	ClientId string `json:"client_id"`
 
 	// Time at which the client identifier was issued.
-	ClientIdIssuedAt string `json:"client_id_issued_at"`
+	ClientIdIssuedAt int `json:"client_id_issued_at"`
 
 	// Registered name of the client to be presented to the end-user during authorization.
 	ClientName *string `json:"client_name,omitempty"`
@@ -101,7 +101,7 @@ type ClientRegistrationResponse struct {
 	ClientSecret *string `json:"client_secret,omitempty"`
 
 	// Time at which the client secret will expire or 0 if it will not expire.
-	ClientSecretExpiresAt *string `json:"client_secret_expires_at,omitempty"`
+	ClientSecretExpiresAt *int `json:"client_secret_expires_at,omitempty"`
 
 	// Registered URL of a web page providing information about the client.
 	ClientUri *string `json:"client_uri,omitempty"`
