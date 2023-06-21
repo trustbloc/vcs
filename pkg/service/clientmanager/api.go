@@ -38,11 +38,28 @@ const (
 // RegistrationError defines a registration error in client registration response. When a registration error occurs,
 // the server returns an HTTP 400 status code.
 type RegistrationError struct {
-	Code        ErrorCode `json:"error"`
-	Description string    `json:"error_description"`
+	Code         ErrorCode `json:"error"`
+	InvalidValue string    `json:"invalid_value,omitempty"`
+	Err          error     `json:"-"` // wrapped error
+}
+
+// InvalidClientMetadataError creates a new RegistrationError with ErrCodeInvalidClientMetadata error code.
+func InvalidClientMetadataError(invalidValue string, err error) *RegistrationError {
+	return &RegistrationError{
+		Code:         ErrCodeInvalidClientMetadata,
+		InvalidValue: invalidValue,
+		Err:          err,
+	}
 }
 
 // Error returns a string representation of the error.
 func (r *RegistrationError) Error() string {
-	return fmt.Sprintf("ERROR: %s, DESCRIPTION: %s", r.Code, r.Description)
+	switch {
+	case r.Err != nil:
+		return r.Err.Error()
+	case r.InvalidValue != "":
+		return fmt.Sprintf("%s (%s)", string(r.Code), r.InvalidValue)
+	default:
+		return string(r.Code)
+	}
 }

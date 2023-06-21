@@ -806,7 +806,7 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 
 // RegisterOauthClient registers OAuth client.
 // POST /issuer/oauth2/register.
-func (c *Controller) RegisterOauthClient(e echo.Context) error {
+func (c *Controller) RegisterOauthClient(e echo.Context) error { //nolint:funlen,gocognit
 	var body RegisterOAuthClientRequest
 
 	if err := util.ReadBody(e, &body); err != nil {
@@ -841,42 +841,87 @@ func (c *Controller) RegisterOauthClient(e echo.Context) error {
 	client, err := c.clientManager.Create(ctx, profile.ID, profile.Version, data)
 	if err != nil {
 		var regErr *clientmanager.RegistrationError
+
 		if errors.As(err, &regErr) {
-			return resterr.NewValidationError(resterr.InvalidValue, string(regErr.Code), regErr)
+			return &resterr.RegistrationError{
+				Code: string(regErr.Code),
+				Err:  fmt.Errorf("%w", regErr),
+			}
 		}
 
 		return resterr.NewSystemError("ClientManager", "Create", err)
 	}
 
-	jwks, err := jwksToMap(client.JSONWebKeys)
-	if err != nil {
-		return fmt.Errorf("convert jwks to map: %w", err)
-	}
-
-	return util.WriteOutput(e)(RegisterOAuthClientResponse{
+	response := &RegisterOAuthClientResponse{
 		ClientId:                client.ID,
 		ClientIdIssuedAt:        strconv.FormatInt(client.CreatedAt.Unix(), 10),
-		ClientSecret:            lo.ToPtr(string(client.Secret)),
-		ClientSecretExpiresAt:   lo.ToPtr(strconv.FormatInt(client.SecretExpiresAt.Unix(), 10)),
-		ClientName:              lo.ToPtr(client.Name),
-		ClientUri:               lo.ToPtr(client.URI),
-		Contacts:                lo.ToPtr(client.Contacts),
 		GrantTypes:              client.GrantTypes,
-		Jwks:                    lo.ToPtr(jwks),
-		JwksUri:                 lo.ToPtr(client.JSONWebKeysURI),
-		LogoUri:                 lo.ToPtr(client.LogoURI),
-		PolicyUri:               lo.ToPtr(client.PolicyURI),
-		RedirectUris:            lo.ToPtr(client.RedirectURIs),
-		ResponseTypes:           lo.ToPtr(client.ResponseTypes),
-		Scope:                   lo.ToPtr(strings.Join(client.Scopes, " ")),
-		SoftwareId:              lo.ToPtr(client.SoftwareID),
-		SoftwareVersion:         lo.ToPtr(client.SoftwareVersion),
 		TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
-		TosUri:                  lo.ToPtr(client.TermsOfServiceURI),
-	}, nil)
+	}
+
+	if client.Secret != nil {
+		response.ClientSecret = lo.ToPtr(string(client.Secret))
+		response.ClientSecretExpiresAt = lo.ToPtr(strconv.FormatInt(client.SecretExpiresAt.Unix(), 10))
+	}
+
+	if client.Name != "" {
+		response.ClientName = lo.ToPtr(client.Name)
+	}
+
+	if client.URI != "" {
+		response.ClientUri = lo.ToPtr(client.URI)
+	}
+
+	if client.Contacts != nil {
+		response.Contacts = lo.ToPtr(client.Contacts)
+	}
+
+	if client.JSONWebKeys != nil {
+		if response.Jwks, err = jwksToMap(client.JSONWebKeys); err != nil {
+			return fmt.Errorf("convert jwks to map: %w", err)
+		}
+	}
+
+	if client.JSONWebKeysURI != "" {
+		response.JwksUri = lo.ToPtr(client.JSONWebKeysURI)
+	}
+
+	if client.LogoURI != "" {
+		response.LogoUri = lo.ToPtr(client.LogoURI)
+	}
+
+	if client.PolicyURI != "" {
+		response.PolicyUri = lo.ToPtr(client.PolicyURI)
+	}
+
+	if client.RedirectURIs != nil {
+		response.RedirectUris = lo.ToPtr(client.RedirectURIs)
+	}
+
+	if client.ResponseTypes != nil {
+		response.ResponseTypes = lo.ToPtr(client.ResponseTypes)
+	}
+
+	if len(client.Scopes) > 0 {
+		response.Scope = lo.ToPtr(strings.Join(client.Scopes, " "))
+	}
+
+	if client.SoftwareID != "" {
+		response.SoftwareId = lo.ToPtr(client.SoftwareID)
+	}
+
+	if client.SoftwareVersion != "" {
+		response.SoftwareVersion = lo.ToPtr(client.SoftwareVersion)
+	}
+
+	if client.TermsOfServiceURI != "" {
+		response.TosUri = lo.ToPtr(client.TermsOfServiceURI)
+	}
+
+	return util.WriteOutput(e)(response, nil)
 }
 
-func jwksToMap(jwks *jose.JSONWebKeySet) (map[string]interface{}, error) {
+func jwksToMap(jwks *jose.JSONWebKeySet) (*map[string]interface{}, error) {
 	b, err := json.Marshal(jwks)
 	if err != nil {
 		return nil, err
@@ -888,5 +933,5 @@ func jwksToMap(jwks *jose.JSONWebKeySet) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	return m, nil
+	return &m, nil
 }

@@ -771,6 +771,10 @@ func (c *Controller) OidcRegisterDynamicClient(e echo.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusBadRequest {
+			return parseRegistrationError(resp.Body)
+		}
+
 		return fmt.Errorf("register oauth client: status code %d, %w",
 			resp.StatusCode,
 			parseInteractionError(resp.Body),
@@ -836,4 +840,22 @@ func parseInteractionError(reader io.Reader) error {
 	}
 
 	return &e
+}
+
+type registrationError struct {
+	Code        string `json:"error"`
+	Description string `json:"error_description"`
+}
+
+func parseRegistrationError(reader io.Reader) error {
+	var regErr registrationError
+
+	if err := json.NewDecoder(reader).Decode(&regErr); err != nil {
+		return fmt.Errorf("decode registration error: %w", err)
+	}
+
+	return &resterr.RegistrationError{
+		Code: regErr.Code,
+		Err:  fmt.Errorf("%s", regErr.Description),
+	}
 }

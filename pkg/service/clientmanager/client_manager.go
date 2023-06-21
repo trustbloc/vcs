@@ -85,8 +85,8 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
-	if profile.OIDCConfig == nil {
-		return nil, fmt.Errorf("oidc not configured")
+	if profile.OIDCConfig == nil || !profile.OIDCConfig.EnableDynamicClientRegistration {
+		return nil, fmt.Errorf("dynamic client registration not supported")
 	}
 
 	client := &oauth2client.Client{
@@ -105,15 +105,15 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 	}
 
 	if err = setScopes(client, profile.OIDCConfig.ScopesSupported, data.Scope); err != nil {
-		return nil, err
+		return nil, InvalidClientMetadataError("scope", err)
 	}
 
 	if err = setGrantTypes(client, profile.OIDCConfig.GrantTypesSupported, data.GrantTypes); err != nil {
-		return nil, err
+		return nil, InvalidClientMetadataError("grant_types", err)
 	}
 
 	if err = setResponseTypes(client, profile.OIDCConfig.ResponseTypesSupported, data.ResponseTypes); err != nil {
-		return nil, err
+		return nil, InvalidClientMetadataError("response_types", err)
 	}
 
 	if err = setTokenEndpointAuthMethod(
@@ -121,7 +121,7 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		profile.OIDCConfig.TokenEndpointAuthMethodsSupported,
 		data.TokenEndpointAuthMethod,
 	); err != nil {
-		return nil, err
+		return nil, InvalidClientMetadataError("token_endpoint_auth_method", err)
 	}
 
 	if client.TokenEndpointAuthMethod != "none" {
@@ -141,7 +141,7 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 	}
 
 	if err = setJSONWebKeys(client, data.JSONWebKeys); err != nil {
-		return nil, err
+		return nil, InvalidClientMetadataError("jwks", err)
 	}
 
 	if err = validateClient(client); err != nil {
@@ -165,10 +165,7 @@ func setScopes(client *oauth2client.Client, scopesSupported []string, scope stri
 
 	for _, s := range scopes {
 		if !lo.Contains(scopesSupported, s) {
-			return &RegistrationError{
-				Code:        ErrCodeInvalidClientMetadata,
-				Description: fmt.Sprintf("scope %s not supported", s),
-			}
+			return fmt.Errorf("scope %s not supported", s)
 		}
 	}
 
@@ -185,10 +182,7 @@ func setGrantTypes(client *oauth2client.Client, grantTypesSupported []string, gr
 
 	for _, gt := range grantTypes {
 		if !lo.Contains(grantTypesSupported, gt) {
-			return &RegistrationError{
-				Code:        ErrCodeInvalidClientMetadata,
-				Description: fmt.Sprintf("grant type %s not supported", gt),
-			}
+			return fmt.Errorf("grant type %s not supported", gt)
 		}
 	}
 
@@ -205,10 +199,7 @@ func setResponseTypes(client *oauth2client.Client, responseTypesSupported []stri
 
 	for _, rt := range responseTypes {
 		if !lo.Contains(responseTypesSupported, rt) {
-			return &RegistrationError{
-				Code:        ErrCodeInvalidClientMetadata,
-				Description: fmt.Sprintf("response type %s not supported", rt),
-			}
+			return fmt.Errorf("response type %s not supported", rt)
 		}
 	}
 
@@ -229,10 +220,7 @@ func setTokenEndpointAuthMethod(client *oauth2client.Client, methodsSupported []
 	}
 
 	if !lo.Contains(methodsSupported, method) {
-		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: fmt.Sprintf("token endpoint auth method %s not supported", method),
-		}
+		return fmt.Errorf("token endpoint auth method %s not supported", method)
 	}
 
 	client.TokenEndpointAuthMethod = method
@@ -241,21 +229,19 @@ func setTokenEndpointAuthMethod(client *oauth2client.Client, methodsSupported []
 }
 
 func setJSONWebKeys(client *oauth2client.Client, rawJWKs map[string]interface{}) error {
+	if len(rawJWKs) == 0 {
+		return nil
+	}
+
 	b, err := json.Marshal(rawJWKs)
 	if err != nil {
-		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: fmt.Sprintf("invalid jwks: %s", err.Error()),
-		}
+		return fmt.Errorf("marshal raw jwks: %w", err)
 	}
 
 	var jwks jose.JSONWebKeySet
 
 	if err = json.Unmarshal(b, &jwks); err != nil {
-		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: fmt.Sprintf("invalid jwks format: %s", err.Error()),
-		}
+		return fmt.Errorf("unmarshal raw jwks into key set: %w", err)
 	}
 
 	client.JSONWebKeys = &jwks
@@ -279,10 +265,7 @@ func generateSecret() ([]byte, error) {
 
 func validateClient(client *oauth2client.Client) error {
 	if client.JSONWebKeysURI != "" && client.JSONWebKeys != nil {
-		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: "jwks_uri and jwks cannot both be set",
-		}
+		return InvalidClientMetadataError("", fmt.Errorf("jwks_uri and jwks cannot both be set"))
 	}
 
 	if len(client.RedirectURIs) > 0 {
@@ -292,33 +275,31 @@ func validateClient(client *oauth2client.Client) error {
 			}
 
 			return &RegistrationError{
-				Code:        ErrCodeInvalidRedirectURI,
-				Description: fmt.Sprintf("invalid redirect uri: %s", uri),
+				Code:         ErrCodeInvalidRedirectURI,
+				InvalidValue: "redirect_uris",
+				Err:          fmt.Errorf("invalid redirect uri: %s", uri),
 			}
 		}
 	}
 
 	if lo.Contains(client.GrantTypes, "authorization_code") && client.RedirectURIs == nil {
 		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: "redirect_uris must be set for authorization_code grant type",
+			Code:         ErrCodeInvalidRedirectURI,
+			InvalidValue: "redirect_uris",
+			Err:          fmt.Errorf("redirect_uris must be set for authorization_code grant type"),
 		}
 	}
 
 	// validate relationship between Grant Types and Response Types
 	// https://datatracker.ietf.org/doc/html/rfc7591#section-2.1
 	if lo.Contains(client.GrantTypes, "authorization_code") && !lo.Contains(client.ResponseTypes, "code") {
-		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: "authorization_code grant type requires code response type",
-		}
+		return InvalidClientMetadataError("response_types",
+			fmt.Errorf("authorization_code grant type requires code response type"))
 	}
 
 	if lo.Contains(client.GrantTypes, "implicit") && !lo.Contains(client.ResponseTypes, "token") {
-		return &RegistrationError{
-			Code:        ErrCodeInvalidClientMetadata,
-			Description: "implicit grant type requires token response type",
-		}
+		return InvalidClientMetadataError("response_types",
+			fmt.Errorf("implicit grant type requires token response type"))
 	}
 
 	return nil

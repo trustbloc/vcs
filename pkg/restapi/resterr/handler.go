@@ -85,6 +85,12 @@ func processError(err error) (int, interface{}) {
 
 	case *CustomError:
 		return v.HTTPCodeMsg()
+	case *RegistrationError:
+		// https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.2
+		return http.StatusBadRequest, map[string]interface{}{
+			"error":             v.Code,
+			"error_description": v.Error(),
+		}
 	default:
 		return http.StatusInternalServerError, map[string]interface{}{
 			"code":    "generic-error",
