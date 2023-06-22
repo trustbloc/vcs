@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -646,12 +647,18 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
 	}
 
-	if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid client_id"))
+	tmpDisableIssAudTypCheck := os.Getenv("TEMP_DISABLE_ISS_AUD_TYP_CHECK") == "true"
+
+	if !tmpDisableIssAudTypCheck {
+		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
+			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid client_id"))
+		}
 	}
 
-	if claims.Audience == "" || claims.Audience != c.issuerVCSPublicHost {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid aud"))
+	if !tmpDisableIssAudTypCheck {
+		if claims.Audience == "" || claims.Audience != c.issuerVCSPublicHost {
+			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid aud"))
+		}
 	}
 
 	if claims.IssuedAt <= 0 || time.Unix(claims.IssuedAt, 0).After(time.Now()) {
@@ -662,8 +669,10 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid nonce"))
 	}
 
-	if typ, ok := jws.Headers.Type(); !ok || typ != jwtProofTypHeader {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid typ"))
+	if !tmpDisableIssAudTypCheck {
+		if typ, ok := jws.Headers.Type(); !ok || typ != jwtProofTypHeader {
+			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid typ"))
+		}
 	}
 
 	keyID, ok := jws.Headers.KeyID()
