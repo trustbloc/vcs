@@ -1451,10 +1451,10 @@ components:
           type: string
           description: Client secret. This value is used by the confidential client to authenticate to the token endpoint.
         client_id_issued_at:
-          type: string
+          type: integer
           description: Time at which the client identifier was issued.
         client_secret_expires_at:
-          type: string
+          type: integer
           description: Time at which the client secret will expire or 0 if it will not expire.
         redirect_uris:
           type: array
@@ -1716,10 +1716,10 @@ components:
           type: string
           description: Client secret. This value is used by the confidential client to authenticate to the token endpoint.
         client_id_issued_at:
-          type: string
+          type: integer
           description: Time at which the client identifier was issued.
         client_secret_expires_at:
-          type: string
+          type: integer
           description: Time at which the client secret will expire or 0 if it will not expire.
         redirect_uris:
           type: array

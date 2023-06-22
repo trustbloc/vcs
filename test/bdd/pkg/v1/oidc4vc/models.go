@@ -48,10 +48,10 @@ type clientRegistrationRequest struct {
 
 type clientRegistrationResponse struct {
 	ClientId                string                  `json:"client_id"`
-	ClientIdIssuedAt        string                  `json:"client_id_issued_at"`
+	ClientIdIssuedAt        *int                    `json:"client_id_issued_at,omitempty"`
 	ClientName              *string                 `json:"client_name,omitempty"`
 	ClientSecret            *string                 `json:"client_secret,omitempty"`
-	ClientSecretExpiresAt   *string                 `json:"client_secret_expires_at,omitempty"`
+	ClientSecretExpiresAt   *int                    `json:"client_secret_expires_at,omitempty"`
 	ClientUri               *string                 `json:"client_uri,omitempty"`
 	Contacts                *[]string               `json:"contacts,omitempty"`
 	GrantTypes              []string                `json:"grant_types"`
