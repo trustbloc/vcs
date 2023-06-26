@@ -647,29 +647,31 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
 	}
 
-	tmpDisableIssAudTypCheck := os.Getenv("TEMP_DISABLE_ISS_AUD_TYP_CHECK") == "true"
+	tmpDisableIssAudTypIatCheck := os.Getenv("TEMP_DISABLE_ISS_AUD_TYP_IAT_CHECK") == "true"
 
-	if !tmpDisableIssAudTypCheck {
+	if !tmpDisableIssAudTypIatCheck {
 		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
 			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid client_id"))
 		}
 	}
 
-	if !tmpDisableIssAudTypCheck {
+	if !tmpDisableIssAudTypIatCheck {
 		if claims.Audience == "" || claims.Audience != c.issuerVCSPublicHost {
 			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid aud"))
 		}
 	}
 
-	if claims.IssuedAt <= 0 || time.Unix(claims.IssuedAt, 0).After(time.Now()) {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid iat"))
+	if !tmpDisableIssAudTypIatCheck {
+		if claims.IssuedAt <= 0 || time.Unix(claims.IssuedAt, 0).After(time.Now()) {
+			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid iat"))
+		}
 	}
 
 	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
 		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid nonce"))
 	}
 
-	if !tmpDisableIssAudTypCheck {
+	if !tmpDisableIssAudTypIatCheck {
 		if typ, ok := jws.Headers.Type(); !ok || typ != jwtProofTypHeader {
 			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid typ"))
 		}
