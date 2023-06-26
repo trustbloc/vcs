@@ -206,7 +206,7 @@ func (s *Service) extendTransactionWithOIDCConfig(
 	profile *profileapi.Issuer,
 	data *TransactionData,
 ) error {
-	if profile.OIDCConfig == nil { // optional for pre-authorize, must have for authorize flow
+	if profile.OIDCConfig == nil || profile.OIDCConfig.IssuerWellKnownURL == "" {
 		return nil
 	}
 
