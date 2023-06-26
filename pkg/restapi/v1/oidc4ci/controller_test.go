@@ -204,8 +204,11 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
+				state := "state"
+
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType:         "code",
+					State:                &state,
 					IssuerState:          "opState",
 					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`),
 				}
@@ -222,7 +225,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, params.IssuerState, ar.(*fosite.AuthorizeRequest).State)
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
 
 						return &fosite.AuthorizeResponse{}, nil
 					},
@@ -497,8 +500,11 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "fail to create authorize response",
 			setup: func() {
+				state := "state"
+
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
+					State:        &state,
 					IssuerState:  "opState",
 				}
 
@@ -514,7 +520,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, params.IssuerState, ar.(*fosite.AuthorizeRequest).State)
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
 
 						return nil, errors.New("create authorize response error")
 					})
@@ -547,8 +553,11 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "fail to save authorize state",
 			setup: func() {
+				state := "state"
+
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
+					State:        &state,
 					IssuerState:  "opState",
 				}
 
@@ -564,7 +573,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, params.IssuerState, ar.(*fosite.AuthorizeRequest).State)
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
 
 						return &fosite.AuthorizeResponse{}, nil
 					})
