@@ -265,7 +265,9 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
 	}
 
-	ar.(*fosite.AuthorizeRequest).State = params.IssuerState
+	if params.State != nil {
+		ar.(*fosite.AuthorizeRequest).State = *params.State
+	}
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 	if err != nil {
