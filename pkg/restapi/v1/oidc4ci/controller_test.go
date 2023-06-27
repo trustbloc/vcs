@@ -887,9 +887,11 @@ func TestController_OidcCredential(t *testing.T) {
 		jose.HeaderType: "openid4vci-proof+jwt",
 	}
 
+	currentTime := time.Now().Unix()
+
 	signedJWT, err := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 		Issuer:   clientID,
-		IssuedAt: time.Now().Unix(),
+		IssuedAt: &currentTime,
 		Nonce:    "c_nonce",
 		Audience: aud,
 	}, headers, jwtSigner)
@@ -1259,10 +1261,12 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
+				currentTime := time.Now().Unix()
+
 				var signedJWTInvalid *jwt.JSONWebToken
 				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
-					IssuedAt: time.Now().Unix(),
+					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
 					Audience: "invalid_aud",
 				}, nil, jwtSigner)
@@ -1286,7 +1290,7 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid iat - zero",
+			name: "missing iat",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
 					Return(
@@ -1309,7 +1313,6 @@ func TestController_OidcCredential(t *testing.T) {
 				var signedJWTInvalid *jwt.JSONWebToken
 				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
-					IssuedAt: 0,
 					Nonce:    "c_nonce",
 					Audience: aud,
 				}, nil, jwtSigner)
@@ -1329,54 +1332,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "invalid iat")
-			},
-		},
-		{
-			name: "invalid iat - future time",
-			setup: func() {
-				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
-					Return(
-						fosite.AccessToken,
-						fosite.NewAccessRequest(
-							&fosite.DefaultSession{
-								Extra: map[string]interface{}{
-									"txID":            "tx_id",
-									"cNonce":          "c_nonce",
-									"preAuth":         true,
-									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
-								},
-							},
-						), nil)
-
-				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
-
-				accessToken = "access-token"
-
-				var signedJWTInvalid *jwt.JSONWebToken
-				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
-					Issuer:   clientID,
-					IssuedAt: time.Now().Add(time.Minute).Unix(),
-					Nonce:    "c_nonce",
-					Audience: aud,
-				}, nil, jwtSigner)
-				require.NoError(t, err)
-
-				var jwsInvalid string
-				jwsInvalid, err = signedJWTInvalid.Serialize(false)
-				require.NoError(t, err)
-
-				credentialReqInvalid := oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
-				}
-
-				requestBody, err = json.Marshal(credentialReqInvalid)
-				require.NoError(t, err)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "invalid iat")
+				require.ErrorContains(t, err, "missing iat")
 			},
 		},
 		{
@@ -1400,10 +1356,12 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
+				currentTime := time.Now().Unix()
+
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
-					IssuedAt: time.Now().Unix(),
+					IssuedAt: &currentTime,
 					Nonce:    "invalid",
 				}, nil, jwtSigner)
 				require.NoError(t, jwtErr)
@@ -1443,10 +1401,12 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
+				currentTime := time.Now().Unix()
+
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
-					IssuedAt: time.Now().Unix(),
+					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
 				}, nil, jwt.NewEd25519Signer(privateKey))
 				require.NoError(t, jwtErr)
@@ -1490,10 +1450,12 @@ func TestController_OidcCredential(t *testing.T) {
 					jose.HeaderType: jwt.TypeJWT,
 				}
 
+				currentTime := time.Now().Unix()
+
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
-					IssuedAt: time.Now().Unix(),
+					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
 				}, invalidHeaders, jwt.NewEd25519Signer(privateKey))
 				require.NoError(t, jwtErr)
@@ -1533,10 +1495,12 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
+				currentTime := time.Now().Unix()
+
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
-					IssuedAt: time.Now().Unix(),
+					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
 				}, headers, jwt.NewEd25519Signer(privateKey))
 				require.NoError(t, jwtErr)
