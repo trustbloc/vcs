@@ -163,9 +163,11 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	httpClient := oauthClient.Client(context.Background(), token)
 
+	currentTime := time.Now().Unix()
+
 	claims := &oidc4ci.JWTProofClaims{
 		Issuer:   clientID,
-		IssuedAt: time.Now().Unix(),
+		IssuedAt: &currentTime,
 		Audience: srv.URL,
 		Nonce:    token.Extra("c_nonce").(string),
 	}

@@ -29,6 +29,6 @@ type AuthorizationDetails struct {
 type JWTProofClaims struct {
 	Issuer   string `json:"iss,omitempty"`
 	Audience string `json:"aud,omitempty"`
-	IssuedAt int64  `json:"iat,omitempty"`
+	IssuedAt *int64 `json:"iat,omitempty"`
 	Nonce    string `json:"nonce,omitempty"`
 }
