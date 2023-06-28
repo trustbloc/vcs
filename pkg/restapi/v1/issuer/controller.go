@@ -628,6 +628,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			CredentialTypes:  body.Types,
 			CredentialFormat: vcFormat,
 			DID:              lo.FromPtr(body.Did),
+			AudienceClaim:    body.AudienceClaim,
 		},
 	)
 

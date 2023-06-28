@@ -1549,9 +1549,13 @@ components:
         did:
           type: string
           description: DID to which issued credential has to be bound.
+        audienceClaim:
+          type: string
+          description: The "aud" claim received from the client.
       required:
         - tx_id
         - types
+        - audienceClaim
     PrepareCredentialResult:
       title: PrepareCredentialResult
       x-tags:

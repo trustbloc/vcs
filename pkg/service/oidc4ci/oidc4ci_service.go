@@ -11,6 +11,7 @@ package oidc4ci
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -346,6 +347,13 @@ func (s *Service) PrepareCredential(
 	if tx.CredentialTemplate == nil {
 		s.sendFailedEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
+	}
+
+	expectedAudience := fmt.Sprintf("%v/issuer/%s/%s", s.issuerVCSPublicHost, tx.ProfileID, tx.ProfileVersion)
+
+	if req.AudienceClaim == "" || req.AudienceClaim != expectedAudience {
+		return nil, resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, req.AudienceClaim,
+			errors.New("invalid aud"))
 	}
 
 	claimData, err := s.getClaimsData(ctx, tx)

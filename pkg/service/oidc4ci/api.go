@@ -149,6 +149,7 @@ type PrepareCredential struct {
 	CredentialTypes  []string
 	CredentialFormat vcsverifiable.Format
 	DID              string
+	AudienceClaim    string
 }
 
 type PrepareCredentialResult struct {

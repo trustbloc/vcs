@@ -907,7 +907,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -959,7 +960,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1016,7 +1018,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1078,7 +1081,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1108,7 +1112,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(nil, errors.New("get error"))
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1167,7 +1172,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1219,7 +1225,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1285,7 +1292,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1314,7 +1322,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1343,11 +1352,50 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "decode claim data")
+				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Invalid audience claim",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "VerifiedEmployee",
+						},
+						CredentialFormat: vcsverifiable.Jwt,
+					},
+				}, nil)
+
+				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
+
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+							}, nil
+						},
+					},
+				}
+
+				req = &oidc4ci.PrepareCredential{
+					TxID:          "txID",
+					AudienceClaim: "invalid",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err, "invalid aud")
 				require.Nil(t, resp)
 			},
 		},

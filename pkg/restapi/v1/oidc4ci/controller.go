@@ -52,11 +52,10 @@ const (
 	cNonceSize                 = 15
 	cNonceTTL                  = 5 * time.Minute
 
-	invalidOrMissingProofOIDCErr = "invalid_or_missing_proof"
-	invalidRequestOIDCErr        = "invalid_request"
-	invalidGrantOIDCErr          = "invalid_grant"
-	invalidTokenOIDCErr          = "invalid_token"
-	invalidClientOIDCErr         = "invalid_client"
+	invalidRequestOIDCErr = "invalid_request"
+	invalidGrantOIDCErr   = "invalid_grant"
+	invalidTokenOIDCErr   = "invalid_token"
+	invalidClientOIDCErr  = "invalid_client"
 )
 
 var logger = log.New("oidc4ci")
@@ -543,17 +542,31 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	did, err := c.validateProofClaims(ar.GetClient().GetID(), credentialRequest.Proof.Jwt, session)
+	jws, rawClaims, err := jwt.Parse(credentialRequest.Proof.Jwt,
+		jwt.WithSignatureVerifier(c.jwtVerifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
+	if err != nil {
+		return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), fmt.Errorf("parse jwt: %w", err))
+	}
+
+	var claims JWTProofClaims
+	if err = json.Unmarshal(rawClaims, &claims); err != nil {
+		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
+	}
+
+	did, err := c.validateProofClaims(ar.GetClient().GetID(), &claims, jws, session)
 	if err != nil {
 		return err
 	}
 
 	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
 		issuer.PrepareCredentialJSONRequestBody{
-			TxId:   session.Extra[txIDKey].(string), //nolint:errcheck
-			Did:    lo.ToPtr(did),
-			Types:  credentialRequest.Types,
-			Format: credentialRequest.Format,
+			TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
+			Did:           lo.ToPtr(did),
+			Types:         credentialRequest.Types,
+			Format:        credentialRequest.Format,
+			AudienceClaim: claims.Audience,
 		},
 	)
 	if err != nil {
@@ -576,6 +589,8 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
 			case resterr.OIDCCredentialTypeNotSupported:
 				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+			case resterr.InvalidOrMissingProofOIDCErr:
+				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
 			}
 		}
 
@@ -625,61 +640,43 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 //nolint:gocognit
 func (c *Controller) validateProofClaims(
 	clientID string,
-	rawJwt string,
+	claims *JWTProofClaims,
+	jws *jwt.JSONWebToken,
 	session *fosite.DefaultSession,
 ) (string, error) {
-	jws, rawClaims, err := jwt.Parse(rawJwt,
-		jwt.WithSignatureVerifier(c.jwtVerifier),
-		jwt.WithIgnoreClaimsMapDecoding(true),
-	)
-	if err != nil {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, fmt.Errorf("parse jwt: %w", err))
-	}
-
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("nonce expired"))
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
 	}
 
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(float64); ok && int64(nonceExp) < time.Now().Unix() {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("nonce expired"))
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
 	}
 
-	var claims JWTProofClaims
-	if err = json.Unmarshal(rawClaims, &claims); err != nil {
-		return "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
-	}
+	tmpDisableIssTypCheck := os.Getenv("TEMP_DISABLE_ISS_TYP_CHECK") == "true"
 
-	tmpDisableIssAudTypCheck := os.Getenv("TEMP_DISABLE_ISS_AUD_TYP_CHECK") == "true"
-
-	if !tmpDisableIssAudTypCheck {
+	if !tmpDisableIssTypCheck {
 		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
-			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid client_id"))
-		}
-	}
-
-	if !tmpDisableIssAudTypCheck {
-		if claims.Audience == "" || claims.Audience != c.issuerVCSPublicHost {
-			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid aud"))
+			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
 		}
 	}
 
 	if claims.IssuedAt == nil {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("missing iat"))
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("missing iat"))
 	}
 
 	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid nonce"))
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
 	}
 
-	if !tmpDisableIssAudTypCheck {
+	if !tmpDisableIssTypCheck {
 		if typ, ok := jws.Headers.Type(); !ok || typ != jwtProofTypHeader {
-			return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid typ"))
+			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
 		}
 	}
 
 	keyID, ok := jws.Headers.KeyID()
 	if !ok {
-		return "", resterr.NewOIDCError(invalidOrMissingProofOIDCErr, errors.New("invalid kid"))
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid kid"))
 	}
 
 	return strings.Split(keyID, "#")[0], nil

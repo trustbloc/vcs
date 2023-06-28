@@ -193,6 +193,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
+		offerResponse.CredentialIssuer,
 	)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
@@ -360,7 +361,8 @@ func (s *Service) getAuthCodeFromBrowser(
 func (s *Service) getCredential(
 	credentialEndpoint,
 	credentialType,
-	credentialFormat string,
+	credentialFormat,
+	issuerURI string,
 ) (interface{}, time.Duration, error) {
 	km := s.ariesServices.KMS()
 	cr := s.ariesServices.Crypto()
@@ -378,15 +380,10 @@ func (s *Service) getCredential(
 		return nil, 0, fmt.Errorf("create kms signer: %w", err)
 	}
 
-	parsedURL, err := url.Parse(s.oauthClient.Endpoint.TokenURL)
-	if err != nil {
-		return nil, 0, fmt.Errorf("parse token URL: %w", err)
-	}
-
 	claims := &JWTProofClaims{
 		Issuer:   s.oauthClient.ClientID,
 		IssuedAt: time.Now().Unix(),
-		Audience: fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host),
+		Audience: issuerURI,
 		Nonce:    s.token.Extra("c_nonce").(string),
 	}
 

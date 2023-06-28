@@ -1243,46 +1243,34 @@ func TestController_OidcCredential(t *testing.T) {
 		{
 			name: "invalid aud",
 			setup: func() {
+				ar := fosite.NewAccessRequest(
+					&fosite.DefaultSession{
+						Extra: map[string]interface{}{
+							"txID":            "tx_id",
+							"cNonce":          "c_nonce",
+							"preAuth":         false,
+							"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+						},
+					},
+				)
+				ar.Client = &fosite.DefaultClient{ID: clientID}
+
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
 					Return(
-						fosite.AccessToken,
-						fosite.NewAccessRequest(
-							&fosite.DefaultSession{
-								Extra: map[string]interface{}{
-									"txID":            "tx_id",
-									"cNonce":          "c_nonce",
-									"preAuth":         true,
-									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
-								},
-							},
-						), nil)
+						fosite.AccessToken, ar, nil)
 
-				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				responseBody := `{"code":"invalid_or_missing_proof","incorrectValue":"badAud","message":"invalid aud"}`
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusBadRequest,
+							Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+						}, nil)
 
 				accessToken = "access-token"
 
-				currentTime := time.Now().Unix()
-
-				var signedJWTInvalid *jwt.JSONWebToken
-				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
-					Issuer:   clientID,
-					IssuedAt: &currentTime,
-					Nonce:    "c_nonce",
-					Audience: "invalid_aud",
-				}, nil, jwtSigner)
-				require.NoError(t, err)
-
-				var jwsInvalid string
-				jwsInvalid, err = signedJWTInvalid.Serialize(false)
-				require.NoError(t, err)
-
-				credentialReqInvalid := oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
-				}
-
-				requestBody, err = json.Marshal(credentialReqInvalid)
+				requestBody, err = json.Marshal(credentialReq)
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
