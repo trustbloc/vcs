@@ -15,35 +15,34 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	ariescontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
-
-	"github.com/trustbloc/vcs/pkg/event/spi"
-
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	ariescontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/jinzhu/copier"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -105,6 +104,19 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		OrganizationID: "test4",
 		OIDCConfig: &profileapi.OIDC4VPConfig{
 			KeyType: kms.ED25519Type,
+		},
+		Checks: &profileapi.VerificationChecks{
+			Credential: profileapi.CredentialChecks{
+				Proof: false,
+				Format: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+				},
+			},
+			Presentation: &profileapi.PresentationChecks{
+				Format: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+				},
+			},
 		},
 		SigningDID: &profileapi.SigningDID{
 			DID:      "did:test:acde",
@@ -264,6 +276,9 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		Checks: &profileapi.VerificationChecks{
 			Presentation: &profileapi.PresentationChecks{
 				VCSubject: true,
+				Format: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+				},
 			},
 		},
 	}, nil)
@@ -274,12 +289,25 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
-				Nonce:        "nonce1",
-				Presentation: vp,
-				Signer:       issuer,
+				Nonce:         "nonce1",
+				Presentation:  vp,
+				SignerDIDID:   issuer,
+				VpTokenFormat: vcsverifiable.Jwt,
 			}})
 
 		require.NoError(t, err)
+	})
+
+	t.Run("Unsupported vp token format", func(t *testing.T) {
+		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+			[]*oidc4vp.ProcessedVPToken{{
+				Nonce:         "nonce1",
+				Presentation:  vp,
+				SignerDIDID:   issuer,
+				VpTokenFormat: vcsverifiable.Ldp,
+			}})
+
+		require.ErrorContains(t, err, "profile does not support ldp vp_token format")
 	})
 
 	t.Run("Success - two VP tokens (merged)", func(t *testing.T) {
@@ -353,14 +381,16 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{
 				{
-					Nonce:        "nonce1",
-					Presentation: vp1,
-					Signer:       issuer1,
+					Nonce:         "nonce1",
+					Presentation:  vp1,
+					SignerDIDID:   issuer1,
+					VpTokenFormat: vcsverifiable.Jwt,
 				},
 				{
-					Nonce:        "nonce1",
-					Presentation: vp2,
-					Signer:       issuer2,
+					Nonce:         "nonce1",
+					Presentation:  vp2,
+					SignerDIDID:   issuer2,
+					VpTokenFormat: vcsverifiable.Jwt,
 				},
 			})
 
@@ -441,14 +471,16 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{
 				{
-					Nonce:        "nonce1",
-					Presentation: vp1,
-					Signer:       issuer1,
+					Nonce:         "nonce1",
+					Presentation:  vp1,
+					SignerDIDID:   issuer1,
+					VpTokenFormat: vcsverifiable.Jwt,
 				},
 				{
-					Nonce:        "nonce1",
-					Presentation: vp2,
-					Signer:       issuer2,
+					Nonce:         "nonce1",
+					Presentation:  vp2,
+					SignerDIDID:   issuer2,
+					VpTokenFormat: vcsverifiable.Jwt,
 				},
 			})
 
@@ -467,9 +499,10 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	t.Run("VC subject is not much with vp signer", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
-				Nonce:        "nonce1",
-				Presentation: vp,
-				Signer:       "did:example1:ebfeb1f712ebc6f1c276e12ec21",
+				Nonce:         "nonce1",
+				Presentation:  vp,
+				SignerDIDID:   "did:example1:ebfeb1f712ebc6f1c276e12ec21",
+				VpTokenFormat: vcsverifiable.Jwt,
 			}})
 
 		require.Contains(t, err.Error(), "does not match with vp signer")
@@ -493,7 +526,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
-				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+				SignerDIDID:  "did:example123:ebfeb1f712ebc6f1c276e12ec21",
 			}})
 
 		require.Contains(t, err.Error(), "invalid nonce1")
@@ -504,7 +537,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
-				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+				SignerDIDID:  "did:example123:ebfeb1f712ebc6f1c276e12ec21",
 			}})
 
 		require.Contains(t, err.Error(), "invalid nonce")
@@ -528,7 +561,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
-				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+				SignerDIDID:  "did:example123:ebfeb1f712ebc6f1c276e12ec21",
 			}})
 
 		require.Contains(t, err.Error(), "get profile error")
@@ -551,9 +584,10 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
-				Nonce:        "nonce1",
-				Presentation: vp,
-				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+				Nonce:         "nonce1",
+				Presentation:  vp,
+				SignerDIDID:   "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+				VpTokenFormat: vcsverifiable.Jwt,
 			}})
 
 		require.Contains(t, err.Error(), "verification failed")
@@ -562,8 +596,9 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	t.Run("Match failed", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
-				Nonce:        "nonce1",
-				Presentation: &verifiable.Presentation{},
+				Nonce:         "nonce1",
+				Presentation:  &verifiable.Presentation{},
+				VpTokenFormat: vcsverifiable.Jwt,
 			}})
 		require.Contains(t, err.Error(), "match:")
 	})
@@ -592,9 +627,10 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
-				Nonce:        "nonce1",
-				Presentation: vp,
-				Signer:       issuer,
+				Nonce:         "nonce1",
+				Presentation:  vp,
+				SignerDIDID:   issuer,
+				VpTokenFormat: vcsverifiable.Jwt,
 			}})
 
 		require.Contains(t, err.Error(), "store error")
@@ -1006,3 +1042,109 @@ const twoInputDescriptors = `
     }
   }
 ]`
+
+func Test_GetSupportedVPFormats(t *testing.T) {
+	type args struct {
+		kmsSupportedKeyTypes []kms.KeyType
+		supportedVPFormats   []vcsverifiable.Format
+		supportedVCFormats   []vcsverifiable.Format
+	}
+	tests := []struct {
+		name string
+		args args
+		want *presexch.Format
+	}{
+		{
+			name: "OK with duplications",
+			args: args{
+				kmsSupportedKeyTypes: []kms.KeyType{
+					kms.ED25519Type,
+					kms.ECDSAP256TypeDER,
+				},
+				supportedVPFormats: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+					vcsverifiable.Ldp,
+				},
+				supportedVCFormats: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+					vcsverifiable.Ldp,
+				},
+			},
+			want: &presexch.Format{
+				JwtVC: &presexch.JwtType{Alg: []string{
+					"EdDSA",
+					"ES256",
+				}},
+				JwtVP: &presexch.JwtType{Alg: []string{
+					"EdDSA",
+					"ES256",
+				}},
+				LdpVC: &presexch.LdpType{ProofType: []string{
+					"Ed25519Signature2018",
+					"Ed25519Signature2020",
+					"JsonWebSignature2020",
+				}},
+				LdpVP: &presexch.LdpType{ProofType: []string{
+					"Ed25519Signature2018",
+					"Ed25519Signature2020",
+					"JsonWebSignature2020",
+				}},
+			},
+		},
+		{
+			name: "OK",
+			args: args{
+				kmsSupportedKeyTypes: []kms.KeyType{
+					kms.ED25519Type,
+					kms.ECDSAP256TypeDER,
+				},
+				supportedVPFormats: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+				},
+				supportedVCFormats: []vcsverifiable.Format{
+					vcsverifiable.Ldp,
+				},
+			},
+			want: &presexch.Format{
+				JwtVC: nil,
+				JwtVP: &presexch.JwtType{Alg: []string{
+					"EdDSA",
+					"ES256",
+				}},
+				LdpVC: &presexch.LdpType{ProofType: []string{
+					"Ed25519Signature2018",
+					"Ed25519Signature2020",
+					"JsonWebSignature2020",
+				}},
+				LdpVP: nil,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := oidc4vp.GetSupportedVPFormats(
+				tt.args.kmsSupportedKeyTypes, tt.args.supportedVPFormats, tt.args.supportedVCFormats)
+
+			assert.Equal(t, tt.want.JwtVC == nil, got.JwtVC == nil)
+			if got.JwtVC != nil {
+				assert.ElementsMatch(t, tt.want.JwtVC.Alg, got.JwtVC.Alg)
+			}
+
+			assert.Equal(t, tt.want.JwtVP == nil, got.JwtVP == nil)
+			if got.JwtVC != nil {
+				assert.ElementsMatch(t, tt.want.JwtVP.Alg, got.JwtVP.Alg)
+			}
+
+			assert.Equal(t, tt.want.LdpVC == nil, got.LdpVC == nil)
+			if got.JwtVC != nil {
+				assert.ElementsMatch(t, tt.want.LdpVC.ProofType, got.LdpVC.ProofType)
+			}
+
+			assert.Equal(t, tt.want.LdpVP == nil, got.LdpVP == nil)
+			if got.JwtVC != nil {
+				assert.ElementsMatch(t, tt.want.LdpVP.ProofType, got.LdpVP.ProofType)
+			}
+		})
+	}
+}

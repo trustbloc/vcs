@@ -131,13 +131,16 @@ func TestCrypto_ValidateSignatureKeyType(t *testing.T) {
 	})
 }
 
-func TestGetJWTSignatureTypeByKey(t *testing.T) {
-	sigType, err := GetJWTSignatureTypeByKey(kms.ED25519Type)
-	require.NoError(t, err)
-	require.Equal(t, EdDSA, sigType)
+func TestGetSignatureTypesByKeyTypeFormat(t *testing.T) {
+	sigTypes := GetSignatureTypesByKeyTypeFormat(kms.ED25519Type, Jwt)
+	require.Len(t, sigTypes, 1)
+	require.Equal(t, EdDSA, sigTypes[0])
 
-	_, err = GetJWTSignatureTypeByKey("")
-	require.Error(t, err)
+	sigTypes = GetSignatureTypesByKeyTypeFormat(kms.ED25519Type, Ldp)
+	require.Len(t, sigTypes, 3)
+	require.Contains(t, sigTypes, Ed25519Signature2018)
+	require.Contains(t, sigTypes, Ed25519Signature2020)
+	require.Contains(t, sigTypes, JSONWebSignature2020)
 }
 
 func TestGetSignatureTypeByName(t *testing.T) {

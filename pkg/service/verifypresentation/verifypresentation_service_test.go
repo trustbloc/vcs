@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
@@ -71,9 +70,7 @@ func TestNew(t *testing.T) {
 
 func TestService_VerifyPresentation(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
-	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
-		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
+	signedVPResult := testutil.SignedVP(t, []byte(sampleVPJsonLD), vcs.Ldp)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -96,7 +93,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 			name: "OK",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -119,7 +116,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 			},
 			args: args{
 				getPresentation: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 				profile: &profileapi.Verifier{
 					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
@@ -182,7 +179,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 			name: "Error credentials",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -205,7 +202,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 			},
 			args: args{
 				getPresentation: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 				profile: &profileapi.Verifier{
 					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
@@ -266,9 +263,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 
 func TestService_validatePresentationProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
-	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
-		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
+	signedVPResult := testutil.SignedVP(t, []byte(sampleVPJsonLD), vcs.Ldp)
 
 	type fields struct {
 		getVDR func() vdrapi.Registry
@@ -287,12 +282,12 @@ func TestService_validatePresentationProof(t *testing.T) {
 			name: "OK",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 			},
 			args: args{
 				getVpBytes: func() []byte {
-					b, _ := signedVP.MarshalJSON()
+					b, _ := signedVPResult.Presentation.MarshalJSON()
 					return b
 				},
 				getOpts: func() *Options {
@@ -313,7 +308,7 @@ func TestService_validatePresentationProof(t *testing.T) {
 			},
 			args: args{
 				getVpBytes: func() []byte {
-					b, _ := signedVP.MarshalJSON()
+					b, _ := signedVPResult.Presentation.MarshalJSON()
 					return b
 				},
 				getOpts: func() *Options {
@@ -326,7 +321,7 @@ func TestService_validatePresentationProof(t *testing.T) {
 			name: "Error invalid Presentation",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 			},
 			args: args{
@@ -360,10 +355,7 @@ func TestService_validatePresentationProof(t *testing.T) {
 }
 
 func TestService_validateProofData(t *testing.T) {
-	loader := testutil.DocumentLoader(t)
-	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
-		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
+	signedVPResult := testutil.SignedVP(t, []byte(sampleVPJsonLD), vcs.Ldp)
 	type fields struct {
 		vdr vdrapi.Registry
 	}
@@ -380,11 +372,11 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "OK",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 				opts: &Options{
 					Domain:    crypto.Domain,
@@ -396,15 +388,15 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "OK empty options",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
 					vp := &verifiable.Presentation{}
-					*vp = *signedVP
+					*vp = *signedVPResult.Presentation
 					vp.Proofs = make([]verifiable.Proof, 1)
 					vp.Proofs[0] = map[string]interface{}{}
-					for k, v := range signedVP.Proofs[0] {
+					for k, v := range signedVPResult.Presentation.Proofs[0] {
 						vp.Proofs[0][k] = v
 					}
 					delete(vp.Proofs[0], crypto.Domain)
@@ -418,12 +410,12 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error empty proof",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
 					vp := &verifiable.Presentation{}
-					*vp = *signedVP
+					*vp = *signedVPResult.Presentation
 					vp.Proofs = make([]verifiable.Proof, 0)
 					return vp
 				},
@@ -434,11 +426,11 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error invalid challenge",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 				opts: &Options{
 					Domain:    crypto.Domain,
@@ -450,11 +442,11 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error invalid domain",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 				opts: &Options{
 					Domain:    "some value",
@@ -466,15 +458,15 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error invalid verification method",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
 					vp := &verifiable.Presentation{}
-					*vp = *signedVP
+					*vp = *signedVPResult.Presentation
 					vp.Proofs = make([]verifiable.Proof, 1)
 					vp.Proofs[0] = map[string]interface{}{}
-					for k, v := range signedVP.Proofs[0] {
+					for k, v := range signedVPResult.Presentation.Proofs[0] {
 						vp.Proofs[0][k] = v
 					}
 					delete(vp.Proofs[0], crypto.VerificationMethod)
@@ -490,15 +482,15 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error invalid verification method",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
 					vp := &verifiable.Presentation{}
-					*vp = *signedVP
+					*vp = *signedVPResult.Presentation
 					vp.Proofs = make([]verifiable.Proof, 1)
 					vp.Proofs[0] = map[string]interface{}{}
-					for k, v := range signedVP.Proofs[0] {
+					for k, v := range signedVPResult.Presentation.Proofs[0] {
 						vp.Proofs[0][k] = v
 					}
 					vp.Proofs[0][crypto.VerificationMethod] = "some value"
@@ -518,7 +510,7 @@ func TestService_validateProofData(t *testing.T) {
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 				opts: &Options{
 					Domain:    crypto.Domain,
@@ -530,11 +522,11 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error invalid holder",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
-					vp := *signedVP
+					vp := *signedVPResult.Presentation
 					vp.Holder = "invalid holder"
 					return &vp
 				},
@@ -548,15 +540,15 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error invalid proof purpose",
 			fields: fields{
-				vdr: vdr,
+				vdr: signedVPResult.VDR,
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {
 					vp := &verifiable.Presentation{}
-					*vp = *signedVP
+					*vp = *signedVPResult.Presentation
 					vp.Proofs = make([]verifiable.Proof, 1)
 					vp.Proofs[0] = map[string]interface{}{}
-					for k, v := range signedVP.Proofs[0] {
+					for k, v := range signedVPResult.Presentation.Proofs[0] {
 						vp.Proofs[0][k] = v
 					}
 					delete(vp.Proofs[0], crypto.Purpose)
@@ -582,9 +574,7 @@ func TestService_validateProofData(t *testing.T) {
 
 func TestService_validateCredentialsProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
-	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
-		verifiable.SignatureProofValue, vcs.Jwt, loader, crypto.AssertionMethod)
+	signedVPResult := testutil.SignedVP(t, []byte(sampleVPJsonLD), vcs.Jwt)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -603,7 +593,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 			name: "OK",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -619,7 +609,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 			},
 			args: args{
 				getVp: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 			},
 			wantErr: false,
@@ -628,7 +618,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 			name: "Error ValidateCredentialProof",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -644,7 +634,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 			},
 			args: args{
 				getVp: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 			},
 			wantErr: true,
@@ -674,9 +664,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 
 func TestService_validateCredentialsStatus(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
-	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD),
-		kmskeytypes.ED25519Type, verifiable.SignatureProofValue, vcs.Jwt, loader, crypto.AssertionMethod)
+	signedVPResult := testutil.SignedVP(t, []byte(sampleVPJsonLD), vcs.Jwt)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -695,7 +683,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 			name: "OK",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -708,7 +696,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 			},
 			args: args{
 				getVp: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 			},
 			wantErr: false,
@@ -717,7 +705,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 			name: "Error ValidateVCStatus",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return vdr
+					return signedVPResult.VDR
 				},
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -730,7 +718,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 			},
 			args: args{
 				getVp: func() *verifiable.Presentation {
-					return signedVP
+					return signedVPResult.Presentation
 				},
 			},
 			wantErr: true,

@@ -41,6 +41,9 @@ type Steps struct {
 	usersNum      int
 	concurrentReq int
 	stressResult  *stress.Result
+
+	// Hooks
+	oidc4vpHooks *walletrunner.OIDC4VPHooks
 }
 
 // NewSteps returns new Steps context.
@@ -92,6 +95,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	// VP.
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
 	sc.Step(`^Verifier from organization "([^"]*)" retrieves interactions claims$`, s.retrieveInteractionsClaim)
+	sc.Step(`^wallet configured to use hardcoded vp_token format "([^"]*)" for OIDC4VP interaction$`, s.setHardcodedVPTokenFormat)
 
 	// Errors.
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims$`, s.runOIDC4CIPreAuthWithInvalidClaims)

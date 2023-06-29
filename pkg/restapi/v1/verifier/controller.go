@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -35,7 +34,10 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/doc/vp"
+	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/kms"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
@@ -55,7 +57,10 @@ const (
 	vpSubmissionProperty = "presentation_submission"
 )
 
-var logger = log.New("oidc4vp")
+var (
+	logger         = log.New("oidc4vp")
+	errMissedField = errors.New("missed field")
+)
 
 type authorizationResponse struct {
 	IDToken string
@@ -71,13 +76,16 @@ type IDTokenVPToken struct {
 type IDTokenClaims struct {
 	VPToken IDTokenVPToken `json:"_vp_token"`
 	Nonce   string         `json:"nonce"`
+	Aud     string         `json:"aud"`
 	Exp     int64          `json:"exp"`
 }
 
 type VPTokenClaims struct {
-	VP    json.RawMessage `json:"vp"`
-	Nonce string          `json:"nonce"`
-	Exp   int64           `json:"exp"`
+	Nonce         string
+	Aud           string
+	SignerDIDID   string
+	VpTokenFormat vcsverifiable.Format
+	VP            *verifiable.Presentation
 }
 
 type PresentationDefinition = json.RawMessage
@@ -552,74 +560,80 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 
 	var processedVPTokens []*oidc4vp.ProcessedVPToken
 
-	for _, vpt := range authResp.VPToken {
-		vpTokenClaims, signer, err := validateVPToken(vpt, c.jwtVerifier)
+	for _, vpToken := range authResp.VPToken {
+		var vpTokenClaims *VPTokenClaims
+
+		vpTokenClaims, err = c.validateRawVPToken(vpToken)
 		if err != nil {
 			return nil, err
 		}
 
 		logger.Debugc(ctx, "CheckAuthorizationResponse vp_token verified")
 
+		//todo: consider to apply this validation for JWT VP in verifypresentation.Service
 		if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
 				errors.New("nonce should be the same for both id_token and vp_token"))
 		}
 
-		presentation, err := verifiable.ParsePresentation(vpTokenClaims.VP,
-			verifiable.WithPresPublicKeyFetcher(
-				verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
-			),
-			verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-		)
-		if err != nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+		if vpTokenClaims.Aud != idTokenClaims.Aud {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "aud",
+				errors.New("aud should be the same for both id_token and vp_token"))
 		}
 
 		logger.Debugc(ctx, "CheckAuthorizationResponse vp validated")
 
-		presentation.JWT = vpt
-		if presentation.CustomFields == nil {
-			presentation.CustomFields = map[string]interface{}{}
+		if vpTokenClaims.VP.CustomFields == nil {
+			vpTokenClaims.VP.CustomFields = map[string]interface{}{}
 		}
 
-		presentation.Context = append(presentation.Context, presexch.PresentationSubmissionJSONLDContextIRI)
-		presentation.Type = append(presentation.Type, presexch.PresentationSubmissionJSONLDType)
-		presentation.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
+		vpTokenClaims.VP.Context = append(vpTokenClaims.VP.Context, presexch.PresentationSubmissionJSONLDContextIRI)
+		vpTokenClaims.VP.Type = append(vpTokenClaims.VP.Type, presexch.PresentationSubmissionJSONLDType)
+		vpTokenClaims.VP.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
 
 		processedVPTokens = append(processedVPTokens, &oidc4vp.ProcessedVPToken{
-			Nonce:        idTokenClaims.Nonce,
-			Presentation: presentation,
-			Signer:       signer,
+			Nonce:         idTokenClaims.Nonce,
+			ClientID:      idTokenClaims.Aud,
+			VpTokenFormat: vpTokenClaims.VpTokenFormat,
+			Presentation:  vpTokenClaims.VP,
+			SignerDIDID:   vpTokenClaims.SignerDIDID,
 		})
 	}
 
 	return processedVPTokens, nil
 }
 
-func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
-	token, _, _, err := verifyTokenSignature( // todo
-		rawJwt,
+func validateIDToken(idToken string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
+	_, rawClaims, err := jwt.Parse(idToken,
 		jwt.WithSignatureVerifier(verifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
 	}
 
-	idTokenClaims := &IDTokenClaims{
-		VPToken: IDTokenVPToken{
-			PresentationSubmission: nil,
-		},
-		Nonce: fmt.Sprint(token.Payload["nonce"]),
-		Exp:   0,
+	var fastParser fastjson.Parser
+	v, err := fastParser.ParseBytes(rawClaims)
+	if err != nil {
+		return nil, fmt.Errorf("decode claims: %w", err)
 	}
 
-	if vpToken, ok := token.Payload["_vp_token"].(map[string]interface{}); ok {
-		if v, ok := vpToken["presentation_submission"].(map[string]interface{}); ok {
-			idTokenClaims.VPToken.PresentationSubmission = v
+	var presentationSubmission map[string]interface{}
+	sb, err := v.Get("_vp_token", "presentation_submission").Object()
+	if err == nil {
+		if err = json.Unmarshal(sb.MarshalTo([]byte{}), &presentationSubmission); err != nil {
+			return nil, fmt.Errorf("decode presentation_submission: %w", err)
 		}
 	}
-	exp, _ := strconv.ParseInt(fmt.Sprint(token.Payload["exp"]), 10, 64)
-	idTokenClaims.Exp = exp
+
+	idTokenClaims := &IDTokenClaims{
+		VPToken: IDTokenVPToken{
+			PresentationSubmission: presentationSubmission,
+		},
+		Nonce: string(v.GetStringBytes("nonce")),
+		Aud:   string(v.GetStringBytes("aud")),
+		Exp:   v.GetInt64("exp"),
+	}
 
 	if idTokenClaims.Exp < time.Now().Unix() {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token.exp", fmt.Errorf(
@@ -634,57 +648,93 @@ func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenCl
 
 	return idTokenClaims, nil
 }
-func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenClaims, string, error) {
-	_, signer, rawClaims, err := verifyTokenSignature(
-		rawJwt,
-		jwt.WithSignatureVerifier(verifier),
-		jwt.WithIgnoreClaimsMapDecoding(true),
-	)
+
+func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, error) {
+	if jwt.IsJWS(vpToken) {
+		return c.validateVPTokenJWT(vpToken)
+	}
+
+	return c.validateVPTokenLDP(vpToken)
+}
+
+func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) {
+	jsonWebToken, rawClaims, err := jwt.Parse(vpToken,
+		jwt.WithSignatureVerifier(c.jwtVerifier),
+		jwt.WithIgnoreClaimsMapDecoding(true))
 	if err != nil {
-		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
 	}
 
 	var fastParser fastjson.Parser
 	v, err := fastParser.ParseBytes(rawClaims)
 	if err != nil {
-		return nil, "", fmt.Errorf("decode claims: %w", err)
+		return nil, fmt.Errorf("decode claims: %w", err)
 	}
 
-	vpTokenClaims := &VPTokenClaims{
-		Nonce: string(v.GetStringBytes("nonce")),
-		Exp:   v.GetInt64("exp"),
-	}
-
-	vpData := v.Get("vp")
-	vpDataRaw, err := vpData.Object()
-	if vpData.Type() != fastjson.TypeNull && err != nil {
-		return nil, "", fmt.Errorf("decode claims2: %w", err)
-	}
-	if vpDataRaw != nil {
-		vpTokenClaims.VP = []byte(vpDataRaw.String())
-	}
-	if vpTokenClaims.Exp < time.Now().Unix() {
-		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
+	exp := v.GetInt64("exp")
+	if exp < time.Now().Unix() {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
 			"token expired"))
 	}
 
-	if vpTokenClaims.VP == nil {
-		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", fmt.Errorf(
-			"$vp is missed"))
-	}
-
-	return vpTokenClaims, signer, nil
-}
-
-func verifyTokenSignature(rawJwt string, parseOps ...jwt.ParseOpt) (*jwt.JSONWebToken, string, []byte, error) {
-	jsonWebToken, rawClaims, err := jwt.Parse(rawJwt, parseOps...)
+	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
+		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
+		))
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("parse JWT: %w", err)
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
 
+	// Do not need to check since is has passed jwt.Parse().
 	kid, _ := jsonWebToken.Headers.KeyID()
 
-	return jsonWebToken, strings.Split(kid, "#")[0], rawClaims, nil
+	return &VPTokenClaims{
+		Nonce:         string(v.GetStringBytes("nonce")),
+		Aud:           string(v.GetStringBytes("aud")),
+		SignerDIDID:   strings.Split(kid, "#")[0],
+		VpTokenFormat: vcsverifiable.Jwt,
+		VP:            presentation,
+	}, nil
+}
+
+func (c *Controller) validateVPTokenLDP(vpToken string) (*VPTokenClaims, error) {
+	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
+		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
+		))
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+	}
+
+	verificationMethod, err := crypto.GetVerificationMethodFromProof(presentation.Proofs[0])
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.verificationMethod", err)
+	}
+
+	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.didID", err)
+	}
+
+	nonce, ok := presentation.Proofs[0]["challenge"].(string)
+	if !ok {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.challenge", errMissedField)
+	}
+
+	clientID, ok := presentation.Proofs[0]["domain"].(string)
+	if !ok {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.domain", errMissedField)
+	}
+
+	return &VPTokenClaims{
+		Nonce:         nonce,
+		SignerDIDID:   didID,
+		Aud:           clientID,
+		VpTokenFormat: vcsverifiable.Ldp,
+		VP:            presentation,
+	}, nil
 }
 
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {

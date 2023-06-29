@@ -20,6 +20,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -78,7 +80,7 @@ func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, field
 		return fmt.Errorf("OIDC4Vp fetch authorization request: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4VPFlow(initiateInteractionResult.AuthorizationRequest)
+	err = s.walletRunner.RunOIDC4VPFlow(initiateInteractionResult.AuthorizationRequest, s.oidc4vpHooks)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4VPFlow: %w", err)
 	}
@@ -94,6 +96,16 @@ func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, organizationName, pd
 
 	if !strings.Contains(err.Error(), errorContains) {
 		return fmt.Errorf("unexpected error on runOIDC4VPFlowWithError: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) setHardcodedVPTokenFormat(vpTokenFormat string) error {
+	s.oidc4vpHooks = &walletrunner.OIDC4VPHooks{
+		CreateAuthorizedResponse: []walletrunner.RPConfigOverride{
+			walletrunner.WithSupportedVPFormat(vcs.Format(vpTokenFormat)),
+		},
 	}
 
 	return nil

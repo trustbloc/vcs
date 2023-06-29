@@ -70,7 +70,7 @@ func NewOIDC4VPCommand() *cobra.Command {
 				return fmt.Errorf("unable to create wallet runner: %v", err)
 			}
 
-			return runner.RunOIDC4VPFlow(oidc4vpAuthorizationRequest)
+			return runner.RunOIDC4VPFlow(oidc4vpAuthorizationRequest, nil)
 		},
 	}
 

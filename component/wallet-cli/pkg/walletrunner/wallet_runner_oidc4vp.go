@@ -32,11 +32,26 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
+	"github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )
 
-func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
+type RPConfigOverride func(rpc *RPConfig)
+
+func WithSupportedVPFormat(vpFormat vcs.Format) RPConfigOverride {
+	return func(rpc *RPConfig) {
+		rpc.supportedVPFormat = vpFormat
+	}
+}
+
+type OIDC4VPHooks struct {
+	CreateAuthorizedResponse []RPConfigOverride
+}
+
+func (s *Service) RunOIDC4VPFlow(authorizationRequest string, hooks *OIDC4VPHooks) error {
 	log.Println("Start OIDC4VP flow")
 	log.Println("AuthorizationRequest:", authorizationRequest)
 
@@ -101,9 +116,14 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 		s.wallet.Close()
 	}
 
+	var createAuthorizedResponseHooks []RPConfigOverride
+	if hooks != nil {
+		createAuthorizedResponseHooks = hooks.CreateAuthorizedResponse
+	}
+
 	log.Println("Creating authorized response")
 	startTime = time.Now()
-	authorizedResponse, err := s.vpFlowExecutor.CreateAuthorizedResponse()
+	authorizedResponse, err := s.vpFlowExecutor.CreateAuthorizedResponse(createAuthorizedResponseHooks...)
 	if err != nil {
 		return err
 	}
@@ -231,16 +251,14 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
 		verifiable.NewVDRKeyResolver(e.ariesServices.vdrRegistry).PublicKeyFetcher()))
 
-	requestObject := &RequestObject{}
-
 	rawData, err := verifyTokenSignature(rawRequestObject, jwtVerifier)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(rawData, requestObject)
-	if err != nil {
-		return fmt.Errorf("decode claims: %w", err)
+	var requestObject *RequestObject
+	if err = json.Unmarshal(rawData, &requestObject); err != nil {
+		return fmt.Errorf("requestObject decode claims: %w", err)
 	}
 
 	e.requestObject = requestObject
@@ -287,15 +305,6 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletSingleVP() error {
 	}
 
 	vps[0].Context = []string{"https://www.w3.org/2018/credentials/v1"}
-	vps[0].Type = []string{"VerifiablePresentation"}
-	vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].Format = "jwt_vp"
-	vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].Path = "$"
-	vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].PathNested =
-		&presexch.InputDescriptorMapping{
-			ID:     vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].ID,
-			Format: "jwt_vc",
-			Path:   "$.verifiableCredential[0]",
-		}
 
 	e.requestPresentation = vps
 	e.requestPresentationSubmission = vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission)
@@ -337,10 +346,10 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletMultiVP() error {
 	return nil
 }
 
-func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
-	idToken := &IDTokenClaims{
+func (e *VPFlowExecutor) getIDTokenClaims(requestPresentationSubmission *presexch.PresentationSubmission) *IDTokenClaims {
+	return &IDTokenClaims{
 		VPToken: IDTokenVPToken{
-			PresentationSubmission: e.requestPresentationSubmission,
+			PresentationSubmission: requestPresentationSubmission,
 		},
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
@@ -351,15 +360,32 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		Iat:   time.Now().Unix(),
 		Jti:   uuid.NewString(),
 	}
+}
 
-	idTokenJWS, err := signToken(idToken, e.walletDidKeyID[0], e.ariesServices.crypto, e.ariesServices.kms, e.walletSignType)
+func (e *VPFlowExecutor) signIDTokenJWT(idToken *IDTokenClaims, signatureType vcs.SignatureType) (string, error) {
+	idTokenJWS, err := signTokenJWT(idToken, e.walletDidKeyID[0], e.ariesServices.crypto, e.ariesServices.kms, signatureType)
 	if err != nil {
 		return "", fmt.Errorf("sign id_token: %w", err)
 	}
 
+	return idTokenJWS, nil
+}
+
+func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string, error) {
+	configRP, err := e.getRPConfig()
+	if err != nil {
+		return "", err
+	}
+
+	for _, f := range o {
+		f(configRP)
+	}
+
 	var tokens []string
 
-	for _, vp := range e.requestPresentation {
+	for i, vp := range e.requestPresentation {
+		delete(vp.CustomFields, "presentation_submission")
+
 		var didID string
 
 		didID, err = e.GetSubjectID(vp.Credentials())
@@ -368,40 +394,30 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		}
 
 		didIDIndex := e.getDIDIndex(didID)
+		didKeyID := e.walletDidKeyID[didIDIndex]
 
-		delete(vp.CustomFields, "presentation_submission")
+		var signedVPToken string
 
-		vpToken := VPTokenClaims{
-			VP:    vp,
-			Nonce: e.requestObject.Nonce,
-			Exp:   time.Now().Unix() + 600,
-			Iss:   didID,
-			Aud:   e.requestObject.ClientID,
-			Nbf:   time.Now().Unix(),
-			Iat:   time.Now().Unix(),
-			Jti:   uuid.NewString(),
+		switch configRP.supportedVPFormat {
+		case vcs.Jwt:
+			e.requestPresentationSubmission.DescriptorMap[i].Format = "jwt_vp"
+			signedVPToken, err = e.signPresentationJWT(vp, e.walletSignType, didID, didKeyID)
+		case vcs.Ldp:
+			e.requestPresentationSubmission.DescriptorMap[i].Format = "ldp_vp"
+			signedVPToken, err = e.signPresentationLDP(vp, configRP.supportedSignatureType, didKeyID)
 		}
-
-		var vpTokenBytes []byte
-
-		vpTokenBytes, err = json.Marshal(vpToken)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("format %s sign VP: %w", configRP.supportedVPFormat, err)
 		}
 
-		vpTokenJWS := strings.ReplaceAll(string(vpTokenBytes), `"type":"VerifiablePresentation"`, `"type":["VerifiablePresentation"]`)
-
-		vpTokenJWS, err = signToken(vpTokenJWS, e.walletDidKeyID[didIDIndex], e.ariesServices.crypto, e.ariesServices.kms, e.walletSignType)
-		if err != nil {
-			return "", fmt.Errorf("sign vp_token: %w", err)
-		}
-
-		tokens = append(tokens, vpTokenJWS)
+		tokens = append(tokens, signedVPToken)
 	}
 
 	tokensJSON := tokens[0]
 	if len(tokens) > 1 {
-		tokensJSONBytes, err := json.Marshal(tokens)
+		var tokensJSONBytes []byte
+
+		tokensJSONBytes, err = json.Marshal(tokens)
 		if err != nil {
 			return "", fmt.Errorf("marshal tokens: %w", err)
 		}
@@ -409,12 +425,112 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		tokensJSON = string(tokensJSONBytes)
 	}
 
+	var signedIDToken string
+
+	signedIDToken, err = e.signIDTokenJWT(e.getIDTokenClaims(e.requestPresentationSubmission), e.walletSignType)
+	if err != nil {
+		return "", err
+	}
+
 	data := url.Values{}
-	data.Set("id_token", idTokenJWS)
+	data.Set("id_token", signedIDToken)
 	data.Set("vp_token", tokensJSON)
 	data.Set("state", e.requestObject.State)
 
 	return data.Encode(), nil
+}
+
+type RPConfig struct {
+	supportedVPFormat, supportedVCFormat vcs.Format
+	supportedSignatureType               vcs.SignatureType
+}
+
+func (e *VPFlowExecutor) getRPConfig() (*RPConfig, error) {
+	config := &RPConfig{}
+
+	roVPFormats := e.requestObject.Registration.VPFormats
+	switch {
+	case roVPFormats.JwtVP != nil:
+		config.supportedVPFormat = vcs.Jwt
+		config.supportedSignatureType = vcs.SignatureType(roVPFormats.JwtVP.Alg[0])
+	case roVPFormats.LdpVP != nil:
+		config.supportedVPFormat = vcs.Ldp
+		config.supportedSignatureType = vcs.SignatureType(roVPFormats.LdpVP.ProofType[0])
+	default:
+		return nil, fmt.Errorf("RP supported VP format is not defiled, request object: %+v", roVPFormats)
+	}
+
+	switch {
+	case roVPFormats.JwtVC != nil:
+		config.supportedVCFormat = vcs.Jwt
+	case roVPFormats.LdpVC != nil:
+		config.supportedVCFormat = vcs.Ldp
+	default:
+		return nil, fmt.Errorf("RP supported VC format is not defiled, request object: %+v", roVPFormats)
+	}
+
+	return config, nil
+}
+
+func (e *VPFlowExecutor) signPresentationLDP(vp *verifiable.Presentation, signatureType vcs.SignatureType, didKeyID string) (string, error) {
+	vcCryptoSigner := vccrypto.New(e.ariesServices.vdrRegistry, e.ariesServices.documentLoader)
+	vp.Context = append(vp.Context, "https://w3id.org/security/suites/jws-2020/v1")
+
+	signedVP, err := vcCryptoSigner.SignPresentation(
+		&vc.Signer{
+			Creator:                 didKeyID,
+			KMSKeyID:                strings.Split(didKeyID, "#")[1],
+			SignatureType:           signatureType,
+			SignatureRepresentation: verifiable.SignatureProofValue,
+			KMS: vcskms.GetAriesKeyManager(
+				e.ariesServices.kms, e.ariesServices.crypto, vcskms.Local, noop.GetMetrics()),
+		},
+		vp,
+		vccrypto.WithChallenge(e.requestObject.Nonce),
+		vccrypto.WithDomain(e.requestObject.ClientID),
+	)
+	if err != nil {
+		return "", fmt.Errorf("sign presentation LDP: %w", err)
+	}
+
+	var b []byte
+	b, err = signedVP.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("marshal signed VP: %w", err)
+	}
+
+	return string(b), nil
+}
+
+func (e *VPFlowExecutor) signPresentationJWT(vp *verifiable.Presentation, signatureType vcs.SignatureType, didID, didKeyID string) (string, error) {
+	vpTokenBytes, err := json.Marshal(e.getJWTVPTokenClaims(vp, didID))
+	if err != nil {
+		return "", err
+	}
+
+	vpTokenJWS := strings.ReplaceAll(string(vpTokenBytes), `"type":"VerifiablePresentation"`, `"type":["VerifiablePresentation"]`)
+
+	vpTokenJWS, err = signTokenJWT(vpTokenJWS, didKeyID, e.ariesServices.crypto, e.ariesServices.kms, signatureType)
+	if err != nil {
+		return "", fmt.Errorf("sign vp_token: %w", err)
+	}
+
+	return vpTokenJWS, nil
+}
+
+func (e *VPFlowExecutor) getJWTVPTokenClaims(vp *verifiable.Presentation, didID string) VPTokenClaims {
+	nowSec := time.Now().Unix()
+
+	return VPTokenClaims{
+		VP:    vp,
+		Nonce: e.requestObject.Nonce,
+		Exp:   nowSec + 600,
+		Iss:   didID,
+		Aud:   e.requestObject.ClientID,
+		Nbf:   nowSec,
+		Iat:   nowSec,
+		Jti:   uuid.NewString(),
+	}
 }
 
 func (e *VPFlowExecutor) getCredentials(creds []interface{}) ([]*verifiable.Credential, error) {
@@ -426,14 +542,14 @@ func (e *VPFlowExecutor) getCredentials(creds []interface{}) ([]*verifiable.Cred
 			return nil, err
 		}
 
-		vc, err := verifiable.ParseCredential(vcBytes,
+		credentialParsed, err := verifiable.ParseCredential(vcBytes,
 			verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(e.ariesServices.documentLoader))
 		if err != nil {
 			return nil, fmt.Errorf("fail to parse credential: %w", err)
 		}
 
-		credentials = append(credentials, vc)
+		credentials = append(credentials, credentialParsed)
 	}
 
 	return credentials, nil
@@ -496,7 +612,7 @@ func (e *VPFlowExecutor) GetSubjectID(creds []interface{}) (string, error) {
 	return subjectID, nil
 }
 
-func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
+func signTokenJWT(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	km kms.KeyManager, signType vcs.SignatureType) (string, error) {
 
 	kmsSigner, err := signer.NewKMSSigner(km, crpt, strings.Split(didKeyID, "#")[1], signType, nil)

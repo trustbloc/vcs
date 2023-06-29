@@ -96,15 +96,23 @@ func GetSignatureTypeByName(signatureType string) (SignatureType, error) {
 	return "", fmt.Errorf("unsupported siganture type %q", signatureType)
 }
 
-func GetJWTSignatureTypeByKey(keyType kms.KeyType) (SignatureType, error) {
+func GetSignatureTypesByKeyTypeFormat(keyType kms.KeyType, vcFormat Format) []SignatureType {
+	uniqueSignatureTypes := make(map[SignatureType]struct{})
+
 	for _, supportedSignature := range signatureTypes {
 		for _, supportedKeyType := range supportedSignature.SupportedKeyTypes {
-			if supportedKeyType == keyType && supportedSignature.VCFormat == Jwt {
-				return supportedSignature.SignatureType, nil
+			if supportedKeyType == keyType && supportedSignature.VCFormat == vcFormat {
+				uniqueSignatureTypes[supportedSignature.SignatureType] = struct{}{}
 			}
 		}
 	}
-	return "", fmt.Errorf("unsupported jwt key type %q", keyType)
+
+	result := make([]SignatureType, 0, len(uniqueSignatureTypes))
+	for st := range uniqueSignatureTypes {
+		result = append(result, st)
+	}
+
+	return result
 }
 
 func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.KeyType, error) {
@@ -115,20 +123,6 @@ func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.
 	}
 
 	return "", fmt.Errorf("%s signature type currently not supported", signatureType)
-}
-
-func SignatureTypesSupportedKeyType(keyType kms.KeyType) []SignatureType {
-	var result []SignatureType
-
-	for _, supportedSignature := range signatureTypes {
-		for _, supportedKeyType := range supportedSignature.SupportedKeyTypes {
-			if supportedKeyType == keyType {
-				result = append(result, supportedSignature.SignatureType)
-			}
-		}
-	}
-
-	return result
 }
 
 func matchKeyType(keyType string, types ...kms.KeyType) (kms.KeyType, error) {
