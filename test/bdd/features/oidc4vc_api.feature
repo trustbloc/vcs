@@ -105,6 +105,8 @@ Feature: OIDC4VC REST API
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
     Then credential is issued
     And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "verifiable credential doesn't contains proof" error
+    Then we wait 15 seconds
+    And Verifier form organization "test_org" requests expired interactions claims
 
     Examples:
       | issuerProfile                  | credentialType         | credentialTemplate               | verifierProfile      | presentationDefinitionID                  | fields                                                       |
@@ -112,4 +114,21 @@ Feature: OIDC4VC REST API
       | i_myprofile_ud_es256k_jwt/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #      LDP issuer, LDP verifier, limit disclosure enabled in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
+
+  Scenario Outline: OIDC credential issuance and verification Pre Auth flow (OIDC4VP flow - unsupported vp_token format)
+    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
+    And   Issuer with id "<issuerProfile>" is authorized as a Profile user
+    And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+
+    When User interacts with Wallet to initiate credential issuance using pre authorization code flow
+    Then credential is issued
+    And wallet configured to use hardcoded vp_token format "jwt" for OIDC4VP interaction
+    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "profile does not support jwt vp_token format" error
+    Then we wait 15 seconds
+    And Verifier form organization "test_org" requests expired interactions claims
+
+    Examples:
+      | issuerProfile                  | credentialType         | credentialTemplate               | verifierProfile      | presentationDefinitionID | fields    |
+#     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
+      | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match    | schema_id |
 

@@ -21,7 +21,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/valyala/fastjson"
 
@@ -284,8 +286,20 @@ func (s *Service) verifyTokens(
 
 		go func() {
 			defer wg.Done()
-			// TODO: should domain and challenge be verified?
-			vr, innerErr := s.presentationVerifier.VerifyPresentation(ctx, token.Presentation, nil, profile)
+			if !lo.Contains(profile.Checks.Presentation.Format, token.VpTokenFormat) {
+				e := fmt.Errorf("profile does not support %s vp_token format", token.VpTokenFormat)
+				s.sendFailedEvent(ctx, tx, profile, e)
+
+				mut.Lock()
+				validationErrors = append(validationErrors, e)
+				mut.Unlock()
+				return
+			}
+
+			vr, innerErr := s.presentationVerifier.VerifyPresentation(ctx, token.Presentation, &verifypresentation.Options{
+				Domain:    token.ClientID,
+				Challenge: token.Nonce,
+			}, profile)
 			if innerErr != nil {
 				e := fmt.Errorf("presentation verification failed: %w", innerErr)
 				s.sendFailedEvent(ctx, tx, profile, e)
@@ -508,9 +522,9 @@ func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error 
 		subjectID = fastjson.GetString(rawClaims, "sub")
 	}
 
-	if token.Signer != subjectID {
+	if token.SignerDIDID != subjectID {
 		return fmt.Errorf("vc subject(%s) does not match with vp signer(%s)",
-			subjectID, token.Signer)
+			subjectID, token.SignerDIDID)
 	}
 
 	return nil
@@ -526,16 +540,17 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 		return "", fmt.Errorf("initiate oidc interaction: get key manager failed: %w", err)
 	}
 
-	vpFormats := getSupportedVPFormats(kms)
+	vpFormats := GetSupportedVPFormats(
+		kms.SupportedKeyTypes(), profile.Checks.Presentation.Format, profile.Checks.Credential.Format)
 
 	ro := s.createRequestObject(presentationDefinition, vpFormats, tx, nonce, purpose, profile)
 
-	signingAlgorithm, err := vcsverifiable.GetJWTSignatureTypeByKey(profile.OIDCConfig.KeyType)
-	if err != nil {
-		return "", fmt.Errorf("initiate oidc interaction: get jwt signature type failed: %w", err)
+	signatureTypes := vcsverifiable.GetSignatureTypesByKeyTypeFormat(profile.OIDCConfig.KeyType, vcsverifiable.Jwt)
+	if len(signatureTypes) < 1 {
+		return "", fmt.Errorf("unsupported jwt key type %s", profile.OIDCConfig.KeyType)
 	}
 
-	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.KMSKeyID, signingAlgorithm)
+	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.KMSKeyID, signatureTypes[0])
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err)
 	}
@@ -559,22 +574,55 @@ func singRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigne
 	return tokenBytes, nil
 }
 
-func getSupportedVPFormats(kms vcskms.VCSKeyManager) *presexch.Format {
-	var signatureTypes []vcsverifiable.SignatureType
+func GetSupportedVPFormats(
+	kmsSupportedKeyTypes []kmsapi.KeyType,
+	supportedVPFormats,
+	supportedVCFormats []vcsverifiable.Format) *presexch.Format {
+	jwtSignatureTypes := make(map[vcsverifiable.SignatureType]struct{})
+	ldpSignatureTypes := make(map[vcsverifiable.SignatureType]struct{})
 
-	for _, keyType := range kms.SupportedKeyTypes() {
-		signatureTypes = append(signatureTypes, vcsverifiable.SignatureTypesSupportedKeyType(keyType)...)
+	for _, keyType := range kmsSupportedKeyTypes {
+		for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, vcsverifiable.Jwt) {
+			jwtSignatureTypes[st] = struct{}{}
+		}
+
+		for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, vcsverifiable.Ldp) {
+			ldpSignatureTypes[st] = struct{}{}
+		}
 	}
 
-	var signatureTypesNames []string
-	for _, signature := range signatureTypes {
-		signatureTypesNames = append(signatureTypesNames, signature.Name())
+	jwtSignatureTypeNames := make([]string, 0, len(jwtSignatureTypes))
+	ldpSignatureTypeNames := make([]string, 0, len(ldpSignatureTypes))
+
+	for st := range jwtSignatureTypes {
+		jwtSignatureTypeNames = append(jwtSignatureTypeNames, st.Name())
 	}
 
-	return &presexch.Format{
-		JwtVC: &presexch.JwtType{Alg: signatureTypesNames},
-		JwtVP: &presexch.JwtType{Alg: signatureTypesNames},
+	for st := range ldpSignatureTypes {
+		ldpSignatureTypeNames = append(ldpSignatureTypeNames, st.Name())
 	}
+
+	formats := &presexch.Format{}
+
+	for _, vpFormat := range supportedVPFormats {
+		switch vpFormat {
+		case vcsverifiable.Jwt:
+			formats.JwtVP = &presexch.JwtType{Alg: jwtSignatureTypeNames}
+		case vcsverifiable.Ldp:
+			formats.LdpVP = &presexch.LdpType{ProofType: ldpSignatureTypeNames}
+		}
+	}
+
+	for _, vpFormat := range supportedVCFormats {
+		switch vpFormat {
+		case vcsverifiable.Jwt:
+			formats.JwtVC = &presexch.JwtType{Alg: jwtSignatureTypeNames}
+		case vcsverifiable.Ldp:
+			formats.LdpVC = &presexch.LdpType{ProofType: ldpSignatureTypeNames}
+		}
+	}
+
+	return formats
 }
 
 func (s *Service) createRequestObject(

@@ -237,7 +237,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 			return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
 		}
 
-		err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest)
+		err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest, nil)
 		if err != nil {
 			return credID, nil, fmt.Errorf("CredId [%v]. run vp: %w", credID, err)
 		}

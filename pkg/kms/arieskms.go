@@ -81,6 +81,15 @@ type KeyManager struct {
 	metrics    metricsProvider
 }
 
+func GetAriesKeyManager(keyManager keyManager, crypto Crypto, kmsType Type, metrics metricsProvider) *KeyManager {
+	return &KeyManager{
+		keyManager: keyManager,
+		crypto:     crypto,
+		kmsType:    kmsType,
+		metrics:    metrics,
+	}
+}
+
 func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, error) {
 	switch cfg.KMSType {
 	case Local:

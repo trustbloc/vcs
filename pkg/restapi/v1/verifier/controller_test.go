@@ -9,8 +9,6 @@ package verifier
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -22,8 +20,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -48,6 +44,9 @@ const (
 	profileID      = "testProfileID"
 	profileVersion = "v1.0"
 	tenantIDHeader = "X-Tenant-ID"
+
+	validAud   = "hf7d4u50e7sw6nfq8tfagyhzplgfjf2"
+	validNonce = "8HIepUNFZUa-exKTrXVf4g"
 )
 
 var (
@@ -462,62 +461,48 @@ func TestController_VerifyPresentation(t *testing.T) {
 	})
 }
 
-func generateToken(t *testing.T, claims interface{}, privKey ed25519.PrivateKey) string {
-	token, err := jwt.NewSigned(claims, nil, jwt.NewEd25519Signer(privKey))
-	require.NoError(t, err)
-	jws, err := token.Serialize(false)
-	require.NoError(t, err)
-
-	return jws
-}
-
 func TestController_CheckAuthorizationResponse(t *testing.T) {
-	pubKey, privKey, e := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, e)
-	v, e := jwt.NewEd25519Verifier(pubKey)
-	require.NoError(t, e)
-
-	sVerifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
-		Alg:      "EdDSA",
-		Verifier: v,
-	})
-
 	oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 	oidc4VPService.EXPECT().VerifyOIDCVerifiablePresentation(gomock.Any(), oidc4vp.TxID("txid"), gomock.Any()).
 		AnyTimes().Return(nil)
 
-	t.Run("Success", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
+	t.Run("Success Controller JWT", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP: &verifiable.Presentation{
-				Context: []string{
-					"https://www.w3.org/2018/credentials/v1",
-					"https://identity.foundation/presentation-exchange/submission/v1",
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
 				},
-				Type: []string{
-					"VerifiablePresentation",
-					"PresentationSubmission",
-				},
-			},
-			Nonce: "aaa",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+			})
 
 		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
+			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
-			JWTVerifier:    sVerifier,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -526,37 +511,42 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Success", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
+	t.Run("Success JWT", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP: &verifiable.Presentation{
-				Context: []string{
-					"https://www.w3.org/2018/credentials/v1",
-					"https://identity.foundation/presentation-exchange/submission/v1",
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
 				},
-				Type: []string{
-					"VerifiablePresentation",
-					"PresentationSubmission",
-				},
-			},
-			Nonce: "aaa",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+			})
 
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
-			JWTVerifier:    sVerifier,
+			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
 
 		processedVPToken, err := c.verifyAuthorizationResponseTokens(context.TODO(), &authorizationResponse{
-			IDToken: idToken,
+			IDToken: signedClaimsJWTResult.JWT,
 			VPToken: []string{vpToken},
 			State:   "txid",
 		})
@@ -565,28 +555,93 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		require.Contains(t, processedVPToken[0].Presentation.Type, "PresentationSubmission")
 	})
 
-	t.Run("Presentation submission missed", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
-			Nonce: "aaa",
+	t.Run("Success LDP", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP:    &verifiable.Presentation{},
-			Nonce: "aaa",
+		vpSigned := testutil.SignedVPWithExistingPrivateKey(t,
+			&verifiable.Presentation{
+				Context: []string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://identity.foundation/presentation-exchange/submission/v1",
+					"https://w3id.org/security/suites/jws-2020/v1",
+				},
+				Type: []string{
+					"VerifiablePresentation",
+					"PresentationSubmission",
+				},
+			},
+			vcsverifiable.Ldp,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			func(ldpc *verifiable.LinkedDataProofContext) {
+				ldpc.Domain = validAud
+				ldpc.Challenge = validNonce
+			})
+
+		vpToken, err := vpSigned.MarshalJSON()
+		require.NoError(t, err)
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			VDR:            signedClaimsJWTResult.VDR,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		processedVPToken, err := c.verifyAuthorizationResponseTokens(context.TODO(), &authorizationResponse{
+			IDToken: signedClaimsJWTResult.JWT,
+			VPToken: []string{string(vpToken)},
+			State:   "txid",
+		})
+
+		require.NoError(t, err)
+		require.Contains(t, processedVPToken[0].Presentation.Type, "PresentationSubmission")
+	})
+
+	t.Run("Presentation submission missed", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: nil},
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
+
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
 
 		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -595,29 +650,44 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	})
 
 	t.Run("Nonce different", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP:    &verifiable.Presentation{},
-			Nonce: "bbb",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: "some_invalid",
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
 
 		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -625,30 +695,91 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			"nonce", err)
 	})
 
-	t.Run("ID token expired", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
+	t.Run("Aud different", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
-			Exp:   0,
-		}, privKey)
-
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP:    &verifiable.Presentation{},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
+
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   "some_invalid",
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
 
 		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"aud", err)
+	})
+
+	t.Run("ID token expired", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: validNonce,
+			Aud:   validAud,
+			Exp:   0,
+		})
+
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   "some_invalid",
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -657,63 +788,90 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	})
 
 	t.Run("ID token invalid signature", func(t *testing.T) {
-		_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		idToken := generateToken(t, &IDTokenClaims{
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKeyOther)
+			Nonce: validNonce,
+			Aud:   validAud,
+			Exp:   0,
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP:    &verifiable.Presentation{},
-			Nonce: "aaa",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKeyOther)
+		// Signing vpToken using different key.
+		vpTokenSignedJWTResult := testutil.SignedClaimsJWT(t,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   "some_invalid",
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
 
-		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+		body := "vp_token=" + vpTokenSignedJWTResult.JWT +
+			"&id_token=" + vpTokenSignedJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			// Using different key in controller.
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
-		err = c.CheckAuthorizationResponse(ctx)
+		err := c.CheckAuthorizationResponse(ctx)
 		requireValidationError(t, resterr.InvalidValue,
 			"id_token", err)
 	})
 
-	t.Run("Presentation token expired", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
+	t.Run("VP token JWT expired", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP:    &verifiable.Presentation{},
-			Nonce: "aaa",
-			Exp:   0,
-		}, privKey)
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   "some_invalid",
+				Exp:   0,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
 
 		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -721,68 +879,238 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			"vp_token.exp", err)
 	})
 
-	t.Run("Presentation token invalid signature", func(t *testing.T) {
-		_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		idToken := generateToken(t, &IDTokenClaims{
+	t.Run("VP token JWT invalid signature", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &vpTokenClaims{
-			VP:    &verifiable.Presentation{},
-			Nonce: "aaa",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKeyOther)
+		// Signing vpToken using different key.
+		vpTokenSignedJWTResult := testutil.SignedClaimsJWT(t,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			})
 
-		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+		body := "vp_token=" + vpTokenSignedJWTResult.JWT +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			// Using different key in controller.
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
-		err = c.CheckAuthorizationResponse(ctx)
+		err := c.CheckAuthorizationResponse(ctx)
 		requireValidationError(t, resterr.InvalidValue,
 			"vp_token", err)
 	})
 
-	t.Run("Presentation token invalid signature", func(t *testing.T) {
-		idToken := generateToken(t, &IDTokenClaims{
+	t.Run("VP token JWT parse VP failed", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
-			Nonce: "aaa",
+			Nonce: validNonce,
+			Aud:   validAud,
 			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		})
 
-		vpToken := generateToken(t, &VPTokenClaims{
-			Nonce: "aaa",
-			Exp:   time.Now().Unix() + 1000,
-		}, privKey)
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			&vpTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				VP:    &verifiable.Presentation{},
+			})
 
 		body := "vp_token=" + vpToken +
-			"&id_token=" + idToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  oidc4VPService,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
 		requireValidationError(t, resterr.InvalidValue,
 			"vp_token.vp", err)
+	})
+
+	t.Run("VP token LDP invalid signature", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: validNonce,
+			Aud:   validAud,
+			Exp:   time.Now().Unix() + 1000,
+		})
+
+		vpb, err := (&verifiable.Presentation{
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://identity.foundation/presentation-exchange/submission/v1",
+				"https://w3id.org/security/suites/jws-2020/v1",
+			},
+			Type: []string{
+				"VerifiablePresentation",
+				"PresentationSubmission",
+			},
+		}).MarshalJSON()
+		require.NoError(t, err)
+
+		vpSigned := testutil.SignedVP(t,
+			vpb,
+			vcsverifiable.Ldp,
+			func(ldpc *verifiable.LinkedDataProofContext) {
+				ldpc.Domain = validAud
+				ldpc.Challenge = validNonce
+			})
+
+		vpToken, err := vpSigned.Presentation.MarshalJSON()
+		require.NoError(t, err)
+
+		body := "vp_token=" + string(vpToken) +
+			"&id_token=" + signedClaimsJWTResult.JWT +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			VDR:            signedClaimsJWTResult.VDR,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"vp_token.vp", err)
+	})
+
+	t.Run("VP token LDP challenge (nonce) missed", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: validNonce,
+			Aud:   validAud,
+			Exp:   time.Now().Unix() + 1000,
+		})
+
+		vpSigned := testutil.SignedVPWithExistingPrivateKey(t,
+			&verifiable.Presentation{
+				Context: []string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://identity.foundation/presentation-exchange/submission/v1",
+					"https://w3id.org/security/suites/jws-2020/v1",
+				},
+				Type: []string{
+					"VerifiablePresentation",
+					"PresentationSubmission",
+				},
+			},
+			vcsverifiable.Ldp,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			func(ldpc *verifiable.LinkedDataProofContext) {
+				ldpc.Domain = validAud
+				// ldpc.Challenge = validNonce
+			})
+
+		vpToken, err := vpSigned.MarshalJSON()
+		require.NoError(t, err)
+
+		body := "vp_token=" + string(vpToken) +
+			"&id_token=" + signedClaimsJWTResult.JWT +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			VDR:            signedClaimsJWTResult.VDR,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"vp_token.challenge", err)
+	})
+
+	t.Run("VP token LDP domain (audience) missed", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: validNonce,
+			Aud:   validAud,
+			Exp:   time.Now().Unix() + 1000,
+		})
+
+		vpSigned := testutil.SignedVPWithExistingPrivateKey(t,
+			&verifiable.Presentation{
+				Context: []string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://identity.foundation/presentation-exchange/submission/v1",
+					"https://w3id.org/security/suites/jws-2020/v1",
+				},
+				Type: []string{
+					"VerifiablePresentation",
+					"PresentationSubmission",
+				},
+			},
+			vcsverifiable.Ldp,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Kh,
+			func(ldpc *verifiable.LinkedDataProofContext) {
+				// ldpc.Domain = validAud
+				ldpc.Challenge = validNonce
+			})
+
+		vpToken, err := vpSigned.MarshalJSON()
+		require.NoError(t, err)
+
+		body := "vp_token=" + string(vpToken) +
+			"&id_token=" + signedClaimsJWTResult.JWT +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			VDR:            signedClaimsJWTResult.VDR,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"vp_token.domain", err)
 	})
 }
 
@@ -1891,8 +2219,8 @@ func TestApplyFieldsFilter(t *testing.T) {
 type vpTokenClaims struct {
 	VP    *verifiable.Presentation `json:"vp"`
 	Nonce string                   `json:"nonce"`
+	Aud   string                   `json:"aud"`
 	Exp   int64                    `json:"exp"`
-	Iss   string                   `json:"iss"`
 }
 
 // nolint:gochecknoglobals

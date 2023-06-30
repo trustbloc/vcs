@@ -1105,8 +1105,7 @@
           },
           "presentation": {
             "format": [
-              "ldp",
-              "jwt"
+              "ldp"
             ],
             "vcSubject": true,
             "proof": true

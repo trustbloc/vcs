@@ -23,9 +23,11 @@ type InteractionInfo struct {
 }
 
 type ProcessedVPToken struct {
-	Nonce        string
-	Signer       string
-	Presentation *verifiable.Presentation
+	Nonce         string
+	ClientID      string
+	SignerDIDID   string
+	VpTokenFormat vcsverifiable.Format
+	Presentation  *verifiable.Presentation
 }
 
 type CredentialMetadata struct {
