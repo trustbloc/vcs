@@ -114,7 +114,8 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	s.print("Getting credential")
 	startTime = time.Now()
-	vc, vcsDuration, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat)
+	vc, vcsDuration, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat,
+		offerResponse.CredentialIssuer)
 	if err != nil {
 		return nil, fmt.Errorf("get credential: %w", err)
 	}

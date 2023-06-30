@@ -28,6 +28,7 @@ const (
 	OIDCPreAuthorizeInvalidClientID  ErrorCode = "oidc-pre-authorize-invalid-client-id"
 	OIDCCredentialFormatNotSupported ErrorCode = "oidc-credential-format-not-supported" //nolint:gosec
 	OIDCCredentialTypeNotSupported   ErrorCode = "oidc-credential-type-not-supported"   //nolint:gosec
+	InvalidOrMissingProofOIDCErr     ErrorCode = "invalid_or_missing_proof"
 )
 
 func (c ErrorCode) Name() string {

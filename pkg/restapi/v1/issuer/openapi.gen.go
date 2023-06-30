@@ -179,6 +179,9 @@ type PrepareClaimDataAuthorizationResponse struct {
 
 // Model for Prepare Credential request.
 type PrepareCredential struct {
+	// The "aud" claim received from the client.
+	AudienceClaim string `json:"audienceClaim"`
+
 	// DID to which issued credential has to be bound.
 	Did *string `json:"did,omitempty"`
 
