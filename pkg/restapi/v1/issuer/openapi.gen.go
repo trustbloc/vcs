@@ -216,115 +216,6 @@ type PushAuthorizationDetailsRequest struct {
 	OpState              string                            `json:"op_state"`
 }
 
-// Model for RegisterOAuthClient request.
-type RegisterOAuthClientRequest struct {
-	// Human-readable string name of the client to be presented to the end-user during authorization.
-	ClientName *string `json:"client_name,omitempty"`
-
-	// URL string of a web page providing information about the client.
-	ClientUri *string `json:"client_uri,omitempty"`
-
-	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
-	Contacts *[]string `json:"contacts,omitempty"`
-
-	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
-	GrantTypes *[]string `json:"grant_types,omitempty"`
-
-	// Client's JSON Web Key Set document value, which contains the client's public keys.
-	Jwks *map[string]interface{} `json:"jwks,omitempty"`
-
-	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
-	JwksUri *string `json:"jwks_uri,omitempty"`
-
-	// URL string that references a logo for the client.
-	LogoUri *string `json:"logo_uri,omitempty"`
-	OpState string  `json:"op_state"`
-
-	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
-	PolicyUri *string `json:"policy_uri,omitempty"`
-
-	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
-	RedirectUris *[]string `json:"redirect_uris,omitempty"`
-
-	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
-	ResponseTypes *[]string `json:"response_types,omitempty"`
-
-	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
-	Scope *string `json:"scope,omitempty"`
-
-	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-	SoftwareId *string `json:"software_id,omitempty"`
-
-	// A version identifier string for the client software identified by "software_id".
-	SoftwareVersion *string `json:"software_version,omitempty"`
-
-	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
-	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
-
-	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-	TosUri *string `json:"tos_uri,omitempty"`
-}
-
-// Response with registered metadata for the client.
-type RegisterOAuthClientResponse struct {
-	// Client identifier.
-	ClientId string `json:"client_id"`
-
-	// Time at which the client identifier was issued.
-	ClientIdIssuedAt int `json:"client_id_issued_at"`
-
-	// Human-readable string name of the client to be presented to the end-user during authorization.
-	ClientName *string `json:"client_name,omitempty"`
-
-	// Client secret. This value is used by the confidential client to authenticate to the token endpoint.
-	ClientSecret *string `json:"client_secret,omitempty"`
-
-	// Time at which the client secret will expire or 0 if it will not expire.
-	ClientSecretExpiresAt *int `json:"client_secret_expires_at,omitempty"`
-
-	// URL string of a web page providing information about the client.
-	ClientUri *string `json:"client_uri,omitempty"`
-
-	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
-	Contacts *[]string `json:"contacts,omitempty"`
-
-	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
-	GrantTypes []string `json:"grant_types"`
-
-	// Client's JSON Web Key Set document value, which contains the client's public keys.
-	Jwks *map[string]interface{} `json:"jwks,omitempty"`
-
-	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
-	JwksUri *string `json:"jwks_uri,omitempty"`
-
-	// URL string that references a logo for the client.
-	LogoUri *string `json:"logo_uri,omitempty"`
-
-	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
-	PolicyUri *string `json:"policy_uri,omitempty"`
-
-	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
-	RedirectUris *[]string `json:"redirect_uris,omitempty"`
-
-	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
-	ResponseTypes *[]string `json:"response_types,omitempty"`
-
-	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
-	Scope *string `json:"scope,omitempty"`
-
-	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-	SoftwareId *string `json:"software_id,omitempty"`
-
-	// A version identifier string for the client software identified by "software_id".
-	SoftwareVersion *string `json:"software_version,omitempty"`
-
-	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
-	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
-
-	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-	TosUri *string `json:"tos_uri,omitempty"`
-}
-
 // Model for storing auth code from issuer oauth
 type StoreAuthorizationCodeRequest struct {
 	Code    string `json:"code"`
@@ -425,9 +316,6 @@ type StoreAuthorizationCodeRequestJSONBody = StoreAuthorizationCodeRequest
 // ValidatePreAuthorizedCodeRequestJSONBody defines parameters for ValidatePreAuthorizedCodeRequest.
 type ValidatePreAuthorizedCodeRequestJSONBody = ValidatePreAuthorizedCodeRequest
 
-// RegisterOauthClientJSONBody defines parameters for RegisterOauthClient.
-type RegisterOauthClientJSONBody = RegisterOAuthClientRequest
-
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
 
@@ -454,9 +342,6 @@ type StoreAuthorizationCodeRequestJSONRequestBody = StoreAuthorizationCodeReques
 
 // ValidatePreAuthorizedCodeRequestJSONRequestBody defines body for ValidatePreAuthorizedCodeRequest for application/json ContentType.
 type ValidatePreAuthorizedCodeRequestJSONRequestBody = ValidatePreAuthorizedCodeRequestJSONBody
-
-// RegisterOauthClientJSONRequestBody defines body for RegisterOauthClient for application/json ContentType.
-type RegisterOauthClientJSONRequestBody = RegisterOauthClientJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
@@ -574,11 +459,6 @@ type ClientInterface interface {
 	ValidatePreAuthorizedCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ValidatePreAuthorizedCodeRequest(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RegisterOauthClient request with any body
-	RegisterOauthClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RegisterOauthClient(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -767,30 +647,6 @@ func (c *Client) ValidatePreAuthorizedCodeRequestWithBody(ctx context.Context, c
 
 func (c *Client) ValidatePreAuthorizedCodeRequest(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewValidatePreAuthorizedCodeRequestRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterOauthClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterOauthClientRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterOauthClient(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterOauthClientRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1194,46 +1050,6 @@ func NewValidatePreAuthorizedCodeRequestRequestWithBody(server string, contentTy
 	return req, nil
 }
 
-// NewRegisterOauthClientRequest calls the generic RegisterOauthClient builder with application/json body
-func NewRegisterOauthClientRequest(server string, body RegisterOauthClientJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRegisterOauthClientRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewRegisterOauthClientRequestWithBody generates requests for RegisterOauthClient with any type of body
-func NewRegisterOauthClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/issuer/oauth2/register")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewPostIssueCredentialsRequest calls the generic PostIssueCredentials builder with application/json body
 func NewPostIssueCredentialsRequest(server string, profileID string, profileVersion string, body PostIssueCredentialsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1505,11 +1321,6 @@ type ClientWithResponsesInterface interface {
 
 	ValidatePreAuthorizedCodeRequestWithResponse(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidatePreAuthorizedCodeRequestResponse, error)
 
-	// RegisterOauthClient request with any body
-	RegisterOauthClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error)
-
-	RegisterOauthClientWithResponse(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error)
-
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
 
@@ -1696,28 +1507,6 @@ func (r ValidatePreAuthorizedCodeRequestResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ValidatePreAuthorizedCodeRequestResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type RegisterOauthClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *RegisterOAuthClientResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r RegisterOauthClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RegisterOauthClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1938,23 +1727,6 @@ func (c *ClientWithResponses) ValidatePreAuthorizedCodeRequestWithResponse(ctx c
 		return nil, err
 	}
 	return ParseValidatePreAuthorizedCodeRequestResponse(rsp)
-}
-
-// RegisterOauthClientWithBodyWithResponse request with arbitrary body returning *RegisterOauthClientResponse
-func (c *ClientWithResponses) RegisterOauthClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error) {
-	rsp, err := c.RegisterOauthClientWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterOauthClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) RegisterOauthClientWithResponse(ctx context.Context, body RegisterOauthClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterOauthClientResponse, error) {
-	rsp, err := c.RegisterOauthClient(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterOauthClientResponse(rsp)
 }
 
 // PostIssueCredentialsWithBodyWithResponse request with arbitrary body returning *PostIssueCredentialsResponse
@@ -2207,32 +1979,6 @@ func ParseValidatePreAuthorizedCodeRequestResponse(rsp *http.Response) (*Validat
 	return response, nil
 }
 
-// ParseRegisterOauthClientResponse parses an HTTP response from a RegisterOauthClientWithResponse call
-func ParseRegisterOauthClientResponse(rsp *http.Response) (*RegisterOauthClientResponse, error) {
-	bodyBytes, err := ioutil.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RegisterOauthClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest RegisterOAuthClientResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParsePostIssueCredentialsResponse parses an HTTP response from a PostIssueCredentialsWithResponse call
 func ParsePostIssueCredentialsResponse(rsp *http.Response) (*PostIssueCredentialsResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2363,9 +2109,6 @@ type ServerInterface interface {
 	// Validates pre-authorized code and user pin
 	// (POST /issuer/interactions/validate-pre-authorized-code)
 	ValidatePreAuthorizedCodeRequest(ctx echo.Context) error
-	// Register OAuth Client
-	// (POST /issuer/oauth2/register)
-	RegisterOauthClient(ctx echo.Context) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string, profileVersion string) error
@@ -2469,15 +2212,6 @@ func (w *ServerInterfaceWrapper) ValidatePreAuthorizedCodeRequest(ctx echo.Conte
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.ValidatePreAuthorizedCodeRequest(ctx)
-	return err
-}
-
-// RegisterOauthClient converts echo context to params.
-func (w *ServerInterfaceWrapper) RegisterOauthClient(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.RegisterOauthClient(ctx)
 	return err
 }
 
@@ -2613,7 +2347,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
 	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
-	router.POST(baseURL+"/issuer/oauth2/register", wrapper.RegisterOauthClient)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-configuration", wrapper.OpenidConfig)

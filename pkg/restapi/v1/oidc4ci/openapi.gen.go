@@ -35,117 +35,6 @@ type AccessTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
-// Client registration request.
-type ClientRegistrationRequest struct {
-	// Human-readable string name of the client to be presented to the end-user during authorization.
-	ClientName *string `json:"client_name,omitempty"`
-
-	// URL string of a web page providing information about the client.
-	ClientUri *string `json:"client_uri,omitempty"`
-
-	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
-	Contacts *[]string `json:"contacts,omitempty"`
-
-	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
-	GrantTypes *[]string `json:"grant_types,omitempty"`
-
-	// Issuer state to correlate request with issuer.
-	IssuerState string `json:"issuer_state"`
-
-	// Client's JSON Web Key Set document value, which contains the client's public keys.
-	Jwks *map[string]interface{} `json:"jwks,omitempty"`
-
-	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
-	JwksUri *string `json:"jwks_uri,omitempty"`
-
-	// URL string that references a logo for the client.
-	LogoUri *string `json:"logo_uri,omitempty"`
-
-	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
-	PolicyUri *string `json:"policy_uri,omitempty"`
-
-	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
-	RedirectUris *[]string `json:"redirect_uris,omitempty"`
-
-	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
-	ResponseTypes *[]string `json:"response_types,omitempty"`
-
-	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
-	Scope *string `json:"scope,omitempty"`
-
-	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-	SoftwareId *string `json:"software_id,omitempty"`
-
-	// A version identifier string for the client software identified by "software_id".
-	SoftwareVersion *string `json:"software_version,omitempty"`
-
-	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
-	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
-
-	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-	TosUri *string `json:"tos_uri,omitempty"`
-}
-
-// Response with registered metadata for the client.
-type ClientRegistrationResponse struct {
-	// Client identifier.
-	ClientId string `json:"client_id"`
-
-	// Time at which the client identifier was issued.
-	ClientIdIssuedAt int `json:"client_id_issued_at"`
-
-	// Registered name of the client to be presented to the end-user during authorization.
-	ClientName *string `json:"client_name,omitempty"`
-
-	// Client secret. This value is used by the confidential client to authenticate to the token endpoint.
-	ClientSecret *string `json:"client_secret,omitempty"`
-
-	// Time at which the client secret will expire or 0 if it will not expire.
-	ClientSecretExpiresAt *int `json:"client_secret_expires_at,omitempty"`
-
-	// Registered URL of a web page providing information about the client.
-	ClientUri *string `json:"client_uri,omitempty"`
-
-	// Registered array of strings representing ways to contact people responsible for this client, typically email addresses.
-	Contacts *[]string `json:"contacts,omitempty"`
-
-	// Registered array of OAuth 2.0 grant types that the client is allowed to use.
-	GrantTypes []string `json:"grant_types"`
-
-	// Registered client's JSON Web Key Set document value, which contains the client's public keys.
-	Jwks *map[string]interface{} `json:"jwks,omitempty"`
-
-	// Registered URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
-	JwksUri *string `json:"jwks_uri,omitempty"`
-
-	// Registered URL string that references a logo for the client.
-	LogoUri *string `json:"logo_uri,omitempty"`
-
-	// Registered URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
-	PolicyUri *string `json:"policy_uri,omitempty"`
-
-	// Registered array of allowed redirection URI strings for the client.
-	RedirectUris *[]string `json:"redirect_uris,omitempty"`
-
-	// Registered array of OAuth 2.0 response types that the client can use at the authorization endpoint.
-	ResponseTypes *[]string `json:"response_types,omitempty"`
-
-	// Registered space-separated list of scope values that the client can use when requesting access tokens.
-	Scope *string `json:"scope,omitempty"`
-
-	// Registered unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-	SoftwareId *string `json:"software_id,omitempty"`
-
-	// Registered version identifier string for the client software identified by "software_id".
-	SoftwareVersion *string `json:"software_version,omitempty"`
-
-	// Registered client authentication method for the token endpoint.
-	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
-
-	// Registered URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-	TosUri *string `json:"tos_uri,omitempty"`
-}
-
 // Model for OIDC Credential request.
 type CredentialRequest struct {
 	// Format of the credential being issued.
@@ -188,6 +77,123 @@ type PushedAuthorizationResponse struct {
 
 	// The request URI corresponding to the authorization request posted. This URI is a single-use reference to the respective request data in the subsequent authorization request.
 	RequestUri string `json:"request_uri"`
+}
+
+// OAuth 2.0 client registration error response.
+type RegisterOAuthClientErrorResponse struct {
+	// Single ASCII error code string.
+	Error string `json:"error"`
+
+	// Human-readable ASCII text description of the error used for debugging.
+	ErrorDescription *string `json:"error_description,omitempty"`
+}
+
+// OAuth 2.0 client registration request.
+type RegisterOAuthClientRequest struct {
+	// Human-readable string name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// URL string of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
+	Contacts *[]string `json:"contacts,omitempty"`
+
+	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
+	GrantTypes *[]string `json:"grant_types,omitempty"`
+
+	// Client's JSON Web Key Set document value, which contains the client's public keys.
+	Jwks *map[string]interface{} `json:"jwks,omitempty"`
+
+	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
+	JwksUri *string `json:"jwks_uri,omitempty"`
+
+	// URL string that references a logo for the client.
+	LogoUri *string `json:"logo_uri,omitempty"`
+
+	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
+	PolicyUri *string `json:"policy_uri,omitempty"`
+
+	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
+	SoftwareId *string `json:"software_id,omitempty"`
+
+	// A version identifier string for the client software identified by "software_id".
+	SoftwareVersion *string `json:"software_version,omitempty"`
+
+	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
+	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+
+	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
+	TosUri *string `json:"tos_uri,omitempty"`
+}
+
+// Response with registered metadata for created OAuth 2.0 client.
+type RegisterOAuthClientResponse struct {
+	// Client identifier.
+	ClientId string `json:"client_id"`
+
+	// Time at which the client identifier was issued.
+	ClientIdIssuedAt int `json:"client_id_issued_at"`
+
+	// Human-readable string name of the client to be presented to the end-user during authorization.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// Client secret. This value is used by the confidential client to authenticate to the token endpoint.
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// Time at which the client secret will expire or 0 if it will not expire.
+	ClientSecretExpiresAt *int `json:"client_secret_expires_at,omitempty"`
+
+	// URL string of a web page providing information about the client.
+	ClientUri *string `json:"client_uri,omitempty"`
+
+	// Array of strings representing ways to contact people responsible for this client, typically email addresses.
+	Contacts *[]string `json:"contacts,omitempty"`
+
+	// Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.
+	GrantTypes []string `json:"grant_types"`
+
+	// Client's JSON Web Key Set document value, which contains the client's public keys.
+	Jwks *map[string]interface{} `json:"jwks,omitempty"`
+
+	// URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys.
+	JwksUri *string `json:"jwks_uri,omitempty"`
+
+	// URL string that references a logo for the client.
+	LogoUri *string `json:"logo_uri,omitempty"`
+
+	// URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.
+	PolicyUri *string `json:"policy_uri,omitempty"`
+
+	// Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
+	RedirectUris *[]string `json:"redirect_uris,omitempty"`
+
+	// Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// String containing a space-separated list of scope values that the client can use when requesting access tokens.
+	Scope *string `json:"scope,omitempty"`
+
+	// A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
+	SoftwareId *string `json:"software_id,omitempty"`
+
+	// A version identifier string for the client software identified by "software_id".
+	SoftwareVersion *string `json:"software_version,omitempty"`
+
+	// Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+
+	// URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
+	TosUri *string `json:"tos_uri,omitempty"`
 }
 
 // OidcAuthorizeParams defines parameters for OidcAuthorize.
@@ -238,14 +244,14 @@ type OidcRedirectParams struct {
 	State string `form:"state" json:"state"`
 }
 
-// OidcRegisterDynamicClientJSONBody defines parameters for OidcRegisterDynamicClient.
-type OidcRegisterDynamicClientJSONBody = ClientRegistrationRequest
+// OidcRegisterClientJSONBody defines parameters for OidcRegisterClient.
+type OidcRegisterClientJSONBody = RegisterOAuthClientRequest
 
 // OidcCredentialJSONRequestBody defines body for OidcCredential for application/json ContentType.
 type OidcCredentialJSONRequestBody = OidcCredentialJSONBody
 
-// OidcRegisterDynamicClientJSONRequestBody defines body for OidcRegisterDynamicClient for application/json ContentType.
-type OidcRegisterDynamicClientJSONRequestBody = OidcRegisterDynamicClientJSONBody
+// OidcRegisterClientJSONRequestBody defines body for OidcRegisterClient for application/json ContentType.
+type OidcRegisterClientJSONRequestBody = OidcRegisterClientJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -261,12 +267,12 @@ type ServerInterface interface {
 	// OIDC Redirect
 	// (GET /oidc/redirect)
 	OidcRedirect(ctx echo.Context, params OidcRedirectParams) error
-	// OIDC Dynamic Client Registration
-	// (POST /oidc/register)
-	OidcRegisterDynamicClient(ctx echo.Context) error
 	// OIDC Token Request
 	// (POST /oidc/token)
 	OidcToken(ctx echo.Context) error
+	// OIDC Register OAuth Client
+	// (POST /oidc/{profileID}/{profileVersion}/register)
+	OidcRegisterClient(ctx echo.Context, profileID string, profileVersion string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -405,21 +411,36 @@ func (w *ServerInterfaceWrapper) OidcRedirect(ctx echo.Context) error {
 	return err
 }
 
-// OidcRegisterDynamicClient converts echo context to params.
-func (w *ServerInterfaceWrapper) OidcRegisterDynamicClient(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.OidcRegisterDynamicClient(ctx)
-	return err
-}
-
 // OidcToken converts echo context to params.
 func (w *ServerInterfaceWrapper) OidcToken(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.OidcToken(ctx)
+	return err
+}
+
+// OidcRegisterClient converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcRegisterClient(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OidcRegisterClient(ctx, profileID, profileVersion)
 	return err
 }
 
@@ -455,7 +476,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)
 	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)
-	router.POST(baseURL+"/oidc/register", wrapper.OidcRegisterDynamicClient)
 	router.POST(baseURL+"/oidc/token", wrapper.OidcToken)
+	router.POST(baseURL+"/oidc/:profileID/:profileVersion/register", wrapper.OidcRegisterClient)
 
 }

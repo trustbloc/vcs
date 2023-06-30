@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -34,11 +33,9 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
-	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -1550,8 +1547,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 		TokenEndpoint:          "https://localhost/oidc/token",
 	}
 
-	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
+	issuerProfile := &profileapi.Issuer{
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
@@ -1564,12 +1560,15 @@ func TestOpenIdConfiguration(t *testing.T) {
 				},
 			},
 		},
-	}, nil).Times(2)
+	}
 
 	t.Run("with /", func(t *testing.T) {
+		svc := NewMockProfileService(gomock.NewController(t))
+		svc.EXPECT().GetProfile(profileID, profileVersion).Return(issuerProfile, nil)
+
 		c := &Controller{
 			externalHostURL: host,
-			profileSvc:      profileSvc,
+			profileSvc:      svc,
 		}
 
 		result, err := c.getOpenIDConfig(profileID, profileVersion)
@@ -1579,15 +1578,36 @@ func TestOpenIdConfiguration(t *testing.T) {
 	})
 
 	t.Run("without /", func(t *testing.T) {
+		svc := NewMockProfileService(gomock.NewController(t))
+		svc.EXPECT().GetProfile(profileID, profileVersion).Return(issuerProfile, nil)
+
 		c := &Controller{
 			externalHostURL: host + "/",
-			profileSvc:      profileSvc,
+			profileSvc:      svc,
 		}
 
 		result, err := c.getOpenIDConfig(profileID, profileVersion)
 		assert.NoError(t, err)
 		assert.Equal(t, expected.AuthorizationEndpoint, result.AuthorizationEndpoint)
 		assert.Equal(t, expected.TokenEndpoint, result.TokenEndpoint)
+	})
+
+	t.Run("build registration endpoint error", func(t *testing.T) {
+		svc := NewMockProfileService(gomock.NewController(t))
+		svc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{
+				EnableDynamicClientRegistration: true,
+			},
+		}, nil)
+
+		c := &Controller{
+			externalHostURL: "*://",
+			profileSvc:      svc,
+		}
+
+		result, err := c.getOpenIDConfig(profileID, profileVersion)
+		assert.Nil(t, result)
+		assert.ErrorContains(t, err, "build registration endpoint")
 	})
 
 	t.Run("profile error", func(t *testing.T) {
@@ -1625,7 +1645,8 @@ func TestOpenIdConfiguration_EnableDynamicClientRegistration(t *testing.T) {
 	config, err := c.getOpenIDConfig(profileID, profileVersion)
 	assert.NoError(t, err)
 	assert.NotNil(t, config.RegistrationEndpoint)
-	assert.Equal(t, host+"/oidc/register", lo.FromPtr(config.RegistrationEndpoint))
+	assert.Equal(t, fmt.Sprintf("%s/oidc/%s/%s/register", host, profileID, profileVersion),
+		lo.FromPtr(config.RegistrationEndpoint))
 }
 
 func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T) {
@@ -1656,172 +1677,9 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 	assert.Equal(t, config.ScopesSupported, s)
 }
 
-func TestController_RegisterOauthClient(t *testing.T) {
-	body, err := json.Marshal(
-		&RegisterOAuthClientRequest{
-			ClientName:   lo.ToPtr("client-name"),
-			ClientUri:    lo.ToPtr("https://example.com"),
-			GrantTypes:   lo.ToPtr([]string{"authorization_code"}),
-			RedirectUris: lo.ToPtr([]string{"https://example.com/callback"}),
-			OpState:      "1234",
-		},
-	)
-	require.NoError(t, err)
-
-	t.Run("success", func(t *testing.T) {
-		mockClientManager := NewMockClientManager(gomock.NewController(t))
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&oauth2client.Client{
-				ID:                      uuid.New().String(),
-				Name:                    "client-name",
-				URI:                     "https://example.com",
-				Secret:                  []byte("secret"),
-				SecretExpiresAt:         time.Now().Add(5 * time.Minute),
-				RedirectURIs:            []string{"https://example.com/callback"},
-				GrantTypes:              []string{"authorization_code"},
-				ResponseTypes:           []string{"code"},
-				Scopes:                  []string{"openid", "profile"},
-				LogoURI:                 "https://example.com/logo",
-				Contacts:                []string{"contact@example.com"},
-				TermsOfServiceURI:       "https://example.com/tos",
-				PolicyURI:               "https://example.com/policy",
-				JSONWebKeysURI:          "https://example.com/jwks",
-				JSONWebKeys:             &jose.JSONWebKeySet{},
-				SoftwareID:              "software-id",
-				SoftwareVersion:         "software-version",
-				TokenEndpointAuthMethod: "basic",
-				CreatedAt:               time.Now(),
-			}, nil)
-
-		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
-
-		c := &Controller{
-			clientManager:  mockClientManager,
-			oidc4ciService: mockOIDC4CIService,
-		}
-
-		ctx := echoContext(withRequestBody(body))
-		assert.NoError(t, c.RegisterOauthClient(ctx))
-	})
-
-	t.Run("no empty metadata fields", func(t *testing.T) {
-		mockClientManager := NewMockClientManager(gomock.NewController(t))
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&oauth2client.Client{
-				ID: uuid.New().String(),
-			}, nil)
-
-		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
-
-		c := &Controller{
-			clientManager:  mockClientManager,
-			oidc4ciService: mockOIDC4CIService,
-		}
-
-		rec := httptest.NewRecorder()
-
-		ctx := echoContext(withRequestBody(body), withResponseRecorder(rec))
-		assert.NoError(t, c.RegisterOauthClient(ctx))
-
-		assert.Equal(t, http.StatusOK, rec.Code)
-
-		var resp RegisterOAuthClientResponse
-		assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-
-		assert.Nil(t, resp.ClientName)
-		assert.Nil(t, resp.ClientSecret)
-		assert.Nil(t, resp.ClientSecretExpiresAt)
-		assert.Nil(t, resp.ClientUri)
-		assert.Nil(t, resp.Contacts)
-		assert.Nil(t, resp.Jwks)
-		assert.Nil(t, resp.JwksUri)
-		assert.Nil(t, resp.LogoUri)
-		assert.Nil(t, resp.PolicyUri)
-		assert.Nil(t, resp.RedirectUris)
-		assert.Nil(t, resp.ResponseTypes)
-		assert.Nil(t, resp.Scope)
-		assert.Nil(t, resp.SoftwareId)
-		assert.Nil(t, resp.SoftwareVersion)
-		assert.Nil(t, resp.TosUri)
-	})
-
-	t.Run("resolve profile error", func(t *testing.T) {
-		mockClientManager := NewMockClientManager(gomock.NewController(t))
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
-		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(nil,
-			fmt.Errorf("resolve profile error"))
-
-		c := &Controller{
-			clientManager:  mockClientManager,
-			oidc4ciService: mockOIDC4CIService,
-		}
-
-		var customErr *resterr.CustomError
-
-		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &customErr)
-		assert.Equal(t, resterr.SystemError, customErr.Code)
-		assert.Equal(t, "OIDC4CIService", customErr.Component)
-		assert.Equal(t, "ResolveProfile", customErr.FailedOperation)
-	})
-
-	t.Run("client registration error", func(t *testing.T) {
-		mockClientManager := NewMockClientManager(gomock.NewController(t))
-
-		retErr := &clientmanager.RegistrationError{
-			Code:         clientmanager.ErrCodeInvalidClientMetadata,
-			InvalidValue: "scope",
-			Err:          fmt.Errorf("scope invalid not supported"),
-		}
-
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, retErr)
-
-		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
-
-		c := &Controller{
-			clientManager:  mockClientManager,
-			oidc4ciService: mockOIDC4CIService,
-		}
-
-		var regErr *resterr.RegistrationError
-
-		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &regErr)
-		assert.Equal(t, "invalid_client_metadata", regErr.Code)
-		assert.Equal(t, retErr.Err.Error(), regErr.Err.Error())
-	})
-
-	t.Run("create client error", func(t *testing.T) {
-		mockClientManager := NewMockClientManager(gomock.NewController(t))
-
-		createErr := fmt.Errorf("create client error")
-		mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, createErr)
-
-		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ResolveProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
-
-		c := &Controller{
-			clientManager:  mockClientManager,
-			oidc4ciService: mockOIDC4CIService,
-		}
-
-		var customErr *resterr.CustomError
-
-		assert.ErrorAs(t, c.RegisterOauthClient(echoContext(withRequestBody(body))), &customErr)
-		assert.Equal(t, resterr.SystemError, customErr.Code)
-		assert.Equal(t, "ClientManager", customErr.Component)
-		assert.Equal(t, "Create", customErr.FailedOperation)
-		assert.Equal(t, createErr, customErr.Err)
-	})
-}
-
 type options struct {
 	tenantID    string
 	requestBody []byte
-	recorder    *httptest.ResponseRecorder
 }
 
 type contextOpt func(*options)
@@ -1838,16 +1696,9 @@ func withRequestBody(body []byte) contextOpt {
 	}
 }
 
-func withResponseRecorder(rec *httptest.ResponseRecorder) contextOpt {
-	return func(o *options) {
-		o.recorder = rec
-	}
-}
-
 func echoContext(opts ...contextOpt) echo.Context {
 	o := &options{
 		tenantID: orgID,
-		recorder: httptest.NewRecorder(),
 	}
 
 	for _, fn := range opts {
@@ -1869,7 +1720,9 @@ func echoContext(opts ...contextOpt) echo.Context {
 		req.Header.Set("X-Tenant-ID", o.tenantID)
 	}
 
-	return e.NewContext(req, o.recorder)
+	rec := httptest.NewRecorder()
+
+	return e.NewContext(req, rec)
 }
 
 func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {

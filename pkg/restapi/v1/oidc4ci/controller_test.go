@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -35,10 +36,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
+)
+
+const (
+	profileID      = "testID"
+	profileVersion = "v1.0"
 )
 
 func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
@@ -1995,11 +2004,16 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 	}
 }
 
-func TestController_OidcRegisterDynamicClient(t *testing.T) {
-	var (
-		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
-		requestBody           []byte
-	)
+func TestController_OidcRegisterClient(t *testing.T) {
+	mockClientManager := NewMockClientManager(gomock.NewController(t))
+
+	reqBody, err := json.Marshal(&oidc4ci.RegisterOAuthClientRequest{
+		ClientName:   lo.ToPtr("client-name"),
+		ClientUri:    lo.ToPtr("https://example.com"),
+		GrantTypes:   lo.ToPtr([]string{"authorization_code"}),
+		RedirectUris: lo.ToPtr([]string{"https://example.com/callback"}),
+	})
+	require.NoError(t, err)
 
 	tests := []struct {
 		name  string
@@ -2009,99 +2023,97 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
-				b, err := json.Marshal(
-					oidc4ci.ClientRegistrationResponse{
-						ClientId: "foo",
-					},
-				)
-				require.NoError(t, err)
-
-				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(
-					&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBuffer(b)),
+				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&oauth2client.Client{
+						ID:                      uuid.New().String(),
+						Name:                    "client-name",
+						URI:                     "https://example.com",
+						Secret:                  []byte("secret"),
+						SecretExpiresAt:         time.Now().Add(5 * time.Minute),
+						RedirectURIs:            []string{"https://example.com/callback"},
+						GrantTypes:              []string{"authorization_code"},
+						ResponseTypes:           []string{"code"},
+						Scopes:                  []string{"openid", "profile"},
+						LogoURI:                 "https://example.com/logo",
+						Contacts:                []string{"contact@example.com"},
+						TermsOfServiceURI:       "https://example.com/tos",
+						PolicyURI:               "https://example.com/policy",
+						JSONWebKeysURI:          "https://example.com/jwks",
+						JSONWebKeys:             &gojose.JSONWebKeySet{},
+						SoftwareID:              "software-id",
+						SoftwareVersion:         "software-version",
+						TokenEndpointAuthMethod: "basic",
+						CreatedAt:               time.Now(),
 					}, nil)
-
-				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
-					ResponseTypes:           lo.ToPtr([]string{"code"}),
-					Scope:                   lo.ToPtr("foo bar"),
-					TokenEndpointAuthMethod: lo.ToPtr("none"),
-				})
-				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.NoError(t, err)
-				require.Equal(t, http.StatusCreated, rec.Code)
+				assert.NoError(t, err)
+				assert.Equal(t, http.StatusCreated, rec.Code)
 			},
 		},
 		{
-			name: "issuer interaction error",
+			name: "no empty metadata fields",
 			setup: func() {
-				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(nil,
-					fmt.Errorf("issuer interaction error"))
-
-				var err error
-				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
-					ResponseTypes:           lo.ToPtr([]string{"code"}),
-					Scope:                   lo.ToPtr("foo bar"),
-					TokenEndpointAuthMethod: lo.ToPtr("none"),
-				})
-				require.NoError(t, err)
+				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&oauth2client.Client{
+						ID: uuid.New().String(),
+					}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "issuer interaction error")
+				var resp oidc4ci.RegisterOAuthClientResponse
+
+				assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+				assert.Equal(t, http.StatusCreated, rec.Code)
+
+				assert.Nil(t, resp.ClientName)
+				assert.Nil(t, resp.ClientSecret)
+				assert.Nil(t, resp.ClientSecretExpiresAt)
+				assert.Nil(t, resp.ClientUri)
+				assert.Nil(t, resp.Contacts)
+				assert.Nil(t, resp.Jwks)
+				assert.Nil(t, resp.JwksUri)
+				assert.Nil(t, resp.LogoUri)
+				assert.Nil(t, resp.PolicyUri)
+				assert.Nil(t, resp.RedirectUris)
+				assert.Nil(t, resp.ResponseTypes)
+				assert.Nil(t, resp.Scope)
+				assert.Nil(t, resp.SoftwareId)
+				assert.Nil(t, resp.SoftwareVersion)
+				assert.Nil(t, resp.TosUri)
 			},
 		},
 		{
-			name: "client registration 400 error",
+			name: "client registration error",
 			setup: func() {
-				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(
-					&http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString(`{"error":"invalid_client_metadata","error_description":"scope foo not supported"}`)), // nolint:lll
-					}, nil)
-
-				var err error
-				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
-					ResponseTypes:           lo.ToPtr([]string{"code"}),
-					Scope:                   lo.ToPtr("foo bar"),
-					TokenEndpointAuthMethod: lo.ToPtr("none"),
-				})
-				require.NoError(t, err)
+				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
+					&clientmanager.RegistrationError{
+						Code:         clientmanager.ErrCodeInvalidClientMetadata,
+						InvalidValue: "scope",
+						Err:          fmt.Errorf("scope invalid not supported"),
+					})
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "scope foo not supported")
+				var regErr *resterr.RegistrationError
+
+				assert.ErrorAs(t, err, &regErr)
+				assert.ErrorContains(t, regErr.Err, "scope invalid not supported")
+				assert.Equal(t, "invalid_client_metadata", regErr.Code)
 			},
 		},
 		{
-			name: "client registration 500 error",
+			name: "create client error",
 			setup: func() {
-				b, err := json.Marshal(
-					oidc4ci.ClientRegistrationResponse{
-						ClientId: "foo",
-					},
-				)
-				require.NoError(t, err)
-
-				mockInteractionClient.EXPECT().RegisterOauthClient(gomock.Any(), gomock.Any()).Return(
-					&http.Response{
-						StatusCode: http.StatusInternalServerError,
-						Body:       io.NopCloser(bytes.NewBuffer(b)),
-					}, nil)
-
-				requestBody, err = json.Marshal(&oidc4ci.ClientRegistrationRequest{
-					GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
-					ResponseTypes:           lo.ToPtr([]string{"code"}),
-					Scope:                   lo.ToPtr("foo bar"),
-					TokenEndpointAuthMethod: lo.ToPtr("none"),
-				})
-				require.NoError(t, err)
+				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
+					fmt.Errorf("create client error"))
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "register oauth client: status code 500")
+				var customErr *resterr.CustomError
+
+				assert.ErrorAs(t, err, &customErr)
+				assert.ErrorContains(t, customErr, "create client error")
+				assert.Equal(t, resterr.SystemError, customErr.Code)
+				assert.Equal(t, "ClientManager", customErr.Component)
+				assert.Equal(t, "Create", customErr.FailedOperation)
 			},
 		},
 	}
@@ -2110,16 +2122,16 @@ func TestController_OidcRegisterDynamicClient(t *testing.T) {
 			tt.setup()
 
 			controller := oidc4ci.NewController(&oidc4ci.Config{
-				IssuerInteractionClient: mockInteractionClient,
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				ClientManager: mockClientManager,
+				Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 			})
 
-			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))
+			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
 			rec := httptest.NewRecorder()
 
-			err := controller.OidcRegisterDynamicClient(echo.New().NewContext(req, rec))
+			err := controller.OidcRegisterClient(echo.New().NewContext(req, rec), profileID, profileVersion)
 			tt.check(t, rec, err)
 		})
 	}

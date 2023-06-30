@@ -64,6 +64,13 @@
       }
     },
     {
+      "endpoint": "/oidc/{profileID}/{profileVersion}/register",
+      "method": "POST",
+      "input_headers": [
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/oidc/par",
       "method": "POST"
     },
@@ -97,14 +104,6 @@
     },
     {
       "endpoint": "/oidc/credential",
-      "method": "POST",
-      "input_headers": [
-        "Authorization",
-        "Content-Type"
-      ]
-    },
-    {
-      "endpoint": "/oidc/register",
       "method": "POST",
       "input_headers": [
         "Authorization",
