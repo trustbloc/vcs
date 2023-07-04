@@ -93,7 +93,7 @@ paths:
         name: profileVersion
         in: path
         required: true
-        description: Issuer Profile ID Version.
+        description: Issuer Profile Version.
     post:
       summary: Issue credential
       tags:
@@ -158,26 +158,6 @@ paths:
                 type: object
       operationId: post-credentials-status
       description: Updates credential status.
-  /issuer/oauth2/register:
-    post:
-      summary: Register OAuth Client
-      tags:
-        - issuer
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegisterOAuthClientResponse'
-      operationId: register-oauth-client
-      description: Used by VCS OIDC public endpoint to register OAuth 2.0 client dynamically.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterOAuthClientRequest'
-    parameters: []
   '/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc':
     parameters:
       - schema:
@@ -460,29 +440,44 @@ paths:
               schema:
                 type: object
                 description: JSON claim containing credential subject
-  /oidc/register:
+  '/oidc/{profileID}/{profileVersion}/register':
     post:
-      summary: OIDC Dynamic Client Registration
-      tags:
-        - oidc4ci
-      operationId: oidc-register-dynamic-client
-      description: Registers dynamically a client with the authorization server.
+      summary: OIDC Register OAuth Client
       responses:
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClientRegistrationResponse'
+                $ref: '#/components/schemas/RegisterOAuthClientResponse'
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterOAuthClientErrorResponse'
+      operationId: oidc-register-client
+      description: Registers dynamically an OAuth 2.0 client with the VCS authorization server.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClientRegistrationRequest'
-        description: ''
-    parameters: []
+              $ref: '#/components/schemas/RegisterOAuthClientRequest'
+      tags:
+        - oidc4ci
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Issuer Profile ID.
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Issuer Profile Version.
   /oidc/par:
     post:
       summary: OIDC Pushed Authorization Request
@@ -1375,10 +1370,8 @@ components:
         - token_type
     RegisterOAuthClientRequest:
       title: RegisterOAuthClientRequest
-      x-tags:
-        - issuer
       type: object
-      description: Model for RegisterOAuthClient request.
+      description: OAuth 2.0 client registration request.
       properties:
         redirect_uris:
           type: array
@@ -1433,16 +1426,12 @@ components:
         software_version:
           type: string
           description: A version identifier string for the client software identified by "software_id".
-        op_state:
-          type: string
-      required:
-        - op_state
+      x-tags:
+        - oidc4ci
     RegisterOAuthClientResponse:
       title: RegisterOAuthClientResponse
-      x-tags:
-        - issuer
       type: object
-      description: Response with registered metadata for the client.
+      description: Response with registered metadata for created OAuth 2.0 client.
       properties:
         client_id:
           type: string
@@ -1514,6 +1503,23 @@ components:
         - client_id_issued_at
         - token_endpoint_auth_method
         - grant_types
+      x-tags:
+        - oidc4ci
+    RegisterOAuthClientErrorResponse:
+      title: RegisterOAuthClientErrorResponse
+      type: object
+      description: OAuth 2.0 client registration error response.
+      properties:
+        error:
+          type: string
+          description: Single ASCII error code string.
+        error_description:
+          type: string
+          description: Human-readable ASCII text description of the error used for debugging.
+      required:
+        - error
+      x-tags:
+        - oidc4ci
     PushAuthorizationDetailsRequest:
       title: PushAuthorizationDetailsRequest
       x-tags:
@@ -1641,146 +1647,4 @@ components:
       required:
         - format
         - credential
-    ClientRegistrationRequest:
-      title: ClientRegistrationRequest
-      x-tags:
-        - oidc4ci
-      type: object
-      description: Client registration request.
-      properties:
-        redirect_uris:
-          type: array
-          description: Array of allowed redirection URI strings for the client. Required if client supports authorization_code grant type.
-          items:
-            type: string
-        token_endpoint_auth_method:
-          type: string
-          description: 'Requested client authentication method for the token endpoint. Supported values: none, client_secret_post, client_secret_basic. None is used for public clients (native apps, mobile apps) which can not have secrets. Default: client_secret_basic.'
-        grant_types:
-          type: array
-          description: 'Array of OAuth 2.0 grant types that the client is allowed to use. Supported values: authorization_code, urn:ietf:params:oauth:grant-type:pre-authorized_code.'
-          items:
-            type: string
-        response_types:
-          type: array
-          description: 'Array of OAuth 2.0 response types that the client can use at the authorization endpoint. Supported values: code.'
-          items:
-            type: string
-        scope:
-          type: string
-          description: String containing a space-separated list of scope values that the client can use when requesting access tokens.
-        client_name:
-          type: string
-          description: Human-readable string name of the client to be presented to the end-user during authorization.
-        client_uri:
-          type: string
-          description: URL string of a web page providing information about the client.
-        logo_uri:
-          type: string
-          description: URL string that references a logo for the client.
-        contacts:
-          type: array
-          description: 'Array of strings representing ways to contact people responsible for this client, typically email addresses.'
-          items:
-            type: string
-        tos_uri:
-          type: string
-          description: URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-        policy_uri:
-          type: string
-          description: 'URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.'
-        jwks_uri:
-          type: string
-          description: 'URL string referencing the client''s JSON Web Key (JWK) Set document, which contains the client''s public keys.'
-        jwks:
-          type: object
-          description: 'Client''s JSON Web Key Set document value, which contains the client''s public keys.'
-        software_id:
-          type: string
-          description: A unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-        software_version:
-          type: string
-          description: A version identifier string for the client software identified by "software_id".
-        issuer_state:
-          type: string
-          description: Issuer state to correlate request with issuer.
-      required:
-        - issuer_state
-    ClientRegistrationResponse:
-      title: ClientRegistrationResponse
-      x-tags:
-        - oidc4ci
-      type: object
-      description: Response with registered metadata for the client.
-      properties:
-        client_id:
-          type: string
-          description: Client identifier.
-        client_secret:
-          type: string
-          description: Client secret. This value is used by the confidential client to authenticate to the token endpoint.
-        client_id_issued_at:
-          type: integer
-          description: Time at which the client identifier was issued.
-        client_secret_expires_at:
-          type: integer
-          description: Time at which the client secret will expire or 0 if it will not expire.
-        redirect_uris:
-          type: array
-          description: Registered array of allowed redirection URI strings for the client.
-          items:
-            type: string
-        token_endpoint_auth_method:
-          type: string
-          description: Registered client authentication method for the token endpoint.
-        grant_types:
-          type: array
-          description: Registered array of OAuth 2.0 grant types that the client is allowed to use.
-          items:
-            type: string
-        response_types:
-          type: array
-          description: Registered array of OAuth 2.0 response types that the client can use at the authorization endpoint.
-          items:
-            type: string
-        scope:
-          type: string
-          description: Registered space-separated list of scope values that the client can use when requesting access tokens.
-        client_name:
-          type: string
-          description: Registered name of the client to be presented to the end-user during authorization.
-        client_uri:
-          type: string
-          description: Registered URL of a web page providing information about the client.
-        logo_uri:
-          type: string
-          description: Registered URL string that references a logo for the client.
-        contacts:
-          type: array
-          description: 'Registered array of strings representing ways to contact people responsible for this client, typically email addresses.'
-          items:
-            type: string
-        tos_uri:
-          type: string
-          description: Registered URL string that points to a human-readable terms of service document for the client that describes a contractual relationship between the end-user and the client that the end-user accepts when authorizing the client.
-        policy_uri:
-          type: string
-          description: 'Registered URL string that points to a human-readable privacy policy document that describes how the deployment organization collects, uses, retains, and discloses personal data.'
-        jwks_uri:
-          type: string
-          description: 'Registered URL string referencing the client''s JSON Web Key (JWK) Set document, which contains the client''s public keys.'
-        jwks:
-          type: object
-          description: 'Registered client''s JSON Web Key Set document value, which contains the client''s public keys.'
-        software_id:
-          type: string
-          description: Registered unique identifier string (e.g. UUID) assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered.
-        software_version:
-          type: string
-          description: Registered version identifier string for the client software identified by "software_id".
-      required:
-        - client_id
-        - client_id_issued_at
-        - token_endpoint_auth_method
-        - grant_types
   securitySchemes: {}

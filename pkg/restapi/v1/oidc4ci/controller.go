@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager
 
 package oidc4ci
 
@@ -23,12 +23,14 @@ import (
 	"strings"
 	"time"
 
+	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -37,6 +39,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -83,12 +86,16 @@ type OAuth2Provider fosite.OAuth2Provider
 // IssuerInteractionClient defines API client for interaction with issuer private API.
 type IssuerInteractionClient issuer.ClientInterface
 
+// ClientManager defines client manager interface.
+type ClientManager clientmanager.ServiceInterface
+
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider          OAuth2Provider
 	StateStore              StateStore
 	HTTPClient              HTTPClient
 	IssuerInteractionClient IssuerInteractionClient
+	ClientManager           ClientManager
 	JWTVerifier             jose.SignatureVerifier
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
@@ -101,6 +108,7 @@ type Controller struct {
 	stateStore              StateStore
 	httpClient              HTTPClient
 	issuerInteractionClient IssuerInteractionClient
+	clientManager           ClientManager
 	jwtVerifier             jose.SignatureVerifier
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
@@ -114,6 +122,7 @@ func NewController(config *Config) *Controller {
 		stateStore:              config.StateStore,
 		httpClient:              config.HTTPClient,
 		issuerInteractionClient: config.IssuerInteractionClient,
+		clientManager:           config.ClientManager,
 		jwtVerifier:             config.JWTVerifier,
 		tracer:                  config.Tracer,
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
@@ -738,69 +747,143 @@ func (c *Controller) oidcPreAuthorizedCode(
 	return &validateResponse, nil
 }
 
-// OidcRegisterDynamicClient handles OIDC Dynamic Client Registration (POST /oidc/register).
-func (c *Controller) OidcRegisterDynamicClient(e echo.Context) error {
+// OidcRegisterClient registers dynamically an OAuth 2.0 client with the VCS authorization server.
+//
+//nolint:funlen,gocognit
+func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profileVersion string) error {
 	req := e.Request()
-	ctx := req.Context()
 
-	_, span := c.tracer.Start(ctx, "OidcRegisterDynamicClient")
+	ctx, span := c.tracer.Start(req.Context(), "OidcRegisterClient")
 	defer span.End()
 
-	var registrationReq ClientRegistrationRequest
+	span.SetAttributes(attribute.String("profile_id", profileID))
+	span.SetAttributes(attribute.String("profile_version", profileVersion))
 
-	if err := e.Bind(&registrationReq); err != nil {
-		return fmt.Errorf("bind client registration request: %w", err)
-	}
+	var body RegisterOAuthClientRequest
 
-	resp, err := c.issuerInteractionClient.RegisterOauthClient(ctx,
-		issuer.RegisterOAuthClientRequest{
-			ClientName:              registrationReq.ClientName,
-			ClientUri:               registrationReq.ClientUri,
-			Contacts:                registrationReq.Contacts,
-			GrantTypes:              registrationReq.GrantTypes,
-			Jwks:                    registrationReq.Jwks,
-			JwksUri:                 registrationReq.JwksUri,
-			LogoUri:                 registrationReq.LogoUri,
-			PolicyUri:               registrationReq.PolicyUri,
-			RedirectUris:            registrationReq.RedirectUris,
-			ResponseTypes:           registrationReq.ResponseTypes,
-			Scope:                   registrationReq.Scope,
-			SoftwareId:              registrationReq.SoftwareId,
-			SoftwareVersion:         registrationReq.SoftwareVersion,
-			TokenEndpointAuthMethod: registrationReq.TokenEndpointAuthMethod,
-			TosUri:                  registrationReq.TosUri,
-			OpState:                 registrationReq.IssuerState,
-		},
-	)
-	if err != nil {
+	if err := e.Bind(&body); err != nil {
 		return err
 	}
 
-	defer resp.Body.Close()
+	data := &clientmanager.ClientMetadata{
+		Name:                    lo.FromPtr(body.ClientName),
+		URI:                     lo.FromPtr(body.ClientUri),
+		RedirectURIs:            lo.FromPtr(body.RedirectUris),
+		GrantTypes:              lo.FromPtr(body.GrantTypes),
+		ResponseTypes:           lo.FromPtr(body.ResponseTypes),
+		Scope:                   lo.FromPtr(body.Scope),
+		LogoURI:                 lo.FromPtr(body.LogoUri),
+		Contacts:                lo.FromPtr(body.Contacts),
+		TermsOfServiceURI:       lo.FromPtr(body.TosUri),
+		PolicyURI:               lo.FromPtr(body.PolicyUri),
+		JSONWebKeysURI:          lo.FromPtr(body.JwksUri),
+		JSONWebKeys:             lo.FromPtr(body.Jwks),
+		SoftwareID:              lo.FromPtr(body.SoftwareId),
+		SoftwareVersion:         lo.FromPtr(body.SoftwareVersion),
+		TokenEndpointAuthMethod: lo.FromPtr(body.TokenEndpointAuthMethod),
+	}
 
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusBadRequest {
-			return parseRegistrationError(resp.Body)
+	client, err := c.clientManager.Create(ctx, profileID, profileVersion, data)
+	if err != nil {
+		var regErr *clientmanager.RegistrationError
+
+		if errors.As(err, &regErr) {
+			return &resterr.RegistrationError{
+				Code: string(regErr.Code),
+				Err:  fmt.Errorf("%w", regErr),
+			}
 		}
 
-		return fmt.Errorf("register oauth client: status code %d, %w",
-			resp.StatusCode,
-			parseInteractionError(resp.Body),
-		)
+		return resterr.NewSystemError("ClientManager", "Create", err)
 	}
 
-	var registrationResp ClientRegistrationResponse
-
-	if err = json.NewDecoder(resp.Body).Decode(&registrationResp); err != nil {
-		return fmt.Errorf("decode client registration response: %w", err)
+	resp := &RegisterOAuthClientResponse{
+		ClientId:                client.ID,
+		ClientIdIssuedAt:        int(client.CreatedAt.Unix()),
+		GrantTypes:              client.GrantTypes,
+		TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
 	}
 
-	b, err := json.Marshal(registrationResp)
+	if client.Secret != nil {
+		resp.ClientSecret = lo.ToPtr(string(client.Secret))
+		resp.ClientSecretExpiresAt = lo.ToPtr(int(client.SecretExpiresAt.Unix()))
+	}
+
+	if client.Name != "" {
+		resp.ClientName = lo.ToPtr(client.Name)
+	}
+
+	if client.URI != "" {
+		resp.ClientUri = lo.ToPtr(client.URI)
+	}
+
+	if client.Contacts != nil {
+		resp.Contacts = lo.ToPtr(client.Contacts)
+	}
+
+	if client.JSONWebKeys != nil {
+		if resp.Jwks, err = jwksToMap(client.JSONWebKeys); err != nil {
+			return fmt.Errorf("convert jwks to map: %w", err)
+		}
+	}
+
+	if client.JSONWebKeysURI != "" {
+		resp.JwksUri = lo.ToPtr(client.JSONWebKeysURI)
+	}
+
+	if client.LogoURI != "" {
+		resp.LogoUri = lo.ToPtr(client.LogoURI)
+	}
+
+	if client.PolicyURI != "" {
+		resp.PolicyUri = lo.ToPtr(client.PolicyURI)
+	}
+
+	if client.RedirectURIs != nil {
+		resp.RedirectUris = lo.ToPtr(client.RedirectURIs)
+	}
+
+	if client.ResponseTypes != nil {
+		resp.ResponseTypes = lo.ToPtr(client.ResponseTypes)
+	}
+
+	if len(client.Scopes) > 0 {
+		resp.Scope = lo.ToPtr(strings.Join(client.Scopes, " "))
+	}
+
+	if client.SoftwareID != "" {
+		resp.SoftwareId = lo.ToPtr(client.SoftwareID)
+	}
+
+	if client.SoftwareVersion != "" {
+		resp.SoftwareVersion = lo.ToPtr(client.SoftwareVersion)
+	}
+
+	if client.TermsOfServiceURI != "" {
+		resp.TosUri = lo.ToPtr(client.TermsOfServiceURI)
+	}
+
+	b, err := json.Marshal(resp)
 	if err != nil {
-		return fmt.Errorf("marshal client registration response: %w", err)
+		return fmt.Errorf("marshal register oauth client response: %w", err)
 	}
 
 	return e.JSONBlob(http.StatusCreated, b)
+}
+
+func jwksToMap(jwks *gojose.JSONWebKeySet) (*map[string]interface{}, error) {
+	b, err := json.Marshal(jwks)
+	if err != nil {
+		return nil, err
+	}
+
+	var m map[string]interface{}
+
+	if err = json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+
+	return &m, nil
 }
 
 type interactionError struct { // in fact its CustomError
@@ -848,22 +931,4 @@ func parseInteractionError(reader io.Reader) error {
 	}
 
 	return &e
-}
-
-type registrationError struct {
-	Code        string `json:"error"`
-	Description string `json:"error_description"`
-}
-
-func parseRegistrationError(reader io.Reader) error {
-	var regErr registrationError
-
-	if err := json.NewDecoder(reader).Decode(&regErr); err != nil {
-		return fmt.Errorf("decode registration error: %w", err)
-	}
-
-	return &resterr.RegistrationError{
-		Code: regErr.Code,
-		Err:  fmt.Errorf("%s", regErr.Description),
-	}
 }

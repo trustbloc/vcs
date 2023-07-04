@@ -37,7 +37,6 @@ const (
 	oidcProviderURL                     = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
-	clientRegistrationURL               = vcsAPIGateway + "/oidc/register"
 )
 
 func (s *Steps) authorizeIssuer(profileVersionedID string) error {
@@ -336,13 +335,18 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 	}
 
 	var offer credentialOfferResponse
+
 	if err = json.Unmarshal([]byte(param), &offer); err != nil {
 		return "", fmt.Errorf("unmarshal credential offer: %w", err)
 	}
 
+	openIDConfig, err := s.getWellKnownOpenIDConfiguration(offer.CredentialIssuer)
+	if err != nil {
+		return "", fmt.Errorf("get openid well-known config: %w", err)
+	}
+
 	body, err := json.Marshal(
 		&clientRegistrationRequest{
-			IssuerState:             offer.Grants.AuthorizationCode.IssuerState,
 			GrantTypes:              lo.ToPtr([]string{"authorization_code"}),
 			RedirectUris:            lo.ToPtr([]string{"http://127.0.0.1/callback"}),
 			Scope:                   lo.ToPtr("openid profile"),
@@ -350,7 +354,7 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 		},
 	)
 
-	resp, err := bddutil.HTTPSDo(http.MethodPost, clientRegistrationURL, "application/json", "",
+	resp, err := bddutil.HTTPSDo(http.MethodPost, lo.FromPtr(openIDConfig.RegistrationEndpoint), "application/json", "",
 		bytes.NewReader(body), s.bddContext.TLSConfig)
 	if err != nil {
 		return "", fmt.Errorf("register dynamic client request: %w", err)
@@ -374,6 +378,34 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 	}
 
 	return r.ClientId, nil
+}
+
+func (s *Steps) getWellKnownOpenIDConfiguration(issuer string) (*wellKnownOpenIDConfiguration, error) {
+	wellKnownURL := issuer + "/.well-known/openid-configuration"
+
+	resp, err := bddutil.HTTPSDo(http.MethodGet, wellKnownURL, "application/json", "", nil, s.tlsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("openid configuration request: %w", err)
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read openid configuration response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
+	}
+
+	var r *wellKnownOpenIDConfiguration
+
+	if err = json.Unmarshal(b, &r); err != nil {
+		return nil, fmt.Errorf("unmarshal openid configuration response: %w", err)
+	}
+
+	return r, nil
 }
 
 func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4CIRequest {

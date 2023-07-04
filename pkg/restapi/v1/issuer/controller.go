@@ -5,13 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService,clientManager=MockClientManager
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService
 
 package issuer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
@@ -41,7 +39,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -79,10 +76,6 @@ type vcStatusManager interface {
 	credentialstatus.ServiceInterface
 }
 
-type clientManager interface {
-	clientmanager.ServiceInterface
-}
-
 type Config struct {
 	EventSvc               eventService
 	ProfileSvc             profileService
@@ -91,7 +84,6 @@ type Config struct {
 	IssueCredentialService issuecredential.ServiceInterface
 	OIDC4CIService         oidc4ciService
 	VcStatusManager        vcStatusManager
-	ClientManager          clientManager
 	ExternalHostURL        string
 	Tracer                 trace.Tracer
 }
@@ -104,7 +96,6 @@ type Controller struct {
 	issueCredentialService issuecredential.ServiceInterface
 	oidc4ciService         oidc4ciService
 	vcStatusManager        vcStatusManager
-	clientManager          clientManager
 	externalHostURL        string
 	tracer                 trace.Tracer
 }
@@ -118,7 +109,6 @@ func NewController(config *Config) *Controller {
 		issueCredentialService: config.IssueCredentialService,
 		oidc4ciService:         config.OIDC4CIService,
 		vcStatusManager:        config.VcStatusManager,
-		clientManager:          config.ClientManager,
 		externalHostURL:        config.ExternalHostURL,
 		tracer:                 config.Tracer,
 	}
@@ -797,141 +787,16 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
 
 		if profile.OIDCConfig.EnableDynamicClientRegistration {
-			config.RegistrationEndpoint = lo.ToPtr(fmt.Sprintf("%soidc/register", host))
+			var regURL string
+
+			regURL, err = url.JoinPath(host, "oidc", profileID, profileVersion, "register")
+			if err != nil {
+				return nil, fmt.Errorf("build registration endpoint: %w", err)
+			}
+
+			config.RegistrationEndpoint = lo.ToPtr(regURL)
 		}
 	}
 
 	return config, nil
-}
-
-// RegisterOauthClient registers OAuth client.
-// POST /issuer/oauth2/register.
-func (c *Controller) RegisterOauthClient(e echo.Context) error { //nolint:funlen,gocognit
-	var body RegisterOAuthClientRequest
-
-	if err := util.ReadBody(e, &body); err != nil {
-		return err
-	}
-
-	data := &clientmanager.ClientMetadata{
-		Name:                    lo.FromPtr(body.ClientName),
-		URI:                     lo.FromPtr(body.ClientUri),
-		RedirectURIs:            lo.FromPtr(body.RedirectUris),
-		GrantTypes:              lo.FromPtr(body.GrantTypes),
-		ResponseTypes:           lo.FromPtr(body.ResponseTypes),
-		Scope:                   lo.FromPtr(body.Scope),
-		LogoURI:                 lo.FromPtr(body.LogoUri),
-		Contacts:                lo.FromPtr(body.Contacts),
-		TermsOfServiceURI:       lo.FromPtr(body.TosUri),
-		PolicyURI:               lo.FromPtr(body.PolicyUri),
-		JSONWebKeysURI:          lo.FromPtr(body.JwksUri),
-		JSONWebKeys:             lo.FromPtr(body.Jwks),
-		SoftwareID:              lo.FromPtr(body.SoftwareId),
-		SoftwareVersion:         lo.FromPtr(body.SoftwareVersion),
-		TokenEndpointAuthMethod: lo.FromPtr(body.TokenEndpointAuthMethod),
-	}
-
-	ctx := e.Request().Context()
-
-	profile, err := c.oidc4ciService.ResolveProfile(ctx, body.OpState)
-	if err != nil {
-		return resterr.NewSystemError("OIDC4CIService", "ResolveProfile", err)
-	}
-
-	client, err := c.clientManager.Create(ctx, profile.ID, profile.Version, data)
-	if err != nil {
-		var regErr *clientmanager.RegistrationError
-
-		if errors.As(err, &regErr) {
-			return &resterr.RegistrationError{
-				Code: string(regErr.Code),
-				Err:  fmt.Errorf("%w", regErr),
-			}
-		}
-
-		return resterr.NewSystemError("ClientManager", "Create", err)
-	}
-
-	response := &RegisterOAuthClientResponse{
-		ClientId:                client.ID,
-		ClientIdIssuedAt:        int(client.CreatedAt.Unix()),
-		GrantTypes:              client.GrantTypes,
-		TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
-	}
-
-	if client.Secret != nil {
-		response.ClientSecret = lo.ToPtr(string(client.Secret))
-		response.ClientSecretExpiresAt = lo.ToPtr(int(client.SecretExpiresAt.Unix()))
-	}
-
-	if client.Name != "" {
-		response.ClientName = lo.ToPtr(client.Name)
-	}
-
-	if client.URI != "" {
-		response.ClientUri = lo.ToPtr(client.URI)
-	}
-
-	if client.Contacts != nil {
-		response.Contacts = lo.ToPtr(client.Contacts)
-	}
-
-	if client.JSONWebKeys != nil {
-		if response.Jwks, err = jwksToMap(client.JSONWebKeys); err != nil {
-			return fmt.Errorf("convert jwks to map: %w", err)
-		}
-	}
-
-	if client.JSONWebKeysURI != "" {
-		response.JwksUri = lo.ToPtr(client.JSONWebKeysURI)
-	}
-
-	if client.LogoURI != "" {
-		response.LogoUri = lo.ToPtr(client.LogoURI)
-	}
-
-	if client.PolicyURI != "" {
-		response.PolicyUri = lo.ToPtr(client.PolicyURI)
-	}
-
-	if client.RedirectURIs != nil {
-		response.RedirectUris = lo.ToPtr(client.RedirectURIs)
-	}
-
-	if client.ResponseTypes != nil {
-		response.ResponseTypes = lo.ToPtr(client.ResponseTypes)
-	}
-
-	if len(client.Scopes) > 0 {
-		response.Scope = lo.ToPtr(strings.Join(client.Scopes, " "))
-	}
-
-	if client.SoftwareID != "" {
-		response.SoftwareId = lo.ToPtr(client.SoftwareID)
-	}
-
-	if client.SoftwareVersion != "" {
-		response.SoftwareVersion = lo.ToPtr(client.SoftwareVersion)
-	}
-
-	if client.TermsOfServiceURI != "" {
-		response.TosUri = lo.ToPtr(client.TermsOfServiceURI)
-	}
-
-	return util.WriteOutput(e)(response, nil)
-}
-
-func jwksToMap(jwks *jose.JSONWebKeySet) (*map[string]interface{}, error) {
-	b, err := json.Marshal(jwks)
-	if err != nil {
-		return nil, err
-	}
-
-	var m map[string]interface{}
-
-	if err = json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-
-	return &m, nil
 }

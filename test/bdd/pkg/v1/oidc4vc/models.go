@@ -32,7 +32,6 @@ type clientRegistrationRequest struct {
 	ClientUri               *string                 `json:"client_uri,omitempty"`
 	Contacts                *[]string               `json:"contacts,omitempty"`
 	GrantTypes              *[]string               `json:"grant_types,omitempty"`
-	IssuerState             string                  `json:"issuer_state"`
 	Jwks                    *map[string]interface{} `json:"jwks,omitempty"`
 	JwksUri                 *string                 `json:"jwks_uri,omitempty"`
 	LogoUri                 *string                 `json:"logo_uri,omitempty"`
@@ -85,4 +84,14 @@ type credentialOfferGrant struct {
 
 type authorizationCodeGrant struct {
 	IssuerState string `json:"issuer_state"`
+}
+
+type wellKnownOpenIDConfiguration struct {
+	AuthorizationEndpoint                      string   `json:"authorization_endpoint"`
+	GrantTypesSupported                        []string `json:"grant_types_supported"`
+	PreAuthorizedGrantAnonymousAccessSupported bool     `json:"pre-authorized_grant_anonymous_access_supported"`
+	RegistrationEndpoint                       *string  `json:"registration_endpoint,omitempty"`
+	ResponseTypesSupported                     []string `json:"response_types_supported"`
+	ScopesSupported                            []string `json:"scopes_supported"`
+	TokenEndpoint                              string   `json:"token_endpoint"`
 }

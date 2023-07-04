@@ -214,5 +214,4 @@ type ServiceInterface interface {
 	ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error)
 	ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode string, pin string, clientID string) (*Transaction, error) //nolint:lll
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
-	ResolveProfile(ctx context.Context, opState string) (*profileapi.Issuer, error)
 }

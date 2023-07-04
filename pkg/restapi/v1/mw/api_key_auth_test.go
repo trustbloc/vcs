@@ -121,26 +121,6 @@ func TestApiKeyAuth(t *testing.T) {
 		require.True(t, handlerCalled)
 	})
 
-	t.Run("skip version endpoint", func(t *testing.T) {
-		handlerCalled := false
-		handler := func(c echo.Context) error {
-			handlerCalled = true
-			return c.String(http.StatusOK, "test")
-		}
-
-		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
-
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/version", nil)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-
-		err := middlewareChain(c)
-
-		require.NoError(t, err)
-		require.True(t, handlerCalled)
-	})
-
 	t.Run("skip system version endpoint", func(t *testing.T) {
 		handlerCalled := false
 		handler := func(c echo.Context) error {
@@ -172,6 +152,26 @@ func TestApiKeyAuth(t *testing.T) {
 
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/debug/pprof", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
+
+	t.Run("skip dynamic client registration endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/oidc/profileID/profileVersion/register", nil)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 

@@ -715,6 +715,13 @@ func buildEchoHandler(
 		oauthProvider = fositetracing.Wrap(oauthProvider, conf.Tracer)
 	}
 
+	clientManager := clientmanager.New(
+		&clientmanager.Config{
+			Store:          fositeStore.(oauth2ClientStore),
+			ProfileService: issuerProfileSvc,
+		},
+	)
+
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
@@ -723,6 +730,7 @@ func buildEchoHandler(
 		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		JWTVerifier:             jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
+		ClientManager:           clientManager,
 		Tracer:                  conf.Tracer,
 	}))
 
@@ -732,13 +740,6 @@ func buildEchoHandler(
 		Tracer:            conf.Tracer,
 	}))
 
-	clientManager := clientmanager.New(
-		&clientmanager.Config{
-			Store:          fositeStore.(oauth2ClientStore),
-			ProfileService: issuerProfileSvc,
-		},
-	)
-
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:               eventSvc,
 		ProfileSvc:             issuerProfileSvc,
@@ -747,7 +748,6 @@ func buildEchoHandler(
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
-		ClientManager:          clientManager,
 		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
 		Tracer:                 conf.Tracer,
 	}))
