@@ -22,7 +22,6 @@ import (
 	"github.com/cli/browser"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -405,11 +404,7 @@ func (s *Service) getCredential(
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderType: jwtProofTypHeader,
-	}
-
-	signedJWT, err := jwt.NewSigned(claims, headers,
+	signedJWT, err := jwt.NewSigned(claims, nil,
 		NewJWSSigner(signerKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
 	if err != nil {
 		return nil, 0, fmt.Errorf("create signed jwt: %w", err)
