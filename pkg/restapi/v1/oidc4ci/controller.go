@@ -678,7 +678,7 @@ func (c *Controller) validateProofClaims(
 	}
 
 	if !tmpDisableIssTypCheck {
-		if typ, ok := jws.Headers.Type(); !ok || typ != jwtProofTypHeader {
+		if typ, ok := jws.Headers.Type(); ok && typ != jwtProofTypHeader {
 			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
 		}
 	}

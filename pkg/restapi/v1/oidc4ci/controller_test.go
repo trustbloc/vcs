@@ -1353,8 +1353,6 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
-				currentTime := time.Now().Unix()
-
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
@@ -1398,14 +1396,12 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
-				currentTime := time.Now().Unix()
-
 				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
 					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
-				}, nil, jwt.NewEd25519Signer(privateKey))
+				}, nil, jwtSigner)
 				require.NoError(t, jwtErr)
 
 				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
@@ -1417,9 +1413,17 @@ func TestController_OidcCredential(t *testing.T) {
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(requestBody)),
+						}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "invalid typ")
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
 			},
 		},
 		{
