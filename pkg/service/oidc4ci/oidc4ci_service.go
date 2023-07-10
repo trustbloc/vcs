@@ -31,7 +31,7 @@ import (
 const (
 	defaultGrantType    = "authorization_code"
 	defaultResponseType = "token"
-	defaultCtx          = "https://www.w3.org/2018/credentials/v1 "
+	defaultCtx          = "https://www.w3.org/2018/credentials/v1"
 )
 
 var logger = log.New("oidc4ci")
