@@ -236,7 +236,7 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	}
 
 	if difDidOrigin != "" {
-		didDoc.Service = []did.Service{{ID: "LinkedDomains", Type: "LinkedDomains",
+		didDoc.Service = []did.Service{{ID: "Test", Type: "LinkedDomains",
 			ServiceEndpoint: model.NewDIDCoreEndpoint(&serviceEndpointData{Origins: []string{difDidOrigin + "/"}})}}
 	}
 
