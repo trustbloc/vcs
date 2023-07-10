@@ -31,7 +31,7 @@ import (
 const (
 	defaultGrantType    = "authorization_code"
 	defaultResponseType = "token"
-	defaultScope        = "openid"
+	defaultCtx          = "https://www.w3.org/2018/credentials/v1 "
 )
 
 var logger = log.New("oidc4ci")
@@ -346,9 +346,15 @@ func (s *Service) PrepareCredential(
 	if err != nil {
 		return nil, err
 	}
+
+	contexts := tx.CredentialTemplate.Contexts
+	if len(contexts) == 0 {
+		contexts = []string{defaultCtx}
+	}
+
 	// prepare credential for signing
 	vc := &verifiable.Credential{
-		Context:      tx.CredentialTemplate.Contexts,
+		Context:      contexts,
 		ID:           uuid.New().URN(),
 		Types:        []string{"VerifiableCredential", tx.CredentialTemplate.Type},
 		Issuer:       verifiable.Issuer{ID: tx.DID},
