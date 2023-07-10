@@ -46,6 +46,7 @@ import (
 
 const (
 	issuerProfileSvcComponent = "issuer.ProfileService"
+	defaultCtx                = "https://www.w3.org/2018/credentials/v1 "
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -222,8 +223,13 @@ func (c *Controller) buildCredentialsFromTemplate(
 	profile *profileapi.Issuer,
 	body *IssueCredentialData,
 ) *verifiable.Credential {
+	contexts := credentialTemplate.Contexts
+	if len(contexts) == 0 {
+		contexts = []string{defaultCtx}
+	}
+
 	vcc := &verifiable.Credential{
-		Context: credentialTemplate.Contexts,
+		Context: contexts,
 		ID:      uuid.New().URN(),
 		Types:   []string{"VerifiableCredential", credentialTemplate.Type},
 		Issuer:  verifiable.Issuer{ID: profile.SigningDID.DID},
