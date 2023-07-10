@@ -46,7 +46,7 @@ import (
 
 const (
 	issuerProfileSvcComponent = "issuer.ProfileService"
-	defaultCtx                = "https://www.w3.org/2018/credentials/v1 "
+	defaultCtx                = "https://www.w3.org/2018/credentials/v1"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
