@@ -17,11 +17,12 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/ory/fosite v0.43.0
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
+	github.com/samber/lo v1.37.0
 	github.com/tidwall/gjson v1.14.4
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
-	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230314165048-d06b1132a27b
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
 	golang.org/x/oauth2 v0.6.0
 )
@@ -144,7 +145,6 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/samber/lo v1.37.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
