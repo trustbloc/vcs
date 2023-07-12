@@ -9,20 +9,20 @@ go 1.19
 require (
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230531115220-0445e9664e8e
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
 	github.com/imroc/req/v3 v3.34.0
 	github.com/joho/godotenv v1.4.0
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/samber/lo v1.37.0
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230314165048-d06b1132a27b
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
 	github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b
 	golang.org/x/oauth2 v0.6.0
 )
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
 	github.com/PaesslerAG/gval v1.2.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
@@ -88,13 +88,13 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230615070726-b02a3e01fc44 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
