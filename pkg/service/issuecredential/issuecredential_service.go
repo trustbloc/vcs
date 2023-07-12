@@ -94,7 +94,7 @@ func (s *Service) IssueCredential(
 			return nil, fmt.Errorf("add credential status: %w", err)
 		}
 
-		credential.Context = append(credential.Context, statusListEntry.Context)
+		//credential.Context = append(credential.Context, statusListEntry.Context)
 		credential.Status = statusListEntry.TypedID
 	}
 
