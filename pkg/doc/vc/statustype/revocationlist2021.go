@@ -26,7 +26,7 @@ const (
 	revocationList2021VCSubjectType = "RevocationList2021"
 
 	// RevocationList2021Context is the context URL for Revocation list 2021.
-	RevocationList2021Context = "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld"
+	RevocationList2021Context = "https://w3id.org/vc-status-list-2021/v1"
 )
 
 // revocationList2021Processor implements version 0.0.1 of Status list 2021.

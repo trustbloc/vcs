@@ -103,7 +103,7 @@ func Test_revocationList2021Processor_CreateVC(t *testing.T) {
 	require.Equal(t, "vcID1", vc.ID)
 	require.Equal(t, []string{
 		vcutil.DefVCContext,
-		"https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
+		"https://w3id.org/vc-status-list-2021/v1",
 		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 	}, vc.Context)
 	require.Equal(t, []string{vcType, statusList2021VCType}, vc.Types)
@@ -189,5 +189,5 @@ func Test_revocationList2021Processor_GetStatusVCURI(t *testing.T) {
 func Test_revocationList2021Processor_GetVCContext(t *testing.T) {
 	s := NewRevocationList2021Processor()
 
-	require.Equal(t, "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld", s.GetVCContext())
+	require.Equal(t, "https://w3id.org/vc-status-list-2021/v1", s.GetVCContext())
 }
