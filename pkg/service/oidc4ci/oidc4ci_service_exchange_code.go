@@ -23,14 +23,14 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 
 	newState := TransactionStateIssuerOIDCAuthorizationDone
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", err
 	}
 	tx.State = newState
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", err
 	}
 
@@ -50,18 +50,18 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 
 	resp, err := oauth2Client.Exchange(ctx, tx.IssuerAuthCode)
 	if err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", err
 	}
 
 	tx.IssuerToken = resp.AccessToken
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", err
 	}
 
-	if err = s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
+	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
 		return "", err
 	}
 

@@ -81,6 +81,7 @@ type TransactionData struct {
 	CredentialExpiresAt                *time.Time
 	CredentialName                     string
 	CredentialDescription              string
+	WalletInitiatedIssuance            bool
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -117,6 +118,7 @@ type InitiateIssuanceRequest struct {
 	CredentialExpiresAt       *time.Time
 	CredentialName            string
 	CredentialDescription     string
+	WalletInitiatedIssuance   bool
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.
@@ -135,6 +137,7 @@ type PrepareClaimDataAuthorizationRequest struct {
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
+	WalletInitiatedFlow                *WalletInitiatedFlow
 	ProfileID                          profileapi.ID
 	ProfileVersion                     profileapi.Version
 	TxID                               TxID
@@ -167,18 +170,28 @@ type InsertOptions struct {
 }
 
 type AuthorizeState struct {
-	RedirectURI *url.URL            `json:"redirect_uri"`
-	RespondMode string              `json:"respond_mode"`
-	Header      map[string][]string `json:"header"`
-	Parameters  map[string][]string `json:"parameters"`
+	RedirectURI         *url.URL             `json:"redirect_uri"`
+	RespondMode         string               `json:"respond_mode"`
+	Header              map[string][]string  `json:"header"`
+	Parameters          map[string][]string  `json:"parameters"`
+	WalletInitiatedFlow *WalletInitiatedFlow `json:"walletInitiatedFlow,omitempty"`
+}
+
+type WalletInitiatedFlow struct {
+	ProfileID            string   `json:"profileId"`
+	ProfileVersion       string   `json:"profileVersion"`
+	Scope                []string `json:"scope"`
+	ClaimEndpoint        string   `json:"claimEndpoint"`
+	CredentialTemplateID string   `json:"credentialTemplateId"`
 }
 
 type eventPayload struct {
-	WebHook        string `json:"webHook,omitempty"`
-	ProfileID      string `json:"profileID,omitempty"`
-	ProfileVersion string `json:"profileVersion,omitempty"`
-	OrgID          string `json:"orgID,omitempty"`
-	Error          string `json:"error,omitempty"`
+	WebHook             string `json:"webHook,omitempty"`
+	ProfileID           string `json:"profileID,omitempty"`
+	ProfileVersion      string `json:"profileVersion,omitempty"`
+	OrgID               string `json:"orgID,omitempty"`
+	WalletInitiatedFlow bool   `json:"walletInitiatedFlow,omitempty"`
+	Error               string `json:"error,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {
@@ -204,6 +217,12 @@ type CredentialOfferResponse struct {
 	CredentialIssuer string               `json:"credential_issuer"`
 	Credentials      []CredentialOffer    `json:"credentials"`
 	Grants           CredentialOfferGrant `json:"grants"`
+}
+
+// wellKnownOpenIDConfiguration OpenID Config response.
+type wellKnownOpenIDConfiguration struct {
+	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4VCI. The default is false.
+	WalletInitiatedAuthFlowSupported bool `json:"wallet_initiated_auth_flow_supported"`
 }
 
 type ServiceInterface interface {

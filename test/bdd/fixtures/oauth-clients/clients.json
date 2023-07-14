@@ -4,7 +4,11 @@
     "redirect_uris": ["http://127.0.0.1/callback"],
     "grant_types": ["authorization_code"],
     "response_types": ["code"],
-    "scopes": ["openid","profile"],
+    "scopes": [
+      "openid",
+      "profile",
+      "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer/v1.0||https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential||universityDegreeTemplateID"
+    ],
     "token_endpoint_auth_method": "none"
   }
 ]

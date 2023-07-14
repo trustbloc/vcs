@@ -90,6 +90,9 @@ type InitiateOIDC4CIRequest struct {
 
 	// Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
 	UserPinRequired *bool `json:"user_pin_required,omitempty"`
+
+	// Boolean flags indicates whether given transaction is initiated by Wallet.
+	WalletInitiatedIssuance *bool `json:"wallet_initiated_issuance,omitempty"`
 }
 
 // Model for Initiate OIDC Credential Issuance Response.
@@ -175,6 +178,9 @@ type PrepareClaimDataAuthorizationResponse struct {
 
 	// Transaction ID to correlate upcoming authorization response.
 	TxId string `json:"tx_id"`
+
+	// If transaction was initiated by Wallet - object will contain initiate issuance profile-specific data.
+	WalletInitiatedFlow *WalletInitiatedFlowParameters `json:"wallet_initiated_flow,omitempty"`
 }
 
 // Model for Prepare Credential request.
@@ -261,6 +267,14 @@ type ValidatePreAuthorizedCodeResponse struct {
 	TxId string `json:"tx_id"`
 }
 
+// If transaction was initiated by Wallet - object will contain initiate issuance profile-specific data.
+type WalletInitiatedFlowParameters struct {
+	ClaimEndpoint        string `json:"claimEndpoint"`
+	CredentialTemplateID string `json:"credentialTemplateID"`
+	ProfileID            string `json:"profileID"`
+	ProfileVersion       string `json:"profileVersion"`
+}
+
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
@@ -283,6 +297,9 @@ type WellKnownOpenIDConfiguration struct {
 
 	// URL of the OP's OAuth 2.0 Token Endpoint.
 	TokenEndpoint string `json:"token_endpoint"`
+
+	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4VCI. The default is false.
+	WalletInitiatedAuthFlowSupported bool `json:"wallet_initiated_auth_flow_supported"`
 }
 
 // OpenID Config response.
@@ -322,6 +339,9 @@ type PostIssueCredentialsJSONBody = IssueCredentialData
 // InitiateCredentialIssuanceJSONBody defines parameters for InitiateCredentialIssuance.
 type InitiateCredentialIssuanceJSONBody = InitiateOIDC4CIRequest
 
+// InitiateCredentialIssuanceInternalJSONBody defines parameters for InitiateCredentialIssuanceInternal.
+type InitiateCredentialIssuanceInternalJSONBody = InitiateOIDC4CIRequest
+
 // PostCredentialsStatusJSONRequestBody defines body for PostCredentialsStatus for application/json ContentType.
 type PostCredentialsStatusJSONRequestBody = PostCredentialsStatusJSONBody
 
@@ -348,6 +368,9 @@ type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// InitiateCredentialIssuanceInternalJSONRequestBody defines body for InitiateCredentialIssuanceInternal for application/json ContentType.
+type InitiateCredentialIssuanceInternalJSONRequestBody = InitiateCredentialIssuanceInternalJSONBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -469,6 +492,11 @@ type ClientInterface interface {
 	InitiateCredentialIssuanceWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	InitiateCredentialIssuance(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InitiateCredentialIssuanceInternal request with any body
+	InitiateCredentialIssuanceInternalWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	InitiateCredentialIssuanceInternal(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceInternalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OpenidConfig request
 	OpenidConfig(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -695,6 +723,30 @@ func (c *Client) InitiateCredentialIssuanceWithBody(ctx context.Context, profile
 
 func (c *Client) InitiateCredentialIssuance(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInitiateCredentialIssuanceRequest(c.Server, profileID, profileVersion, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateCredentialIssuanceInternalWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateCredentialIssuanceInternalRequestWithBody(c.Server, profileID, profileVersion, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateCredentialIssuanceInternal(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceInternalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateCredentialIssuanceInternalRequest(c.Server, profileID, profileVersion, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1158,6 +1210,60 @@ func NewInitiateCredentialIssuanceRequestWithBody(server string, profileID strin
 	return req, nil
 }
 
+// NewInitiateCredentialIssuanceInternalRequest calls the generic InitiateCredentialIssuanceInternal builder with application/json body
+func NewInitiateCredentialIssuanceInternalRequest(server string, profileID string, profileVersion string, body InitiateCredentialIssuanceInternalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInitiateCredentialIssuanceInternalRequestWithBody(server, profileID, profileVersion, "application/json", bodyReader)
+}
+
+// NewInitiateCredentialIssuanceInternalRequestWithBody generates requests for InitiateCredentialIssuanceInternal with any type of body
+func NewInitiateCredentialIssuanceInternalRequestWithBody(server string, profileID string, profileVersion string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/%s/interactions/initiate-oidc-internal", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewOpenidConfigRequest generates requests for OpenidConfig
 func NewOpenidConfigRequest(server string, profileID string, profileVersion string) (*http.Request, error) {
 	var err error
@@ -1330,6 +1436,11 @@ type ClientWithResponsesInterface interface {
 	InitiateCredentialIssuanceWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
 
 	InitiateCredentialIssuanceWithResponse(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
+
+	// InitiateCredentialIssuanceInternal request with any body
+	InitiateCredentialIssuanceInternalWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceInternalResponse, error)
+
+	InitiateCredentialIssuanceInternalWithResponse(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceInternalJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceInternalResponse, error)
 
 	// OpenidConfig request
 	OpenidConfigWithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidConfigResponse, error)
@@ -1557,6 +1668,28 @@ func (r InitiateCredentialIssuanceResponse) StatusCode() int {
 	return 0
 }
 
+type InitiateCredentialIssuanceInternalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InitiateOIDC4CIResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r InitiateCredentialIssuanceInternalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InitiateCredentialIssuanceInternalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type OpenidConfigResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1761,6 +1894,23 @@ func (c *ClientWithResponses) InitiateCredentialIssuanceWithResponse(ctx context
 		return nil, err
 	}
 	return ParseInitiateCredentialIssuanceResponse(rsp)
+}
+
+// InitiateCredentialIssuanceInternalWithBodyWithResponse request with arbitrary body returning *InitiateCredentialIssuanceInternalResponse
+func (c *ClientWithResponses) InitiateCredentialIssuanceInternalWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceInternalResponse, error) {
+	rsp, err := c.InitiateCredentialIssuanceInternalWithBody(ctx, profileID, profileVersion, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateCredentialIssuanceInternalResponse(rsp)
+}
+
+func (c *ClientWithResponses) InitiateCredentialIssuanceInternalWithResponse(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceInternalJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceInternalResponse, error) {
+	rsp, err := c.InitiateCredentialIssuanceInternal(ctx, profileID, profileVersion, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateCredentialIssuanceInternalResponse(rsp)
 }
 
 // OpenidConfigWithResponse request returning *OpenidConfigResponse
@@ -2031,6 +2181,32 @@ func ParseInitiateCredentialIssuanceResponse(rsp *http.Response) (*InitiateCrede
 	return response, nil
 }
 
+// ParseInitiateCredentialIssuanceInternalResponse parses an HTTP response from a InitiateCredentialIssuanceInternalWithResponse call
+func ParseInitiateCredentialIssuanceInternalResponse(rsp *http.Response) (*InitiateCredentialIssuanceInternalResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InitiateCredentialIssuanceInternalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InitiateOIDC4CIResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseOpenidConfigResponse parses an HTTP response from a OpenidConfigWithResponse call
 func ParseOpenidConfigResponse(rsp *http.Response) (*OpenidConfigResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2115,6 +2291,9 @@ type ServerInterface interface {
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc)
 	InitiateCredentialIssuance(ctx echo.Context, profileID string, profileVersion string) error
+	// Initiate OIDC Credential Issuance
+	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-internal)
+	InitiateCredentialIssuanceInternal(ctx echo.Context, profileID string, profileVersion string) error
 	// Request openid-config
 	// (GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration)
 	OpenidConfig(ctx echo.Context, profileID string, profileVersion string) error
@@ -2263,6 +2442,30 @@ func (w *ServerInterfaceWrapper) InitiateCredentialIssuance(ctx echo.Context) er
 	return err
 }
 
+// InitiateCredentialIssuanceInternal converts echo context to params.
+func (w *ServerInterfaceWrapper) InitiateCredentialIssuanceInternal(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.InitiateCredentialIssuanceInternal(ctx, profileID, profileVersion)
+	return err
+}
+
 // OpenidConfig converts echo context to params.
 func (w *ServerInterfaceWrapper) OpenidConfig(ctx echo.Context) error {
 	var err error
@@ -2349,6 +2552,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
+	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc-internal", wrapper.InitiateCredentialIssuanceInternal)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-configuration", wrapper.OpenidConfig)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
 

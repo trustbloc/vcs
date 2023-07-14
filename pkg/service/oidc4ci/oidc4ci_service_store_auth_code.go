@@ -27,12 +27,12 @@ func (s *Service) StoreAuthorizationCode(
 
 	tx.IssuerAuthCode = code
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", err
 	}
 
-	if err = s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeStored); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeStored); err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", err
 	}
 

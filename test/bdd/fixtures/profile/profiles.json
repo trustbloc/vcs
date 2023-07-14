@@ -689,7 +689,8 @@
             "none"
           ],
           "enable_dynamic_client_registration": true,
-          "pre-authorized_grant_anonymous_access_supported": true
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true
         },
         "credentialTemplates": [
           {

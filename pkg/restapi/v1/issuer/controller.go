@@ -397,6 +397,34 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 	return util.WriteOutput(e)(resp, nil)
 }
 
+// InitiateCredentialIssuanceInternal initiates OIDC credential issuance flow.
+// Only for internal usage. Should bot be exposed to the Internet.
+// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-internal.
+func (c *Controller) InitiateCredentialIssuanceInternal(e echo.Context, profileID, profileVersion string) error {
+	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateCredentialIssuanceInternal")
+	defer span.End()
+
+	profile, err := c.accessProfile(profileID, profileVersion)
+	if err != nil {
+		return err
+	}
+
+	var body InitiateOIDC4CIRequest
+
+	if err = util.ReadBody(e, &body); err != nil {
+		return err
+	}
+
+	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", body, attributeutil.WithRedacted("claim_data")))
+
+	resp, err := c.initiateIssuance(ctx, &body, profile)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(resp, nil)
+}
+
 func (c *Controller) initiateIssuance(
 	ctx context.Context,
 	req *InitiateOIDC4CIRequest,
@@ -416,6 +444,7 @@ func (c *Controller) initiateIssuance(
 		CredentialExpiresAt:       req.CredentialExpiresAt,
 		CredentialName:            lo.FromPtr(req.CredentialName),
 		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
+		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
@@ -502,16 +531,27 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
 
+	var walletInitiatedFlowParams *WalletInitiatedFlowParameters
+	if resp.WalletInitiatedFlow != nil {
+		walletInitiatedFlowParams = &WalletInitiatedFlowParameters{
+			ProfileID:            resp.WalletInitiatedFlow.ProfileID,
+			ProfileVersion:       resp.WalletInitiatedFlow.ProfileVersion,
+			ClaimEndpoint:        resp.WalletInitiatedFlow.ClaimEndpoint,
+			CredentialTemplateID: resp.WalletInitiatedFlow.CredentialTemplateID,
+		}
+	}
+
 	return &PrepareClaimDataAuthorizationResponse{
+		WalletInitiatedFlow: walletInitiatedFlowParams,
 		AuthorizationRequest: OAuthParameters{
 			ClientId:     profile.OIDCConfig.ClientID,
 			ClientSecret: profile.OIDCConfig.ClientSecretHandle,
-			ResponseType: resp.ResponseType,
 			Scope:        resp.Scope,
+			ResponseType: resp.ResponseType, // empty if resp.WalletInitiatedFlow
 		},
 		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
-		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
-		TxId:                               string(resp.TxID),
+		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint), // empty if resp.WalletInitiatedFlow
+		TxId:                               string(resp.TxID),                                 // empty if resp.WalletInitiatedFlow
 	}, nil
 }
 
@@ -791,6 +831,7 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
 		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
 		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
+		config.WalletInitiatedAuthFlowSupported = profile.OIDCConfig.WalletInitiatedAuthFlowSupported
 
 		if profile.OIDCConfig.EnableDynamicClientRegistration {
 			var regURL string

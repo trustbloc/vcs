@@ -60,6 +60,7 @@ type mongoDocument struct {
 	PreAuthCodeExpiresAt               *time.Time
 	CredentialName                     string
 	CredentialDescription              string
+	WalletInitiatedIssuance            bool
 }
 
 // Store stores oidc transactions in mongo.
@@ -229,6 +230,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		PreAuthCodeExpiresAt:               data.PreAuthCodeExpiresAt,
 		CredentialDescription:              data.CredentialDescription,
 		CredentialName:                     data.CredentialName,
+		WalletInitiatedIssuance:            data.WalletInitiatedIssuance,
 	}
 }
 
@@ -266,6 +268,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			PreAuthCodeExpiresAt:               doc.PreAuthCodeExpiresAt,
 			CredentialDescription:              doc.CredentialDescription,
 			CredentialName:                     doc.CredentialName,
+			WalletInitiatedIssuance:            doc.WalletInitiatedIssuance,
 		},
 	}
 }
