@@ -141,6 +141,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		InitiateIssuanceURL: finalURL,
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
+		Tx:                  tx,
 	}, nil
 }
 

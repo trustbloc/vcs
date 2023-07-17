@@ -127,6 +127,7 @@ type InitiateIssuanceResponse struct {
 	InitiateIssuanceURL string
 	TxID                TxID
 	UserPin             string
+	Tx                  *Transaction `json:"-"`
 }
 
 // PrepareClaimDataAuthorizationRequest is the request to prepare the claim data authorization request.

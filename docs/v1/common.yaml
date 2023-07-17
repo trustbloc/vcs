@@ -75,6 +75,8 @@ components:
           type: string
         profile_version:
           type: string
+        op_state:
+          type: string
         scopes:
           type: array
           items:
@@ -89,6 +91,7 @@ components:
         - scopes
         - claim_endpoint
         - credential_template_id
+        - op_state
     AuthorizationDetails:
       title: AuthorizationDetails
       type: object

@@ -21,7 +21,17 @@ func (s *Service) StoreAuthorizationCode(
 	code string,
 	flowData *common.WalletInitiatedFlowData,
 ) (TxID, error) {
-	tx, err := s.store.FindByOpState(ctx, opState)
+	var tx *Transaction
+	var err error
+	if flowData != nil { // its wallet initiated issuance, first we need to initiate issuance
+		tx, err = s.initiateIssuanceWithWalletFlow(ctx, flowData)
+	} else {
+		tx, err = s.store.FindByOpState(ctx, opState)
+	}
+
+	if err != nil {
+		return "", err
+	}
 
 	if err != nil {
 		return "", fmt.Errorf("get transaction by opstate: %w", err)
@@ -39,4 +49,31 @@ func (s *Service) StoreAuthorizationCode(
 	}
 
 	return tx.ID, nil
+}
+
+func (s *Service) initiateIssuanceWithWalletFlow(
+	ctx context.Context,
+	flowData *common.WalletInitiatedFlowData,
+) (*Transaction, error) {
+	tx, err := s.InitiateIssuance(ctx, &InitiateIssuanceRequest{
+		CredentialTemplateID:      flowData.CredentialTemplateId,
+		ClientInitiateIssuanceURL: "",
+		ClientWellKnownURL:        "",
+		ClaimEndpoint:             flowData.ClaimEndpoint,
+		GrantType:                 "authorization_code",
+		ResponseType:              "code",
+		Scope:                     flowData.Scopes,
+		OpState:                   flowData.OpState,
+		ClaimData:                 nil,
+		UserPinRequired:           false,
+		CredentialExpiresAt:       nil,
+		CredentialName:            "",
+		CredentialDescription:     "",
+		WalletInitiatedIssuance:   true,
+	}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("can not initiate issuance for wallet flow. %w", err)
+	}
+
+	return tx.Tx, nil
 }

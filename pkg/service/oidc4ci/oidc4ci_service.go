@@ -184,7 +184,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		}
 
 		// process wallet initiated flow
-		return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, issuerURL)
+		return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, issuerURL, req.OpState)
 	}
 
 	newState := TransactionStateAwaitingIssuerOIDCAuthorization
@@ -288,6 +288,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	ctx context.Context,
 	requestScopes []string,
 	issuerURL string,
+	opState string,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	matches := regexp.MustCompile(WalletInitFlowClaimRegex).FindStringSubmatch(issuerURL)
 	if len(matches) != 4 {
@@ -356,6 +357,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 			ClaimEndpoint: fmt.Sprintf(
 				"https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType), // todo Sudesh remove hardcode
 			CredentialTemplateId: credTemplate, // todo Sudesh remove hardcode
+			OpState:              opState,
 		},
 		ProfileID:             profileID,
 		ProfileVersion:        profileVersion,

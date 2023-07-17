@@ -397,34 +397,6 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 	return util.WriteOutput(e)(resp, nil)
 }
 
-// InitiateCredentialIssuanceInternal initiates OIDC credential issuance flow.
-// Only for internal usage. Should bot be exposed to the Internet.
-// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-internal.
-func (c *Controller) InitiateCredentialIssuanceInternal(e echo.Context, profileID, profileVersion string) error {
-	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateCredentialIssuanceInternal")
-	defer span.End()
-
-	profile, err := c.accessProfile(profileID, profileVersion)
-	if err != nil {
-		return err
-	}
-
-	var body InitiateOIDC4CIRequest
-
-	if err = util.ReadBody(e, &body); err != nil {
-		return err
-	}
-
-	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", body, attributeutil.WithRedacted("claim_data")))
-
-	resp, err := c.initiateIssuance(ctx, &body, profile)
-	if err != nil {
-		return err
-	}
-
-	return util.WriteOutput(e)(resp, nil)
-}
-
 func (c *Controller) initiateIssuance(
 	ctx context.Context,
 	req *InitiateOIDC4CIRequest,
@@ -530,16 +502,6 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	if err != nil {
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
-
-	//var walletInitiatedFlowParams *WalletInitiatedFlowParameters
-	//if resp.WalletInitiatedFlow != nil {
-	//	walletInitiatedFlowParams = &WalletInitiatedFlowParameters{
-	//		ProfileID:            resp.WalletInitiatedFlow.ProfileID,
-	//		ProfileVersion:       resp.WalletInitiatedFlow.ProfileVersion,
-	//		ClaimEndpoint:        resp.WalletInitiatedFlow.ClaimEndpoint,
-	//		CredentialTemplateID: resp.WalletInitiatedFlow.CredentialTemplateID,
-	//	}
-	//}
 
 	return &PrepareClaimDataAuthorizationResponse{
 		WalletInitiatedFlow: resp.WalletInitiatedFlow,

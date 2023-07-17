@@ -837,6 +837,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			require.NoError(t, err)
 
 			resp, err := svc.InitiateIssuance(context.Background(), issuanceReq, profile)
+			assert.NotNil(t, resp.Tx)
 			tt.check(t, resp, err)
 		})
 	}
