@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
+
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
@@ -62,7 +64,7 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 		ClaimEndpoint:             flowData.ClaimEndpoint,
 		GrantType:                 "authorization_code",
 		ResponseType:              "code",
-		Scope:                     flowData.Scopes,
+		Scope:                     lo.FromPtr(flowData.Scopes),
 		OpState:                   flowData.OpState,
 		ClaimData:                 nil,
 		UserPinRequired:           false,
