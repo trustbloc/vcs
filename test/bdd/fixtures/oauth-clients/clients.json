@@ -7,7 +7,9 @@
     "scopes": [
       "openid",
       "profile",
-      "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer/v1.0||https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential||universityDegreeTemplateID"
+      "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer/v1.0",
+      "https://api-gateway.trustbloc.local:5566/issuer/i_myprofile_cmtr_p256_ldp/v1.0",
+      "https://api-gateway.trustbloc.local:5566/issuer/i_myprofile_ud_es256k_jwt/v1.0"
     ],
     "token_endpoint_auth_method": "none"
   }

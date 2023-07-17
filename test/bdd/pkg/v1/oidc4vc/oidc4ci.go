@@ -297,11 +297,7 @@ func (s *Steps) runOIDC4CIAuth() error {
 }
 
 func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
-	walletInitiatedFlowScope := fmt.Sprintf("%s||%s||%s",
-		fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version),
-		claimDataURL+"?credentialType="+s.issuedCredentialType,
-		s.issuedCredentialTemplateID,
-	)
+	walletInitiatedFlowScope := fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version)
 
 	err := s.walletRunner.RunOIDC4CIWalletInitiated(&walletrunner.OIDC4CIConfig{
 		ClientID:         "oidc4vc_client",

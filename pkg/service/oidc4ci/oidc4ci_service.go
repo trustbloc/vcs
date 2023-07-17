@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -168,16 +169,21 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	req *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	tx, err := s.store.FindByOpState(ctx, req.OpState)
+
 	if err != nil {
-		if errors.Is(err, ErrDataNotFound) {
-			// check if issuer supports Wallet initiated flow
-			if walletInitiatedFlowScopeData := s.isWalletInitiatedFlow(req.Scope); walletInitiatedFlowScopeData != nil {
-				// process wallet initiated flow
-				return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, walletInitiatedFlowScopeData)
-			}
-			// otherwise - return regular error
+		if !errors.Is(err, ErrDataNotFound) {
+			return nil, err
 		}
-		return nil, fmt.Errorf("find tx by op state: %w", err)
+
+		// check if issuer supports Wallet initiated flow
+		issuerURL := s.extractIssuerURLFromClaims(req.Scope)
+		if issuerURL == "" {
+			// otherwise - return regular error
+			return nil, err
+		}
+
+		// process wallet initiated flow
+		return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, issuerURL)
 	}
 
 	newState := TransactionStateAwaitingIssuerOIDCAuthorization
@@ -266,56 +272,37 @@ func (s *Service) getIssuerOIDCConfig(
 	return &oidcConfig, nil
 }
 
-type walletInitiatedFlowScopeParsed struct {
-	scope                string
-	issuerURL            string
-	claimsEndpoint       string
-	credentialTemplateID string
-}
+func (s *Service) extractIssuerURLFromClaims(requestScopes []string) string {
+	matchRegex := regexp.MustCompile(WalletInitFlowClaimRegex)
 
-func (s *Service) isWalletInitiatedFlow(requestScopes []string) *walletInitiatedFlowScopeParsed {
 	for _, scope := range requestScopes {
-		//if parsedURL, err := url.Parse(scope); err != nil || parsedURL.Host == "" {
-		//	continue
-		//}
-		chunks := strings.Split(scope, "||")
-		if len(chunks) != 3 {
-			continue
-		}
-
-		//todo: make a call to well-known.
-		//issuerOidcConfiguration, err := s.getIssuerOIDCConfig(chunks[0])
-		//if err != nil {
-		//	logger.Error("getIssuerOIDCConfig", log.WithError(err))
-		//	return nil
-		//}
-		//
-		//fmt.Println(issuerOidcConfiguration)
-		//if issuerOidcConfiguration.WalletInitiatedAuthFlowSupported {
-		if true {
-			return &walletInitiatedFlowScopeParsed{
-				scope:                scope,
-				issuerURL:            chunks[0],
-				claimsEndpoint:       chunks[1],
-				credentialTemplateID: chunks[2],
-			}
+		if matchRegex.MatchString(scope) {
+			return scope
 		}
 	}
 
-	return nil
+	return ""
 }
 
 func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	ctx context.Context,
 	requestScopes []string,
-	walletInitiatedFlowScopeData *walletInitiatedFlowScopeParsed) (*PrepareClaimDataAuthorizationResponse, error) {
-	// todo: temp solution until will find a better way to pass profile ID/Version
-	chunks := strings.Split(walletInitiatedFlowScopeData.issuerURL, "/")
-	profileID, profileVersion := chunks[len(chunks)-2], chunks[len(chunks)-1]
+	issuerURL string,
+) (*PrepareClaimDataAuthorizationResponse, error) {
+	matches := regexp.MustCompile(WalletInitFlowClaimRegex).FindStringSubmatch(issuerURL)
+	if len(matches) != 4 {
+		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
+		return nil, errors.New("invalid issuer url")
+	}
+	profileID, profileVersion := matches[2], matches[3]
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, fmt.Errorf("wallet initiated flow get profile: %w", err)
+	}
+
+	if !profile.OIDCConfig.WalletInitiatedAuthFlowSupported {
+		return nil, errors.New("wallet initiated auth flow is not supported for current profile")
 	}
 
 	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
@@ -327,7 +314,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	scopes := make([]string, 0, len(requestScopes)-1)
 
 	for _, scope := range requestScopes {
-		if scope == walletInitiatedFlowScopeData.scope {
+		if scope == issuerURL {
 			continue
 		}
 		scopes = append(scopes, scope)
@@ -347,12 +334,25 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		return nil, err
 	}
 
+	var credTemplate string // todo Sudesh remove hardcode
+	var credType string
+	if profile.ID == "bank_issuer" {
+		credTemplate = "universityDegreeTemplateID"
+		credType = "UniversityDegreeCredential"
+	} else if profile.ID == "i_myprofile_ud_es256k_jwt" {
+		credTemplate = "permanentResidentCardTemplateID"
+		credType = "PermanentResidentCard"
+	} else {
+		credTemplate = "crudeProductCredentialTemplateID"
+		credType = "CrudeProductCredential"
+	}
+
 	return &PrepareClaimDataAuthorizationResponse{
 		WalletInitiatedFlow: &WalletInitiatedFlow{
 			ProfileID:            profileID,
 			ProfileVersion:       profileVersion,
-			ClaimEndpoint:        walletInitiatedFlowScopeData.claimsEndpoint,
-			CredentialTemplateID: walletInitiatedFlowScopeData.credentialTemplateID,
+			ClaimEndpoint:        fmt.Sprintf("https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType), // todo Sudesh remove hardcode
+			CredentialTemplateID: credTemplate,                                                                                      // todo Sudesh remove hardcode
 		},
 		ProfileID:             profileID,
 		ProfileVersion:        profileVersion,

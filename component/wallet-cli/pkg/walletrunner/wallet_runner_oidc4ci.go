@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,17 +36,12 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
 	jwtProofTypHeader = "openid4vci-proof+jwt"
 )
-
-type walletInitiatedFlowParams struct {
-	credentialIssuer     string // IssuerURL
-	claimsEndpoint       string
-	credentialTemplateID string
-}
 
 type OIDC4CIConfig struct {
 	InitiateIssuanceURL string
@@ -236,42 +232,38 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	return nil
 }
 
-func extractWalletInitiatedFlowParams(scopes []string) *walletInitiatedFlowParams {
-	for _, scope := range scopes {
-		chunks := strings.Split(scope, "||")
-		if len(chunks) != 3 {
-			continue
-		}
+var matchRegex = regexp.MustCompile(oidc4ci.WalletInitFlowClaimRegex)
 
-		return &walletInitiatedFlowParams{
-			credentialIssuer:     chunks[0],
-			claimsEndpoint:       chunks[1],
-			credentialTemplateID: chunks[2],
+func extractIssuerUrlFromScopes(scopes []string) (string, error) {
+	for _, scope := range scopes {
+		if matchRegex.MatchString(scope) {
+			return scope, nil
 		}
 	}
 
-	return nil
+	return "", errors.New("issuer url not found in scopes")
 }
 
 func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
 
 	// Check whether scope contains combined string Issuer URL||ClaimEndpoint||credentialTemplateID
-	walletInitiatedFlowData := extractWalletInitiatedFlowParams(config.Scope)
-	if walletInitiatedFlowData == nil {
+	issuerUrl, err := extractIssuerUrlFromScopes(config.Scope)
+	if err != nil {
 		return errors.New(
 			"undefined scopes supplied. " +
-				"Make sure one of the provided scope is a combined string <Issuer URL>||<ClaimEndpoint>||<credentialTemplateID>")
+				"Make sure one of the provided scope is an vcs issuer url format. ref " +
+				oidc4ci.WalletInitFlowClaimRegex)
 	}
 
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
-		walletInitiatedFlowData.credentialIssuer,
+		issuerUrl,
 	)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
 
-	oidcConfig, err := s.getIssuerOIDCConfig(walletInitiatedFlowData.credentialIssuer)
+	oidcConfig, err := s.getIssuerOIDCConfig(issuerUrl)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
@@ -379,7 +371,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
-		walletInitiatedFlowData.credentialIssuer,
+		issuerUrl,
 	)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
