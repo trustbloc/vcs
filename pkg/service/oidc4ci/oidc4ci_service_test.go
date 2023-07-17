@@ -353,7 +353,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "find tx by op state")
+				require.ErrorContains(t, err, "find tx error")
 				require.Nil(t, resp)
 			},
 		},
