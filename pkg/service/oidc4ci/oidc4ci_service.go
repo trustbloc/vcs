@@ -165,45 +165,13 @@ func (s *Service) PushAuthorizationDetails(
 	return nil
 }
 
-func (s *Service) PrepareClaimDataAuthorizationRequest(
-	ctx context.Context,
-	req *PrepareClaimDataAuthorizationRequest,
-) (*PrepareClaimDataAuthorizationResponse, error) {
-	tx, err := s.store.FindByOpState(ctx, req.OpState)
-
-	if err != nil {
-		if !errors.Is(err, ErrDataNotFound) {
-			return nil, err
-		}
-
-		// check if issuer supports Wallet initiated flow
-		issuerURL := s.extractIssuerURLFromClaims(req.Scope)
-		if issuerURL == "" {
-			// otherwise - return regular error
-			return nil, err
-		}
-
-		// process wallet initiated flow
-		return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, issuerURL, req.OpState)
-	}
-
-	newState := TransactionStateAwaitingIssuerOIDCAuthorization
-	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, err
-	}
-	tx.State = newState
-
-	if req.ResponseType != tx.ResponseType {
-		return nil, ErrResponseTypeMismatch
-	}
-
+func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
 	isScopeValid := true
 
-	for _, scope := range req.Scope {
+	for _, scope := range reqScopes {
 		found := false
 
-		for _, v := range tx.Scope {
+		for _, v := range txScopes {
 			if v == scope {
 				found = true
 				break
@@ -217,7 +185,47 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	if !isScopeValid {
-		return nil, ErrInvalidScope
+		return ErrInvalidScope
+	}
+
+	return nil
+}
+
+func (s *Service) PrepareClaimDataAuthorizationRequest(
+	ctx context.Context,
+	req *PrepareClaimDataAuthorizationRequest,
+) (*PrepareClaimDataAuthorizationResponse, error) {
+	tx, err := s.store.FindByOpState(ctx, req.OpState)
+
+	if err != nil && errors.Is(err, ErrDataNotFound) {
+		// check if issuer supports Wallet initiated flow
+		issuerURL := s.extractIssuerURLFromClaims(req.Scope)
+		if issuerURL == "" {
+			// otherwise - return regular error
+			return nil, err
+		}
+
+		// process wallet initiated flow
+		return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, issuerURL, req.OpState)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	newState := TransactionStateAwaitingIssuerOIDCAuthorization
+	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, err)
+		return nil, err
+	}
+	tx.State = newState
+
+	if req.ResponseType != tx.ResponseType {
+		return nil, ErrResponseTypeMismatch
+	}
+
+	if err = s.checkScopes(req.Scope, tx.Scope); err != nil {
+		return nil, err
 	}
 
 	if req.AuthorizationDetails != nil {
