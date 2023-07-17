@@ -116,6 +116,64 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "Success wallet flow",
+			setup: func() {
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialFormat: verifiable.Jwt,
+								State:            data.State,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+							},
+						}, nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{
+						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
+					}, nil)
+
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID:    "templateID",
+					ClientWellKnownURL:      walletWellKnownURL,
+					ClaimEndpoint:           "https://vcs.pb.example.com/claim",
+					OpState:                 "eyJhbGciOiJSU0Et",
+					GrantType:               "authorization_code",
+					Scope:                   []string{"openid", "profile"},
+					WalletInitiatedIssuance: true,
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				assert.NotNil(t, resp.Tx)
+				assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, resp.Tx.State)
+				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
+			},
+		},
+		{
 			name: "Success Pre-Auth with PIN",
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
