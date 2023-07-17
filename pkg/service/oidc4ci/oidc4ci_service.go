@@ -267,10 +267,11 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	opState string,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	matches := regexp.MustCompile(WalletInitFlowClaimRegex).FindStringSubmatch(issuerURL)
-	if len(matches) != 4 {
+	if len(matches) != WalletInitFlowClaimExpectedMatchCount {
 		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
 		return nil, errors.New("invalid issuer url")
 	}
+
 	profileID, profileVersion := matches[2], matches[3]
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
@@ -330,8 +331,8 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		WalletInitiatedFlow: &common.WalletInitiatedFlowData{
 			ProfileId:      profileID,
 			ProfileVersion: profileVersion,
-			ClaimEndpoint: fmt.Sprintf(
-				"https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType), // todo Sudesh remove hardcode
+			ClaimEndpoint: fmt.Sprintf( // todo Sudesh remove hardcode
+				"https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType),
 			CredentialTemplateId: credTemplate, // todo Sudesh remove hardcode
 			OpState:              opState,
 		},

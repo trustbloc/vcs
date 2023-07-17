@@ -35,6 +35,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -1120,13 +1121,33 @@ func TestController_StoreAuthZCode(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code).Return(oidc4ci.TxID("1234"), nil)
+		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code, nil).Return(oidc4ci.TxID("1234"), nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := fmt.Sprintf(`{"op_state":"%s","code":"%s"}`, opState, code) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.StoreAuthorizationCodeRequest(ctx))
+	})
+
+	t.Run("success with flow data", func(t *testing.T) {
+		opState := uuid.NewString()
+		code := uuid.NewString()
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code,
+			&common.WalletInitiatedFlowData{
+				ProfileId:      "123",
+				ProfileVersion: "xxx",
+			}).
+			Return(oidc4ci.TxID("1234"), nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		req := fmt.Sprintf(`{"op_state":"%s","code":"%s", "wallet_initiated_flow" : {"profile_id" : "123", "profile_version": "xxx"}}`, opState, code) //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.StoreAuthorizationCodeRequest(ctx))
 	})
