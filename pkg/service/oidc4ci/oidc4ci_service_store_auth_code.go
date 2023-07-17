@@ -35,10 +35,6 @@ func (s *Service) StoreAuthorizationCode(
 		return "", err
 	}
 
-	if err != nil {
-		return "", fmt.Errorf("get transaction by opstate: %w", err)
-	}
-
 	tx.IssuerAuthCode = code
 	if err = s.store.Update(ctx, tx); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
@@ -57,6 +53,11 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 	ctx context.Context,
 	flowData *common.WalletInitiatedFlowData,
 ) (*Transaction, error) {
+	profile, err := s.profileService.GetProfile(flowData.ProfileId, flowData.ProfileVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	tx, err := s.InitiateIssuance(ctx, &InitiateIssuanceRequest{
 		CredentialTemplateID:      flowData.CredentialTemplateId,
 		ClientInitiateIssuanceURL: "",
@@ -72,7 +73,7 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 		CredentialName:            "",
 		CredentialDescription:     "",
 		WalletInitiatedIssuance:   true,
-	}, nil)
+	}, profile)
 	if err != nil {
 		return nil, fmt.Errorf("can not initiate issuance for wallet flow. %w", err)
 	}

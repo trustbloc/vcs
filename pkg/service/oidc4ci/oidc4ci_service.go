@@ -248,30 +248,6 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}, nil
 }
 
-func (s *Service) getIssuerOIDCConfig(
-	issuerURL string,
-) (*wellKnownOpenIDConfiguration, error) {
-	// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration
-	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-configuration")
-	if err != nil {
-		return nil, fmt.Errorf("get issuer well-known: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get issuer well-known: status code %d", resp.StatusCode)
-	}
-
-	var oidcConfig wellKnownOpenIDConfiguration
-
-	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
-		return nil, fmt.Errorf("decode issuer well-known: %w", err)
-	}
-
-	return &oidcConfig, nil
-}
-
 func (s *Service) extractIssuerURLFromClaims(requestScopes []string) string {
 	matchRegex := regexp.MustCompile(WalletInitFlowClaimRegex)
 

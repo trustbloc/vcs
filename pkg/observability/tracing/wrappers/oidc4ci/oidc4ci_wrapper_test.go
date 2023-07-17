@@ -65,11 +65,11 @@ func TestWrapper_StoreAuthorizationCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().StoreAuthorizationCode(gomock.Any(), "opState", "code").Times(1)
+	svc.EXPECT().StoreAuthorizationCode(gomock.Any(), "opState", "code", nil).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.StoreAuthorizationCode(context.Background(), "opState", "code")
+	_, err := w.StoreAuthorizationCode(context.Background(), "opState", "code", nil)
 	require.NoError(t, err)
 }
 

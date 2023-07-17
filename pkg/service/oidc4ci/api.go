@@ -213,18 +213,29 @@ type CredentialOfferResponse struct {
 	Grants           CredentialOfferGrant `json:"grants"`
 }
 
-// wellKnownOpenIDConfiguration OpenID Config response.
-type wellKnownOpenIDConfiguration struct {
-	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4VCI. The default is false.
-	WalletInitiatedAuthFlowSupported bool `json:"wallet_initiated_auth_flow_supported"`
-}
-
 type ServiceInterface interface {
-	InitiateIssuance(ctx context.Context, req *InitiateIssuanceRequest, profile *profileapi.Issuer) (*InitiateIssuanceResponse, error) //nolint:lll
+	InitiateIssuance(
+		ctx context.Context,
+		req *InitiateIssuanceRequest,
+		profile *profileapi.Issuer,
+	) (*InitiateIssuanceResponse, error)
 	PushAuthorizationDetails(ctx context.Context, opState string, ad *AuthorizationDetails) error
-	PrepareClaimDataAuthorizationRequest(ctx context.Context, req *PrepareClaimDataAuthorizationRequest) (*PrepareClaimDataAuthorizationResponse, error) //nolint:lll
-	StoreAuthorizationCode(ctx context.Context, opState string, code string, flowData *common.WalletInitiatedFlowData) (TxID, error)
+	PrepareClaimDataAuthorizationRequest(
+		ctx context.Context,
+		req *PrepareClaimDataAuthorizationRequest,
+	) (*PrepareClaimDataAuthorizationResponse, error)
+	StoreAuthorizationCode(
+		ctx context.Context,
+		opState string,
+		code string,
+		flowData *common.WalletInitiatedFlowData,
+	) (TxID, error)
 	ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error)
-	ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode string, pin string, clientID string) (*Transaction, error) //nolint:lll
+	ValidatePreAuthorizedCodeRequest(
+		ctx context.Context,
+		preAuthorizedCode string,
+		pin string,
+		clientID string,
+	) (*Transaction, error)
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
 }

@@ -69,7 +69,7 @@ func WithClientID(clientID string) OauthClientOpt {
 
 func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
-
+	ctx := context.Background()
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
 		config.InitiateIssuanceURL,
@@ -80,7 +80,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	s.print("Getting issuer OIDC config")
-	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
+	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
@@ -163,7 +163,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		return fmt.Errorf("auth code is empty")
 	}
 
-	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
 
 	var beforeTokenRequestHooks []OauthClientOpt
 
@@ -246,7 +246,7 @@ func extractIssuerUrlFromScopes(scopes []string) (string, error) {
 
 func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
-
+	ctx := context.Background()
 	// Check whether scope contains combined string Issuer URL||ClaimEndpoint||credentialTemplateID
 	issuerUrl, err := extractIssuerUrlFromScopes(config.Scope)
 	if err != nil {
@@ -263,7 +263,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
 
-	oidcConfig, err := s.getIssuerOIDCConfig(issuerUrl)
+	oidcConfig, err := s.getIssuerOIDCConfig(ctx, issuerUrl)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
@@ -339,7 +339,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		return fmt.Errorf("auth code is empty")
 	}
 
-	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
 
 	var beforeTokenRequestHooks []OauthClientOpt
 
@@ -409,10 +409,15 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 }
 
 func (s *Service) getIssuerOIDCConfig(
+	ctx context.Context,
 	issuerURL string,
 ) (*issuerv1.WellKnownOpenIDConfiguration, error) {
 	// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration
-	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-configuration")
+	req, err := http.NewRequestWithContext(ctx, "GET", issuerURL+"/.well-known/openid-configuration", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get issuer well-known: %w", err)
 	}

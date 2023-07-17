@@ -35,7 +35,7 @@ func TestStoreAuthCode(t *testing.T) {
 		store.EXPECT().FindByOpState(gomock.Any(), opState).
 			Return(nil, errors.New("not found"))
 
-		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, "1234")
+		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, "1234", nil)
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, storeErr, "not found")
 	})
@@ -66,7 +66,7 @@ func TestStoreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code)
+		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code, nil)
 		assert.ErrorContains(t, storeErr, "update error")
 		assert.NotEqual(t, tx.ID, resp)
 	})
@@ -97,7 +97,7 @@ func TestStoreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code)
+		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code, nil)
 		assert.NoError(t, storeErr)
 		assert.Equal(t, tx.ID, resp)
 	})
@@ -136,7 +136,7 @@ func TestStoreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code)
+		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code, nil)
 		assert.ErrorContains(t, storeErr, "publish error")
 		assert.NotEqual(t, tx.ID, resp)
 	})

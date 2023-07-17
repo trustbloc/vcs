@@ -417,44 +417,6 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 	return nil
 }
 
-//func (c *Controller) walletInitiateIssuance(ctx context.Context, issuerState string, walletInitiatedFlow *oidc4ci.WalletInitiatedFlow) error {
-//	// if wallet initiated flow - need to create transaction here
-//	initiateIssuanceResponse, err := c.issuerInteractionClient.InitiateCredentialIssuanceInternal(ctx,
-//		walletInitiatedFlow.ProfileID,
-//		walletInitiatedFlow.ProfileVersion,
-//		issuer.InitiateCredentialIssuanceJSONRequestBody{
-//			WalletInitiatedIssuance: lo.ToPtr(true),
-//			ClaimEndpoint:           lo.ToPtr(walletInitiatedFlow.ClaimEndpoint),
-//			CredentialTemplateId:    lo.ToPtr(walletInitiatedFlow.CredentialTemplateID),
-//			GrantType:               lo.ToPtr("authorization_code"),
-//			OpState:                 lo.ToPtr(issuerState),
-//			ResponseType:            lo.ToPtr("code"),
-//			//Scope:                lo.ToPtr([]string{"openid", "profile"}),
-//			Scope:           lo.ToPtr(walletInitiatedFlow.Scope),
-//			UserPinRequired: lo.ToPtr(false),
-//
-//			AuthorizationDetails:      nil,
-//			ClaimData:                 nil, // pre-auth flow only
-//			ClientInitiateIssuanceUrl: nil,
-//			ClientWellknown:           nil,
-//			CredentialDescription:     nil,
-//			CredentialExpiresAt:       nil,
-//			CredentialName:            nil,
-//		})
-//
-//	if err != nil {
-//		return err
-//	}
-//
-//	defer initiateIssuanceResponse.Body.Close()
-//
-//	if initiateIssuanceResponse.StatusCode != http.StatusOK {
-//		return fmt.Errorf("unexpected status code %d", initiateIssuanceResponse.StatusCode)
-//	}
-//
-//	return nil
-//}
-
 // OidcToken handles OIDC token request (POST /oidc/token).
 func (c *Controller) OidcToken(e echo.Context) error {
 	req := e.Request()
