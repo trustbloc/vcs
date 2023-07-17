@@ -70,6 +70,7 @@ components:
     WalletInitiatedFlowData:
       title: WalletInitiatedFlowData
       type: object
+      nullable: true
       properties:
         profile_id:
           type: string
@@ -79,6 +80,7 @@ components:
           type: string
         scopes:
           type: array
+          nullable: true
           items:
             type: string
         claim_endpoint:

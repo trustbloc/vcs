@@ -178,7 +178,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 
 	// Transaction ID to correlate upcoming authorization response.
 	TxId                string                                `json:"tx_id"`
-	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow,omitempty"`
+	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
 // Model for Prepare Credential request.
@@ -224,7 +224,7 @@ type PushAuthorizationDetailsRequest struct {
 type StoreAuthorizationCodeRequest struct {
 	Code                string                                `json:"code"`
 	OpState             string                                `json:"op_state"`
-	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow,omitempty"`
+	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
 // Response model for storing auth code from issuer oauth

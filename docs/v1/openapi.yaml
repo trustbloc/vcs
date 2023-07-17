@@ -1160,6 +1160,7 @@ components:
           type: string
         wallet_initiated_flow:
           $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
+          nullable: true
       required:
         - op_state
         - code
