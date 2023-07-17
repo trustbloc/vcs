@@ -16,6 +16,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 // TxID defines type for transaction ID.
@@ -137,7 +138,7 @@ type PrepareClaimDataAuthorizationRequest struct {
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
-	WalletInitiatedFlow                *WalletInitiatedFlow
+	WalletInitiatedFlow                *common.WalletInitiatedFlowData
 	ProfileID                          profileapi.ID
 	ProfileVersion                     profileapi.Version
 	TxID                               TxID
@@ -170,19 +171,11 @@ type InsertOptions struct {
 }
 
 type AuthorizeState struct {
-	RedirectURI         *url.URL             `json:"redirect_uri"`
-	RespondMode         string               `json:"respond_mode"`
-	Header              map[string][]string  `json:"header"`
-	Parameters          map[string][]string  `json:"parameters"`
-	WalletInitiatedFlow *WalletInitiatedFlow `json:"walletInitiatedFlow,omitempty"`
-}
-
-type WalletInitiatedFlow struct {
-	ProfileID            string   `json:"profileId"`
-	ProfileVersion       string   `json:"profileVersion"`
-	Scope                []string `json:"scope"`
-	ClaimEndpoint        string   `json:"claimEndpoint"`
-	CredentialTemplateID string   `json:"credentialTemplateId"`
+	RedirectURI         *url.URL                        `json:"redirect_uri"`
+	RespondMode         string                          `json:"respond_mode"`
+	Header              map[string][]string             `json:"header"`
+	Parameters          map[string][]string             `json:"parameters"`
+	WalletInitiatedFlow *common.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
 type eventPayload struct {
@@ -229,7 +222,7 @@ type ServiceInterface interface {
 	InitiateIssuance(ctx context.Context, req *InitiateIssuanceRequest, profile *profileapi.Issuer) (*InitiateIssuanceResponse, error) //nolint:lll
 	PushAuthorizationDetails(ctx context.Context, opState string, ad *AuthorizationDetails) error
 	PrepareClaimDataAuthorizationRequest(ctx context.Context, req *PrepareClaimDataAuthorizationRequest) (*PrepareClaimDataAuthorizationResponse, error) //nolint:lll
-	StoreAuthorizationCode(ctx context.Context, opState string, code string) (TxID, error)
+	StoreAuthorizationCode(ctx context.Context, opState string, code string, flowData *common.WalletInitiatedFlowData) (TxID, error)
 	ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error)
 	ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode string, pin string, clientID string) (*Transaction, error) //nolint:lll
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)

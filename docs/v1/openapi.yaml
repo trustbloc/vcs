@@ -190,38 +190,6 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4CIRequest'
       tags:
         - issuer
-  '/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-internal':
-    parameters:
-      - schema:
-          type: string
-        name: profileID
-        in: path
-        required: true
-        description: Issuer Profile ID.
-      - schema:
-          type: string
-        name: profileVersion
-        in: path
-        required: true
-        description: Issuer Profile Version.
-    post:
-      summary: Initiate OIDC Credential Issuance
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InitiateOIDC4CIResponse'
-      operationId: initiate-credential-issuance-internal
-      description: Internal endpoint used by Wallet to initiate OIDCI credential issuance interaction.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InitiateOIDC4CIRequest'
-      tags:
-        - issuer
   /issuer/interactions/push-authorization-request:
     post:
       summary: Push Authorization Details
@@ -1190,6 +1158,8 @@ components:
           type: string
         code:
           type: string
+        wallet_initiated_flow:
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
       required:
         - op_state
         - code
@@ -1261,7 +1231,7 @@ components:
           type: string
           description: Transaction ID to correlate upcoming authorization response.
         wallet_initiated_flow:
-          $ref: '#/components/schemas/WalletInitiatedFlowParameters'
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
       required:
         - authorization_request
         - authorization_endpoint

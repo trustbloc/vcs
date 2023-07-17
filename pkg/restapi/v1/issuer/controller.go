@@ -473,7 +473,7 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 		return err
 	}
 
-	ad, err := common.ValidateAuthorizationDetails(&body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(&body.AuthorizationDetails)
 	if err != nil {
 		return err
 	}
@@ -509,7 +509,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	ad, err := common.ValidateAuthorizationDetails(body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
 	if err != nil {
 		return nil, err
 	}
@@ -531,27 +531,27 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
 
-	var walletInitiatedFlowParams *WalletInitiatedFlowParameters
-	if resp.WalletInitiatedFlow != nil {
-		walletInitiatedFlowParams = &WalletInitiatedFlowParameters{
-			ProfileID:            resp.WalletInitiatedFlow.ProfileID,
-			ProfileVersion:       resp.WalletInitiatedFlow.ProfileVersion,
-			ClaimEndpoint:        resp.WalletInitiatedFlow.ClaimEndpoint,
-			CredentialTemplateID: resp.WalletInitiatedFlow.CredentialTemplateID,
-		}
-	}
+	//var walletInitiatedFlowParams *WalletInitiatedFlowParameters
+	//if resp.WalletInitiatedFlow != nil {
+	//	walletInitiatedFlowParams = &WalletInitiatedFlowParameters{
+	//		ProfileID:            resp.WalletInitiatedFlow.ProfileID,
+	//		ProfileVersion:       resp.WalletInitiatedFlow.ProfileVersion,
+	//		ClaimEndpoint:        resp.WalletInitiatedFlow.ClaimEndpoint,
+	//		CredentialTemplateID: resp.WalletInitiatedFlow.CredentialTemplateID,
+	//	}
+	//}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		WalletInitiatedFlow: walletInitiatedFlowParams,
+		WalletInitiatedFlow: resp.WalletInitiatedFlow,
 		AuthorizationRequest: OAuthParameters{
 			ClientId:     profile.OIDCConfig.ClientID,
 			ClientSecret: profile.OIDCConfig.ClientSecretHandle,
 			Scope:        resp.Scope,
-			ResponseType: resp.ResponseType, // empty if resp.WalletInitiatedFlow
+			ResponseType: resp.ResponseType,
 		},
 		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
-		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint), // empty if resp.WalletInitiatedFlow
-		TxId:                               string(resp.TxID),                                 // empty if resp.WalletInitiatedFlow
+		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
+		TxId:                               string(resp.TxID),
 	}, nil
 }
 
@@ -598,7 +598,8 @@ func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(), body.OpState, body.Code))
+	return util.WriteOutput(ctx)(c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(),
+		body.OpState, body.Code, body.WalletInitiatedFlow))
 }
 
 // ExchangeAuthorizationCodeRequest Exchanges authorization code.

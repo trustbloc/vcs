@@ -152,7 +152,7 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 	}
 
-	authorizationDetails, err := common.ValidateAuthorizationDetails(&ad)
+	authorizationDetails, err := apiUtil.ValidateAuthorizationDetails(&ad)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 		}
 
-		if _, err = common.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
+		if _, err = apiUtil.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
 			return err
 		}
 
@@ -271,18 +271,6 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	var walletInitiatedFlowData *oidc4ci.WalletInitiatedFlow
-
-	if claimDataAuth.WalletInitiatedFlow != nil {
-		walletInitiatedFlowData = &oidc4ci.WalletInitiatedFlow{
-			ProfileID:            claimDataAuth.WalletInitiatedFlow.ProfileID,
-			ProfileVersion:       claimDataAuth.WalletInitiatedFlow.ProfileVersion,
-			Scope:                claimDataAuth.AuthorizationRequest.Scope,
-			ClaimEndpoint:        claimDataAuth.WalletInitiatedFlow.ClaimEndpoint,
-			CredentialTemplateID: claimDataAuth.WalletInitiatedFlow.CredentialTemplateID,
-		}
-	}
-
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
 		params.IssuerState,
@@ -291,7 +279,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			RespondMode:         string(ar.GetResponseMode()),
 			Header:              resp.GetHeader(),
 			Parameters:          resp.GetParameters(),
-			WalletInitiatedFlow: walletInitiatedFlowData,
+			WalletInitiatedFlow: claimDataAuth.WalletInitiatedFlow,
 		}); err != nil {
 		return fmt.Errorf("save authorize state: %w", err)
 	}
@@ -396,20 +384,11 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 		return apiUtil.WriteOutput(e)(nil, err)
 	}
 
-	if resp.WalletInitiatedFlow != nil {
-
-		// todo what auth token I need to use?
-		//req.Header.Add("Authorization", "Bearer "+token)
-		if err = c.walletInitiateIssuance(ctx, params.State, resp.WalletInitiatedFlow); err != nil {
-			return fmt.Errorf("walletInitiateIssuance: %w", err)
-		}
-		//todo: to I need to store in cache authorization details and then call c.issuerInteractionClient.PushAuthorizationDetails()?
-	}
-
 	storeResp, storeErr := c.issuerInteractionClient.StoreAuthorizationCodeRequest(ctx,
 		issuer.StoreAuthorizationCodeRequestJSONRequestBody{
-			Code:    params.Code,
-			OpState: params.State,
+			Code:                params.Code,
+			OpState:             params.State,
+			WalletInitiatedFlow: resp.WalletInitiatedFlow,
 		})
 	if storeErr != nil {
 		return storeErr
@@ -437,43 +416,44 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 
 	return nil
 }
-func (c *Controller) walletInitiateIssuance(ctx context.Context, issuerState string, walletInitiatedFlow *oidc4ci.WalletInitiatedFlow) error {
-	// if wallet initiated flow - need to create transaction here
-	initiateIssuanceResponse, err := c.issuerInteractionClient.InitiateCredentialIssuanceInternal(ctx,
-		walletInitiatedFlow.ProfileID,
-		walletInitiatedFlow.ProfileVersion,
-		issuer.InitiateCredentialIssuanceJSONRequestBody{
-			WalletInitiatedIssuance: lo.ToPtr(true),
-			ClaimEndpoint:           lo.ToPtr(walletInitiatedFlow.ClaimEndpoint),
-			CredentialTemplateId:    lo.ToPtr(walletInitiatedFlow.CredentialTemplateID),
-			GrantType:               lo.ToPtr("authorization_code"),
-			OpState:                 lo.ToPtr(issuerState),
-			ResponseType:            lo.ToPtr("code"),
-			//Scope:                lo.ToPtr([]string{"openid", "profile"}),
-			Scope:           lo.ToPtr(walletInitiatedFlow.Scope),
-			UserPinRequired: lo.ToPtr(false),
 
-			AuthorizationDetails:      nil,
-			ClaimData:                 nil, // pre-auth flow only
-			ClientInitiateIssuanceUrl: nil,
-			ClientWellknown:           nil,
-			CredentialDescription:     nil,
-			CredentialExpiresAt:       nil,
-			CredentialName:            nil,
-		})
-
-	if err != nil {
-		return err
-	}
-
-	defer initiateIssuanceResponse.Body.Close()
-
-	if initiateIssuanceResponse.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code %d", initiateIssuanceResponse.StatusCode)
-	}
-
-	return nil
-}
+//func (c *Controller) walletInitiateIssuance(ctx context.Context, issuerState string, walletInitiatedFlow *oidc4ci.WalletInitiatedFlow) error {
+//	// if wallet initiated flow - need to create transaction here
+//	initiateIssuanceResponse, err := c.issuerInteractionClient.InitiateCredentialIssuanceInternal(ctx,
+//		walletInitiatedFlow.ProfileID,
+//		walletInitiatedFlow.ProfileVersion,
+//		issuer.InitiateCredentialIssuanceJSONRequestBody{
+//			WalletInitiatedIssuance: lo.ToPtr(true),
+//			ClaimEndpoint:           lo.ToPtr(walletInitiatedFlow.ClaimEndpoint),
+//			CredentialTemplateId:    lo.ToPtr(walletInitiatedFlow.CredentialTemplateID),
+//			GrantType:               lo.ToPtr("authorization_code"),
+//			OpState:                 lo.ToPtr(issuerState),
+//			ResponseType:            lo.ToPtr("code"),
+//			//Scope:                lo.ToPtr([]string{"openid", "profile"}),
+//			Scope:           lo.ToPtr(walletInitiatedFlow.Scope),
+//			UserPinRequired: lo.ToPtr(false),
+//
+//			AuthorizationDetails:      nil,
+//			ClaimData:                 nil, // pre-auth flow only
+//			ClientInitiateIssuanceUrl: nil,
+//			ClientWellknown:           nil,
+//			CredentialDescription:     nil,
+//			CredentialExpiresAt:       nil,
+//			CredentialName:            nil,
+//		})
+//
+//	if err != nil {
+//		return err
+//	}
+//
+//	defer initiateIssuanceResponse.Body.Close()
+//
+//	if initiateIssuanceResponse.StatusCode != http.StatusOK {
+//		return fmt.Errorf("unexpected status code %d", initiateIssuanceResponse.StatusCode)
+//	}
+//
+//	return nil
+//}
 
 // OidcToken handles OIDC token request (POST /oidc/token).
 func (c *Controller) OidcToken(e echo.Context) error {
@@ -513,7 +493,6 @@ func (c *Controller) OidcToken(e echo.Context) error {
 
 		txID = resp.TxId
 	} else {
-		//todo make wallet init specific
 		exchangeResp, errExchange := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
 			issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{

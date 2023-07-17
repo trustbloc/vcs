@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 // StoreAuthorizationCode stores authorization code from issuer provider.
@@ -18,6 +19,7 @@ func (s *Service) StoreAuthorizationCode(
 	ctx context.Context,
 	opState string,
 	code string,
+	flowData *common.WalletInitiatedFlowData,
 ) (TxID, error) {
 	tx, err := s.store.FindByOpState(ctx, opState)
 

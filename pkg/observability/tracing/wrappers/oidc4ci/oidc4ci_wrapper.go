@@ -18,6 +18,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -65,8 +66,8 @@ func (w *Wrapper) PrepareClaimDataAuthorizationRequest(ctx context.Context, req 
 	return w.svc.PrepareClaimDataAuthorizationRequest(ctx, req)
 }
 
-func (w *Wrapper) StoreAuthorizationCode(ctx context.Context, opState string, code string) (oidc4ci.TxID, error) {
-	return w.svc.StoreAuthorizationCode(ctx, opState, code)
+func (w *Wrapper) StoreAuthorizationCode(ctx context.Context, opState string, code string, flowData *common.WalletInitiatedFlowData) (oidc4ci.TxID, error) {
+	return w.svc.StoreAuthorizationCode(ctx, opState, code, flowData)
 }
 
 func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState string) (oidc4ci.TxID, error) {

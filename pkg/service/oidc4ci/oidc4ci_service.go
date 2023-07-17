@@ -27,6 +27,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 const (
@@ -237,7 +238,6 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		WalletInitiatedFlow:                nil,
 		ProfileID:                          tx.ProfileID,
 		ProfileVersion:                     tx.ProfileVersion,
 		TxID:                               tx.ID,
@@ -336,23 +336,26 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 
 	var credTemplate string // todo Sudesh remove hardcode
 	var credType string
-	if profile.ID == "bank_issuer" {
+
+	switch profile.ID { // todo Sudesh remove hardcode
+	case "bank_issuer":
 		credTemplate = "universityDegreeTemplateID"
 		credType = "UniversityDegreeCredential"
-	} else if profile.ID == "i_myprofile_ud_es256k_jwt" {
+	case "i_myprofile_ud_es256k_jwt":
 		credTemplate = "permanentResidentCardTemplateID"
 		credType = "PermanentResidentCard"
-	} else {
+	default:
 		credTemplate = "crudeProductCredentialTemplateID"
 		credType = "CrudeProductCredential"
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		WalletInitiatedFlow: &WalletInitiatedFlow{
-			ProfileID:            profileID,
-			ProfileVersion:       profileVersion,
-			ClaimEndpoint:        fmt.Sprintf("https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType), // todo Sudesh remove hardcode
-			CredentialTemplateID: credTemplate,                                                                                      // todo Sudesh remove hardcode
+		WalletInitiatedFlow: &common.WalletInitiatedFlowData{
+			ProfileId:      profileID,
+			ProfileVersion: profileVersion,
+			ClaimEndpoint: fmt.Sprintf(
+				"https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType), // todo Sudesh remove hardcode
+			CredentialTemplateId: credTemplate, // todo Sudesh remove hardcode
 		},
 		ProfileID:             profileID,
 		ProfileVersion:        profileVersion,
