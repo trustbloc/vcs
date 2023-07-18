@@ -103,7 +103,7 @@ func beforeSuiteHook() {
 		logger.Fatal("bdd test beforeSuiteHook", logfields.WithCommand(string(out)), log.WithError(err))
 	}
 
-	testSleep := 60
+	testSleep := 80
 
 	if os.Getenv("TEST_SLEEP") != "" {
 		s, err := strconv.Atoi(os.Getenv("TEST_SLEEP"))

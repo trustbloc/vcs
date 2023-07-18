@@ -62,7 +62,6 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 			c.DidKeyType = "ECDSAP384DER"
 			c.DidMethod = "orb"
 			c.KeepWalletOpen = true
-			c.Debug = true
 		})
 	if err != nil {
 		return nil, fmt.Errorf("unable create wallet runner: %w", err)
