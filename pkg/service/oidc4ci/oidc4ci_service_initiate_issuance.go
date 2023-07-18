@@ -53,21 +53,26 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}
 
 	data := &TransactionData{
-		ProfileID:             profile.ID,
-		ProfileVersion:        profile.Version,
-		OrgID:                 profile.OrganizationID,
-		CredentialTemplate:    template,
-		CredentialFormat:      profile.VCConfig.Format,
-		OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, template),
-		ClaimEndpoint:         req.ClaimEndpoint,
-		ResponseType:          req.ResponseType,
-		OpState:               req.OpState,
-		State:                 TransactionStateIssuanceInitiated,
-		WebHookURL:            profile.WebHook,
-		DID:                   profile.SigningDID.DID,
-		CredentialExpiresAt:   lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
-		CredentialName:        req.CredentialName,
-		CredentialDescription: req.CredentialDescription,
+		ProfileID:               profile.ID,
+		ProfileVersion:          profile.Version,
+		OrgID:                   profile.OrganizationID,
+		CredentialTemplate:      template,
+		CredentialFormat:        profile.VCConfig.Format,
+		OIDCCredentialFormat:    s.SelectProperOIDCFormat(profile.VCConfig.Format, template),
+		ClaimEndpoint:           req.ClaimEndpoint,
+		ResponseType:            req.ResponseType,
+		OpState:                 req.OpState,
+		State:                   TransactionStateIssuanceInitiated,
+		WebHookURL:              profile.WebHook,
+		DID:                     profile.SigningDID.DID,
+		CredentialExpiresAt:     lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
+		CredentialName:          req.CredentialName,
+		CredentialDescription:   req.CredentialDescription,
+		WalletInitiatedIssuance: req.WalletInitiatedIssuance,
+	}
+
+	if req.WalletInitiatedIssuance {
+		data.State = TransactionStateAwaitingIssuerOIDCAuthorization
 	}
 
 	if err = s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
@@ -123,7 +128,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, fmt.Errorf("store tx: %w", err)
 	}
 
-	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
+	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -136,6 +141,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		InitiateIssuanceURL: finalURL,
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
+		Tx:                  tx,
 	}, nil
 }
 

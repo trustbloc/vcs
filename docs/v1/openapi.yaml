@@ -623,7 +623,7 @@ paths:
           in: query
           name: issuer_state
           description: 'String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  issuer_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.'
-          required: true
+          required: false
       tags:
         - oidc4ci
     parameters: []
@@ -800,12 +800,16 @@ components:
         pre-authorized_grant_anonymous_access_supported:
           type: boolean
           description: JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
+        wallet_initiated_auth_flow_supported:
+          type: boolean
+          description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
       required:
         - authorization_endpoint
         - token_endpoint
         - response_types_supported
         - scopes_supported
         - grant_types_supported
+        - wallet_initiated_auth_flow_supported
         - pre-authorized_grant_anonymous_access_supported
     WellKnownOpenIDIssuerConfiguration:
       title: WellKnownOpenIDIssuerConfiguration response
@@ -1154,6 +1158,9 @@ components:
           type: string
         code:
           type: string
+        wallet_initiated_flow:
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
+          nullable: true
       required:
         - op_state
         - code
@@ -1224,6 +1231,8 @@ components:
         tx_id:
           type: string
           description: Transaction ID to correlate upcoming authorization response.
+        wallet_initiated_flow:
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
       required:
         - authorization_request
         - authorization_endpoint
@@ -1250,6 +1259,26 @@ components:
         - client_id
         - client_secret
         - scope
+    WalletInitiatedFlowParameters:
+      title: WalletInitiatedFlowParameters
+      x-tags:
+        - issuer
+      type: object
+      description: If transaction was initiated by Wallet - object will contain initiate issuance profile-specific data.
+      properties:
+        profileID:
+          type: string
+        profileVersion:
+          type: string
+        claimEndpoint:
+          type: string
+        credentialTemplateID:
+          type: string
+      required:
+        - profileID
+        - profileVersion
+        - claimEndpoint
+        - credentialTemplateID
     InitiateOIDC4CIRequest:
       title: InitiateOIDC4CIRequest
       type: object
@@ -1300,6 +1329,9 @@ components:
         claim_data:
           type: object
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+        wallet_initiated_issuance:
+          type: boolean
+          description: Boolean flags indicates whether given transaction is initiated by Wallet.
       x-tags:
         - issuer
     InitiateOIDC4CIResponse:

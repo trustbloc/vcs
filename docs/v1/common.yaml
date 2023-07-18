@@ -67,6 +67,33 @@ components:
         - orb
         - web
         - key
+    WalletInitiatedFlowData:
+      title: WalletInitiatedFlowData
+      type: object
+      nullable: true
+      properties:
+        profile_id:
+          type: string
+        profile_version:
+          type: string
+        op_state:
+          type: string
+        scopes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        claim_endpoint:
+          type: string
+        credential_template_id:
+          type: string
+      required:
+        - profile_id
+        - profile_version
+        - scopes
+        - claim_endpoint
+        - credential_template_id
+        - op_state
     AuthorizationDetails:
       title: AuthorizationDetails
       type: object

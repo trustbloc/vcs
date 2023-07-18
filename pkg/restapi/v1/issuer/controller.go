@@ -416,6 +416,7 @@ func (c *Controller) initiateIssuance(
 		CredentialExpiresAt:       req.CredentialExpiresAt,
 		CredentialName:            lo.FromPtr(req.CredentialName),
 		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
+		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
@@ -444,7 +445,7 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 		return err
 	}
 
-	ad, err := common.ValidateAuthorizationDetails(&body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(&body.AuthorizationDetails)
 	if err != nil {
 		return err
 	}
@@ -480,7 +481,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	ad, err := common.ValidateAuthorizationDetails(body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
 	if err != nil {
 		return nil, err
 	}
@@ -503,11 +504,12 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
+		WalletInitiatedFlow: resp.WalletInitiatedFlow,
 		AuthorizationRequest: OAuthParameters{
 			ClientId:     profile.OIDCConfig.ClientID,
 			ClientSecret: profile.OIDCConfig.ClientSecretHandle,
-			ResponseType: resp.ResponseType,
 			Scope:        resp.Scope,
+			ResponseType: resp.ResponseType,
 		},
 		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
@@ -558,7 +560,8 @@ func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(), body.OpState, body.Code))
+	return util.WriteOutput(ctx)(c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(),
+		body.OpState, body.Code, body.WalletInitiatedFlow))
 }
 
 // ExchangeAuthorizationCodeRequest Exchanges authorization code.
@@ -791,6 +794,7 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
 		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
 		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
+		config.WalletInitiatedAuthFlowSupported = profile.OIDCConfig.WalletInitiatedAuthFlowSupported
 
 		if profile.OIDCConfig.EnableDynamicClientRegistration {
 			var regURL string

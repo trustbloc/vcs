@@ -8,6 +8,7 @@ package walletrunner
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credential, error) {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
+	ctx := context.Background()
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
 	if err != nil {
@@ -37,7 +39,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	s.print("Getting issuer OIDC config")
 	startTime := time.Now()
-	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
+	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
 
@@ -51,7 +53,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
 
 	if err != nil {
-		return nil, fmt.Errorf("get issuer oidc issuer config: %w", err)
+		return nil, fmt.Errorf("get issuer OIDC issuer config: %w", err)
 	}
 
 	tokenEndpoint := oidcConfig.TokenEndpoint

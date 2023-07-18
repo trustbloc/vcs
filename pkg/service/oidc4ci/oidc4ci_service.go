@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 const (
@@ -163,32 +164,13 @@ func (s *Service) PushAuthorizationDetails(
 	return nil
 }
 
-func (s *Service) PrepareClaimDataAuthorizationRequest(
-	ctx context.Context,
-	req *PrepareClaimDataAuthorizationRequest,
-) (*PrepareClaimDataAuthorizationResponse, error) {
-	tx, err := s.store.FindByOpState(ctx, req.OpState)
-	if err != nil {
-		return nil, fmt.Errorf("find tx by op state: %w", err)
-	}
-
-	newState := TransactionStateAwaitingIssuerOIDCAuthorization
-	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
-		return nil, err
-	}
-	tx.State = newState
-
-	if req.ResponseType != tx.ResponseType {
-		return nil, ErrResponseTypeMismatch
-	}
-
+func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
 	isScopeValid := true
 
-	for _, scope := range req.Scope {
+	for _, scope := range reqScopes {
 		found := false
 
-		for _, v := range tx.Scope {
+		for _, v := range txScopes {
 			if v == scope {
 				found = true
 				break
@@ -202,23 +184,66 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	if !isScopeValid {
-		return nil, ErrInvalidScope
+		return ErrInvalidScope
+	}
+
+	return nil
+}
+
+func (s *Service) PrepareClaimDataAuthorizationRequest(
+	ctx context.Context,
+	req *PrepareClaimDataAuthorizationRequest,
+) (*PrepareClaimDataAuthorizationResponse, error) {
+	tx, err := s.store.FindByOpState(ctx, req.OpState)
+
+	if err != nil && errors.Is(err, ErrDataNotFound) {
+		// process wallet initiated flow
+		walletFlowResp, walletFlowErr := s.prepareClaimDataAuthorizationRequestWalletInitiated(
+			ctx,
+			req.Scope,
+			ExtractIssuerURLFromScopes(req.Scope),
+			req.OpState,
+		)
+		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet-initiated flow
+			return nil, err
+		}
+
+		return walletFlowResp, walletFlowErr
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	newState := TransactionStateAwaitingIssuerOIDCAuthorization
+	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, err)
+		return nil, err
+	}
+	tx.State = newState
+
+	if req.ResponseType != tx.ResponseType {
+		return nil, ErrResponseTypeMismatch
+	}
+
+	if err = s.checkScopes(req.Scope, tx.Scope); err != nil {
+		return nil, err
 	}
 
 	if req.AuthorizationDetails != nil {
 		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
-			s.sendFailedEvent(ctx, tx, err)
+			s.sendFailedTransactionEvent(ctx, tx, err)
 			return nil, err
 		}
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err
 	}
 
-	if err = s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err
 	}
 
@@ -230,6 +255,79 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		Scope:                              tx.ClientScope,
 		AuthorizationEndpoint:              tx.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
+	}, nil
+}
+
+func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
+	ctx context.Context,
+	requestScopes []string,
+	issuerURL string,
+	opState string,
+) (*PrepareClaimDataAuthorizationResponse, error) {
+	sp := strings.Split(issuerURL, "/")
+	if len(sp) < WalletInitFlowClaimExpectedMatchCount {
+		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
+		return nil, ErrInvalidIssuerURL
+	}
+
+	profileID, profileVersion := sp[len(sp)-2], sp[len(sp)-1]
+
+	profile, err := s.profileService.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return nil, fmt.Errorf("wallet initiated flow get profile: %w", err)
+	}
+
+	if profile.OIDCConfig == nil || !profile.OIDCConfig.WalletInitiatedAuthFlowSupported {
+		return nil, errors.New("wallet initiated auth flow is not supported for current profile")
+	}
+	if profile.OIDCConfig.ClaimsEndpoint == "" {
+		return nil, errors.New("empty claims endpoint for profile")
+	}
+	if len(profile.CredentialTemplates) == 0 {
+		return nil, errors.New("no credential templates configured")
+	}
+
+	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
+	if err != nil {
+		return nil, fmt.Errorf("wallet initiated flow get oidc config: %w", err)
+	}
+
+	var scopes []string
+
+	for _, scope := range requestScopes {
+		if scope == issuerURL {
+			continue
+		}
+		scopes = append(scopes, scope)
+	}
+
+	event := eventPayload{
+		WebHook:             profile.WebHook,
+		ProfileID:           profileID,
+		ProfileVersion:      profileVersion,
+		OrgID:               profile.OrganizationID,
+		WalletInitiatedFlow: true,
+	}
+
+	if err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared, "", event); err != nil {
+		event.Error = err.Error()
+		s.sendFailedEvent(ctx, "", event)
+		return nil, err
+	}
+
+	return &PrepareClaimDataAuthorizationResponse{
+		WalletInitiatedFlow: &common.WalletInitiatedFlowData{
+			ProfileId:            profileID,
+			ProfileVersion:       profileVersion,
+			ClaimEndpoint:        profile.OIDCConfig.ClaimsEndpoint,
+			CredentialTemplateId: profile.CredentialTemplates[0].ID,
+			OpState:              opState,
+			Scopes:               &scopes,
+		},
+		ProfileID:             profileID,
+		ProfileVersion:        profileVersion,
+		Scope:                 scopes,
+		AuthorizationEndpoint: oidcConfig.AuthorizationEndpoint,
 	}, nil
 }
 
@@ -314,7 +412,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		return nil, err
 	}
 
-	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
+	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -331,7 +429,7 @@ func (s *Service) PrepareCredential(
 	}
 
 	if tx.CredentialTemplate == nil {
-		s.sendFailedEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
+		s.sendFailedTransactionEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
@@ -384,12 +482,12 @@ func (s *Service) PrepareCredential(
 
 	tx.State = TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err
 	}
 
-	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		s.sendFailedEvent(ctx, tx, errSendEvent)
+	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		s.sendFailedTransactionEvent(ctx, tx, errSendEvent)
 		return nil, errSendEvent
 	}
 
@@ -453,38 +551,27 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 }
 
 func (s *Service) createEvent(
-	tx *Transaction,
 	eventType spi.EventType,
-	e error,
+	transactionID TxID,
+	ep eventPayload,
 ) (*spi.Event, error) {
-	ep := eventPayload{
-		WebHook:        tx.WebHookURL,
-		ProfileID:      tx.ProfileID,
-		ProfileVersion: tx.ProfileVersion,
-		OrgID:          tx.OrgID,
-	}
-
-	if e != nil {
-		ep.Error = e.Error()
-	}
-
 	payload, err := json.Marshal(ep)
 	if err != nil {
 		return nil, err
 	}
 
 	event := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/issuer", eventType, payload)
-	event.TransactionID = string(tx.ID)
+	event.TransactionID = string(transactionID)
 
 	return event, nil
 }
 
-func (s *Service) sendEvent(ctx context.Context, tx *Transaction, eventType spi.EventType) error {
-	return s.sendEventWithError(ctx, tx, eventType, nil)
-}
-
-func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, eventType spi.EventType, e error) error {
-	event, err := s.createEvent(tx, eventType, e)
+func (s *Service) sendEvent(
+	ctx context.Context,
+	eventType spi.EventType,
+	transactionID TxID,
+	ep eventPayload) error {
+	event, err := s.createEvent(eventType, transactionID, ep)
 	if err != nil {
 		return err
 	}
@@ -492,7 +579,38 @@ func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, event
 	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, err error) {
-	e := s.sendEventWithError(ctx, tx, spi.IssuerOIDCInteractionFailed, err)
+func (s *Service) sendFailedEvent(
+	ctx context.Context,
+	transactionID TxID,
+	ep eventPayload) {
+	e := s.sendEvent(ctx, spi.IssuerOIDCInteractionFailed, transactionID, ep)
 	logger.Debugc(ctx, "sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
+}
+
+func (s *Service) sendTransactionEvent(
+	ctx context.Context,
+	tx *Transaction,
+	eventType spi.EventType,
+) error {
+	return s.sendEvent(ctx, eventType, tx.ID, eventPayload{
+		WebHook:             tx.WebHookURL,
+		ProfileID:           tx.ProfileID,
+		ProfileVersion:      tx.ProfileVersion,
+		OrgID:               tx.OrgID,
+		WalletInitiatedFlow: tx.WalletInitiatedIssuance,
+	})
+}
+
+func (s *Service) sendFailedTransactionEvent(
+	ctx context.Context,
+	tx *Transaction,
+	e error,
+) {
+	s.sendFailedEvent(ctx, tx.ID, eventPayload{
+		WebHook:        tx.WebHookURL,
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		OrgID:          tx.OrgID,
+		Error:          e.Error(),
+	})
 }

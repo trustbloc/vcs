@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -34,6 +35,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -66,7 +68,7 @@ func WithClientID(clientID string) OauthClientOpt {
 
 func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
-
+	ctx := context.Background()
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
 		config.InitiateIssuanceURL,
@@ -77,16 +79,16 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	s.print("Getting issuer OIDC config")
-	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
+	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc config: %w", err)
+		return fmt.Errorf("get issuer OIDC config: %w", err)
 	}
 
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
 		offerResponse.CredentialIssuer,
 	)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc issuer config: %w", err)
+		return fmt.Errorf("get issuer OIDC issuer config: %w", err)
 	}
 
 	redirectURL, err := url.Parse(config.RedirectURI)
@@ -160,7 +162,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		return fmt.Errorf("auth code is empty")
 	}
 
-	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
 
 	var beforeTokenRequestHooks []OauthClientOpt
 
@@ -229,11 +231,177 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	return nil
 }
 
+func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks) error {
+	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
+	ctx := context.Background()
+
+	issuerUrl := oidc4ci.ExtractIssuerURLFromScopes(config.Scope)
+	if issuerUrl == "" {
+		return errors.New(
+			"undefined scopes supplied. " +
+				"Make sure one of the provided scopes is in the VCS issuer URL format")
+	}
+
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
+		issuerUrl,
+	)
+	if err != nil {
+		return fmt.Errorf("get issuer OIDC issuer config: %w", err)
+	}
+
+	oidcConfig, err := s.getIssuerOIDCConfig(ctx, issuerUrl)
+	if err != nil {
+		return fmt.Errorf("get issuer OIDC config: %w", err)
+	}
+
+	redirectURL, err := url.Parse(config.RedirectURI)
+	if err != nil {
+		return fmt.Errorf("parse redirect url: %w", err)
+	}
+
+	var listener net.Listener
+
+	if config.Login == "" { // bind listener for callback server to support log in with a browser
+		listener, err = net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("listen: %w", err)
+		}
+
+		redirectURL.Host = fmt.Sprintf(
+			"%s:%d",
+			redirectURL.Hostname(),
+			listener.Addr().(*net.TCPAddr).Port,
+		)
+	}
+
+	s.oauthClient = &oauth2.Config{
+		ClientID:    config.ClientID,
+		RedirectURL: redirectURL.String(),
+		Scopes:      config.Scope,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   oidcConfig.AuthorizationEndpoint,
+			TokenURL:  oidcConfig.TokenEndpoint,
+			AuthStyle: oauth2.AuthStyleInHeader,
+		},
+	}
+
+	state := uuid.New().String()
+
+	b, err := json.Marshal(&common.AuthorizationDetails{
+		Type: "openid_credential",
+		Types: []string{
+			"VerifiableCredential",
+			config.CredentialType,
+		},
+		Format: lo.ToPtr(config.CredentialFormat),
+	})
+	if err != nil {
+		return fmt.Errorf("marshal authorization details: %w", err)
+	}
+
+	authCodeURL := s.oauthClient.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("authorization_details", string(b)),
+	)
+
+	var authCode string
+
+	if config.Login == "" { // interactive mode: login with a browser
+		authCode, err = s.getAuthCodeFromBrowser(listener, authCodeURL)
+		if err != nil {
+			return fmt.Errorf("get auth code from browser: %w", err)
+		}
+	} else {
+		authCode, err = s.getAuthCode(config, authCodeURL)
+		if err != nil {
+			return fmt.Errorf("get auth code: %w", err)
+		}
+	}
+
+	if authCode == "" {
+		return fmt.Errorf("auth code is empty")
+	}
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
+	var beforeTokenRequestHooks []OauthClientOpt
+
+	if hooks != nil {
+		beforeTokenRequestHooks = hooks.BeforeTokenRequest
+	}
+
+	for _, f := range beforeTokenRequestHooks {
+		f(s.oauthClient)
+	}
+
+	s.print("Exchanging authorization code for access token")
+	token, err := s.oauthClient.Exchange(ctx, authCode,
+		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
+	)
+	if err != nil {
+		return fmt.Errorf("exchange code for token: %w", err)
+	}
+
+	s.token = token
+
+	err = s.CreateWallet()
+	if err != nil {
+		return fmt.Errorf("create wallet: %w", err)
+	}
+
+	s.print("Getting credential")
+	vc, _, err := s.getCredential(
+		oidcIssuerCredentialConfig.CredentialEndpoint,
+		config.CredentialType,
+		config.CredentialFormat,
+		issuerUrl,
+	)
+	if err != nil {
+		return fmt.Errorf("get credential: %w", err)
+	}
+
+	b, err = json.Marshal(vc)
+	if err != nil {
+		return fmt.Errorf("marshal vc: %w", err)
+	}
+
+	s.print("Adding credential to wallet")
+	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
+		return fmt.Errorf("add credential: %w", err)
+	}
+
+	vcParsed, err := verifiable.ParseCredential(b,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(
+			s.ariesServices.JSONLDDocumentLoader()))
+	if err != nil {
+		return fmt.Errorf("parse VC: %w", err)
+	}
+
+	log.Printf(
+		"Credential with ID [%s] and type [%v] added successfully",
+		vcParsed.ID,
+		config.CredentialType,
+	)
+
+	if !s.keepWalletOpen {
+		s.wallet.Close()
+	}
+
+	return nil
+}
+
 func (s *Service) getIssuerOIDCConfig(
+	ctx context.Context,
 	issuerURL string,
 ) (*issuerv1.WellKnownOpenIDConfiguration, error) {
 	// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration
-	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-configuration")
+	req, err := http.NewRequestWithContext(ctx, "GET", issuerURL+"/.well-known/openid-configuration", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get issuer well-known: %w", err)
 	}

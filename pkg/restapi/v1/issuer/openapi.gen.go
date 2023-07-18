@@ -90,6 +90,9 @@ type InitiateOIDC4CIRequest struct {
 
 	// Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
 	UserPinRequired *bool `json:"user_pin_required,omitempty"`
+
+	// Boolean flags indicates whether given transaction is initiated by Wallet.
+	WalletInitiatedIssuance *bool `json:"wallet_initiated_issuance,omitempty"`
 }
 
 // Model for Initiate OIDC Credential Issuance Response.
@@ -174,7 +177,8 @@ type PrepareClaimDataAuthorizationResponse struct {
 	PushedAuthorizationRequestEndpoint *string `json:"pushed_authorization_request_endpoint,omitempty"`
 
 	// Transaction ID to correlate upcoming authorization response.
-	TxId string `json:"tx_id"`
+	TxId                string                                `json:"tx_id"`
+	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
 // Model for Prepare Credential request.
@@ -218,8 +222,9 @@ type PushAuthorizationDetailsRequest struct {
 
 // Model for storing auth code from issuer oauth
 type StoreAuthorizationCodeRequest struct {
-	Code    string `json:"code"`
-	OpState string `json:"op_state"`
+	Code                string                                `json:"code"`
+	OpState             string                                `json:"op_state"`
+	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
 // Response model for storing auth code from issuer oauth
@@ -283,6 +288,9 @@ type WellKnownOpenIDConfiguration struct {
 
 	// URL of the OP's OAuth 2.0 Token Endpoint.
 	TokenEndpoint string `json:"token_endpoint"`
+
+	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
+	WalletInitiatedAuthFlowSupported bool `json:"wallet_initiated_auth_flow_supported"`
 }
 
 // OpenID Config response.

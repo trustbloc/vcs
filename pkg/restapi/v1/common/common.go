@@ -9,16 +9,12 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
-	"errors"
 	"fmt"
-
-	"github.com/samber/lo"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -170,28 +166,4 @@ func MapToKMSConfigType(kmsType kms.Type) (KMSConfigType, error) {
 	return "",
 		fmt.Errorf("kms type missmatch %s, rest api supportes only [%s, %s, %s]",
 			kmsType, KMSConfigTypeAws, KMSConfigTypeLocal, KMSConfigTypeWeb)
-}
-
-func ValidateAuthorizationDetails(ad *AuthorizationDetails) (*oidc4ci.AuthorizationDetails, error) {
-	if ad.Type != "openid_credential" {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
-			errors.New("type should be 'openid_credential'"))
-	}
-
-	mapped := &oidc4ci.AuthorizationDetails{
-		Type:      ad.Type,
-		Types:     ad.Types,
-		Locations: lo.FromPtr(ad.Locations),
-	}
-
-	if ad.Format != nil {
-		vcFormat, err := ValidateVCFormat(VCFormat(*ad.Format))
-		if err != nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
-		}
-
-		mapped.Format = vcFormat
-	}
-
-	return mapped, nil
 }

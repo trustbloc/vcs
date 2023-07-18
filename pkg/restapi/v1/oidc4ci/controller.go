@@ -24,6 +24,7 @@ import (
 	"time"
 
 	gojose "github.com/go-jose/go-jose/v3"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/labstack/echo/v4"
@@ -152,7 +153,7 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 	}
 
-	authorizationDetails, err := common.ValidateAuthorizationDetails(&ad)
+	authorizationDetails, err := apiUtil.ValidateAuthorizationDetails(&ad)
 	if err != nil {
 		return err
 	}
@@ -193,6 +194,10 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	req := e.Request()
 	ctx := req.Context()
 
+	if lo.FromPtr(params.IssuerState) == "" {
+		params.IssuerState = lo.ToPtr(uuid.NewString())
+	}
+
 	ar, err := c.oauth2Provider.NewAuthorizeRequest(ctx, req)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
@@ -200,7 +205,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	ses := &fosite.DefaultSession{
 		Extra: map[string]interface{}{
-			sessionOpStateKey:       params.IssuerState,
+			sessionOpStateKey:       lo.FromPtr(params.IssuerState),
 			authorizationDetailsKey: lo.FromPtr(params.AuthorizationDetails),
 		},
 	}
@@ -219,7 +224,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 		}
 
-		if _, err = common.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
+		if _, err = apiUtil.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
 			return err
 		}
 
@@ -238,7 +243,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 				Types:  credentialType,
 				Format: vcFormat,
 			},
-			OpState:      params.IssuerState,
+			OpState:      lo.FromPtr(params.IssuerState),
 			ResponseType: params.ResponseType,
 			Scope:        lo.ToPtr(scope),
 		},
@@ -262,17 +267,6 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return fmt.Errorf("decode claim data authorization response: %w", err)
 	}
 
-	oauthConfig := oauth2.Config{
-		ClientID:     claimDataAuth.AuthorizationRequest.ClientId,
-		ClientSecret: claimDataAuth.AuthorizationRequest.ClientSecret,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:   claimDataAuth.AuthorizationEndpoint,
-			AuthStyle: oauth2.AuthStyleAutoDetect,
-		},
-		RedirectURL: c.issuerVCSPublicHost + "/oidc/redirect",
-		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
-	}
-
 	if params.State != nil {
 		ar.(*fosite.AuthorizeRequest).State = *params.State
 	}
@@ -284,14 +278,26 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
-		params.IssuerState,
+		lo.FromPtr(params.IssuerState),
 		&oidc4ci.AuthorizeState{
-			RedirectURI: ar.GetRedirectURI(),
-			RespondMode: string(ar.GetResponseMode()),
-			Header:      resp.GetHeader(),
-			Parameters:  resp.GetParameters(),
+			RedirectURI:         ar.GetRedirectURI(),
+			RespondMode:         string(ar.GetResponseMode()),
+			Header:              resp.GetHeader(),
+			Parameters:          resp.GetParameters(),
+			WalletInitiatedFlow: claimDataAuth.WalletInitiatedFlow,
 		}); err != nil {
 		return fmt.Errorf("save authorize state: %w", err)
+	}
+
+	oauthConfig := oauth2.Config{
+		ClientID:     claimDataAuth.AuthorizationRequest.ClientId,
+		ClientSecret: claimDataAuth.AuthorizationRequest.ClientSecret,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   claimDataAuth.AuthorizationEndpoint,
+			AuthStyle: oauth2.AuthStyleAutoDetect,
+		},
+		RedirectURL: c.issuerVCSPublicHost + "/oidc/redirect",
+		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
 	}
 
 	var authCodeURL string
@@ -300,13 +306,13 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		authCodeURL, err = c.buildAuthCodeURLWithPAR(ctx,
 			oauthConfig,
 			*claimDataAuth.PushedAuthorizationRequestEndpoint,
-			params.IssuerState,
+			lo.FromPtr(params.IssuerState),
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		authCodeURL = oauthConfig.AuthCodeURL(params.IssuerState)
+		authCodeURL = oauthConfig.AuthCodeURL(lo.FromPtr(params.IssuerState))
 	}
 
 	return e.Redirect(http.StatusSeeOther, authCodeURL)
@@ -385,8 +391,9 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 
 	storeResp, storeErr := c.issuerInteractionClient.StoreAuthorizationCodeRequest(ctx,
 		issuer.StoreAuthorizationCodeRequestJSONRequestBody{
-			Code:    params.Code,
-			OpState: params.State,
+			Code:                params.Code,
+			OpState:             params.State,
+			WalletInitiatedFlow: resp.WalletInitiatedFlow,
 		})
 	if storeErr != nil {
 		return storeErr
