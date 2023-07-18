@@ -205,7 +205,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 			s.extractIssuerURLFromClaims(req.Scope),
 			req.OpState,
 		)
-		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet flow
+		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet-initiated flow
 			return nil, err
 		}
 

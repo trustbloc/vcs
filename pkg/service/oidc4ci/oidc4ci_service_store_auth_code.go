@@ -25,7 +25,7 @@ func (s *Service) StoreAuthorizationCode(
 ) (TxID, error) {
 	var tx *Transaction
 	var err error
-	if flowData != nil { // its wallet initiated issuance, first we need to initiate issuance
+	if flowData != nil { // it's wallet initiated issuance, first we need to initiate issuance
 		tx, err = s.initiateIssuanceWithWalletFlow(ctx, flowData)
 	} else {
 		tx, err = s.store.FindByOpState(ctx, opState)
@@ -75,7 +75,7 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 		WalletInitiatedIssuance:   true,
 	}, profile)
 	if err != nil {
-		return nil, fmt.Errorf("can not initiate issuance for wallet flow. %w", err)
+		return nil, fmt.Errorf("can not initiate issuance for wallet-initiated flow. %w", err)
 	}
 
 	return tx.Tx, nil

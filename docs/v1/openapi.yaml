@@ -802,7 +802,7 @@ components:
           description: JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
         wallet_initiated_auth_flow_supported:
           type: boolean
-          description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4VCI. The default is false.
+          description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
       required:
         - authorization_endpoint
         - token_endpoint

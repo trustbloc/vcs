@@ -53,7 +53,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
 
 	if err != nil {
-		return nil, fmt.Errorf("get issuer oidc issuer config: %w", err)
+		return nil, fmt.Errorf("get issuer OIDC issuer config: %w", err)
 	}
 
 	tokenEndpoint := oidcConfig.TokenEndpoint

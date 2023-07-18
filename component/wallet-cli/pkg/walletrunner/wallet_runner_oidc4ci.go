@@ -89,7 +89,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		offerResponse.CredentialIssuer,
 	)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc issuer config: %w", err)
+		return fmt.Errorf("get issuer OIDC issuer config: %w", err)
 	}
 
 	redirectURL, err := url.Parse(config.RedirectURI)
@@ -234,25 +234,25 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 
 var matchRegex = regexp.MustCompile(oidc4ci.WalletInitFlowClaimRegex)
 
-func extractIssuerUrlFromScopes(scopes []string) (string, error) {
+func extractIssuerURLFromScopes(scopes []string) (string, error) {
 	for _, scope := range scopes {
 		if matchRegex.MatchString(scope) {
 			return scope, nil
 		}
 	}
 
-	return "", errors.New("issuer url not found in scopes")
+	return "", errors.New("issuer URL not found in scopes")
 }
 
 func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
 	ctx := context.Background()
-	// Check whether scope contains combined string Issuer URL||ClaimEndpoint||credentialTemplateID
-	issuerUrl, err := extractIssuerUrlFromScopes(config.Scope)
+
+	issuerUrl, err := extractIssuerURLFromScopes(config.Scope)
 	if err != nil {
 		return errors.New(
 			"undefined scopes supplied. " +
-				"Make sure one of the provided scope is an vcs issuer url format. ref " +
+				"Make sure one of the provided scope is in the VCS issuer URL format. ref " +
 				oidc4ci.WalletInitFlowClaimRegex)
 	}
 
@@ -260,7 +260,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		issuerUrl,
 	)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc issuer config: %w", err)
+		return fmt.Errorf("get issuer OIDC issuer config: %w", err)
 	}
 
 	oidcConfig, err := s.getIssuerOIDCConfig(ctx, issuerUrl)
