@@ -46,15 +46,25 @@ type Steps struct {
 	oidc4vpHooks *walletrunner.OIDC4VPHooks
 }
 
-// NewSteps returns new Steps context.
-func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
+func (s *Steps) ResetAndSetup() error {
+	s.tlsConfig = nil
+	s.cookie = nil
+	s.issuerProfile = nil
+	s.verifierProfile = nil
+	s.walletRunner = nil
+	s.dl = nil
+	s.issuedCredentialType = ""
+	s.issuedCredentialTemplateID = ""
+	s.vpClaimsTransactionID = ""
+	s.presentationDefinitionID = ""
+	s.usersNum = 0
+	s.concurrentReq = 0
+	s.stressResult = nil
+	s.oidc4vpHooks = nil
+
 	jar, err := cookiejar.New(&cookiejar.Options{})
 	if err != nil {
-		return nil, fmt.Errorf("init cookie jar: %w", err)
-	}
-
-	tlsConf := &tls.Config{
-		InsecureSkipVerify: true,
+		return fmt.Errorf("init cookie jar: %w", err)
 	}
 
 	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
@@ -64,21 +74,35 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 			c.KeepWalletOpen = true
 		})
 	if err != nil {
-		return nil, fmt.Errorf("unable create wallet runner: %w", err)
+		return fmt.Errorf("unable create wallet runner: %w", err)
 	}
 
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
+		return err
+	}
+
+	s.cookie = jar
+	s.tlsConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	s.walletRunner = walletRunner
+	s.dl = loader
+
+	return nil
+}
+
+// NewSteps returns new Steps context.
+func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
+	s := &Steps{
+		bddContext: ctx,
+	}
+
+	if err := s.ResetAndSetup(); err != nil {
 		return nil, err
 	}
 
-	return &Steps{
-		bddContext:   ctx,
-		cookie:       jar,
-		tlsConfig:    tlsConf,
-		walletRunner: walletRunner,
-		dl:           loader,
-	}, nil
+	return s, nil
 }
 
 // RegisterSteps registers OIDC4VC scenario steps.

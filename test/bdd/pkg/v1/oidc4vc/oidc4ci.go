@@ -41,6 +41,10 @@ const (
 )
 
 func (s *Steps) authorizeIssuer(profileVersionedID string) error {
+	if err := s.ResetAndSetup(); err != nil {
+		return err
+	}
+
 	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
