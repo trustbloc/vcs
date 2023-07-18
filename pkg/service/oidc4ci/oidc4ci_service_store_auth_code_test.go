@@ -13,9 +13,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -139,5 +142,151 @@ func TestStoreAuthCode(t *testing.T) {
 		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code, nil)
 		assert.ErrorContains(t, storeErr, "publish error")
 		assert.NotEqual(t, tx.ID, resp)
+	})
+}
+
+func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
+	t.Run("profile not found", func(t *testing.T) {
+		store := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: store,
+			EventService:     eventMock,
+			EventTopic:       spi.IssuerEventTopic,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("issuer not found"))
+		resp, err := srv.StoreAuthorizationCode(context.TODO(), "random-op-state", "code123",
+			&common.WalletInitiatedFlowData{
+				OpState:        "random-op-state",
+				ProfileId:      "bank_issuer1",
+				ProfileVersion: "v111.0",
+			},
+		)
+		assert.Empty(t, resp)
+		assert.ErrorContains(t, err, "issuer not found")
+	})
+
+	t.Run("error init", func(t *testing.T) {
+		store := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: store,
+			EventService:     eventMock,
+			EventTopic:       spi.IssuerEventTopic,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), "v111.0").
+			Return(&profileapi.Issuer{
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "some-template",
+					},
+				},
+				Active:     false,
+				VCConfig:   &profileapi.VCConfig{},
+				SigningDID: &profileapi.SigningDID{},
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+					IssuerWellKnownURL:               "https://awesome.local",
+					ClaimsEndpoint:                   "https://awesome.claims.local",
+					GrantTypesSupported: []string{
+						"authorization_code",
+					},
+					ScopesSupported: []string{
+						"scope1",
+						"scope2",
+						"scope3",
+					},
+				},
+			}, nil)
+
+		resp, err := srv.StoreAuthorizationCode(context.TODO(), "random-op-state", "code123",
+			&common.WalletInitiatedFlowData{
+				OpState:        "random-op-state",
+				ProfileId:      "bank_issuer1",
+				ProfileVersion: "v111.0",
+			},
+		)
+		assert.Empty(t, resp)
+		assert.ErrorContains(t, err, "can not initiate issuance for wallet flow. profile not active")
+	})
+	t.Run("success", func(t *testing.T) {
+		store := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: store,
+			EventService:     eventMock,
+			EventTopic:       spi.IssuerEventTopic,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), "v111.0").
+			Return(&profileapi.Issuer{
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "some-template",
+					},
+				},
+				Active:     true,
+				VCConfig:   &profileapi.VCConfig{},
+				SigningDID: &profileapi.SigningDID{},
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+					IssuerWellKnownURL:               "https://awesome.local",
+					ClaimsEndpoint:                   "https://awesome.claims.local",
+					GrantTypesSupported: []string{
+						"authorization_code",
+					},
+					ScopesSupported: []string{
+						"scope1",
+						"scope2",
+						"scope3",
+					},
+				},
+			}, nil)
+
+		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&oidc4ci.Transaction{}, nil)
+		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
+			Return(&oidc4ci.OIDCConfiguration{}, nil)
+		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		store.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+
+		resp, err := srv.StoreAuthorizationCode(context.TODO(), "random-op-state", "code123",
+			&common.WalletInitiatedFlowData{
+				ClaimEndpoint:        "",
+				CredentialTemplateId: "",
+				OpState:              "random-op-state",
+				ProfileId:            "bank_issuer1",
+				ProfileVersion:       "v111.0",
+				Scopes: lo.ToPtr([]string{
+					"scope1",
+					"scope2",
+					"scope3",
+				}),
+			},
+		)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 	})
 }

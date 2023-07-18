@@ -21,4 +21,5 @@ var (
 	ErrCredentialTypeNotSupported      = errors.New("credential type not supported")
 	ErrCredentialFormatNotSupported    = errors.New("credential format not supported")
 	ErrVCOptionsNotConfigured          = errors.New("vc options not configured")
+	ErrInvalidIssuerURL                = errors.New("invalid issuer url")
 )

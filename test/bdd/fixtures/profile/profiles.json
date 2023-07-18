@@ -167,9 +167,22 @@
           ],
           "enable_dynamic_client_registration": true,
           "wallet_initiated_auth_flow_supported": true,
-          "pre-authorized_grant_anonymous_access_supported": true
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
         },
         "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://w3id.org/citizenship/v1"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          },
           {
             "contexts": [
               "https://www.w3.org/2018/credentials/v1",
@@ -189,18 +202,6 @@
             ],
             "type": "UniversityDegreeCredential",
             "id": "universityDegreeTemplateID",
-            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
-            "checks": {
-              "strict": false
-            }
-          },
-          {
-            "contexts": [
-              "https://www.w3.org/2018/credentials/v1",
-              "https://w3id.org/citizenship/v1"
-            ],
-            "type": "PermanentResidentCard",
-            "id": "permanentResidentCardTemplateID",
             "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
             "checks": {
               "strict": false
@@ -514,9 +515,22 @@
           ],
           "enable_dynamic_client_registration": true,
           "pre-authorized_grant_anonymous_access_supported": true,
-          "wallet_initiated_auth_flow_supported": true
+          "wallet_initiated_auth_flow_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=CrudeProductCredential"
         },
         "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialTemplateID",
+            "issuer": "did:jwk:i_myprofile_cmtr_p256_ldp",
+            "checks": {
+              "strict": true
+            }
+          },
           {
             "contexts": [
               "https://www.w3.org/2018/credentials/v1",
@@ -548,18 +562,6 @@
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
-            "issuer": "did:jwk:i_myprofile_cmtr_p256_ldp",
-            "checks": {
-              "strict": true
-            }
-          },
-          {
-            "contexts": [
-              "https://www.w3.org/2018/credentials/v1",
-              "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
-            ],
-            "type": "CrudeProductCredential",
-            "id": "crudeProductCredentialTemplateID",
             "issuer": "did:jwk:i_myprofile_cmtr_p256_ldp",
             "checks": {
               "strict": true
@@ -692,7 +694,8 @@
           ],
           "enable_dynamic_client_registration": true,
           "pre-authorized_grant_anonymous_access_supported": true,
-          "wallet_initiated_auth_flow_supported": true
+          "wallet_initiated_auth_flow_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
         },
         "credentialTemplates": [
           {
@@ -700,8 +703,8 @@
               "https://www.w3.org/2018/credentials/v1",
               "https://www.w3.org/2018/credentials/examples/v1"
             ],
-            "type": "VerifiedEmployee",
-            "id": "templateID",
+            "type": "UniversityDegreeCredential",
+            "id": "universityDegreeTemplateID",
             "issuer": "did:orb:bank_issuer",
             "checks": {
               "strict": true
@@ -712,8 +715,8 @@
               "https://www.w3.org/2018/credentials/v1",
               "https://www.w3.org/2018/credentials/examples/v1"
             ],
-            "type": "UniversityDegreeCredential",
-            "id": "universityDegreeTemplateID",
+            "type": "VerifiedEmployee",
+            "id": "templateID",
             "issuer": "did:orb:bank_issuer",
             "checks": {
               "strict": true

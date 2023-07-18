@@ -198,15 +198,18 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	tx, err := s.store.FindByOpState(ctx, req.OpState)
 
 	if err != nil && errors.Is(err, ErrDataNotFound) {
-		// check if issuer supports Wallet initiated flow
-		issuerURL := s.extractIssuerURLFromClaims(req.Scope)
-		if issuerURL == "" {
-			// otherwise - return regular error
+		// process wallet initiated flow
+		walletFlowResp, walletFlowErr := s.prepareClaimDataAuthorizationRequestWalletInitiated(
+			ctx,
+			req.Scope,
+			s.extractIssuerURLFromClaims(req.Scope),
+			req.OpState,
+		)
+		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet flow
 			return nil, err
 		}
 
-		// process wallet initiated flow
-		return s.prepareClaimDataAuthorizationRequestWalletInitiated(ctx, req.Scope, issuerURL, req.OpState)
+		return walletFlowResp, walletFlowErr
 	}
 
 	if err != nil {
@@ -277,7 +280,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	matches := regexp.MustCompile(WalletInitFlowClaimRegex).FindStringSubmatch(issuerURL)
 	if len(matches) != WalletInitFlowClaimExpectedMatchCount {
 		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
-		return nil, errors.New("invalid issuer url")
+		return nil, ErrInvalidIssuerURL
 	}
 
 	profileID, profileVersion := matches[2], matches[3]
@@ -287,8 +290,14 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		return nil, fmt.Errorf("wallet initiated flow get profile: %w", err)
 	}
 
-	if !profile.OIDCConfig.WalletInitiatedAuthFlowSupported {
+	if profile.OIDCConfig == nil || !profile.OIDCConfig.WalletInitiatedAuthFlowSupported {
 		return nil, errors.New("wallet initiated auth flow is not supported for current profile")
+	}
+	if profile.OIDCConfig.ClaimsEndpoint == "" {
+		return nil, errors.New("empty claims endpoint for profile")
+	}
+	if len(profile.CredentialTemplates) == 0 {
+		return nil, errors.New("no credential templates configured")
 	}
 
 	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
@@ -296,8 +305,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		return nil, fmt.Errorf("wallet initiated flow get oidc config: %w", err)
 	}
 
-	// todo: what scopes should I use? In code below I'm using scopes from incoming request but removing issuerURL
-	scopes := make([]string, 0, len(requestScopes)-1)
+	var scopes []string
 
 	for _, scope := range requestScopes {
 		if scope == issuerURL {
@@ -320,29 +328,14 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		return nil, err
 	}
 
-	var credTemplate string // todo Sudesh remove hardcode
-	var credType string
-
-	switch profile.ID { // todo Sudesh remove hardcode
-	case "bank_issuer":
-		credTemplate = "universityDegreeTemplateID"
-		credType = "UniversityDegreeCredential"
-	case "i_myprofile_ud_es256k_jwt":
-		credTemplate = "permanentResidentCardTemplateID"
-		credType = "PermanentResidentCard"
-	default:
-		credTemplate = "crudeProductCredentialTemplateID"
-		credType = "CrudeProductCredential"
-	}
-
 	return &PrepareClaimDataAuthorizationResponse{
 		WalletInitiatedFlow: &common.WalletInitiatedFlowData{
-			ProfileId:      profileID,
-			ProfileVersion: profileVersion,
-			ClaimEndpoint: fmt.Sprintf( // todo Sudesh remove hardcode
-				"https://mock-login-consent.example.com:8099/claim-data?credentialType=%v", credType),
-			CredentialTemplateId: credTemplate, // todo Sudesh remove hardcode
+			ProfileId:            profileID,
+			ProfileVersion:       profileVersion,
+			ClaimEndpoint:        profile.OIDCConfig.ClaimsEndpoint,
+			CredentialTemplateId: profile.CredentialTemplates[0].ID,
 			OpState:              opState,
+			Scopes:               &scopes,
 		},
 		ProfileID:             profileID,
 		ProfileVersion:        profileVersion,

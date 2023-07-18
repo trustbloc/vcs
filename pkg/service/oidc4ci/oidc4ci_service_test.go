@@ -503,6 +503,358 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 	}
 }
 
+func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
+	t.Run("invalid url", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1",
+					"scope3",
+				},
+			},
+		)
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "data not found")
+	})
+
+	t.Run("profile not found", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
+			Return(nil, errors.New("not found"))
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "wallet initiated flow get profile")
+	})
+	t.Run("profile wallet flow not supported", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
+			Return(&profileapi.Issuer{}, nil)
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "wallet initiated auth flow is not supported for current profile")
+	})
+	t.Run("profile wallet flow claims url missing", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
+			Return(&profileapi.Issuer{
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+				},
+			}, nil)
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "empty claims endpoint for profile")
+	})
+	t.Run("profile wallet flow credential templates are missing", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
+			Return(&profileapi.Issuer{
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+					ClaimsEndpoint:                   "sadsadsa",
+				},
+			}, nil)
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "no credential templates configured")
+	})
+
+	t.Run("profile wallet flow well-known err", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
+			Return(&profileapi.Issuer{
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "123",
+					},
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+					ClaimsEndpoint:                   "sadsadsa",
+				},
+			}, nil)
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("well-known err"))
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "well-known err")
+	})
+	t.Run("profile wallet flow event err", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
+			Return(&profileapi.Issuer{
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "123",
+					},
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+					ClaimsEndpoint:                   "sadsadsa",
+				},
+			}, nil)
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
+			Return(&oidc4ci.OIDCConfiguration{}, nil)
+		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New("publish err"))
+		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, event ...*spi.Event) error {
+				assert.Equal(t, "vcs-issuer", topic)
+				assert.Equal(t, spi.IssuerOIDCInteractionFailed, event[0].Type)
+				return nil
+			})
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "publish err")
+	})
+	t.Run("success", func(t *testing.T) {
+		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		wellKnown := NewMockWellKnownService(gomock.NewController(t))
+
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: mockTransactionStore,
+			EventService:     eventMock,
+			ProfileService:   profileSvc,
+			WellKnownService: wellKnown,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+			Return(nil, oidc4ci.ErrDataNotFound)
+		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), "https://awesome.local").
+			Return(&oidc4ci.OIDCConfiguration{}, nil)
+
+		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, event ...*spi.Event) error {
+				assert.Equal(t, "vcs-issuer", topic)
+				assert.Len(t, event, 1)
+
+				assert.Equal(t, spi.IssuerOIDCInteractionAuthorizationRequestPrepared, event[0].Type)
+				return nil
+			})
+		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), "v111.0").
+			Return(&profileapi.Issuer{
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "some-template",
+					},
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					WalletInitiatedAuthFlowSupported: true,
+					IssuerWellKnownURL:               "https://awesome.local",
+					ClaimsEndpoint:                   "https://awesome.claims.local",
+				},
+			}, nil)
+
+		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
+			&oidc4ci.PrepareClaimDataAuthorizationRequest{
+				OpState: "random-op-state",
+				Scope: []string{
+					"scope1",
+					"scope2",
+					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0",
+					"scope3",
+				},
+			},
+		)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		assert.Equal(t, "bank_issuer1", resp.ProfileID)
+		assert.Equal(t, "v111.0", resp.ProfileVersion)
+		assert.Equal(t, []string{
+			"scope1",
+			"scope2",
+			"scope3",
+		}, resp.Scope)
+		assert.Equal(t, resp.Scope, *resp.WalletInitiatedFlow.Scopes)
+		assert.Equal(t, "https://awesome.claims.local", resp.WalletInitiatedFlow.ClaimEndpoint)
+		assert.Equal(t, "random-op-state", resp.WalletInitiatedFlow.OpState)
+		assert.Equal(t, "bank_issuer1", resp.WalletInitiatedFlow.ProfileId)
+		assert.Equal(t, "v111.0", resp.WalletInitiatedFlow.ProfileVersion)
+		assert.Equal(t, "some-template", resp.WalletInitiatedFlow.CredentialTemplateId)
+	})
+}
+
 func TestValidatePreAuthCode(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
