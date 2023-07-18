@@ -289,7 +289,7 @@ type WellKnownOpenIDConfiguration struct {
 	// URL of the OP's OAuth 2.0 Token Endpoint.
 	TokenEndpoint string `json:"token_endpoint"`
 
-	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4VCI. The default is false.
+	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
 	WalletInitiatedAuthFlowSupported bool `json:"wallet_initiated_auth_flow_supported"`
 }
 

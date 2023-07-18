@@ -82,7 +82,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	s.print("Getting issuer OIDC config")
 	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc config: %w", err)
+		return fmt.Errorf("get issuer OIDC config: %w", err)
 	}
 
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
@@ -265,7 +265,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 
 	oidcConfig, err := s.getIssuerOIDCConfig(ctx, issuerUrl)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc config: %w", err)
+		return fmt.Errorf("get issuer OIDC config: %w", err)
 	}
 
 	redirectURL, err := url.Parse(config.RedirectURI)
@@ -392,7 +392,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		verifiable.WithJSONLDDocumentLoader(
 			s.ariesServices.JSONLDDocumentLoader()))
 	if err != nil {
-		return fmt.Errorf("parse vc: %w", err)
+		return fmt.Errorf("parse VC: %w", err)
 	}
 
 	log.Printf(
