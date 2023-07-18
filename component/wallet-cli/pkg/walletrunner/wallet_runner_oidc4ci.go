@@ -252,7 +252,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	if err != nil {
 		return errors.New(
 			"undefined scopes supplied. " +
-				"Make sure one of the provided scope is in the VCS issuer URL format. ref " +
+				"Make sure one of the provided scopes is in the VCS issuer URL format
 				oidc4ci.WalletInitFlowClaimRegex)
 	}
 
