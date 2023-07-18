@@ -299,7 +299,6 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		},
 	}
 
-	issuerState := uuid.New().String()
 	state := uuid.New().String()
 
 	b, err := json.Marshal(&common.AuthorizationDetails{
@@ -315,7 +314,6 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	}
 
 	authCodeURL := s.oauthClient.AuthCodeURL(state,
-		oauth2.SetAuthURLParam("issuer_state", issuerState),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("authorization_details", string(b)),

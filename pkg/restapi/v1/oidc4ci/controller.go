@@ -24,6 +24,7 @@ import (
 	"time"
 
 	gojose "github.com/go-jose/go-jose/v3"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/labstack/echo/v4"
@@ -193,6 +194,10 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	req := e.Request()
 	ctx := req.Context()
 
+	if lo.FromPtr(params.IssuerState) == "" {
+		params.IssuerState = lo.ToPtr(uuid.NewString())
+	}
+
 	ar, err := c.oauth2Provider.NewAuthorizeRequest(ctx, req)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
@@ -200,7 +205,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	ses := &fosite.DefaultSession{
 		Extra: map[string]interface{}{
-			sessionOpStateKey:       params.IssuerState,
+			sessionOpStateKey:       lo.FromPtr(params.IssuerState),
 			authorizationDetailsKey: lo.FromPtr(params.AuthorizationDetails),
 		},
 	}
@@ -238,7 +243,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 				Types:  credentialType,
 				Format: vcFormat,
 			},
-			OpState:      params.IssuerState,
+			OpState:      lo.FromPtr(params.IssuerState),
 			ResponseType: params.ResponseType,
 			Scope:        lo.ToPtr(scope),
 		},
@@ -273,7 +278,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
-		params.IssuerState,
+		lo.FromPtr(params.IssuerState),
 		&oidc4ci.AuthorizeState{
 			RedirectURI:         ar.GetRedirectURI(),
 			RespondMode:         string(ar.GetResponseMode()),
@@ -301,13 +306,13 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		authCodeURL, err = c.buildAuthCodeURLWithPAR(ctx,
 			oauthConfig,
 			*claimDataAuth.PushedAuthorizationRequestEndpoint,
-			params.IssuerState,
+			lo.FromPtr(params.IssuerState),
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		authCodeURL = oauthConfig.AuthCodeURL(params.IssuerState)
+		authCodeURL = oauthConfig.AuthCodeURL(lo.FromPtr(params.IssuerState))
 	}
 
 	return e.Redirect(http.StatusSeeOther, authCodeURL)
