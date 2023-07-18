@@ -84,7 +84,7 @@ Feature: OIDC4VC REST API
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
     And   Issuer with id "<issuerProfile>" is authorized as a Profile user
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
-    When User interacts with Wallet to initiate credential issuance using authorization code flow
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with wallet-initiated
     Then credential is issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier form organization "test_org" waits for interaction succeeded event
