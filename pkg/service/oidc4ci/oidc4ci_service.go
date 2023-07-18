@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -202,7 +201,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		walletFlowResp, walletFlowErr := s.prepareClaimDataAuthorizationRequestWalletInitiated(
 			ctx,
 			req.Scope,
-			s.extractIssuerURLFromClaims(req.Scope),
+			ExtractIssuerURLFromScopes(req.Scope),
 			req.OpState,
 		)
 		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet-initiated flow
@@ -259,31 +258,19 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}, nil
 }
 
-func (s *Service) extractIssuerURLFromClaims(requestScopes []string) string {
-	matchRegex := regexp.MustCompile(WalletInitFlowClaimRegex)
-
-	for _, scope := range requestScopes {
-		if matchRegex.MatchString(scope) {
-			return scope
-		}
-	}
-
-	return ""
-}
-
 func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	ctx context.Context,
 	requestScopes []string,
 	issuerURL string,
 	opState string,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	matches := regexp.MustCompile(WalletInitFlowClaimRegex).FindStringSubmatch(issuerURL)
-	if len(matches) != WalletInitFlowClaimExpectedMatchCount {
+	sp := strings.Split(issuerURL, "/")
+	if len(sp) < WalletInitFlowClaimExpectedMatchCount {
 		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
 		return nil, ErrInvalidIssuerURL
 	}
 
-	profileID, profileVersion := matches[2], matches[3]
+	profileID, profileVersion := sp[len(sp)-2], sp[len(sp)-1]
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {

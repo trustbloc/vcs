@@ -519,6 +519,9 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
+		profileSvc.EXPECT().GetProfile(profileapi.ID("issuer"), "bank_issuer1").
+			Return(nil, errors.New("not found"))
+
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
@@ -533,7 +536,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			},
 		)
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "data not found")
+		assert.ErrorContains(t, err, "wallet initiated flow get profile: not found")
 	})
 
 	t.Run("profile not found", func(t *testing.T) {
@@ -1792,4 +1795,11 @@ func TestSelectProperFormat(t *testing.T) {
 		assert.Equal(t, vcsverifiable.JwtVCJson, srv.SelectProperOIDCFormat(vcsverifiable.Jwt,
 			&profileapi.CredentialTemplate{}))
 	})
+}
+
+func TestExtractNoScope(t *testing.T) {
+	assert.Equal(t, "", oidc4ci.ExtractIssuerURLFromScopes([]string{
+		"scope1",
+		"scope2",
+	}))
 }

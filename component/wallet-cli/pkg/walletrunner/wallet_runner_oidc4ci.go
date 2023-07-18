@@ -17,7 +17,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -232,28 +231,15 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	return nil
 }
 
-var matchRegex = regexp.MustCompile(oidc4ci.WalletInitFlowClaimRegex)
-
-func extractIssuerURLFromScopes(scopes []string) (string, error) {
-	for _, scope := range scopes {
-		if matchRegex.MatchString(scope) {
-			return scope, nil
-		}
-	}
-
-	return "", errors.New("issuer URL not found in scopes")
-}
-
 func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
 	ctx := context.Background()
 
-	issuerUrl, err := extractIssuerURLFromScopes(config.Scope)
-	if err != nil {
+	issuerUrl := oidc4ci.ExtractIssuerURLFromScopes(config.Scope)
+	if issuerUrl == "" {
 		return errors.New(
 			"undefined scopes supplied. " +
-				"Make sure one of the provided scopes is in the VCS issuer URL format. " +
-				oidc4ci.WalletInitFlowClaimRegex)
+				"Make sure one of the provided scopes is in the VCS issuer URL format")
 	}
 
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
