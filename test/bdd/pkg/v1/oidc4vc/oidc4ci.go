@@ -301,16 +301,15 @@ func (s *Steps) runOIDC4CIAuth() error {
 }
 
 func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
-	walletInitiatedFlowScope := fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version)
-
 	err := s.walletRunner.RunOIDC4CIWalletInitiated(&walletrunner.OIDC4CIConfig{
 		ClientID:         "oidc4vc_client",
-		Scope:            []string{"openid", "profile", walletInitiatedFlowScope},
+		Scope:            []string{"openid", "profile"},
 		RedirectURI:      "http://127.0.0.1/callback",
 		CredentialType:   s.issuedCredentialType,
 		CredentialFormat: s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
 		Login:            "bdd-test",
 		Password:         "bdd-test-pass",
+		IssuerState:      fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version),
 	}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIWalletInitiated: %w", err)

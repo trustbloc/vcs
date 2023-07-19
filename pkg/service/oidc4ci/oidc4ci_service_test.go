@@ -522,15 +522,15 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		profileSvc.EXPECT().GetProfile(profileapi.ID("issuer"), "bank_issuer1").
 			Return(nil, errors.New("not found"))
 
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1",
 					"scope3",
 				},
 			},
@@ -556,15 +556,15 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 
 		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
 			Return(nil, errors.New("not found"))
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 					"scope3",
 				},
 			},
@@ -590,15 +590,15 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 
 		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), gomock.Any()).
 			Return(&profileapi.Issuer{}, nil)
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 					"scope3",
 				},
 			},
@@ -628,15 +628,15 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 					WalletInitiatedAuthFlowSupported: true,
 				},
 			}, nil)
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 					"scope3",
 				},
 			},
@@ -667,15 +667,15 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 					ClaimsEndpoint:                   "sadsadsa",
 				},
 			}, nil)
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 					"scope3",
 				},
 			},
@@ -712,17 +712,17 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 					ClaimsEndpoint:                   "sadsadsa",
 				},
 			}, nil)
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("well-known err"))
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 					"scope3",
 				},
 			},
@@ -758,7 +758,8 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 					ClaimsEndpoint:                   "sadsadsa",
 				},
 			}, nil)
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
 			Return(&oidc4ci.OIDCConfiguration{}, nil)
@@ -772,11 +773,10 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			})
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
 					"scope3",
 				},
 			},
@@ -800,7 +800,8 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "random-op-state").
+		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
+			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), "https://awesome.local").
 			Return(&oidc4ci.OIDCConfiguration{}, nil)
@@ -829,11 +830,10 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "random-op-state",
+				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0",
 				Scope: []string{
 					"scope1",
 					"scope2",
-					"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0",
 					"scope3",
 				},
 			},
@@ -851,7 +851,8 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		}, resp.Scope)
 		assert.Equal(t, resp.Scope, *resp.WalletInitiatedFlow.Scopes)
 		assert.Equal(t, "https://awesome.claims.local", resp.WalletInitiatedFlow.ClaimEndpoint)
-		assert.Equal(t, "random-op-state", resp.WalletInitiatedFlow.OpState)
+		assert.NotEqual(t, "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0",
+			resp.WalletInitiatedFlow.OpState)
 		assert.Equal(t, "bank_issuer1", resp.WalletInitiatedFlow.ProfileId)
 		assert.Equal(t, "v111.0", resp.WalletInitiatedFlow.ProfileVersion)
 		assert.Equal(t, "some-template", resp.WalletInitiatedFlow.CredentialTemplateId)
@@ -1798,8 +1799,5 @@ func TestSelectProperFormat(t *testing.T) {
 }
 
 func TestExtractNoScope(t *testing.T) {
-	assert.Equal(t, "", oidc4ci.ExtractIssuerURLFromScopes([]string{
-		"scope1",
-		"scope2",
-	}))
+	assert.Equal(t, "", oidc4ci.ExtractIssuerURL("scope1"))
 }

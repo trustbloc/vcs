@@ -14,11 +14,9 @@ const (
 	WalletInitFlowClaimExpectedMatchCount = 2
 )
 
-func ExtractIssuerURLFromScopes(scopes []string) string {
-	for _, scope := range scopes {
-		if strings.HasPrefix(scope, "http://") || strings.HasPrefix(scope, "https://") {
-			return scope
-		}
+func ExtractIssuerURL(input string) string {
+	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+		return input
 	}
 
 	return ""

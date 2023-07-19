@@ -52,6 +52,7 @@ type OIDC4CIConfig struct {
 	Pin                 string
 	Login               string
 	Password            string
+	IssuerState         string
 }
 
 type OauthClientOpt func(config *oauth2.Config)
@@ -235,7 +236,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
 	ctx := context.Background()
 
-	issuerUrl := oidc4ci.ExtractIssuerURLFromScopes(config.Scope)
+	issuerUrl := oidc4ci.ExtractIssuerURL(config.IssuerState)
 	if issuerUrl == "" {
 		return errors.New(
 			"undefined scopes supplied. " +
@@ -300,6 +301,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	}
 
 	authCodeURL := s.oauthClient.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("issuer_state", issuerUrl),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("authorization_details", string(b)),
