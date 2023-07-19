@@ -38,6 +38,7 @@ type oidc4ciCommandFlags struct {
 	RedirectURI         string
 	Login               string
 	Password            string
+	IssuerState         string
 	VCFormat            string
 	VCProvider          string
 	CredentialType      string
@@ -161,6 +162,7 @@ func NewOIDC4CICommand() *cobra.Command {
 				RedirectURI:         flags.RedirectURI,
 				Login:               flags.Login,
 				Password:            flags.Password,
+				IssuerState:         flags.IssuerState,
 				CredentialType:      flags.CredentialType,
 				CredentialFormat:    flags.CredentialFormat,
 				Pin:                 flags.Pin,
@@ -191,6 +193,7 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.RedirectURI, "redirect-uri", "", "callback where the authorization code should be sent")
 	cmd.Flags().StringVar(&flags.Login, "login", "", "user login email")
 	cmd.Flags().StringVar(&flags.Password, "password", "", "user login password")
+	cmd.Flags().StringVar(&flags.IssuerState, "issuer-state", "", "issuer-state")
 	cmd.Flags().StringVar(&flags.VCFormat, "vc-format", "jwt_vc_json-ld", "vc format [jwt_vc_json-ld|ldp_vc]")
 	cmd.Flags().StringVar(&flags.VCProvider, "vc-provider", "vcs", "vc provider")
 	cmd.Flags().StringVar(&flags.CredentialType, "credential-type", "", "credential type")

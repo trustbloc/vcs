@@ -267,6 +267,11 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return fmt.Errorf("decode claim data authorization response: %w", err)
 	}
 
+	if claimDataAuth.WalletInitiatedFlow != nil {
+		ses.Extra[sessionOpStateKey] = claimDataAuth.WalletInitiatedFlow.OpState // swap op state
+		params.IssuerState = &claimDataAuth.WalletInitiatedFlow.OpState
+	}
+
 	if params.State != nil {
 		ar.(*fosite.AuthorizeRequest).State = *params.State
 	}

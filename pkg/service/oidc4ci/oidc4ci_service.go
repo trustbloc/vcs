@@ -201,8 +201,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		walletFlowResp, walletFlowErr := s.prepareClaimDataAuthorizationRequestWalletInitiated(
 			ctx,
 			req.Scope,
-			ExtractIssuerURLFromScopes(req.Scope),
-			req.OpState,
+			ExtractIssuerURL(req.OpState),
 		)
 		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet-initiated flow
 			return nil, err
@@ -262,7 +261,6 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	ctx context.Context,
 	requestScopes []string,
 	issuerURL string,
-	opState string,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	sp := strings.Split(issuerURL, "/")
 	if len(sp) < WalletInitFlowClaimExpectedMatchCount {
@@ -292,15 +290,6 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		return nil, fmt.Errorf("wallet initiated flow get oidc config: %w", err)
 	}
 
-	var scopes []string
-
-	for _, scope := range requestScopes {
-		if scope == issuerURL {
-			continue
-		}
-		scopes = append(scopes, scope)
-	}
-
 	event := eventPayload{
 		WebHook:             profile.WebHook,
 		ProfileID:           profileID,
@@ -321,12 +310,12 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 			ProfileVersion:       profileVersion,
 			ClaimEndpoint:        profile.OIDCConfig.ClaimsEndpoint,
 			CredentialTemplateId: profile.CredentialTemplates[0].ID,
-			OpState:              opState,
-			Scopes:               &scopes,
+			OpState:              uuid.NewString(),
+			Scopes:               &requestScopes,
 		},
 		ProfileID:             profileID,
 		ProfileVersion:        profileVersion,
-		Scope:                 scopes,
+		Scope:                 requestScopes,
 		AuthorizationEndpoint: oidcConfig.AuthorizationEndpoint,
 	}, nil
 }
