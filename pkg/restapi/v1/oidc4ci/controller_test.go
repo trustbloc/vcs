@@ -271,6 +271,69 @@ func TestController_OidcAuthorize(t *testing.T) {
 			},
 		},
 		{
+			name: "success wallet flow",
+			setup: func() {
+				state := "state"
+
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("https://some.issuer"),
+					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
+
+						return &fosite.AuthorizeResponse{}, nil
+					},
+				)
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+					WalletInitiatedFlow: &common.WalletInitiatedFlowData{
+						OpState: "generated-op-state",
+					},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), "generated-op-state", gomock.Any()).
+					Return(nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusSeeOther, rec.Code)
+				require.NotEmpty(t, rec.Header().Get("Location"))
+			},
+		},
+		{
 			name: "success with par",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
