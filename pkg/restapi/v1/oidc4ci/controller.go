@@ -19,7 +19,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -673,12 +672,8 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
 	}
 
-	tmpDisableIssTypCheck := os.Getenv("TEMP_DISABLE_ISS_TYP_CHECK") == "true"
-
-	if !tmpDisableIssTypCheck {
-		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
-			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
-		}
+	if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
 	}
 
 	if claims.IssuedAt == nil {
@@ -689,10 +684,8 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
 	}
 
-	if !tmpDisableIssTypCheck {
-		if typ, ok := jws.Headers.Type(); ok && typ != jwtProofTypHeader {
-			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
-		}
+	if typ, ok := jws.Headers.Type(); ok && typ != jwtProofTypHeader {
+		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
 	}
 
 	keyID, ok := jws.Headers.KeyID()
