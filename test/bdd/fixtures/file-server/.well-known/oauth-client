@@ -1,0 +1,18 @@
+{
+  "client_id": "https://file-server.trustbloc.local:10096",
+  "client_name": "discoverable_client_id_scheme",
+  "redirect_uris": [
+    "http://127.0.0.1/callback"
+  ],
+  "grant_types": [
+    "authorization_code"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "scopes": [
+    "openid",
+    "profile"
+  ],
+  "token_endpoint_auth_method": "none"
+}

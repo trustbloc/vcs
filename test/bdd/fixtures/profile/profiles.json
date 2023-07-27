@@ -693,6 +693,7 @@
             "none"
           ],
           "enable_dynamic_client_registration": true,
+          "enable_discoverable_client_id_scheme": true,
           "pre-authorized_grant_anonymous_access_supported": true,
           "wallet_initiated_auth_flow_supported": true,
           "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"

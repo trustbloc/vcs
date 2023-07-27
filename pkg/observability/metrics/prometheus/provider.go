@@ -119,6 +119,7 @@ func NewMetrics(
 		metrics.ClientIssuerInteraction, metrics.ClientOIDC4PV1,
 		metrics.ClientOIDC4CI, metrics.ClientOIDC4CIV1,
 		metrics.ClientWellKnown, metrics.ClientCredentialVerifier,
+		metrics.ClientDiscoverableClientIDScheme,
 	}
 
 	pm := &PromMetrics{

@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService
 
 package oidc4ci
 
@@ -35,10 +35,12 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -49,6 +51,7 @@ const (
 	txIDKey                    = "txID"
 	preAuthKey                 = "preAuth"
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 	jwtProofTypHeader          = "openid4vci-proof+jwt"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
@@ -89,13 +92,23 @@ type IssuerInteractionClient issuer.ClientInterface
 // ClientManager defines client manager interface.
 type ClientManager clientmanager.ServiceInterface
 
+// ClientIDSchemeService defines OAuth 2.0 Client ID Scheme service interface.
+type ClientIDSchemeService clientidscheme.ServiceInterface
+
+// ProfileService defines issuer profile service interface.
+type ProfileService interface {
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
+}
+
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider          OAuth2Provider
 	StateStore              StateStore
 	HTTPClient              HTTPClient
 	IssuerInteractionClient IssuerInteractionClient
+	ProfileService          ProfileService
 	ClientManager           ClientManager
+	ClientIDSchemeService   ClientIDSchemeService
 	JWTVerifier             jose.SignatureVerifier
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
@@ -108,7 +121,9 @@ type Controller struct {
 	stateStore              StateStore
 	httpClient              HTTPClient
 	issuerInteractionClient IssuerInteractionClient
+	profileService          ProfileService
 	clientManager           ClientManager
+	clientIDSchemeService   ClientIDSchemeService
 	jwtVerifier             jose.SignatureVerifier
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
@@ -122,7 +137,9 @@ func NewController(config *Config) *Controller {
 		stateStore:              config.StateStore,
 		httpClient:              config.HTTPClient,
 		issuerInteractionClient: config.IssuerInteractionClient,
+		profileService:          config.ProfileService,
 		clientManager:           config.ClientManager,
+		clientIDSchemeService:   config.ClientIDSchemeService,
 		jwtVerifier:             config.JWTVerifier,
 		tracer:                  config.Tracer,
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
@@ -189,12 +206,19 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 }
 
 // OidcAuthorize handles OIDC authorization request (GET /oidc/authorize).
-func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) error { //nolint:funlen
+func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) error { //nolint:funlen,gocognit
 	req := e.Request()
 	ctx := req.Context()
 
 	if lo.FromPtr(params.IssuerState) == "" {
 		params.IssuerState = lo.ToPtr(uuid.NewString())
+	}
+
+	if lo.FromPtr(params.ClientIdScheme) == discoverableClientIDScheme {
+		if err := c.clientIDSchemeService.Register(ctx, params.ClientId, lo.FromPtr(params.IssuerState)); err != nil {
+			logger.Errorc(ctx, "Failed to register client", log.WithError(err))
+			return resterr.NewSystemError("ClientIDSchemeService", "Register", err)
+		}
 	}
 
 	ar, err := c.oauth2Provider.NewAuthorizeRequest(ctx, req)
@@ -768,6 +792,15 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 
 	if err := e.Bind(&body); err != nil {
 		return err
+	}
+
+	profile, err := c.profileService.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return resterr.NewSystemError("ProfileService", "GetProfile", err)
+	}
+
+	if profile.OIDCConfig == nil || !profile.OIDCConfig.EnableDynamicClientRegistration {
+		return fmt.Errorf("dynamic client registration not supported")
 	}
 
 	data := &clientmanager.ClientMetadata{

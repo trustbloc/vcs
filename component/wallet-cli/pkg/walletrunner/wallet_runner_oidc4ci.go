@@ -44,16 +44,17 @@ const (
 )
 
 type OIDC4CIConfig struct {
-	InitiateIssuanceURL string
-	ClientID            string
-	Scope               []string
-	RedirectURI         string
-	CredentialType      string
-	CredentialFormat    string
-	Pin                 string
-	Login               string
-	Password            string
-	IssuerState         string
+	InitiateIssuanceURL  string
+	ClientID             string
+	Scope                []string
+	RedirectURI          string
+	CredentialType       string
+	CredentialFormat     string
+	Pin                  string
+	Login                string
+	Password             string
+	IssuerState          string
+	DiscoverableClientID bool
 }
 
 type OauthClientOpt func(config *oauth2.Config)
@@ -139,12 +140,19 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		return fmt.Errorf("marshal authorization details: %w", err)
 	}
 
-	authCodeURL := s.oauthClient.AuthCodeURL(state,
+	authCodeOptions := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("issuer_state", opState),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("authorization_details", string(b)),
-	)
+	}
+
+	if config.DiscoverableClientID {
+		authCodeOptions = append(authCodeOptions,
+			oauth2.SetAuthURLParam("client_id_scheme", discoverableClientIDScheme))
+	}
+
+	authCodeURL := s.oauthClient.AuthCodeURL(state, authCodeOptions...)
 
 	var authCode string
 

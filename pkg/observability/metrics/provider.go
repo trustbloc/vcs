@@ -47,16 +47,17 @@ const (
 type ClientID string
 
 const (
-	ClientPreAuth            ClientID = "preauthorize"
-	ClientIssuerProfile      ClientID = "issuer-profile"
-	ClientVerifierProfile    ClientID = "verifier-profile"
-	ClientCredentialStatus   ClientID = "credential-status" //nolint:gosec
-	ClientOIDC4CI            ClientID = "oidc4ci"
-	ClientOIDC4CIV1          ClientID = "oidc4civ1"
-	ClientOIDC4PV1           ClientID = "oidc4pv1"
-	ClientWellKnown          ClientID = "wellknown"
-	ClientIssuerInteraction  ClientID = "issuer-interaction"
-	ClientCredentialVerifier ClientID = "credential-verifier" //nolint:gosec
+	ClientPreAuth                    ClientID = "preauthorize"
+	ClientIssuerProfile              ClientID = "issuer-profile"
+	ClientVerifierProfile            ClientID = "verifier-profile"
+	ClientCredentialStatus           ClientID = "credential-status" //nolint:gosec
+	ClientOIDC4CI                    ClientID = "oidc4ci"
+	ClientOIDC4CIV1                  ClientID = "oidc4civ1"
+	ClientOIDC4PV1                   ClientID = "oidc4pv1"
+	ClientWellKnown                  ClientID = "wellknown"
+	ClientIssuerInteraction          ClientID = "issuer-interaction"
+	ClientCredentialVerifier         ClientID = "credential-verifier" //nolint:gosec
+	ClientDiscoverableClientIDScheme ClientID = "discoverable-client-id-scheme"
 )
 
 // Provider is an interface for metrics provider.

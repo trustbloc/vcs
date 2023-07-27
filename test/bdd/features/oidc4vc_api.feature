@@ -13,7 +13,7 @@ Feature: OIDC4VC REST API
     And   Issuer with id "<issuerProfile>" is authorized as a Profile user
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
 
-    When User interacts with Wallet to initiate credential issuance using authorization code flow with dynamic client registration
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
     Then credential is issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier from organization "test_org" retrieves interactions claims
@@ -21,15 +21,15 @@ Feature: OIDC4VC REST API
     And Verifier form organization "test_org" requests deleted interactions claims
 
     Examples:
-      | issuerProfile                  | credentialType             | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+      | issuerProfile                  | credentialType             | clientRegistrationMethod | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
+      | bank_issuer/v1.0               | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
 #      SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
-      | bank_issuer/v1.0               | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer/v1.0               | CrudeProductCredential     | discoverable             | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #     JWT issuer, JWT verifier, no limit disclosure and optional fields in PD query.
-      | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
-      | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
+      | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"

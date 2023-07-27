@@ -27,6 +27,7 @@ import (
 
 type oauth2ClientStore interface {
 	InsertClient(ctx context.Context, client *oauth2client.Client) (string, error)
+	GetClient(ctx context.Context, id string) (fosite.Client, error)
 }
 
 func bootstrapOAuthProvider(

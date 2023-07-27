@@ -65,7 +65,8 @@ var (
 )
 
 const (
-	vdrResolveMaxRetry = 10
+	vdrResolveMaxRetry         = 10
+	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 )
 
 var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
