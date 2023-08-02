@@ -732,7 +732,9 @@ func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, p
 }
 
 func (c *Controller) getOpenIDIssuerConfig(
-	profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
+	profileID string,
+	profileVersion string,
+) (*WellKnownOpenIDIssuerConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
@@ -755,8 +757,8 @@ func (c *Controller) getOpenIDIssuerConfig(
 	issuerURL, _ := url.JoinPath(c.externalHostURL, "issuer", profileID, profileVersion)
 
 	final := &WellKnownOpenIDIssuerConfiguration{
-		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host), // todo check
-		BatchCredentialEndpoint: nil,                                   // no support for now
+		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host),
+		BatchCredentialEndpoint: nil, // no support for now
 		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
 		CredentialsSupported:    finalCredentials,
 		CredentialIssuer:        issuerURL,
@@ -764,6 +766,7 @@ func (c *Controller) getOpenIDIssuerConfig(
 			{
 				Locale: lo.ToPtr("en-US"),
 				Name:   lo.ToPtr(issuer.Name),
+				Url:    lo.ToPtr(issuer.URL),
 			},
 		}),
 	}
