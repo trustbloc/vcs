@@ -24,6 +24,7 @@ import (
 type CredentialDisplay struct {
 	Locale *string `json:"locale,omitempty"`
 	Name   *string `json:"name,omitempty"`
+	Url    *string `json:"url,omitempty"`
 }
 
 // Credential status.

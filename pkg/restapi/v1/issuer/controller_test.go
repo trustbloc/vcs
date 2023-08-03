@@ -1496,6 +1496,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 	profileSvc := NewMockProfileService(gomock.NewController(t))
 	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 		Name: "random_name",
+		URL:  "https://localhost.com.local/abcd",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
 			KeyType:   "ECDSASecp256k1DER",
@@ -1523,6 +1524,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
 		assert.Equal(t, "random_name", *(*result.Display)[0].Name)
 		assert.Equal(t, "en-US", *(*result.Display)[0].Locale)
+		assert.Equal(t, "https://localhost.com.local/abcd", *(*result.Display)[0].Url)
 		assert.Len(t, result.CredentialsSupported, 1)
 
 		meta := (result.CredentialsSupported)[0].(map[string]interface{}) //nolint
