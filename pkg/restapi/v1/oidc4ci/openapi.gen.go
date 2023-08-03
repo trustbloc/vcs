@@ -230,6 +230,9 @@ type OidcAuthorizeParams struct {
 
 	// String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  issuer_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.
 	IssuerState *string `form:"issuer_state,omitempty" json:"issuer_state,omitempty"`
+
+	// String indicating that client is using an identifier not assigned by the authorization server. The only supported value "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client" specifies "client_id" parameter in the request as an HTTPS based URL corresponding to the "client_uri". If the authorization server does not already have the metadata for the identified client, it can retrieve the metadata from client’s well-known location.
+	ClientIdScheme *string `form:"client_id_scheme,omitempty" json:"client_id_scheme,omitempty"`
 }
 
 // OidcCredentialJSONBody defines parameters for OidcCredential.
@@ -361,6 +364,13 @@ func (w *ServerInterfaceWrapper) OidcAuthorize(ctx echo.Context) error {
 	err = runtime.BindQueryParameter("form", true, false, "issuer_state", ctx.QueryParams(), &params.IssuerState)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter issuer_state: %s", err))
+	}
+
+	// ------------- Optional query parameter "client_id_scheme" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "client_id_scheme", ctx.QueryParams(), &params.ClientIdScheme)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter client_id_scheme: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments

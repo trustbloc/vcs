@@ -37,6 +37,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -2075,6 +2076,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 
 func TestController_OidcRegisterClient(t *testing.T) {
 	mockClientManager := NewMockClientManager(gomock.NewController(t))
+	mockProfileService := NewMockProfileService(gomock.NewController(t))
 
 	reqBody, err := json.Marshal(&oidc4ci.RegisterOAuthClientRequest{
 		ClientName:   lo.ToPtr("client-name"),
@@ -2092,6 +2094,11 @@ func TestController_OidcRegisterClient(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
+				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{EnableDynamicClientRegistration: true},
+					}, nil)
+
 				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 					&oauth2client.Client{
 						ID:                      uuid.New().String(),
@@ -2123,6 +2130,11 @@ func TestController_OidcRegisterClient(t *testing.T) {
 		{
 			name: "no empty metadata fields",
 			setup: func() {
+				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{EnableDynamicClientRegistration: true},
+					}, nil)
+
 				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 					&oauth2client.Client{
 						ID: uuid.New().String(),
@@ -2152,8 +2164,45 @@ func TestController_OidcRegisterClient(t *testing.T) {
 			},
 		},
 		{
+			name: "fail to get profile",
+			setup: func() {
+				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("get profile error"))
+
+				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var customErr *resterr.CustomError
+
+				assert.ErrorAs(t, err, &customErr)
+				assert.ErrorContains(t, customErr, "get profile error")
+				assert.Equal(t, resterr.SystemError, customErr.Code)
+				assert.Equal(t, "ProfileService", customErr.Component)
+				assert.Equal(t, "GetProfile", customErr.FailedOperation)
+			},
+		},
+		{
+			name: "dynamic client registration disabled",
+			setup: func() {
+				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{EnableDynamicClientRegistration: false},
+					}, nil)
+
+				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "dynamic client registration not supported")
+			},
+		},
+		{
 			name: "client registration error",
 			setup: func() {
+				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{EnableDynamicClientRegistration: true},
+					}, nil)
+
 				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
 					&clientmanager.RegistrationError{
 						Code:         clientmanager.ErrCodeInvalidClientMetadata,
@@ -2172,6 +2221,11 @@ func TestController_OidcRegisterClient(t *testing.T) {
 		{
 			name: "create client error",
 			setup: func() {
+				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{EnableDynamicClientRegistration: true},
+					}, nil)
+
 				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
 					fmt.Errorf("create client error"))
 			},
@@ -2191,8 +2245,9 @@ func TestController_OidcRegisterClient(t *testing.T) {
 			tt.setup()
 
 			controller := oidc4ci.NewController(&oidc4ci.Config{
-				ClientManager: mockClientManager,
-				Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+				ClientManager:  mockClientManager,
+				ProfileService: mockProfileService,
+				Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))

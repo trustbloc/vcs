@@ -11,6 +11,7 @@ package clientmanager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -18,7 +19,10 @@ import (
 
 	"github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
+	"github.com/ory/fosite"
 	"github.com/samber/lo"
+
+	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -33,6 +37,7 @@ const (
 
 type store interface {
 	InsertClient(ctx context.Context, client *oauth2client.Client) (string, error)
+	GetClient(ctx context.Context, id string) (fosite.Client, error)
 }
 
 type profileService interface {
@@ -61,6 +66,7 @@ func New(config *Config) *Manager {
 
 // ClientMetadata contains the metadata for an OAuth2 client.
 type ClientMetadata struct {
+	ID                      string
 	Name                    string
 	URI                     string
 	RedirectURIs            []string
@@ -85,12 +91,12 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
-	if profile.OIDCConfig == nil || !profile.OIDCConfig.EnableDynamicClientRegistration {
-		return nil, fmt.Errorf("dynamic client registration not supported")
+	if profile.OIDCConfig == nil {
+		return nil, fmt.Errorf("oidc config not set for profile")
 	}
 
 	client := &oauth2client.Client{
-		ID:                uuid.New().String(),
+		ID:                data.ID,
 		Name:              data.Name,
 		URI:               data.URI,
 		RedirectURIs:      data.RedirectURIs,
@@ -102,6 +108,10 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		SoftwareID:        data.SoftwareID,
 		SoftwareVersion:   data.SoftwareVersion,
 		CreatedAt:         time.Now(),
+	}
+
+	if client.ID == "" {
+		client.ID = uuid.New().String()
 	}
 
 	if err = setScopes(client, profile.OIDCConfig.ScopesSupported, data.Scope); err != nil {
@@ -320,4 +330,18 @@ func isValidRedirectURI(uri *url.URL) bool {
 	}
 
 	return true
+}
+
+// Get returns the fosite client with the given id.
+func (m *Manager) Get(ctx context.Context, id string) (fosite.Client, error) {
+	c, err := m.store.GetClient(ctx, id)
+	if err != nil {
+		if errors.Is(err, dto.ErrDataNotFound) {
+			return nil, ErrClientNotFound
+		}
+
+		return nil, fmt.Errorf("get client: %w", err)
+	}
+
+	return c, nil
 }

@@ -8,15 +8,23 @@ package clientmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/ory/fosite"
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
-// ServiceInterface defines an interface for OAuth2 clients manager.
+// ServiceInterface defines an interface for OAuth2 client manager.
 type ServiceInterface interface {
 	Create(ctx context.Context, profileID, profileVersion string, data *ClientMetadata) (*oauth2client.Client, error)
+	Get(ctx context.Context, id string) (fosite.Client, error)
 }
+
+var (
+	ErrClientNotFound = errors.New("client not found")
+)
 
 // ErrorCode is an error code for client registration error response as defined in
 // https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.2.

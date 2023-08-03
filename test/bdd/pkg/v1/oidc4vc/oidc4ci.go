@@ -318,28 +318,40 @@ func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
 	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithDynamicClient() error {
+func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error {
 	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
 
-	clientID, err := s.registerOAuthClient(initiateOIDC4CIResponseData.OfferCredentialURL)
-	if err != nil {
-		return fmt.Errorf("register oauth client: %w", err)
-	}
-
-	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
+	config := &walletrunner.OIDC4CIConfig{
 		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:            clientID,
 		Scope:               []string{"openid", "profile"},
 		RedirectURI:         "http://127.0.0.1/callback",
 		CredentialType:      s.issuedCredentialType,
 		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
 		Login:               "bdd-test",
 		Password:            "bdd-test-pass",
-	}, nil)
-	if err != nil {
+	}
+
+	switch method {
+	case "pre-registered":
+		config.ClientID = "oidc4vc_client"
+	case "dynamic":
+		clientID, regErr := s.registerOAuthClient(initiateOIDC4CIResponseData.OfferCredentialURL)
+		if regErr != nil {
+			return fmt.Errorf("register oauth client: %w", err)
+		}
+
+		config.ClientID = clientID
+	case "discoverable":
+		config.ClientID = "https://file-server.trustbloc.local:10096"
+		config.DiscoverableClientID = true
+	default:
+		return fmt.Errorf("unsupported client registration method: %s", method)
+	}
+
+	if err = s.walletRunner.RunOIDC4CI(config, nil); err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CI: %w", err)
 	}
 

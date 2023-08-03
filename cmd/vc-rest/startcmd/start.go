@@ -78,6 +78,7 @@ import (
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
+	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
@@ -722,15 +723,24 @@ func buildEchoHandler(
 		},
 	)
 
+	clientIDSchemeSvc := clientidscheme.NewService(&clientidscheme.Config{
+		ClientManager:    clientManager,
+		HTTPClient:       getHTTPClient(metricsProvider.ClientDiscoverableClientIDScheme),
+		ProfileService:   issuerProfileSvc,
+		TransactionStore: oidc4ciTransactionStore,
+	})
+
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
 		IssuerInteractionClient: issuerInteractionClient,
+		ProfileService:          issuerProfileSvc,
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
 		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		JWTVerifier:             jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
 		ClientManager:           clientManager,
+		ClientIDSchemeService:   clientIDSchemeSvc,
 		Tracer:                  conf.Tracer,
 	}))
 
