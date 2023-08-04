@@ -109,6 +109,7 @@ type Verifier struct {
 	Version                 Version                            `json:"version,omitempty"`
 	Name                    string                             `json:"name,omitempty"`
 	URL                     string                             `json:"url,omitempty"`
+	LogoURL                 string                             `json:"logoURL,omitempty"`
 	Active                  bool                               `json:"active,omitempty"`
 	OrganizationID          string                             `json:"organizationID,omitempty"`
 	Checks                  *VerificationChecks                `json:"checks,omitempty"`
