@@ -142,6 +142,7 @@ type RequestObjectRegistration struct {
 	SubjectSyntaxTypesSupported []string         `json:"subject_syntax_types_supported"`
 	VPFormats                   *presexch.Format `json:"vp_formats"`
 	ClientPurpose               string           `json:"client_purpose"`
+	LogoURI                     string           `json:"logo_uri"`
 }
 
 type eventPayload struct {
@@ -651,6 +652,7 @@ func (s *Service) createRequestObject(
 			SubjectSyntaxTypesSupported: []string{"did:ion"},
 			VPFormats:                   vpFormats,
 			ClientPurpose:               purpose,
+			LogoURI:                     profile.LogoURL,
 		},
 		Claims: RequestObjectClaims{VPToken: VPToken{
 			presentationDefinition,
