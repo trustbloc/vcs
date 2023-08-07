@@ -48,7 +48,7 @@ all: checks unit-test bdd-test
 checks: license lint
 
 .PHONY: generate
-generate:
+generate: update-mock-aries
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
 	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...
@@ -188,3 +188,16 @@ update-aries:
 	@cd ./component/wallet-cli && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
 	@cd ./test/bdd && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
 	@cd ./test/stress && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+
+.PHONY: tidy-modules
+tidy-modules:
+	@find . -type d \( -name .build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		echo "Executing 'go mod tidy' in directory: $$dir_path"; \
+		(cd "$$dir_path" && go mod tidy) || exit 1; \
+	done
+.PHONY: update-mock-aries
+update-mock-aries:
+	@mkdir -p .build
+	@rm -rf ./build/aries
+	@git clone -b sdjwt-issuance-v5 git@github.com:skynet2/aries-framework-go.git ./.build/local-aries
