@@ -200,4 +200,4 @@ tidy-modules:
 update-mock-aries:
 	@mkdir -p .build
 	@rm -rf ./build/aries
-	@git clone -b sdjwt-issuance-v5 git@github.com:skynet2/aries-framework-go.git ./.build/local-aries
+	@git clone -b sdjwt-issuance-v5 https://github.com/skynet2/aries-framework-go.git ./.build/local-aries
