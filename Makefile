@@ -191,13 +191,13 @@ update-aries:
 
 .PHONY: tidy-modules
 tidy-modules:
-	@find . -type d \( -name .build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
 		dir_path=$$(dirname "$$gomod_path"); \
 		echo "Executing 'go mod tidy' in directory: $$dir_path"; \
 		(cd "$$dir_path" && go mod tidy) || exit 1; \
 	done
 .PHONY: update-mock-aries
 update-mock-aries:
-	@mkdir -p .build
-	@rm -rf ./build/aries
-	@git clone -b sdjwt-issuance-v5 https://github.com/skynet2/aries-framework-go.git ./.build/local-aries
+	@mkdir -p build
+	@rm -rf ./build/local-aries
+	@git clone -b sdjwt-issuance-v5 https://github.com/skynet2/aries-framework-go.git ./build/local-aries

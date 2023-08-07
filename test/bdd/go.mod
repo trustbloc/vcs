@@ -27,7 +27,9 @@ require (
 	golang.org/x/oauth2 v0.7.0
 )
 
-replace github.com/hyperledger/aries-framework-go => ./../../.build/local-aries
+replace github.com/hyperledger/aries-framework-go => ./../../build/local-aries
+
+replace github.com/hyperledger/aries-framework-go/component/models => ./../../build/local-aries/component/models
 
 require (
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
@@ -188,7 +190,7 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53 // indirect
+	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
