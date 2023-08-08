@@ -838,8 +838,8 @@
       "issuer": {
         "id": "bank_issuer_sdjwt_v5",
         "version": "v1.0",
-        "groupID": "group_bank_issuer",
-        "name": "Bank Issuer",
+        "groupID": "group_bank_issuer_sdjwt_v5",
+        "name": "Bank Issuer SDJWT v5",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
@@ -888,7 +888,7 @@
             ],
             "type": "UniversityDegreeCredential",
             "id": "universityDegreeTemplateID",
-            "issuer": "did:orb:bank_issuer",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5",
             "checks": {
               "strict": true
             }
@@ -900,7 +900,7 @@
             ],
             "type": "VerifiedEmployee",
             "id": "templateID",
-            "issuer": "did:orb:bank_issuer",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5",
             "checks": {
               "strict": true
             }
@@ -912,7 +912,7 @@
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
-            "issuer": "did:orb:bank_issuer",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5",
             "checks": {
               "strict": true
             }
@@ -924,7 +924,7 @@
             ],
             "type": "CrudeProductCredential",
             "id": "crudeProductCredentialTemplateID",
-            "issuer": "did:orb:bank_issuer",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5",
             "checks": {
               "strict": true
             },
