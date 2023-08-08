@@ -32,7 +32,7 @@ endif
 # Tool commands (overridable)
 ALPINE_VER ?= 3.16.5
 GO_ALPINE_VER ?= 3.16
-GO_VER ?= 1.19
+GO_VER ?= 1.20
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))
@@ -47,8 +47,9 @@ all: checks unit-test bdd-test
 .PHONY: checks
 checks: license lint
 
-.PHONY: generate
+#.PHONY: generate
 generate: update-mock-aries
+generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
 	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...

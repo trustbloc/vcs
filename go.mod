@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs
 
-go 1.19
+go 1.20
 
 replace github.com/hyperledger/aries-framework-go => ./build/local-aries
 
@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.20.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.31.0
-	github.com/btcsuite/btcd v0.22.1
+	github.com/btcsuite/btcd v0.22.3
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/deepmap/oapi-codegen v1.11.0

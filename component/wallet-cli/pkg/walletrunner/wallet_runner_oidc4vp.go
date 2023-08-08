@@ -20,6 +20,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
+	"github.com/valyala/fastjson"
+
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -28,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-	"github.com/valyala/fastjson"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -294,6 +295,7 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletSingleVP() error {
 		return fmt.Errorf("presentation definition marshal: %w", err)
 	}
 
+	fmt.Println(string(pdBytes))
 	// This query will always return one VP - so far no plans to change this
 	vps, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
 		Type:  "PresentationExchange",
