@@ -33,4 +33,5 @@ type Signer struct {
 	KMS                     keyManager
 	VCStatusListType        StatusType // Type of VC status list
 	SDJWT                   SDJWT
+	SDJWTemplateData        SelectiveDisclosureTemplate
 }

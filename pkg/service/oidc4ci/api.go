@@ -165,6 +165,7 @@ type PrepareCredentialResult struct {
 	Retry                   bool
 	EnforceStrictValidation bool
 	OidcFormat              vcsverifiable.OIDCFormat
+	CredentialTemplate      *profileapi.CredentialTemplate
 }
 
 type InsertOptions struct {

@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
-	"crypto"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -23,7 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
@@ -92,6 +92,7 @@ type signingOpts struct {
 	Created            *time.Time
 	Challenge          string
 	Domain             string
+	SDJWTTemplateData  *vc.SelectiveDisclosureTemplate
 }
 
 // SigningOpts is signing credential option.
@@ -101,6 +102,12 @@ type SigningOpts func(opts *signingOpts)
 func WithVerificationMethod(verificationMethod string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.VerificationMethod = verificationMethod
+	}
+}
+
+func WithSDJWTTemplateData(template *vc.SelectiveDisclosureTemplate) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.SDJWTTemplateData = template
 	}
 }
 
@@ -198,7 +205,9 @@ func (c *Crypto) signCredentialLDP(
 
 // signCredentialJWT returns vc in JWT format including the signature section.
 func (c *Crypto) signCredentialJWT(
-	signerData *vc.Signer, credential *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
+	signerData *vc.Signer,
+	credential *verifiable.Credential,
+	opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
@@ -238,7 +247,21 @@ func (c *Crypto) signCredentialJWT(
 	}
 
 	if signerData.SDJWT.Enable {
-		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, signerData.SDJWT.HashAlg, method)
+		options := []verifiable.MakeSDJWTOption{
+			verifiable.MakeSDJWTWithHash(signerData.SDJWT.HashAlg),
+		}
+
+		if signOpts.SDJWTTemplateData != nil {
+			options = append(options,
+				verifiable.MakeSDJWTWithVersion(signOpts.SDJWTTemplateData.Version),
+				verifiable.MakeSDJWTWithRecursiveClaimsObjects(signOpts.SDJWTTemplateData.RecursiveClaims),
+				verifiable.MakeSDJWTWithAlwaysIncludeObjects(signOpts.SDJWTTemplateData.AlwaysInclude),
+				verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims(
+					signOpts.SDJWTTemplateData.NonSelectivelyDisclosable),
+			)
+		}
+
+		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, method, options...)
 	}
 
 	return c.getJWTSignedCredential(credential, s, jwsAlgo, method)
@@ -268,8 +291,9 @@ func (c *Crypto) getSDJWTSignedCredential(
 	credential *verifiable.Credential,
 	signer vc.SignerAlgorithm,
 	jwsAlgo verifiable.JWSAlgorithm,
-	digestHashAlgo crypto.Hash,
-	signingKeyID string) (*verifiable.Credential, error) {
+	signingKeyID string,
+	options ...verifiable.MakeSDJWTOption,
+) (*verifiable.Credential, error) {
 	jwsAlgName, err := jwsAlgo.Name()
 	if err != nil {
 		return nil, fmt.Errorf("getting JWS algo name error: %w", err)
@@ -277,7 +301,8 @@ func (c *Crypto) getSDJWTSignedCredential(
 
 	joseSigner := jws.NewSigner(signingKeyID, jwsAlgName, signer)
 
-	sdjwt, err := credential.MakeSDJWT(joseSigner, signingKeyID, verifiable.MakeSDJWTWithHash(digestHashAlgo))
+	//
+	sdjwt, err := credential.MakeSDJWT(joseSigner, signingKeyID, options...)
 	if err != nil {
 		return nil, fmt.Errorf("make SDJWT credential error: %w", err)
 	}

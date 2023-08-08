@@ -18,9 +18,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/trustbloc/logutil-go/pkg/log"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -488,6 +489,7 @@ func (s *Service) PrepareCredential(
 		OidcFormat:              tx.OIDCCredentialFormat,
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
+		CredentialTemplate:      tx.CredentialTemplate,
 	}, nil
 }
 

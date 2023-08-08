@@ -20,14 +20,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -654,7 +655,13 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return err
 	}
 
-	signedCredential, err := c.signCredential(ctx, result.Credential, nil, profile)
+	var signOpts []crypto.SigningOpts
+	if result.CredentialTemplate != nil && result.CredentialTemplate.SdJWT != nil {
+		cast := vc.SelectiveDisclosureTemplate(*result.CredentialTemplate.SdJWT)
+		signOpts = append(signOpts, crypto.WithSDJWTTemplateData(&cast))
+	}
+
+	signedCredential, err := c.signCredential(ctx, result.Credential, signOpts, profile)
 	if err != nil {
 		return err
 	}

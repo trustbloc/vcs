@@ -64,7 +64,8 @@ func (s *Service) IssueCredential(
 	ctx context.Context,
 	credential *verifiable.Credential,
 	issuerSigningOpts []crypto.SigningOpts,
-	profile *profileapi.Issuer) (*verifiable.Credential, error) {
+	profile *profileapi.Issuer,
+) (*verifiable.Credential, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("get kms: %w", err)
