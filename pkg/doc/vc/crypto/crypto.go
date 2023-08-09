@@ -92,7 +92,6 @@ type signingOpts struct {
 	Created            *time.Time
 	Challenge          string
 	Domain             string
-	SDJWTTemplateData  *vc.SelectiveDisclosureTemplate
 }
 
 // SigningOpts is signing credential option.
@@ -102,12 +101,6 @@ type SigningOpts func(opts *signingOpts)
 func WithVerificationMethod(verificationMethod string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.VerificationMethod = verificationMethod
-	}
-}
-
-func WithSDJWTTemplateData(template *vc.SelectiveDisclosureTemplate) SigningOpts {
-	return func(opts *signingOpts) {
-		opts.SDJWTTemplateData = template
 	}
 }
 
@@ -249,16 +242,7 @@ func (c *Crypto) signCredentialJWT(
 	if signerData.SDJWT.Enable {
 		options := []verifiable.MakeSDJWTOption{
 			verifiable.MakeSDJWTWithHash(signerData.SDJWT.HashAlg),
-		}
-
-		if signOpts.SDJWTTemplateData != nil {
-			options = append(options,
-				verifiable.MakeSDJWTWithVersion(signOpts.SDJWTTemplateData.Version),
-				verifiable.MakeSDJWTWithRecursiveClaimsObjects(signOpts.SDJWTTemplateData.RecursiveClaims),
-				verifiable.MakeSDJWTWithAlwaysIncludeObjects(signOpts.SDJWTTemplateData.AlwaysInclude),
-				verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims(
-					signOpts.SDJWTTemplateData.NonSelectivelyDisclosable),
-			)
+			verifiable.MakeSDJWTWithVersion(signerData.SDJWT.Version),
 		}
 
 		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, method, options...)
@@ -412,8 +396,12 @@ func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 // verificationMethod from opts takes priority to create signer and verification method.
 //
 //nolint:unparam
-func (c *Crypto) getSigner(kmsKeyID string, km keyManager, opts *signingOpts,
-	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, string, error) {
+func (c *Crypto) getSigner(
+	kmsKeyID string,
+	km keyManager,
+	_ *signingOpts,
+	signatureType vcsverifiable.SignatureType,
+) (vc.SignerAlgorithm, string, error) {
 	s, err := km.NewVCSigner(kmsKeyID, signatureType)
 
 	return s, kmsKeyID, err

@@ -12,9 +12,10 @@ package oidc4vp
 import (
 	"context"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -55,11 +56,7 @@ func (w *Wrapper) VerifyOIDCVerifiablePresentation(ctx context.Context, txID oid
 	span.SetAttributes(attribute.String("tx_id", string(txID)))
 	span.SetAttributes(attributeutil.JSON("token", token, attributeutil.WithRedacted("#.Presentation")))
 
-	if err := w.svc.VerifyOIDCVerifiablePresentation(ctx, txID, token); err != nil {
-		return err
-	}
-
-	return nil
+	return w.svc.VerifyOIDCVerifiablePresentation(ctx, txID, token)
 }
 
 func (w *Wrapper) GetTx(ctx context.Context, id oidc4vp.TxID) (*oidc4vp.Transaction, error) {

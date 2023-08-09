@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -30,7 +32,6 @@ import (
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -454,9 +455,9 @@ func (m *mockVCSKeyManager) NewVCSigner(creator string, signatureType vcs.Signat
 func (m *mockVCSKeyManager) SupportedKeyTypes() []kms.KeyType {
 	return nil
 }
-func (m *mockVCSKeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+func (m *mockVCSKeyManager) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
 	return "", nil, nil
 }
-func (m *mockVCSKeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+func (m *mockVCSKeyManager) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
 	return "", nil, nil
 }

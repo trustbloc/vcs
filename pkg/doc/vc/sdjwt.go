@@ -14,13 +14,7 @@ import (
 
 // SDJWT represents the SD-JWT configuration.
 type SDJWT struct {
-	Enable  bool        `json:"enable,omitempty"`
-	HashAlg crypto.Hash `json:"hashAlg,omitempty"`
-}
-
-type SelectiveDisclosureTemplate struct { // todo
-	Version                   common.SDJWTVersion `json:"version"`
-	AlwaysInclude             []string            `json:"alwaysInclude"`
-	RecursiveClaims           []string            `json:"recursiveClaims"`
-	NonSelectivelyDisclosable []string            `json:"nonSelectivelyDisclosable"`
+	Enable  bool                `json:"enable,omitempty"`
+	HashAlg crypto.Hash         `json:"hashAlg,omitempty"`
+	Version common.SDJWTVersion `json:"version,omitempty"`
 }

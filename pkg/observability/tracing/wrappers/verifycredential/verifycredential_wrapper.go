@@ -12,9 +12,10 @@ package verifycredential
 import (
 	"context"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -85,9 +86,5 @@ func (w *Wrapper) ValidateLinkedDomain(ctx context.Context, signingDID string) e
 
 	span.SetAttributes(attribute.String("signingDID", signingDID))
 
-	if err := w.svc.ValidateLinkedDomain(ctx, signingDID); err != nil {
-		return err
-	}
-
-	return nil
+	return w.svc.ValidateLinkedDomain(ctx, signingDID)
 }

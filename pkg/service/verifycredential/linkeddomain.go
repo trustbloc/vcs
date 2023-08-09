@@ -52,12 +52,8 @@ func (s *Service) ValidateLinkedDomain(ctx context.Context, signingDID string) e
 			didconfig.WithHTTPClient(s.httpClient),
 		)
 
-		if err = didConfigurationClient.VerifyDIDAndDomain(signingDID,
-			strings.TrimSuffix(serviceEndpoint.Origins[0], "/")); err != nil {
-			return err
-		}
-
-		return nil
+		return didConfigurationClient.VerifyDIDAndDomain(signingDID,
+			strings.TrimSuffix(serviceEndpoint.Origins[0], "/"))
 	}
 
 	return fmt.Errorf("no LinkedDomains service in DID %s", signingDID)

@@ -158,11 +158,7 @@ func (s *Service) PushAuthorizationDetails(
 		return fmt.Errorf("find tx by op state: %w", err)
 	}
 
-	if err = s.updateAuthorizationDetails(ctx, ad, tx); err != nil {
-		return err
-	}
-
-	return nil
+	return s.updateAuthorizationDetails(ctx, ad, tx)
 }
 
 func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {

@@ -17,6 +17,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/jinzhu/copier"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -36,9 +40,6 @@ import (
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
-	"github.com/jinzhu/copier"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -772,10 +773,10 @@ func (m *mockVCSKeyManager) NewVCSigner(creator string,
 func (m *mockVCSKeyManager) SupportedKeyTypes() []kms.KeyType {
 	return []kms.KeyType{kms.ED25519Type}
 }
-func (m *mockVCSKeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+func (m *mockVCSKeyManager) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
 	return "", nil, nil
 }
-func (m *mockVCSKeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+func (m *mockVCSKeyManager) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
 	return "", nil, nil
 }
 
@@ -783,7 +784,7 @@ type mockEvent struct {
 	err error
 }
 
-func (m *mockEvent) Publish(ctx context.Context, topic string, messages ...*spi.Event) error {
+func (m *mockEvent) Publish(_ context.Context, _ string, _ ...*spi.Event) error {
 	if m.err != nil {
 		return m.err
 	}

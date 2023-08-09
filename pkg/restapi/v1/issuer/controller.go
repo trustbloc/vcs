@@ -656,10 +656,6 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}
 
 	var signOpts []crypto.SigningOpts
-	if result.CredentialTemplate != nil && result.CredentialTemplate.SdJWT != nil {
-		cast := vc.SelectiveDisclosureTemplate(*result.CredentialTemplate.SdJWT)
-		signOpts = append(signOpts, crypto.WithSDJWTTemplateData(&cast))
-	}
 
 	signedCredential, err := c.signCredential(ctx, result.Credential, signOpts, profile)
 	if err != nil {
