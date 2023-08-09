@@ -26,10 +26,6 @@ func New(uri string) func(ctx context.Context) error {
 			return fmt.Errorf("failed to ping mongodb: %w", err)
 		}
 
-		if err = client.Disconnect(ctx); err != nil {
-			return err
-		}
-
-		return nil
+		return client.Disconnect(ctx)
 	}
 }

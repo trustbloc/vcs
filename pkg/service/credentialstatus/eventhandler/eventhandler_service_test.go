@@ -17,6 +17,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/piprate/json-gold/ld"
+	"github.com/stretchr/testify/require"
+
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -25,8 +28,6 @@ import (
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/piprate/json-gold/ld"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -690,7 +691,7 @@ func (m *mockCSLVCStore) GetCSLURL(issuerURL, issuerID string, listID credential
 	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
 }
 
-func (m *mockCSLVCStore) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
+func (m *mockCSLVCStore) Upsert(_ context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -700,7 +701,7 @@ func (m *mockCSLVCStore) Upsert(ctx context.Context, cslURL string, cslWrapper *
 	return nil
 }
 
-func (m *mockCSLVCStore) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
+func (m *mockCSLVCStore) Get(_ context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
@@ -789,10 +790,10 @@ func (m *mockKMS) SupportedKeyTypes() []kms.KeyType {
 	return nil
 }
 
-func (m *mockKMS) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+func (m *mockKMS) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
 	return "", nil, nil
 }
 
-func (m *mockKMS) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+func (m *mockKMS) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
 	return "", nil, nil
 }

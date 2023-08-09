@@ -47,7 +47,10 @@ type mockS3Uploader struct {
 }
 
 func (m *mockS3Uploader) PutObject(
-	ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	_ context.Context,
+	input *s3.PutObjectInput,
+	_ ...func(*s3.Options),
+) (*s3.PutObjectOutput, error) {
 	if m.putErr != nil {
 		return nil, m.putErr
 	}

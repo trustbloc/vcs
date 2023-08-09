@@ -12,12 +12,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/kms/key"
 )
@@ -143,6 +144,6 @@ func newKMS(t *testing.T) kms.KeyManager {
 type kmsMock struct {
 }
 
-func (m *kmsMock) CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error) {
+func (m *kmsMock) CreateAndExportPubKeyBytes(_ kms.KeyType, _ ...kms.KeyOpts) (string, []byte, error) {
 	return "k1", []byte{}, nil
 }

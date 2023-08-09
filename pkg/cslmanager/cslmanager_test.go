@@ -536,7 +536,7 @@ func (m *mockCSLVCStore) GetCSLURL(issuerURL, issuerID string, listID credential
 	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
 }
 
-func (m *mockCSLVCStore) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
+func (m *mockCSLVCStore) Upsert(_ context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}

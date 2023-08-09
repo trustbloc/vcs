@@ -59,11 +59,7 @@ func (w *Wrapper) ValidateCredentialProof(ctx context.Context, vcByte []byte, pr
 	span.SetAttributes(attribute.Bool("vc_in_vp_validation", vcInVPValidation))
 	span.SetAttributes(attribute.Bool("is_jwt", isJWT))
 
-	if err := w.svc.ValidateCredentialProof(ctx, vcByte, proofChallenge, proofDomain, vcInVPValidation, isJWT); err != nil {
-		return err
-	}
-
-	return nil
+	return w.svc.ValidateCredentialProof(ctx, vcByte, proofChallenge, proofDomain, vcInVPValidation, isJWT)
 }
 
 func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error {
@@ -73,11 +69,7 @@ func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 	span.SetAttributes(attributeutil.JSON("vc_status", vcStatus))
 	span.SetAttributes(attribute.String("issuer", issuer))
 
-	if err := w.svc.ValidateVCStatus(ctx, vcStatus, issuer); err != nil {
-		return err
-	}
-
-	return nil
+	return w.svc.ValidateVCStatus(ctx, vcStatus, issuer)
 }
 
 func (w *Wrapper) ValidateLinkedDomain(ctx context.Context, signingDID string) error {

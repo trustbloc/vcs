@@ -91,7 +91,7 @@ func New(
 
 //nolint:funlen
 func (s *Service) DidConfig(
-	ctx context.Context,
+	_ context.Context,
 	profileType ProfileType,
 	profileID string,
 	profileVersion string,

@@ -853,6 +853,7 @@
             "type": "StatusList2021Entry"
           },
           "sdjwt": {
+            "version" : 5,
             "enable": true,
             "hashAlg": 6
           }
@@ -927,11 +928,6 @@
             "issuer": "did:orb:bank_issuer_sdjwt_v5",
             "checks": {
               "strict": true
-            },
-            "sdJWT" : {
-              "version" : 5,
-              "recursiveClaims" : ["chemicalSpecs"],
-              "nonSelectivelyDisclosable" : ["address"]
             }
           }
         ],
