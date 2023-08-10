@@ -421,7 +421,7 @@ func (s *server) claimDataHandler(w http.ResponseWriter, r *http.Request) {
 				"gasOilAt650To980F":                  "",
 				"residAt980F":                        "41",
 				"deemedButane":                       "1.9",
-				"tan":                                "1.05",
+				"tan":                                []string{"1.05", "1.06"},
 				"ron":                                "",
 				"mon":                                "",
 				"boilingPoint":                       "",
