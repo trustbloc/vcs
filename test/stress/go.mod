@@ -9,7 +9,7 @@ go 1.19
 require (
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/imroc/req/v3 v3.34.0
 	github.com/joho/godotenv v1.4.0
 	github.com/labstack/echo/v4 v4.9.0
@@ -20,10 +20,6 @@ require (
 	github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b
 	golang.org/x/oauth2 v0.7.0
 )
-
-replace github.com/hyperledger/aries-framework-go => ./../../build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./../../build/local-aries/component/models
 
 require (
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect

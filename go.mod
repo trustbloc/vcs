@@ -6,10 +6,6 @@ module github.com/trustbloc/vcs
 
 go 1.20
 
-replace github.com/hyperledger/aries-framework-go => ./build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./build/local-aries/component/models
-
 require (
 	github.com/alexliesenfeld/health v0.6.0
 	github.com/aws/aws-sdk-go-v2 v1.17.7
@@ -25,7 +21,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539

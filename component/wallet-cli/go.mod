@@ -6,16 +6,12 @@ module github.com/trustbloc/vcs/component/wallet-cli
 
 go 1.19
 
-replace github.com/hyperledger/aries-framework-go => ./../../build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./../../build/local-aries/component/models
-
 require (
 	github.com/cli/browser v1.1.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49

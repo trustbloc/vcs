@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/event
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
@@ -168,9 +168,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/hyperledger/aries-framework-go => ./../../build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./../../build/local-aries/component/models
 
 replace github.com/trustbloc/vcs => ../../

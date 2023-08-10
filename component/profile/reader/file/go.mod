@@ -7,7 +7,7 @@ go 1.19
 
 require (
 	github.com/hashicorp/go-version v1.2.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
@@ -155,7 +155,6 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
@@ -170,9 +169,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/hyperledger/aries-framework-go => ./../../../../build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./../../../../build/local-aries/component/models
 
 replace github.com/trustbloc/vcs => ../../../../

@@ -9,7 +9,7 @@ go 1.19
 require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/spf13/cobra v1.7.0
@@ -153,7 +153,6 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
@@ -168,9 +167,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/hyperledger/aries-framework-go => ./../../build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./../../build/local-aries/component/models
 
 replace github.com/trustbloc/vcs => ../../

@@ -12,7 +12,7 @@ require (
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230615070726-b02a3e01fc44
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
@@ -247,9 +247,5 @@ replace (
 	github.com/trustbloc/vcs/component/otp => ../../component/otp
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
-
-replace github.com/hyperledger/aries-framework-go => ./../../build/local-aries
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./../../build/local-aries/component/models
 
 go 1.19
