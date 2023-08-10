@@ -47,8 +47,7 @@ all: checks unit-test bdd-test
 .PHONY: checks
 checks: license lint
 
-#.PHONY: generate
-generate: update-mock-aries
+.PHONY: generate
 generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
 	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
