@@ -295,7 +295,6 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletSingleVP() error {
 		return fmt.Errorf("presentation definition marshal: %w", err)
 	}
 
-	fmt.Println(string(pdBytes))
 	// This query will always return one VP - so far no plans to change this
 	vps, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
 		Type:  "PresentationExchange",
