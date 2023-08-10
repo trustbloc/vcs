@@ -24,7 +24,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/jinzhu/copier v0.3.5

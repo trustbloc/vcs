@@ -96,7 +96,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230810150537-71e132ba5968 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230622171716-43af8054a539 // indirect

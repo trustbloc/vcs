@@ -72,7 +72,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230810150537-71e132ba5968 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230622171716-43af8054a539 // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
@@ -153,6 +153,7 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
+	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect

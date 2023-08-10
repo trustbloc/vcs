@@ -16,7 +16,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230810150537-71e132ba5968
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250

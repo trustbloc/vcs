@@ -181,14 +181,13 @@ clean:
 
 .PHONY: update-aries
 update-aries:
-	@cd ./ && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./cmd/vc-rest && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./component/credentialstatus && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./component/event && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./component/profile/reader/file && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./component/wallet-cli && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./test/bdd && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
-	@cd ./test/stress && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go mod tidy
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/hyperledger/aries-framework-go" "$$gomod_path"; then \
+			echo "Executing 'updating aries' in directory: $$dir_path"; \
+			(cd "$$dir_path" && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go get github.com/hyperledger/aries-framework-go/component/models@$(ARIES_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
 
 .PHONY: tidy-modules
 tidy-modules:
