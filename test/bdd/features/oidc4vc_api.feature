@@ -49,6 +49,7 @@ Feature: OIDC4VC REST API
       | bank_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
 #      SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
       | bank_issuer/v1.0               | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer_sdjwt_v5/v1.0      | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #     JWT issuer, JWT verifier, no limit disclosure and optional fields in PD query.
       | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
@@ -104,7 +105,7 @@ Feature: OIDC4VC REST API
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
     Then credential is issued
-    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "verifiable credential doesn't contains proof" error
+    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "query vc using presentation definition: no result found" error
     Then we wait 15 seconds
     And Verifier form organization "test_org" requests expired interactions claims
 
@@ -114,7 +115,7 @@ Feature: OIDC4VC REST API
       | i_myprofile_ud_es256k_jwt/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #      LDP issuer, LDP verifier, limit disclosure enabled in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
-
+#
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow (OIDC4VP flow - unsupported vp_token format)
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
     And   Issuer with id "<issuerProfile>" is authorized as a Profile user

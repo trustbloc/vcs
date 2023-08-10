@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -92,8 +93,12 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 	return methodFn(verificationMethodType, keyType, km, didDomain, difDidOrigin)
 }
 
-func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint: unparam
+func (c *Creator) createDID(
+	verificationMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+	km KeysCreator,
+	_, _ string,
+) (*createResult, error) { //nolint: unparam
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -143,8 +148,12 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 	}, nil
 }
 
-func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint: unparam
+func (c *Creator) keyDID(
+	verificationMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+	km KeysCreator,
+	_, _ string,
+) (*createResult, error) { //nolint: unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -168,8 +177,12 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 	}, nil
 }
 
-func (c *Creator) jwkDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint: unparam
+func (c *Creator) jwkDID(
+	verificationMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+	km KeysCreator,
+	_, _ string,
+) (*createResult, error) { //nolint: unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -218,8 +231,11 @@ type serviceEndpointData struct {
 	Origins []string `json:"origins"`
 }
 
-func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint:unparam
+func (c *Creator) ionDID(
+	verificationMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+	km KeysCreator, _, difDidOrigin string,
+) (*createResult, error) { //nolint:unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)

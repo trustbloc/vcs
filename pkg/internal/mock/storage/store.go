@@ -32,12 +32,12 @@ func (m *MockProvider) OpenStore(name string) (storage.Store, error) {
 }
 
 // SetStoreConfig is not implemented.
-func (m *MockProvider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
+func (m *MockProvider) SetStoreConfig(_ string, _ storage.StoreConfiguration) error {
 	panic("implement me")
 }
 
 // GetStoreConfig is not implemented.
-func (m *MockProvider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
+func (m *MockProvider) GetStoreConfig(_ string) (storage.StoreConfiguration, error) {
 	panic("implement me")
 }
 

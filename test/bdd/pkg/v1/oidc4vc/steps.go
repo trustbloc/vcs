@@ -12,6 +12,7 @@ import (
 	"net/http/cookiejar"
 
 	"github.com/cucumber/godog"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
@@ -67,6 +68,11 @@ func (s *Steps) ResetAndSetup() error {
 		return fmt.Errorf("init cookie jar: %w", err)
 	}
 
+	if s.walletRunner != nil {
+		if s.walletRunner.GetWallet() != nil {
+			_ = s.walletRunner.GetWallet().Close()
+		}
+	}
 	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
 		func(c *vcprovider.Config) {
 			c.DidKeyType = "ECDSAP384DER"

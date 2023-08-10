@@ -17,9 +17,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
@@ -46,7 +47,10 @@ type mockS3Uploader struct {
 }
 
 func (m *mockS3Uploader) PutObject(
-	ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	_ context.Context,
+	input *s3.PutObjectInput,
+	_ ...func(*s3.Options),
+) (*s3.PutObjectOutput, error) {
 	if m.putErr != nil {
 		return nil, m.putErr
 	}
@@ -65,7 +69,10 @@ func (m *mockS3Uploader) PutObject(
 }
 
 func (m *mockS3Uploader) GetObject(
-	ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	_ context.Context,
+	input *s3.GetObjectInput,
+	_ ...func(*s3.Options),
+) (*s3.GetObjectOutput, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}

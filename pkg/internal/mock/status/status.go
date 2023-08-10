@@ -17,7 +17,7 @@ type MockStatusProcessorGetter struct {
 	Err             error
 }
 
-func (m *MockStatusProcessorGetter) GetMockStatusProcessor(vcStatusListType vc.StatusType) (vc.StatusProcessor, error) {
+func (m *MockStatusProcessorGetter) GetMockStatusProcessor(_ vc.StatusType) (vc.StatusProcessor, error) {
 	return m.StatusProcessor, m.Err
 }
 
@@ -33,23 +33,23 @@ type MockVCStatusProcessor struct {
 	VCContext             string
 }
 
-func (m *MockVCStatusProcessor) ValidateStatus(vcStatus *verifiable.TypedID) error {
+func (m *MockVCStatusProcessor) ValidateStatus(_ *verifiable.TypedID) error {
 	return m.ValidateErr
 }
 
-func (m *MockVCStatusProcessor) GetStatusVCURI(vcStatus *verifiable.TypedID) (string, error) {
+func (m *MockVCStatusProcessor) GetStatusVCURI(_ *verifiable.TypedID) (string, error) {
 	return m.StatusVCURI, m.GetStatusVCURIErr
 }
 
-func (m *MockVCStatusProcessor) GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error) {
+func (m *MockVCStatusProcessor) GetStatusListIndex(_ *verifiable.TypedID) (int, error) {
 	return m.StatusListIndex, m.GetStatusListIndexErr
 }
 
-func (m *MockVCStatusProcessor) CreateVC(vcID string, size int, profile *vc.Signer) (*verifiable.Credential, error) {
+func (m *MockVCStatusProcessor) CreateVC(_ string, _ int, _ *vc.Signer) (*verifiable.Credential, error) {
 	return m.VC, m.CreateVCErr
 }
 
-func (m *MockVCStatusProcessor) CreateVCStatus(statusListIndex string, vcID string) *verifiable.TypedID {
+func (m *MockVCStatusProcessor) CreateVCStatus(_ string, _ string) *verifiable.TypedID {
 	return m.VCStatus
 }
 

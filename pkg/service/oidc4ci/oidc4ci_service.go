@@ -18,9 +18,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/trustbloc/logutil-go/pkg/log"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -157,11 +158,7 @@ func (s *Service) PushAuthorizationDetails(
 		return fmt.Errorf("find tx by op state: %w", err)
 	}
 
-	if err = s.updateAuthorizationDetails(ctx, ad, tx); err != nil {
-		return err
-	}
-
-	return nil
+	return s.updateAuthorizationDetails(ctx, ad, tx)
 }
 
 func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
@@ -488,6 +485,7 @@ func (s *Service) PrepareCredential(
 		OidcFormat:              tx.OIDCCredentialFormat,
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
+		CredentialTemplate:      tx.CredentialTemplate,
 	}, nil
 }
 

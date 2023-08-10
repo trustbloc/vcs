@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -24,7 +26,8 @@ import (
 type (
 	ID      = string // ID of the Profile.
 	Version = string // Profile version.
-	Method  string   // DID method of the Profile.
+
+	Method string // DID method of the Profile.
 )
 
 const (
@@ -52,12 +55,20 @@ type Issuer struct {
 }
 
 type CredentialTemplate struct {
-	Contexts                            []string                 `json:"contexts"`
-	ID                                  string                   `json:"id"`
-	Type                                string                   `json:"type"`
-	CredentialSubject                   json.RawMessage          `json:"credentialSubject"`
-	CredentialDefaultExpirationDuration *time.Duration           `json:"credentialDefaultExpirationDuration"`
-	Checks                              CredentialTemplateChecks `json:"checks"`
+	Contexts                            []string                     `json:"contexts"`
+	ID                                  string                       `json:"id"`
+	Type                                string                       `json:"type"`
+	CredentialSubject                   json.RawMessage              `json:"credentialSubject"`
+	CredentialDefaultExpirationDuration *time.Duration               `json:"credentialDefaultExpirationDuration"`
+	Checks                              CredentialTemplateChecks     `json:"checks"`
+	SdJWT                               *SelectiveDisclosureTemplate `json:"sdJWT"`
+}
+
+type SelectiveDisclosureTemplate struct {
+	Version                   common.SDJWTVersion `json:"version"`
+	AlwaysInclude             []string            `json:"alwaysInclude"`
+	RecursiveClaims           []string            `json:"recursiveClaims"`
+	NonSelectivelyDisclosable []string            `json:"nonSelectivelyDisclosable"`
 }
 
 type CredentialTemplateChecks struct {

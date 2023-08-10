@@ -15,9 +15,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/piprate/json-gold/ld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -129,7 +130,7 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Cred
 }
 
 // ValidateCredentialProof validate credential proof.
-func (s *Service) ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string,
+func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proofChallenge, proofDomain string,
 	vcInVPValidation, isJWT bool) error { // nolint: lll,gocyclo
 	credential, err := s.parseAndVerifyVC(vcByte, isJWT)
 	if err != nil {

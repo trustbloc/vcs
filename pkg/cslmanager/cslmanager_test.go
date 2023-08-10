@@ -22,6 +22,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -31,7 +33,6 @@ import (
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -455,7 +456,7 @@ func newMockCSLIndexStore(opts ...func(*mockCSLIndexStore)) *mockCSLIndexStore {
 	return s
 }
 
-func (m *mockCSLIndexStore) Upsert(ctx context.Context, cslURL string,
+func (m *mockCSLIndexStore) Upsert(_ context.Context, cslURL string,
 	cslWrapper *credentialstatus.CSLIndexWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
@@ -466,7 +467,7 @@ func (m *mockCSLIndexStore) Upsert(ctx context.Context, cslURL string,
 	return nil
 }
 
-func (m *mockCSLIndexStore) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
+func (m *mockCSLIndexStore) Get(_ context.Context, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
@@ -488,14 +489,14 @@ func (m *mockCSLIndexStore) createLatestListID() error {
 	return nil
 }
 
-func (m *mockCSLIndexStore) UpdateLatestListID(ctx context.Context, id credentialstatus.ListID) error {
+func (m *mockCSLIndexStore) UpdateLatestListID(_ context.Context, _ credentialstatus.ListID) error {
 	if m.updateLatestListIDErr != nil {
 		return m.updateLatestListIDErr
 	}
 	return m.createLatestListID()
 }
 
-func (m *mockCSLIndexStore) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
+func (m *mockCSLIndexStore) GetLatestListID(_ context.Context) (credentialstatus.ListID, error) {
 	if m.getLatestListIDErr != nil {
 		return "", m.getLatestListIDErr
 	}
@@ -535,7 +536,7 @@ func (m *mockCSLVCStore) GetCSLURL(issuerURL, issuerID string, listID credential
 	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
 }
 
-func (m *mockCSLVCStore) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
+func (m *mockCSLVCStore) Upsert(_ context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -545,7 +546,7 @@ func (m *mockCSLVCStore) Upsert(ctx context.Context, cslURL string, cslWrapper *
 	return nil
 }
 
-func (m *mockCSLVCStore) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
+func (m *mockCSLVCStore) Get(_ context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
@@ -569,7 +570,7 @@ func newMockVCStatusStore() *mockVCStore {
 	}
 }
 
-func (m *mockVCStore) Get(ctx context.Context, profileID, profileVersion, vcID string) (*verifiable.TypedID, error) {
+func (m *mockVCStore) Get(_ context.Context, profileID, profileVersion, vcID string) (*verifiable.TypedID, error) {
 	v, ok := m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, vcID)]
 	if !ok {
 		return nil, errors.New("data not found")
@@ -604,11 +605,11 @@ func (m *mockKMS) SupportedKeyTypes() []kms.KeyType {
 	return nil
 }
 
-func (m *mockKMS) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+func (m *mockKMS) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
 	return "", nil, nil
 }
 
-func (m *mockKMS) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+func (m *mockKMS) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
 	return "", nil, nil
 }
 

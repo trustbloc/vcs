@@ -23,7 +23,7 @@ type serviceEndpoint struct {
 	Origins []string `json:"origins"`
 }
 
-func (s *Service) ValidateLinkedDomain(ctx context.Context, signingDID string) error {
+func (s *Service) ValidateLinkedDomain(_ context.Context, signingDID string) error {
 	didDocResolution, vdrErr := s.vdr.Resolve(signingDID)
 	if vdrErr != nil {
 		return fmt.Errorf("failed to resolve DID %s, err: %w", signingDID, vdrErr)
@@ -52,12 +52,8 @@ func (s *Service) ValidateLinkedDomain(ctx context.Context, signingDID string) e
 			didconfig.WithHTTPClient(s.httpClient),
 		)
 
-		if err = didConfigurationClient.VerifyDIDAndDomain(signingDID,
-			strings.TrimSuffix(serviceEndpoint.Origins[0], "/")); err != nil {
-			return err
-		}
-
-		return nil
+		return didConfigurationClient.VerifyDIDAndDomain(signingDID,
+			strings.TrimSuffix(serviceEndpoint.Origins[0], "/"))
 	}
 
 	return fmt.Errorf("no LinkedDomains service in DID %s", signingDID)

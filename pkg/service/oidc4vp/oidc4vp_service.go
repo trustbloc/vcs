@@ -17,15 +17,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/valyala/fastjson"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/piprate/json-gold/ld"
-	"github.com/samber/lo"
-	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/valyala/fastjson"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -400,7 +401,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 	return nil
 }
 
-func (s *Service) GetTx(ctx context.Context, id TxID) (*Transaction, error) {
+func (s *Service) GetTx(_ context.Context, id TxID) (*Transaction, error) {
 	return s.transactionManager.Get(id)
 }
 

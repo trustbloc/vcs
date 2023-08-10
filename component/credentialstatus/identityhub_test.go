@@ -22,12 +22,13 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -52,7 +53,7 @@ type mockHTTPClient struct {
 	doErr   error
 }
 
-func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+func (m *mockHTTPClient) Do(_ *http.Request) (*http.Response, error) {
 	return m.doValue, m.doErr
 }
 

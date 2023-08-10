@@ -19,11 +19,12 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
+
+	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -134,7 +135,7 @@ func (p *IssuerReader) GetProfile(
 }
 
 // GetAllProfiles returns all profiles with given organization id.
-func (p *IssuerReader) GetAllProfiles(orgID string) ([]*profileapi.Issuer, error) {
+func (p *IssuerReader) GetAllProfiles(_ string) ([]*profileapi.Issuer, error) {
 	return nil, nil
 }
 
@@ -195,7 +196,7 @@ func (p *VerifierReader) GetProfile(
 }
 
 // GetAllProfiles returns all profiles with given organization id.
-func (p *verifierProfile) GetAllProfiles(orgID string) ([]*profileapi.Verifier, error) {
+func (p *verifierProfile) GetAllProfiles(_ string) ([]*profileapi.Verifier, error) {
 	return nil, nil
 }
 
