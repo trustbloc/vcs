@@ -53,6 +53,10 @@ var (
 	sampleVCJWT string
 	//go:embed testdata/sample_vc_university_degree.jsonld
 	sampleVCUniversityDegree []byte
+	//go:embed testdata/sample_vc_invalid_university_degree.jsonld
+	sampleVCInvalidUniversityDegree []byte
+	//go:embed testdata/universitydegree.schema.json
+	universityDegreeSchema string
 )
 
 // nolint:gochecknoglobals
@@ -1293,11 +1297,18 @@ func TestController_PrepareCredential(t *testing.T) {
 				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
-					ProfileID:      profileID,
-					ProfileVersion: profileVersion,
-					Credential:     sampleVC,
-					Format:         vcsverifiable.Ldp,
-					Retry:          false,
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema: universityDegreeSchema,
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
 				}, nil
 			},
 		)
@@ -1432,6 +1443,62 @@ func TestController_PrepareCredential(t *testing.T) {
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareCredential(ctx), "rand-code[]: rand")
+	})
+
+	t.Run("claims schema validation error", func(t *testing.T) {
+		invalidVC, err := verifiable.ParseCredential(
+			sampleVCInvalidUniversityDegree,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+		)
+		require.NoError(t, err)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              invalidVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema: universityDegreeSchema,
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.EqualError(t, c.PrepareCredential(ctx), "validate claims: validation error: [alumniOf: name is required]")
 	})
 }
 
@@ -1698,6 +1765,102 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 
 	assert.Equal(t, config.GrantTypesSupported, gt)
 	assert.Equal(t, config.ScopesSupported, s)
+}
+
+func Test_validateJSONSchema(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		data := map[string]interface{}{
+			"alumniOf": map[string]interface{}{
+				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name": []map[string]interface{}{
+					{
+						"value": "Example University",
+						"lang":  "en",
+					},
+					{
+						"value": "Exemple d'Université",
+						"lang":  "fr",
+					},
+				},
+			},
+			"degree": map[string]interface{}{
+				"type": "BachelorDegree",
+				"name": "Bachelor of Science and Arts",
+			},
+		}
+
+		err := validateJSONSchema(data, universityDegreeSchema)
+		require.NoError(t, err)
+	})
+
+	t.Run("validation error", func(t *testing.T) {
+		data := map[string]interface{}{
+			"alumniOf": map[string]interface{}{
+				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name": []map[string]interface{}{
+					{
+						"value": "Example University",
+						"lang":  0,
+					},
+					{
+						"value": "Exemple d'Université",
+					},
+				},
+			},
+		}
+
+		err := validateJSONSchema(data, universityDegreeSchema)
+		require.EqualError(t, err,
+			"validation error: [(root): degree is required; alumniOf.name.0.lang: Invalid type. "+
+				"Expected: string, given: integer; alumniOf.name.1: lang is required]")
+	})
+
+	t.Run("schema error", func(t *testing.T) {
+		data := map[string]interface{}{
+			"alumniOf": map[string]interface{}{
+				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name": []map[string]interface{}{
+					{
+						"value": "Example University",
+						"lang":  0,
+					},
+					{
+						"value": "Exemple d'Université",
+					},
+				},
+			},
+		}
+
+		err := validateJSONSchema(data, `{"type":"invalid"}`)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "schema error")
+	})
+}
+
+func Test_getCredentialSubjects(t *testing.T) {
+	t.Run("subject", func(t *testing.T) {
+		subjects, err := getCredentialSubjects(verifiable.Subject{ID: "id1"})
+		require.NoError(t, err)
+		require.Len(t, subjects, 1)
+	})
+
+	t.Run("slice of subjects", func(t *testing.T) {
+		subjects, err := getCredentialSubjects([]verifiable.Subject{{ID: "id1"}, {ID: "id2"}})
+		require.NoError(t, err)
+		require.Len(t, subjects, 2)
+	})
+
+	t.Run("invalid subject", func(t *testing.T) {
+		subjects, err := getCredentialSubjects("id2")
+		require.EqualError(t, err, "invalid type for credential subject: string")
+		require.Len(t, subjects, 0)
+	})
+
+	t.Run("nil subject", func(t *testing.T) {
+		subjects, err := getCredentialSubjects(nil)
+		require.NoError(t, err)
+		require.Len(t, subjects, 0)
+	})
 }
 
 type options struct {

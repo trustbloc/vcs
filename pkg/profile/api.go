@@ -62,6 +62,7 @@ type CredentialTemplate struct {
 	CredentialDefaultExpirationDuration *time.Duration               `json:"credentialDefaultExpirationDuration"`
 	Checks                              CredentialTemplateChecks     `json:"checks"`
 	SdJWT                               *SelectiveDisclosureTemplate `json:"sdJWT"`
+	JSONSchema                          string                       `json:"jsonSchema,omitempty"`
 }
 
 type SelectiveDisclosureTemplate struct {
