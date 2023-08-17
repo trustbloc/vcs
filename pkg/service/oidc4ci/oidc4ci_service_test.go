@@ -1687,6 +1687,36 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "Fail to read response body from claim endpoint when status is not 200 OK",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					TransactionData: oidc4ci.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{},
+					},
+				}, nil)
+
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							return &http.Response{
+								StatusCode: http.StatusInternalServerError,
+								Body:       io.NopCloser(&failReader{}),
+							}, nil
+						},
+					},
+				}
+
+				req = &oidc4ci.PrepareCredential{
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err, "claim endpoint returned status code")
+				require.Nil(t, resp)
+			},
+		},
+		{
 			name: "Fail to decode claim data",
 			setup: func() {
 				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
@@ -1800,4 +1830,10 @@ func TestSelectProperFormat(t *testing.T) {
 
 func TestExtractNoScope(t *testing.T) {
 	assert.Equal(t, "", oidc4ci.ExtractIssuerURL("scope1"))
+}
+
+type failReader struct{}
+
+func (f *failReader) Read([]byte) (int, error) {
+	return 0, errors.New("read error")
 }

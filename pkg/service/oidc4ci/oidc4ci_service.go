@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -526,6 +527,17 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		b, ioErr := io.ReadAll(resp.Body)
+		if ioErr != nil {
+			log.ReadRequestBodyError(logger, ioErr)
+		} else {
+			logger.Errorc(ctx, "Failed to fetch claims data",
+				log.WithURL(tx.ClaimEndpoint),
+				log.WithHTTPStatus(resp.StatusCode),
+				log.WithResponse(b),
+			)
+		}
+
 		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
 	}
 
