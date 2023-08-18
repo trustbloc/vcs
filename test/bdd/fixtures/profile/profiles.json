@@ -704,6 +704,7 @@
               "https://www.w3.org/2018/credentials/v1",
               "https://www.w3.org/2018/credentials/examples/v1"
             ],
+            "jsonSchema": "{\"$id\":\"https://trustbloc.com/universitydegree.schema.json\",\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"title\":\"UniversityDegreeCredential\",\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"spouse\":{\"type\":\"string\"},\"degree\":{\"type\":\"object\",\"description\":\"Describes the degree.\",\"properties\":{\"type\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"}},\"required\":[\"type\",\"degree\"]}},\"required\":[\"name\",\"spouse\",\"degree\"]}",
             "type": "UniversityDegreeCredential",
             "id": "universityDegreeTemplateID",
             "issuer": "did:orb:bank_issuer",

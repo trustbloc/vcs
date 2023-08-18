@@ -163,6 +163,31 @@ func (s *Steps) runOIDC4CIPreAuthWithInvalidClaims() error {
 	return nil
 }
 
+func (s *Steps) runOIDC4CIPreAuthWithInvalidClaimsSchema() error {
+	initiateIssuanceRequest := initiateOIDC4CIRequest{
+		CredentialTemplateId: "universityDegreeTemplateID",
+		ClaimData: &map[string]interface{}{
+			"degree": map[string]string{
+				"degree": "MIT",
+			},
+			// "name":   "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		},
+		UserPinRequired: true,
+	}
+
+	err := s.runOIDC4CIPreAuth(initiateIssuanceRequest)
+	if err == nil {
+		return errors.New("error expected")
+	}
+
+	if !strings.Contains(err.Error(), "validate claims: validation error: [(root): name is required; degree: type is required]") {
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Steps) fetchClaimData(issuedCredentialType string) (map[string]interface{}, error) {
 	resp, err := bddutil.HTTPSDo(
 		http.MethodPost,

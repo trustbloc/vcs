@@ -23,6 +23,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"github.com/xeipuuv/gojsonschema"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
@@ -651,7 +652,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			errors.New("credentials should not be nil"))
 	}
 
-	if err = c.validateClaims(result.Credential, result.EnforceStrictValidation); err != nil {
+	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
 		return err
 	}
 
@@ -672,6 +673,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 
 func (c *Controller) validateClaims( //nolint:gocognit
 	cred *verifiable.Credential,
+	credentialTemplate *profileapi.CredentialTemplate,
 	strictValidation bool,
 ) error {
 	if !strictValidation {
@@ -690,7 +692,13 @@ func (c *Controller) validateClaims( //nolint:gocognit
 		types = append(types, t)
 	}
 
-	if sub, ok := cred.Subject.(verifiable.Subject); ok { //nolint:nestif
+	validate := func(sub verifiable.Subject) error {
+		if credentialTemplate != nil && credentialTemplate.JSONSchema != "" {
+			if err := validateJSONSchema(sub.CustomFields, credentialTemplate.JSONSchema); err != nil {
+				return fmt.Errorf("validate claims: %w", err)
+			}
+		}
+
 		for k, v := range sub.CustomFields {
 			if k == "type" || k == "@type" {
 				if v1, ok1 := v.(string); ok1 {
@@ -711,6 +719,19 @@ func (c *Controller) validateClaims( //nolint:gocognit
 
 			data[k] = v
 		}
+
+		return nil
+	}
+
+	subjects, err := getCredentialSubjects(cred.Subject)
+	if err != nil {
+		return err
+	}
+
+	for _, sub := range subjects {
+		if err := validate(sub); err != nil {
+			return err
+		}
 	}
 
 	data["@context"] = ctx
@@ -720,6 +741,53 @@ func (c *Controller) validateClaims( //nolint:gocognit
 		jsonld.WithDocumentLoader(c.documentLoader),
 		jsonld.WithStrictValidation(strictValidation),
 	)
+}
+
+func getCredentialSubjects(subject interface{}) ([]verifiable.Subject, error) {
+	if subject == nil {
+		return nil, nil
+	}
+
+	if sub, ok := subject.(verifiable.Subject); ok {
+		return []verifiable.Subject{sub}, nil
+	}
+
+	if subs, ok := subject.([]verifiable.Subject); ok {
+		return subs, nil
+	}
+
+	return nil, fmt.Errorf("invalid type for credential subject: %T", subject)
+}
+
+type JSONSchemaValidationErrors []gojsonschema.ResultError
+
+func (e JSONSchemaValidationErrors) Error() string {
+	var errMsg string
+
+	for i, msg := range e {
+		errMsg += msg.String()
+		if i+1 < len(e) {
+			errMsg += "; "
+		}
+	}
+
+	return fmt.Sprintf("[%s]", errMsg)
+}
+
+func validateJSONSchema(data interface{}, schema string) error {
+	result, err := gojsonschema.Validate(
+		gojsonschema.NewStringLoader(schema),
+		gojsonschema.NewGoLoader(data),
+	)
+	if err != nil {
+		return fmt.Errorf("schema error: %w", err)
+	}
+
+	if !result.Valid() {
+		return fmt.Errorf("validation error: %w", JSONSchemaValidationErrors(result.Errors()))
+	}
+
+	return nil
 }
 
 // OpenidConfig request openid configuration for issuer.

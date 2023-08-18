@@ -7,17 +7,7 @@
   "credentialSchema": [],
   "credentialSubject": {
       "alumniOf": {
-        "id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-        "name": [
-            {
-              "value": "Example University",
-              "lang": "en"
-            },
-            {
-              "value": "Exemple d'Université",
-              "lang": "fr"
-            }
-        ]
+        "id": "did:example:c276e12ec21ebfeb1f712ebc6f1"
       },
       "degree": {
         "type": "BachelorDegree",
