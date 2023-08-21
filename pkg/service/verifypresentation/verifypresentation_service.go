@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
@@ -102,6 +103,15 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		logger.Debugc(ctx, "Checks.Presentation.Proof", log.WithDuration(time.Since(st)))
 	}
 
+	if len(profile.Checks.Credential.IssuerTrustList) > 0 {
+		err := s.checkIssuerTrustList(ctx, lazyCredentials, profile.Checks.Credential.IssuerTrustList)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "issuerTrustList",
+				Error: err.Error(),
+			})
+		}
+	}
 	if profile.Checks.Credential.CredentialExpiry {
 		err := s.checkCredentialExpiry(ctx, lazyCredentials)
 		if err != nil {
@@ -233,11 +243,32 @@ func (s *Service) checkCredentialExpiry(ctx context.Context, lazy []*LazyCredent
 		credential, ok := input.Raw().(*verifiable.Credential)
 		if !ok {
 			logger.Warnc(ctx, fmt.Sprintf("can not validate expiry. unexpected type %v",
-				reflect.TypeOf(input).String()))
+				reflect.TypeOf(input.Raw()).String()))
 			return nil
 		}
 		if credential.Expired != nil && time.Now().UTC().After(credential.Expired.Time) {
 			return errors.New("credential expired")
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) checkIssuerTrustList(_ context.Context, lazy []*LazyCredential, trustList []string) error {
+	for _, input := range lazy {
+		var issuerID string
+		switch cred := input.Raw().(type) {
+		case *verifiable.Credential:
+			issuerID = cred.Issuer.ID
+		case map[string]interface{}:
+			issuerID = fmt.Sprint(cred["issuer"])
+		default:
+			return fmt.Errorf("can not validate issuer trust list. unexpected type %v",
+				reflect.TypeOf(input.Raw()).String())
+		}
+
+		if !lo.Contains(trustList, issuerID) {
+			return fmt.Errorf("issuer with id: %v is not a member of trustlist", issuerID)
 		}
 	}
 

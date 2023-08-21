@@ -132,6 +132,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Format:           nil,
 							CredentialExpiry: true,
 							Strict:           true,
+							IssuerTrustList:  []string{"https://example.edu/issuers/14"},
 						},
 					},
 				},
@@ -175,6 +176,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 			want:    nil,
 			wantErr: false,
 		},
+
 		{
 			name: "Error credentials",
 			fields: fields{
@@ -212,10 +214,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Format: nil,
 						},
 						Credential: profileapi.CredentialChecks{
-							Proof:        true,
-							Status:       true,
-							LinkedDomain: true,
-							Format:       nil,
+							Proof:           true,
+							Status:          true,
+							LinkedDomain:    true,
+							Format:          nil,
+							IssuerTrustList: []string{"random"},
 						},
 					},
 				},
@@ -225,6 +228,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 			},
 			want: []PresentationVerificationCheckResult{
+				{
+					Check: "issuerTrustList",
+					Error: "issuer with id: https://example.edu/issuers/14 is not a member of trustlist",
+				},
 				{
 					Check: "credentialProof",
 					Error: "some error",
@@ -811,4 +818,35 @@ func TestCredentialStrict(t *testing.T) {
 	})
 	assert.NoError(t, s.checkCredentialStrict(context.TODO(), []*LazyCredential{l}))
 	assert.ElementsMatch(t, []string{"type", "degree"}, s.GetClaimKeys()["credentialID"])
+}
+
+func TestCheckTrustList(t *testing.T) {
+	s := New(&Config{})
+
+	t.Run("from credentials", func(t *testing.T) {
+		cred := &verifiable.Credential{Issuer: verifiable.Issuer{
+			ID: "123432123",
+		}}
+
+		err := s.checkIssuerTrustList(
+			context.TODO(),
+			[]*LazyCredential{NewLazyCredential(cred)},
+			[]string{"a"},
+		)
+
+		assert.ErrorContains(t, err, "issuer with id: 123432123 is not a member of trustlist")
+	})
+
+	t.Run("invalid type", func(t *testing.T) {
+		cred := &verifiable.Presentation{}
+
+		err := s.checkIssuerTrustList(
+			context.TODO(),
+			[]*LazyCredential{NewLazyCredential(cred)},
+			[]string{"a"},
+		)
+
+		assert.ErrorContains(t, err,
+			"can not validate issuer trust list. unexpected type *verifiable.Presentation")
+	})
 }
