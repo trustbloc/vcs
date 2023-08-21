@@ -25,6 +25,7 @@ import (
 
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -119,6 +120,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 
 		issuerVersion := version.Must(version.NewVersion(v.Data.Version))
 
+		createdIssuers[v.Data.ID] = v.Data
 		issuerProfileVersions[v.Data.ID] = append(issuerProfileVersions[v.Data.ID], issuerVersion)
 		issuerProfiles[getProfileVersionKey(v.Data.ID, issuerVersion)] = v.Data
 	}
@@ -175,6 +177,7 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 
 		logger.Info("create verifier profile successfully", log.WithID(v.Data.ID))
 
+		r.setTrustList(v.Data)
 		// Set version as it come.
 		r.verifiers[fmt.Sprintf("%s_%s", v.Data.ID, v.Data.Version)] = v.Data
 
@@ -187,6 +190,25 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	populateLatestTag(verifierProfileVersions, verifierProfiles, r.verifiers)
 
 	return &r, nil
+}
+
+func (p *VerifierReader) setTrustList(verifier *profileapi.Verifier) {
+	if verifier == nil || verifier.Checks == nil || len(createdIssuers) == 0 ||
+		len(verifier.Checks.Credential.IssuerTrustList) == 0 {
+		return
+	}
+
+	var updatedList []string
+	for _, item := range verifier.Checks.Credential.IssuerTrustList {
+		issuer, ok := createdIssuers[item]
+		if !ok {
+			continue
+		}
+
+		updatedList = append(updatedList, issuer.SigningDID.DID)
+	}
+
+	verifier.Checks.Credential.IssuerTrustList = updatedList
 }
 
 // GetProfile returns profile with given id.
