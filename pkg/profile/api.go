@@ -107,6 +107,7 @@ type VCConfig struct {
 	Status                  StatusConfig                       `json:"status,omitempty"`
 	Context                 []string                           `json:"context,omitempty"`
 	SDJWT                   vc.SDJWT                           `json:"sdjwt,omitempty"`
+	DataIntegrityProof      vc.DataIntegrityProofConfig        `json:"dataIntegrityProof,omitempty"`
 }
 
 // StatusConfig represents the VC status configuration.

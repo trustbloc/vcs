@@ -158,6 +158,10 @@ func (c *Crypto) SignCredential(
 	case vcsverifiable.Jwt:
 		return c.signCredentialJWT(signerData, vc, opts...)
 	case vcsverifiable.Ldp:
+		if signerData.DataIntegrityProof.Enable {
+			return c.signCredentialLDPDataIntegrity(signerData, vc, opts...)
+		}
+
 		return c.signCredentialLDP(signerData, vc, opts...)
 	default:
 		return nil, fmt.Errorf("unknown signature format %s", signerData.Format)
@@ -212,7 +216,7 @@ func (c *Crypto) signCredentialJWT(
 		signatureType = signOpts.SignatureType
 	}
 
-	s, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signOpts, signatureType)
+	s, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signatureType)
 	if err != nil {
 		return nil, fmt.Errorf("getting signer for JWS: %w", err)
 	}
@@ -331,7 +335,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 	signatureType vcsverifiable.SignatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, _, err := c.getSigner(signerData.KMSKeyID, km, opts, signatureType)
+	s, _, err := c.getSigner(signerData.KMSKeyID, km, signatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +403,6 @@ func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 func (c *Crypto) getSigner(
 	kmsKeyID string,
 	km keyManager,
-	_ *signingOpts,
 	signatureType vcsverifiable.SignatureType,
 ) (vc.SignerAlgorithm, string, error) {
 	s, err := km.NewVCSigner(kmsKeyID, signatureType)

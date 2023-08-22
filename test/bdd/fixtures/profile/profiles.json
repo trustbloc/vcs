@@ -26,6 +26,32 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_di_ecdsa-2019",
+        "version": "v1.0",
+        "groupID": "i_myprofile_ud_di_ecdsa-2019",
+        "name": "i_myprofile_ud_di_ecdsa-2019",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "ion",
+          "status": {
+            "type": "StatusList2021Entry"
+          },
+          "dataIntegrityProof": {
+            "enable": true,
+            "suiteType": "ecdsa-2019"
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es256_jwt",
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256_jwt",
@@ -854,7 +880,7 @@
             "type": "StatusList2021Entry"
           },
           "sdjwt": {
-            "version" : 5,
+            "version": 5,
             "enable": true,
             "hashAlg": 6
           }

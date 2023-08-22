@@ -9,9 +9,10 @@ go 1.21
 require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230828151543-984699876d28
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230810150537-71e132ba5968
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230822161205-69119012ed5c
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230828151543-984699876d28
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230622171716-43af8054a539
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
@@ -70,7 +71,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
@@ -118,6 +118,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/samber/lo v1.38.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect

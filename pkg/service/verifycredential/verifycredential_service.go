@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifycredential -source=verifycredential_service.go -mock_names statusListVCURIResolver=MockStatusListVCResolver
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifycredential -source=verifycredential_service.go -mock_names statusListVCURIResolver=MockStatusListVCResolver,kmsRegistry=MockKMSRegistry
 
 package verifycredential
 
@@ -17,6 +17,8 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 
@@ -110,35 +112,54 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 	return result, nil
 }
 
-func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Credential, error) {
-	opts := []verifiable.CredentialOpt{
+func (s *Service) parseAndVerifyLDPVC(vcBytes []byte) (*verifiable.Credential, error) {
+	diVerifier, err := s.getDataIntegrityVerifier()
+	if err != nil {
+		return nil, fmt.Errorf("get data integrity verifier: %w", err)
+	}
+
+	cred, err := verifiable.ParseCredential(vcBytes,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
 		),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-	}
-
-	if !isJWT {
-		opts = append(opts, verifiable.WithStrictValidation())
-	}
-
-	cred, err := verifiable.ParseCredential(
-		vcBytes,
-		opts...,
+		verifiable.WithStrictValidation(),
+		verifiable.WithDataIntegrityVerifier(diVerifier),
+		// Use empty domain and challenge in order to skip the validation.
+		// See usage of vcInVPValidation variable in ValidateCredentialProof method.
+		// TODO: define verifier purpose field.
+		verifiable.WithExpectedDataIntegrityFields(crypto.Authentication, "", ""),
 	)
-	return cred, err
+	if err != nil {
+		return nil, fmt.Errorf("verifiable credential proof validation error : %w", err)
+	}
+
+	return cred, nil
+}
+
+func (s *Service) parseAndVerifyJWTVC(vcBytes []byte) error {
+	_, err := verifiable.ParseCredential(vcBytes,
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+	if err != nil {
+		return fmt.Errorf("verifiable credential proof validation error : %w", err)
+	}
+
+	return nil
 }
 
 // ValidateCredentialProof validate credential proof.
 func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proofChallenge, proofDomain string,
 	vcInVPValidation, isJWT bool) error { // nolint: lll,gocyclo
-	credential, err := s.parseAndVerifyVC(vcByte, isJWT)
-	if err != nil {
-		return fmt.Errorf("verifiable credential proof validation error : %w", err)
+	if isJWT {
+		return s.parseAndVerifyJWTVC(vcByte)
 	}
 
-	if len(credential.JWT) > 0 {
-		return nil
+	credential, err := s.parseAndVerifyLDPVC(vcByte)
+	if err != nil {
+		return err
 	}
 
 	if len(credential.Proofs) == 0 {
@@ -178,7 +199,7 @@ func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proo
 	}
 
 	// validate proof purpose
-	if err := crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
+	if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
 		return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
 	}
 
@@ -234,4 +255,19 @@ func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 	}
 
 	return nil
+}
+
+func (s *Service) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
+	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: s.documentLoader,
+	})
+
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: s.vdr,
+	}, verifySuite)
+	if err != nil {
+		return nil, fmt.Errorf("new verifier: %w", err)
+	}
+
+	return verifier, nil
 }

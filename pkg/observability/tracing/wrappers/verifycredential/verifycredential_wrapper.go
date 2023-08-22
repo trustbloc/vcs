@@ -50,7 +50,8 @@ func (w *Wrapper) VerifyCredential(ctx context.Context, credential *verifiable.C
 	return res, nil
 }
 
-func (w *Wrapper) ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error {
+func (w *Wrapper) ValidateCredentialProof(ctx context.Context,
+	vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error {
 	ctx, span := w.tracer.Start(ctx, "verifycredential.ValidateCredentialProof")
 	defer span.End()
 
