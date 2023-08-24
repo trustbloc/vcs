@@ -3,7 +3,7 @@
 
 module github.com/trustbloc/vcs/component/event
 
-go 1.19
+go 1.21
 
 require (
 	github.com/hyperledger/aries-framework-go v0.3.3-0.20230810150537-71e132ba5968

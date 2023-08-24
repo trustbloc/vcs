@@ -3,7 +3,7 @@
 
 module github.com/trustbloc/vcs/component/profile/reader/file
 
-go 1.19
+go 1.21
 
 require (
 	github.com/hashicorp/go-version v1.2.0

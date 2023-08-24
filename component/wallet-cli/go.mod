@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs/component/wallet-cli
 
-go 1.19
+go 1.21
 
 require (
 	github.com/cli/browser v1.1.0
