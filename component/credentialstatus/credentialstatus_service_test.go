@@ -24,15 +24,15 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	cryptomock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdr2 "github.com/hyperledger/aries-framework-go/component/vdr"
+	vdr "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/component/credentialstatus/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/cslmanager"
@@ -120,7 +120,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 				KMSRegistry:   mockKMSRegistry,
 				ExternalURL:   "https://localhost:8080",
 				Crypto: vccrypto.New(
-					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+					&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
 		require.NoError(t, err)
 
@@ -133,7 +133,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 			KMSRegistry:    mockKMSRegistry,
 			ExternalURL:    "https://localhost:8080",
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -217,7 +217,7 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 				}),
 			VCStatusStore:  newMockVCStatusStore(),
 			ProfileService: mockProfileSrv,
-			Crypto: vccrypto.New(&vdrmock.MockVDRegistry{},
+			Crypto: vccrypto.New(&vdrmock.VDRegistry{},
 				loader),
 		})
 		require.NoError(t, err)
@@ -241,7 +241,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		cslVCStore := newMockCSLVCStore()
 		cslIndexStore := newMockCSLIndexStore()
 		crypto := vccrypto.New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 		ctx := context.Background()
 
 		cslMgr, err := cslmanager.New(
@@ -252,7 +252,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				ListSize:      2,
 				KMSRegistry:   mockKMSRegistry,
 				Crypto: vccrypto.New(
-					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+					&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
 		require.NoError(t, err)
 
@@ -395,7 +395,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStore,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -431,7 +431,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStore,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -461,7 +461,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 			VCStatusStore: newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -483,7 +483,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 			VCStatusStore: newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -504,7 +504,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 			VCStatusStore: newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -524,7 +524,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 			VCStatusStore: newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -545,7 +545,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 			VCStatusStore: newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -568,7 +568,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			CSLVCStore:     newMockCSLVCStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -593,7 +593,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			CSLVCStore:     newMockCSLVCStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -633,7 +633,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				ListSize:      2,
 				KMSRegistry:   mockKMSRegistry,
 				Crypto: vccrypto.New(
-					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+					&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
 		require.NoError(t, err)
 
@@ -647,7 +647,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			EventPublisher: mockEventPublisher,
 			EventTopic:     eventTopic,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
@@ -673,7 +673,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		cslVCStore := newMockCSLVCStore()
 		loader := testutil.DocumentLoader(t)
 		crypto := vccrypto.New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
 		vcStatusStore := newMockVCStatusStore()
 
@@ -685,7 +685,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				ListSize:      2,
 				KMSRegistry:   mockKMSRegistry,
 				Crypto: vccrypto.New(
-					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+					&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
 
 		require.NoError(t, err)
@@ -1056,14 +1056,14 @@ func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.Signat
 	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType, nil)
 }
 
-func (m *mockKMS) SupportedKeyTypes() []kms.KeyType {
+func (m *mockKMS) SupportedKeyTypes() []kmsapi.KeyType {
 	return nil
 }
 
-func (m *mockKMS) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
+func (m *mockKMS) CreateJWKKey(_ kmsapi.KeyType) (string, *jwk.JWK, error) {
 	return "", nil, nil
 }
 
-func (m *mockKMS) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
+func (m *mockKMS) CreateCryptoKey(_ kmsapi.KeyType) (string, interface{}, error) {
 	return "", nil, nil
 }

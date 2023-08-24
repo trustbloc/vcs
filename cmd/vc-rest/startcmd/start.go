@@ -27,10 +27,11 @@ import (
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/context/remote"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	jsonld "github.com/piprate/json-gold/ld"
@@ -1291,7 +1292,7 @@ func createJSONLDDocumentLoader(mongoClient *mongodb.Client, tlsConfig *tls.Conf
 		return nil, err
 	}
 
-	var loaderOpts []ariesld.DocumentLoaderOpts
+	var loaderOpts []documentloader.Opts
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -1301,7 +1302,7 @@ func createJSONLDDocumentLoader(mongoClient *mongodb.Client, tlsConfig *tls.Conf
 
 	for _, url := range providerURLs {
 		loaderOpts = append(loaderOpts,
-			ariesld.WithRemoteProvider(
+			documentloader.WithRemoteProvider(
 				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
 			),
 		)
@@ -1309,7 +1310,7 @@ func createJSONLDDocumentLoader(mongoClient *mongodb.Client, tlsConfig *tls.Conf
 
 	if contextEnableRemote {
 		loaderOpts = append(loaderOpts,
-			ariesld.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
+			documentloader.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
 	}
 
 	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)

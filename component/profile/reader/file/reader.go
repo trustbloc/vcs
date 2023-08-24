@@ -23,8 +23,8 @@ import (
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
 
-	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
 
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
