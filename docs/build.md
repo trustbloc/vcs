@@ -1,7 +1,7 @@
 # VC services - Build
 
 ## Prerequisites
-- Go 1.19
+- Go 1.21
 
 ## Prerequisites for Tests 
 - Make

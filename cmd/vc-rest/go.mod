@@ -248,4 +248,4 @@ replace (
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 
-go 1.19
+go 1.21

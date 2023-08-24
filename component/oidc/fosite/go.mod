@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs/component/oidc/fosite
 
-go 1.19
+go 1.21
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0
