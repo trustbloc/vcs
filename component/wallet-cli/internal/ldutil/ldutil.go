@@ -10,10 +10,10 @@ import (
 	_ "embed"
 	"fmt"
 
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ld "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 )
 
 // nolint:gochecknoglobals //embedded test contexts
@@ -41,7 +41,7 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	},
 	{
 		URL:         "https://w3id.org/citizenship/v1",
-		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", //resolvable
+		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", // resolvable
 		Content:     citizenshipVocab,
 	},
 	{

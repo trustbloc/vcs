@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
 
 func TestNewSigner(t *testing.T) {

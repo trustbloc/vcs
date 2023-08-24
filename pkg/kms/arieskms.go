@@ -16,15 +16,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	webcrypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/webkms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	arieskms "github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/webkms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	awssvc "github.com/trustbloc/kms/pkg/aws"
 
@@ -35,21 +36,21 @@ import (
 )
 
 // nolint: gochecknoglobals
-var ariesSupportedKeyTypes = []arieskms.KeyType{
-	arieskms.ED25519Type,
-	arieskms.X25519ECDHKWType,
-	arieskms.ECDSASecp256k1TypeIEEEP1363,
-	arieskms.ECDSAP256TypeDER,
-	arieskms.ECDSAP384TypeDER,
-	arieskms.RSAPS256Type,
-	arieskms.BLS12381G2Type,
+var ariesSupportedKeyTypes = []kmsapi.KeyType{
+	kmsapi.ED25519Type,
+	kmsapi.X25519ECDHKWType,
+	kmsapi.ECDSASecp256k1TypeIEEEP1363,
+	kmsapi.ECDSAP256TypeDER,
+	kmsapi.ECDSAP384TypeDER,
+	kmsapi.RSAPS256Type,
+	kmsapi.BLS12381G2Type,
 }
 
 // nolint: gochecknoglobals
-var awsSupportedKeyTypes = []arieskms.KeyType{
-	arieskms.ECDSAP256TypeDER,
-	arieskms.ECDSAP384TypeDER,
-	arieskms.ECDSASecp256k1DER,
+var awsSupportedKeyTypes = []kmsapi.KeyType{
+	kmsapi.ECDSAP256TypeDER,
+	kmsapi.ECDSAP384TypeDER,
+	kmsapi.ECDSASecp256k1DER,
 }
 
 const (
@@ -60,7 +61,7 @@ const (
 
 type keyManager interface {
 	Get(keyID string) (interface{}, error)
-	CreateAndExportPubKeyBytes(kt arieskms.KeyType, opts ...arieskms.KeyOpts) (string, []byte, error)
+	CreateAndExportPubKeyBytes(kt kmsapi.KeyType, opts ...kmsapi.KeyOpts) (string, []byte, error)
 }
 
 type Crypto interface {
@@ -179,7 +180,7 @@ func createLocalKMS(cfg *Config) (keyManager, Crypto, error) {
 	return localKms, crypto, nil
 }
 
-func (km *KeyManager) SupportedKeyTypes() []arieskms.KeyType {
+func (km *KeyManager) SupportedKeyTypes() []kmsapi.KeyType {
 	if km.kmsType == AWS {
 		return awsSupportedKeyTypes
 	}
@@ -191,11 +192,11 @@ func (km *KeyManager) Crypto() Crypto {
 	return km.crypto
 }
 
-func (km *KeyManager) CreateJWKKey(keyType arieskms.KeyType) (string, *jwk.JWK, error) {
+func (km *KeyManager) CreateJWKKey(keyType kmsapi.KeyType) (string, *jwk.JWK, error) {
 	return key.JWKKeyCreator(keyType)(km.keyManager)
 }
 
-func (km *KeyManager) CreateCryptoKey(keyType arieskms.KeyType) (string, interface{}, error) {
+func (km *KeyManager) CreateCryptoKey(keyType kmsapi.KeyType) (string, interface{}, error) {
 	return key.CryptoKeyCreator(keyType)(km.keyManager)
 }
 
@@ -248,11 +249,11 @@ func createStoreProvider(typ, url, prefix string) (storage.Provider, error) {
 }
 
 type kmsProvider struct {
-	storageProvider   arieskms.Store
+	storageProvider   kmsapi.Store
 	secretLockService secretlock.Service
 }
 
-func (k kmsProvider) StorageProvider() arieskms.Store {
+func (k kmsProvider) StorageProvider() kmsapi.Store {
 	return k.storageProvider
 }
 

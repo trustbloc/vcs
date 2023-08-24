@@ -10,9 +10,9 @@ import (
 	_ "embed" //nolint:gci // required for go:embed
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	jsonld "github.com/piprate/json-gold/ld"
 )
 
@@ -36,8 +36,8 @@ type provider interface {
 }
 
 // NewDocumentLoader returns a JSON-LD document loader with preloaded contexts.
-func NewDocumentLoader(p provider, opts ...ld.DocumentLoaderOpts) (jsonld.DocumentLoader, error) {
-	loader, err := ld.NewDocumentLoader(p, append(opts, ld.WithExtraContexts(embedContexts...))...)
+func NewDocumentLoader(p provider, opts ...lddocloader.Opts) (jsonld.DocumentLoader, error) {
+	loader, err := lddocloader.NewDocumentLoader(p, append(opts, lddocloader.WithExtraContexts(embedContexts...))...)
 	if err != nil {
 		return nil, fmt.Errorf("new document loader: %w", err)
 	}

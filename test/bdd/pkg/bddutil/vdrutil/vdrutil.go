@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms/key"
@@ -28,7 +28,7 @@ type keyManager interface {
 	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
 }
 
-func CreateDID(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
+func CreateDID(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) {
 	methods, err := newVerMethods(3, keyManager, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -79,8 +79,8 @@ func CreateDID(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager
 	didResolution, err := registry.Create(
 		orb.DIDMethod,
 		doc,
-		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
 	)
 
 	if err != nil {

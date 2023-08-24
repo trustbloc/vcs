@@ -9,7 +9,7 @@ package ld
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldstoreapi "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/ldstore"
@@ -17,8 +17,8 @@ import (
 
 // StoreProvider provides stores for JSON-LD contexts and remote providers.
 type StoreProvider struct {
-	ContextStore        ld.ContextStore
-	RemoteProviderStore ld.RemoteProviderStore
+	ContextStore        ldstoreapi.ContextStore
+	RemoteProviderStore ldstoreapi.RemoteProviderStore
 	CacheImpl           Cache
 }
 
@@ -41,11 +41,11 @@ func NewStoreProvider(mongoClient *mongodb.Client, cacheImpl Cache) (*StoreProvi
 }
 
 // JSONLDContextStore returns JSON-LD context store.
-func (p *StoreProvider) JSONLDContextStore() ld.ContextStore {
+func (p *StoreProvider) JSONLDContextStore() ldstoreapi.ContextStore {
 	return p.ContextStore
 }
 
 // JSONLDRemoteProviderStore returns JSON-LD remote provider store.
-func (p *StoreProvider) JSONLDRemoteProviderStore() ld.RemoteProviderStore {
+func (p *StoreProvider) JSONLDRemoteProviderStore() ldstoreapi.RemoteProviderStore {
 	return p.RemoteProviderStore
 }

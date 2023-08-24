@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jws
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
 
 type signer interface {

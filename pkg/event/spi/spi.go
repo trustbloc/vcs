@@ -9,7 +9,7 @@ package spi
 import (
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
 )
 
 const (
@@ -66,7 +66,7 @@ type Event struct {
 	Type EventType `json:"type"`
 
 	// Time defines time of occurrence(required).
-	Time *util.TimeWrapper `json:"time"`
+	Time *utiltime.TimeWrapper `json:"time"`
 
 	// DataContentType is data content type(optional).
 	DataContentType string `json:"datacontenttype,omitempty"`
@@ -121,6 +121,6 @@ func NewEvent(uuid string, source string, eventType EventType) *Event {
 		ID:          uuid,
 		Source:      source,
 		Type:        eventType,
-		Time:        util.NewTime(now),
+		Time:        utiltime.NewTime(now),
 	}
 }

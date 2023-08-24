@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package status
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 )

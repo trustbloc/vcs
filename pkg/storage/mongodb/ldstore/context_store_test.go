@@ -18,8 +18,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/embed"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/context/embed"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	jsonld "github.com/piprate/json-gold/ld"

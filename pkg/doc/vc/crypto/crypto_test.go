@@ -16,21 +16,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	cryptomock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
+	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -48,7 +48,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 	t.Run("test success", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -160,7 +160,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
 				c := New(
-					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+					&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 					testutil.DocumentLoader(t),
 				)
 
@@ -210,7 +210,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 	t.Run("test error from creator", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 		p := getTestLDPSigner()
@@ -224,7 +224,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 	t.Run("test error from sign credential", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 		signedVC, err := c.signCredentialLDP(
@@ -245,7 +245,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 	t.Run("sign vc - invalid proof purpose", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
 		p := getTestLDPSigner()
 
@@ -259,7 +259,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 	t.Run("sign vc - capability invocation proof purpose", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
 		p := getTestLDPSigner()
 
@@ -272,7 +272,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 	t.Run("sign vc - capability delegation proof purpose", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
 		p := getTestLDPSigner()
 
@@ -300,7 +300,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 		},
-		Issued: &util.TimeWrapper{
+		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
 		},
 		Issuer: verifiable.Issuer{
@@ -326,7 +326,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 	})
 
 	type fields struct {
-		getVDR func() vdr.Registry
+		getVDR func() vdrapi.Registry
 	}
 	type args struct {
 		signerData *vc.Signer
@@ -342,8 +342,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "OK empty options",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -358,8 +358,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "OK with options",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -378,8 +378,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "OK with options SD-JWT",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -398,8 +398,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "SD JWT signing error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -415,8 +415,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "Error GetDIDDocFromVerificationMethod",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveErr: errors.New("some error")}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveErr: errors.New("some error")}
 				},
 			},
 			args: args{
@@ -431,8 +431,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "Error proof purpose not supported",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -449,10 +449,10 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "Error unable to find matching key ID from DID",
 			fields: fields{
-				getVDR: func() vdr.Registry {
+				getVDR: func() vdrapi.Registry {
 					doc := createDIDDoc(didID)
 					doc.AssertionMethod[0].VerificationMethod.ID = ""
-					return &vdrmock.MockVDRegistry{ResolveValue: doc}
+					return &vdrmock.VDRegistry{ResolveValue: doc}
 				},
 			},
 			args: args{
@@ -467,8 +467,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "Error empty VC subject",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -485,8 +485,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "Error kms:unsupported key type",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -512,8 +512,8 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 		{
 			name: "JWS signing error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{ResolveValue: didDoc}
 				},
 			},
 			args: args{
@@ -554,7 +554,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 func TestCrypto_SignCredentialBBS(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -577,7 +577,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - success", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -590,7 +590,7 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - signature type opts", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -604,7 +604,7 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - fail", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -619,7 +619,7 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - unresolved did", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: nil},
+			&vdrmock.VDRegistry{ResolveValue: nil},
 			nil,
 		)
 
@@ -636,7 +636,7 @@ func TestSignPresentation(t *testing.T) {
 func TestSignCredential(t *testing.T) {
 	t.Run("sign credential LDP - success", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -651,7 +651,7 @@ func TestSignCredential(t *testing.T) {
 	})
 	t.Run("sign credential LDP - error", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: nil},
+			&vdrmock.VDRegistry{ResolveValue: nil},
 			testutil.DocumentLoader(t),
 		)
 
@@ -665,7 +665,7 @@ func TestSignCredential(t *testing.T) {
 	})
 	t.Run("sign credential - error undefined format", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: nil},
+			&vdrmock.VDRegistry{ResolveValue: nil},
 			testutil.DocumentLoader(t),
 		)
 
@@ -689,14 +689,14 @@ func TestSignCredential(t *testing.T) {
 	})
 	t.Run("sign credential JWT - success", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
 		unsignedVC := &verifiable.Credential{
 			ID:      "http://example.edu/credentials/1872",
 			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Issued: &util.TimeWrapper{
+			Issued: &utiltime.TimeWrapper{
 				Time: time.Now(),
 			},
 			Issuer: verifiable.Issuer{
@@ -723,7 +723,7 @@ func TestSignCredential(t *testing.T) {
 	})
 	t.Run("sign credential JWT - error", func(t *testing.T) {
 		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
 
@@ -733,7 +733,7 @@ func TestSignCredential(t *testing.T) {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
-			Issued: &util.TimeWrapper{
+			Issued: &utiltime.TimeWrapper{
 				Time: time.Now(),
 			},
 		}
@@ -837,7 +837,7 @@ func createDIDDoc(didID string, opts ...opt) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: model.NewDIDCommV1Endpoint("https://agent.example.com/"),
+		ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://agent.example.com/"),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}

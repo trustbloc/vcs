@@ -13,17 +13,17 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	ariessigner "github.com/hyperledger/aries-framework-go/component/models/signature/signer"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ecdsasecp256k1signature2019"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ed25519signature2020"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/jsonwebsignature2020"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
@@ -188,7 +188,7 @@ func (c *Crypto) signCredentialLDP(
 		return nil, err
 	}
 
-	err = vc.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(c.documentLoader))
+	err = vc.AddLinkedDataProof(signingCtx, ldprocessor.WithDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}
@@ -320,7 +320,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 		signingCtx.Purpose = Authentication
 	}
 
-	err = vp.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(c.documentLoader))
+	err = vp.AddLinkedDataProof(signingCtx, ldprocessor.WithDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}

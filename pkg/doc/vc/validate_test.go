@@ -17,8 +17,8 @@ import (
 	"reflect"
 	"testing"
 
-	afgojwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	afgojwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

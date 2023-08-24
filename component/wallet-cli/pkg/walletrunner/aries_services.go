@@ -9,9 +9,9 @@ package walletrunner
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	"github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
 )

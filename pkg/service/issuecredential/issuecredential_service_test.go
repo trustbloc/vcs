@@ -19,19 +19,19 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -116,7 +116,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 						didDoc := createDIDDoc("did:trustblock:abc", keyID)
 						crypto := vccrypto.New(
-							&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
+							&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
 						service := issuecredential.New(&issuecredential.Config{
 							VCStatusManager: mockVCStatusManager,
@@ -181,7 +181,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 				didDoc := createDIDDoc("did:trustblock:abc", keyID)
 				crypto := vccrypto.New(
-					&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
+					&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
 				service := issuecredential.New(&issuecredential.Config{
 					VCStatusManager: mockVCStatusManager,
@@ -306,7 +306,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 		didDoc := createDIDDoc("did:trustblock:abc", keyID)
 		crypto := vccrypto.New(
-			&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
+			&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
 		service := issuecredential.New(&issuecredential.Config{
 			KMSRegistry:     kmRegistry,
@@ -404,7 +404,7 @@ func createDIDDoc(didID, keyID string) *did.Doc { //nolint:unparam
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: model.NewDIDCommV1Endpoint("https://agent.example.com/"),
+		ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://agent.example.com/"),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}

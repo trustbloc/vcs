@@ -20,14 +20,14 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	cryptomock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -78,7 +78,7 @@ func TestService_HandleEvent(t *testing.T) {
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 	crypto := vccrypto.New(
-		&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
 	t.Run("OK", func(t *testing.T) {
 		cslStore := newMockCSLVCStore()
@@ -183,7 +183,7 @@ func TestService_handleEventPayload(t *testing.T) {
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 	crypto := vccrypto.New(
-		&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
 	t.Run("OK", func(t *testing.T) {
 		cslStore := newMockCSLVCStore()
@@ -406,7 +406,7 @@ func TestService_signCSL(t *testing.T) {
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 	crypto := vccrypto.New(
-		&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
 	t.Run("OK", func(t *testing.T) {
 		cslStore := newMockCSLVCStore()
@@ -484,7 +484,7 @@ func TestService_signCSL(t *testing.T) {
 
 	t.Run("Error sign CSL failed", func(t *testing.T) {
 		cryptoErr := vccrypto.New(
-			&vdrmock.MockVDRegistry{ResolveErr: errors.New("some error")}, loader)
+			&vdrmock.VDRegistry{ResolveErr: errors.New("some error")}, loader)
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)

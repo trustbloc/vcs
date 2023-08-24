@@ -20,14 +20,14 @@ import (
 	"strings"
 	"time"
 
+	docdid "github.com/hyperledger/aries-framework-go/component/models/did"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -246,7 +246,7 @@ func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 	}
 
 	// add linked data proof
-	err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(loader))
+	err = vp.AddLinkedDataProof(ldpContext, ldprocessor.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	},
 	{
 		URL:         "https://w3id.org/citizenship/v1",
-		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", //resolvable
+		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", // resolvable
 		Content:     citizenshipVocab,
 	},
 	{
@@ -331,7 +331,7 @@ func (p *ldStoreProvider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStor
 }
 
 // DocumentLoader returns a JSON-LD document loader with preloaded test contexts.
-func DocumentLoader() (*ld.DocumentLoader, error) {
+func DocumentLoader() (*lddocloader.DocumentLoader, error) {
 	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
 	if err != nil {
 		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
@@ -347,7 +347,7 @@ func DocumentLoader() (*ld.DocumentLoader, error) {
 		RemoteProviderStore: remoteProviderStore,
 	}
 
-	loader, err := ld.NewDocumentLoader(ldStore, ld.WithExtraContexts(extraContexts...))
+	loader, err := lddocloader.NewDocumentLoader(ldStore, lddocloader.WithExtraContexts(extraContexts...))
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}

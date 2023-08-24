@@ -9,7 +9,7 @@ package issuecredential
 import (
 	"context"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"

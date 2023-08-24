@@ -16,10 +16,9 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -228,8 +227,8 @@ func (s *Service) checkCredentialStrict(ctx context.Context, lazy []*LazyCredent
 		}
 
 		if err = validator.ValidateJSONLDMap(credMap,
-			jsonld.WithDocumentLoader(s.documentLoader),
-			jsonld.WithStrictValidation(true),
+			validator.WithDocumentLoader(s.documentLoader),
+			validator.WithStrictValidation(true),
 		); err != nil {
 			return err
 		}

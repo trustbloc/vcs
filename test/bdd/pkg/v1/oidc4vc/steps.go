@@ -13,7 +13,7 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
@@ -31,7 +31,7 @@ type Steps struct {
 	issuerProfile              *profileapi.Issuer
 	verifierProfile            *profileapi.Verifier
 	walletRunner               *walletrunner.Service
-	dl                         *ld.DocumentLoader
+	dl                         *lddocloader.DocumentLoader
 	issuedCredentialType       string
 	issuedCredentialTemplateID string
 	vpClaimsTransactionID      string

@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"

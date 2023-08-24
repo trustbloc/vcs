@@ -15,10 +15,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	mockvdr "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 
@@ -46,13 +46,13 @@ func TestNew(t *testing.T) {
 			name: "OK",
 			args: args{
 				config: &Config{
-					VDR:            &mockvdr.MockVDRegistry{},
+					VDR:            &mockvdr.VDRegistry{},
 					DocumentLoader: testutil.DocumentLoader(t),
 					VcVerifier:     NewMockVcVerifier(gomock.NewController(t)),
 				},
 			},
 			want: &Service{
-				vdr:            &mockvdr.MockVDRegistry{},
+				vdr:            &mockvdr.VDRegistry{},
 				documentLoader: testutil.DocumentLoader(t),
 				vcVerifier:     NewMockVcVerifier(gomock.NewController(t)),
 				claimKeys:      map[string][]string{},
@@ -310,7 +310,7 @@ func TestService_validatePresentationProof(t *testing.T) {
 			name: "Error empty VDR",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return &mockvdr.MockVDRegistry{}
+					return &mockvdr.VDRegistry{}
 				},
 			},
 			args: args{
@@ -513,7 +513,7 @@ func TestService_validateProofData(t *testing.T) {
 		{
 			name: "Error unresolved did doc",
 			fields: fields{
-				vdr: &mockvdr.MockVDRegistry{},
+				vdr: &mockvdr.VDRegistry{},
 			},
 			args: args{
 				getVP: func() *verifiable.Presentation {

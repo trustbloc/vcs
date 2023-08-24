@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	kmskeytypes "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -186,7 +186,7 @@ func TestService_VerifyCredential(t *testing.T) {
 
 		t.Run("Failed", func(t *testing.T) {
 			// Assert
-			mockVDRRegistry := &vdrmock.MockVDRegistry{}
+			mockVDRRegistry := &vdrmock.VDRegistry{}
 			loader := testutil.DocumentLoader(t)
 
 			vc, err := verifiable.ParseCredential(

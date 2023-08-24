@@ -15,9 +15,9 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
 
 	"github.com/trustbloc/vcs/pkg/profile"

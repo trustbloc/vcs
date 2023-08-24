@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 

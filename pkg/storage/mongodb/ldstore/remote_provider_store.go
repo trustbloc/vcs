@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -25,7 +25,7 @@ const (
 	endpointFieldName            = "endpoint"
 )
 
-var _ ld.RemoteProviderStore = (*RemoteProviderStore)(nil)
+var _ ldstore.RemoteProviderStore = (*RemoteProviderStore)(nil)
 
 // RemoteProviderStore is mongodb implementation of remote provider repository.
 type RemoteProviderStore struct {
@@ -81,13 +81,13 @@ func (s *RemoteProviderStore) migrate() error {
 }
 
 // Get returns a remote provider record from DB.
-func (s *RemoteProviderStore) Get(id string) (*ld.RemoteProviderRecord, error) {
+func (s *RemoteProviderStore) Get(id string) (*ldstore.RemoteProviderRecord, error) {
 	collection := s.mongoClient.Database().Collection(remoteProviderCollectionName)
 
 	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
 	defer cancel()
 
-	var provider ld.RemoteProviderRecord
+	var provider ldstore.RemoteProviderRecord
 
 	if err := collection.FindOne(ctxWithTimeout,
 		bson.D{
@@ -104,7 +104,7 @@ func (s *RemoteProviderStore) Get(id string) (*ld.RemoteProviderRecord, error) {
 }
 
 // GetAll returns all remote provider records from DB.
-func (s *RemoteProviderStore) GetAll() ([]ld.RemoteProviderRecord, error) {
+func (s *RemoteProviderStore) GetAll() ([]ldstore.RemoteProviderRecord, error) {
 	collection := s.mongoClient.Database().Collection(remoteProviderCollectionName)
 
 	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
@@ -117,7 +117,7 @@ func (s *RemoteProviderStore) GetAll() ([]ld.RemoteProviderRecord, error) {
 
 	defer cursor.Close(ctxWithTimeout) //nolint:errcheck
 
-	var providers []ld.RemoteProviderRecord
+	var providers []ldstore.RemoteProviderRecord
 
 	if err = cursor.All(ctxWithTimeout, &providers); err != nil {
 		return nil, fmt.Errorf("get all providers: %w", err)
@@ -128,9 +128,9 @@ func (s *RemoteProviderStore) GetAll() ([]ld.RemoteProviderRecord, error) {
 
 // Save creates a new remote provider record and saves it into DB.
 // If record with given endpoint already exists, it is returned to the caller.
-func (s *RemoteProviderStore) Save(endpoint string) (*ld.RemoteProviderRecord, error) {
+func (s *RemoteProviderStore) Save(endpoint string) (*ldstore.RemoteProviderRecord, error) {
 	var (
-		provider ld.RemoteProviderRecord
+		provider ldstore.RemoteProviderRecord
 		err      error
 	)
 
@@ -154,7 +154,7 @@ func (s *RemoteProviderStore) Save(endpoint string) (*ld.RemoteProviderRecord, e
 		return &provider, nil
 	}
 
-	provider = ld.RemoteProviderRecord{
+	provider = ldstore.RemoteProviderRecord{
 		ID:       uuid.New().String(),
 		Endpoint: endpoint,
 	}

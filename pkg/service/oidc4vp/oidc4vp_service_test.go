@@ -21,25 +21,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	"github.com/hyperledger/aries-framework-go/component/models/presexch"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
+	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	ariescontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -793,7 +793,8 @@ func (m *mockEvent) Publish(_ context.Context, _ string, _ ...*spi.Event) error 
 }
 
 func newVPWithPD(t *testing.T, agent *ariescontext.Provider) (
-	*verifiable.Presentation, *presexch.PresentationDefinition, string, verifiable.PublicKeyFetcher, *ld.DocumentLoader) {
+	*verifiable.Presentation, *presexch.PresentationDefinition, string,
+	verifiable.PublicKeyFetcher, *lddocloader.DocumentLoader) {
 	uri := randomURI()
 
 	customType := "CustomType"
@@ -940,7 +941,7 @@ func randomURI() string {
 	return fmt.Sprintf("https://my.test.context.jsonld/%s", uuid.New().String())
 }
 
-func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) *ld.DocumentLoader {
+func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) *lddocloader.DocumentLoader {
 	include := fmt.Sprintf(`"ctx":"%s#"`, contextURL)
 
 	for _, typ := range types {

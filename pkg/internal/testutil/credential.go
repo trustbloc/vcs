@@ -11,21 +11,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/jsonwebsignature2020"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	kmskeytypes "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
@@ -129,7 +129,7 @@ func proveVC(
 		}
 	}
 
-	return credential, &vdrmock.MockVDRegistry{
+	return credential, &vdrmock.VDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			return &did.DocResolution{DIDDocument: didDoc}, nil
 		},
@@ -149,7 +149,7 @@ func createDIDDoc(t *testing.T, didID, keyID string, pubKeyBytes []byte, kt kmsk
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: model.NewDIDCommV1Endpoint("https://agent.example.com/"),
+		ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://agent.example.com/"),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}

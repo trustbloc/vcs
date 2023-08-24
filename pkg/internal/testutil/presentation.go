@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/jsonwebsignature2020"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/require"
 
@@ -94,7 +94,7 @@ func proveVP(
 
 	return &SignedPresentationResult{
 		Presentation: presentation,
-		VDR: &vdrmock.MockVDRegistry{
+		VDR: &vdrmock.VDRegistry{
 			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
