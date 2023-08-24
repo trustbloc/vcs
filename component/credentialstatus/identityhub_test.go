@@ -24,11 +24,11 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	vdr2 "github.com/hyperledger/aries-framework-go/component/vdr"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 )
 
 const (
@@ -236,7 +236,7 @@ func TestService_resolveDID(t *testing.T) {
 	require.Equal(t, didDoc.ID, createDIDDoc(didID).ID)
 
 	s = &Service{
-		vdr: &vdrmock.MockVDRegistry{
+		vdr: &vdrmock.VDRegistry{
 			ResolveErr: errors.New("some error"),
 		},
 	}
@@ -247,7 +247,7 @@ func TestService_resolveDID(t *testing.T) {
 
 func TestService_resolveDIDRelativeUrl(t *testing.T) {
 	type fields struct {
-		getVDR        func() vdr.Registry
+		getVDR        func() vdrapi.Registry
 		getHTTPClient func() httpClient
 	}
 	type args struct {
@@ -263,8 +263,8 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "OK",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{
 						ResolveValue: createDIDDoc("did:trustbloc:abc"),
 					}
 				},
@@ -287,7 +287,7 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "OK - longform",
 			fields: fields{
-				getVDR: func() vdr.Registry {
+				getVDR: func() vdrapi.Registry {
 					longformVDR, err := longform.New()
 					require.NoError(t, err)
 
@@ -306,8 +306,8 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "resolveDID error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{
 						ResolveErr: errors.New("some error"),
 					}
 				},
@@ -324,8 +324,8 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "getQueryValues error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{
 						ResolveValue: createDIDDoc("did:trustbloc:abc"),
 					}
 				},
@@ -342,10 +342,10 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "getIdentityHubServiceEndpoint error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
+				getVDR: func() vdrapi.Registry {
 					didDoc := createDIDDoc("did:trustbloc:abc")
 					didDoc.Service[0].Type = "LinkedDomains"
-					return &vdrmock.MockVDRegistry{
+					return &vdrmock.VDRegistry{
 						ResolveValue: didDoc,
 					}
 				},
@@ -362,10 +362,10 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "NewRequestWithContext error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
+				getVDR: func() vdrapi.Registry {
 					didDoc := createDIDDoc("did:trustbloc:abc")
-					didDoc.Service[0].ServiceEndpoint = model.NewDIDCommV1Endpoint(" http://example.com")
-					return &vdrmock.MockVDRegistry{
+					didDoc.Service[0].ServiceEndpoint = endpoint.NewDIDCommV1Endpoint(" http://example.com")
+					return &vdrmock.VDRegistry{
 						ResolveValue: didDoc,
 					}
 				},
@@ -382,8 +382,8 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "sendHTTPRequest error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{
 						ResolveValue: createDIDDoc("did:trustbloc:abc"),
 					}
 				},
@@ -402,8 +402,8 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "identityHubResponse Unmarshal error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{
 						ResolveValue: createDIDDoc("did:trustbloc:abc"),
 					}
 				},
@@ -426,8 +426,8 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 		{
 			name: "checkResponseStatus error",
 			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{
+				getVDR: func() vdrapi.Registry {
+					return &vdrmock.VDRegistry{
 						ResolveValue: createDIDDoc("did:trustbloc:abc"),
 					}
 				},
@@ -483,7 +483,7 @@ func createDIDDoc(didID string) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            serviceTypeIdentityHub,
-		ServiceEndpoint: model.NewDIDCommV1Endpoint(serviceEndpointURL),
+		ServiceEndpoint: endpoint.NewDIDCommV1Endpoint(serviceEndpointURL),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}

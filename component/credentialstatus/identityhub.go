@@ -18,8 +18,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 )
 
 const (
@@ -131,7 +131,7 @@ func (s *Service) getIdentityHubServiceEndpoint(did *did.Doc) (string, error) {
 		}
 
 		switch service.ServiceEndpoint.Type() {
-		case model.Generic:
+		case endpoint.Generic:
 			serviceEndpoint, err := service.ServiceEndpoint.URI()
 			if err == nil {
 				return serviceEndpoint, nil
@@ -148,7 +148,7 @@ func (s *Service) getIdentityHubServiceEndpoint(did *did.Doc) (string, error) {
 			}
 
 			for _, v := range mapped {
-				didCoreEndpoint := model.NewDIDCoreEndpoint(v)
+				didCoreEndpoint := endpoint.NewDIDCoreEndpoint(v)
 				serviceEndpoint, err = didCoreEndpoint.URI()
 				if err == nil {
 					return serviceEndpoint, nil
@@ -156,7 +156,7 @@ func (s *Service) getIdentityHubServiceEndpoint(did *did.Doc) (string, error) {
 			}
 
 			return "", fmt.Errorf("unable to extract DIDCore service endpoint")
-		case model.DIDCommV1, model.DIDCommV2:
+		case endpoint.DIDCommV1, endpoint.DIDCommV2:
 			serviceEndpoint, err := service.ServiceEndpoint.URI()
 			if err != nil {
 				return "", fmt.Errorf("unable to get service endpoint URL: %w", err)

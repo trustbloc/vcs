@@ -10,10 +10,10 @@ import (
 	_ "embed" //nolint:gci // required for go:embed
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	mockldstore "github.com/hyperledger/aries-framework-go/component/models/ld/mock"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,7 +47,7 @@ func (p *mockLDStoreProvider) JSONLDRemoteProviderStore() ldstore.RemoteProvider
 }
 
 // DocumentLoader returns a document loader with preloaded test contexts.
-func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.DocumentLoader {
+func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *documentloader.DocumentLoader {
 	t.Helper()
 
 	ldStore := &mockLDStoreProvider{
@@ -83,8 +83,8 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 		},
 	}
 
-	loader, err := ld.NewDocumentLoader(ldStore,
-		ld.WithExtraContexts(
+	loader, err := documentloader.NewDocumentLoader(ldStore,
+		documentloader.WithExtraContexts(
 			append(testContexts, extraContexts...)...,
 		),
 	)

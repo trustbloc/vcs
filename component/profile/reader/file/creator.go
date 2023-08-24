@@ -11,15 +11,14 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -57,13 +56,13 @@ type Creator struct {
 
 // KeysCreator create keys for DID creation process.
 type KeysCreator interface {
-	CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error)
-	CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error)
+	CreateJWKKey(keyType kmsapi.KeyType) (string, *jwk.JWK, error)
+	CreateCryptoKey(keyType kmsapi.KeyType) (string, interface{}, error)
 }
 
 // creatorConfig configures PublicDID.
 type creatorConfig struct {
-	vdr vdr.Registry
+	vdr vdrapi.Registry
 }
 
 // newCreator creates Creator.
@@ -75,8 +74,8 @@ func newCreator(config *creatorConfig) *Creator {
 
 // publicDID creates a new public DID given a key manager.
 func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType, km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
-	methods := map[profileapi.Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
+	keyType kmsapi.KeyType, km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
+	methods := map[profileapi.Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kmsapi.KeyType,
 		km KeysCreator, didDomain, difDidOrigin string) (*createResult, error){
 		profileapi.KeyDIDMethod: c.keyDID,
 		profileapi.OrbDIDMethod: c.createDID,
@@ -95,7 +94,7 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 
 func (c *Creator) createDID(
 	verificationMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType,
+	keyType kmsapi.KeyType,
 	km KeysCreator,
 	_, _ string,
 ) (*createResult, error) { //nolint: unparam
@@ -131,8 +130,8 @@ func (c *Creator) createDID(
 	didResolution, err := c.config.vdr.Create(
 		orb.DIDMethod,
 		doc,
-		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
 	)
 
 	if err != nil {
@@ -150,7 +149,7 @@ func (c *Creator) createDID(
 
 func (c *Creator) keyDID(
 	verificationMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType,
+	keyType kmsapi.KeyType,
 	km KeysCreator,
 	_, _ string,
 ) (*createResult, error) { //nolint: unparam
@@ -179,7 +178,7 @@ func (c *Creator) keyDID(
 
 func (c *Creator) jwkDID(
 	verificationMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType,
+	keyType kmsapi.KeyType,
 	km KeysCreator,
 	_, _ string,
 ) (*createResult, error) { //nolint: unparam
@@ -206,7 +205,7 @@ func (c *Creator) jwkDID(
 	}, nil
 }
 
-func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
+func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, keyType kmsapi.KeyType,
 	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
 	r, err := c.createDID(verificationMethodType, keyType, km, didDomain, difDidOrigin)
 	if err != nil {
@@ -233,7 +232,7 @@ type serviceEndpointData struct {
 
 func (c *Creator) ionDID(
 	verificationMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType,
+	keyType kmsapi.KeyType,
 	km KeysCreator, _, difDidOrigin string,
 ) (*createResult, error) { //nolint:unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
@@ -253,7 +252,7 @@ func (c *Creator) ionDID(
 
 	if difDidOrigin != "" {
 		didDoc.Service = []did.Service{{ID: "LinkedDomains", Type: "LinkedDomains",
-			ServiceEndpoint: model.NewDIDCoreEndpoint(&serviceEndpointData{Origins: []string{difDidOrigin + "/"}})}}
+			ServiceEndpoint: endpoint.NewDIDCoreEndpoint(&serviceEndpointData{Origins: []string{difDidOrigin + "/"}})}}
 	}
 
 	keys := [2]interface{}{}
@@ -273,9 +272,9 @@ func (c *Creator) ionDID(
 	didResolution, err := c.config.vdr.Create(
 		"ion",
 		didDoc,
-		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
-		vdr.WithOption(longform.VDRAcceptOpt, "long-form"),
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(longform.VDRAcceptOpt, "long-form"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create long form did: %w", err)
@@ -291,7 +290,7 @@ func (c *Creator) ionDID(
 }
 
 func newVerMethods(count int, km KeysCreator, verMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType) ([]*did.VerificationMethod, error) {
+	keyType kmsapi.KeyType) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 
 	for i := 0; i < count; i++ {
