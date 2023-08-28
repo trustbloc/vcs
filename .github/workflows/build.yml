@@ -84,7 +84,7 @@ jobs:
     if: github.event_name == 'push' && (github.repository == 'trustbloc/vcs' && github.ref == 'refs/heads/main')
     needs: [Checks, UnitTest, BDDTest]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Setup Go 1.21
         uses: actions/setup-go@v2
