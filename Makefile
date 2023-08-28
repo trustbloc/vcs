@@ -145,7 +145,7 @@ build-wallet-cli-binaries: clean
 	@docker run -i --rm \
 		-v $(abspath .):/opt/workspace/vcs \
 		--entrypoint "/opt/workspace/vcs/scripts/build-cli.sh" \
-		ghcr.io/gythialy/golang-cross:1.19.4-0
+		ghcr.io/gythialy/golang-cross:1.21.0-0
 
 .PHONY: build-krakend-plugin
 build-krakend-plugin: clean
