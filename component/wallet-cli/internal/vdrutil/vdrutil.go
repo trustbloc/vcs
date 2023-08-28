@@ -13,10 +13,11 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms/key"
 )
@@ -39,7 +40,7 @@ type VDRUtil struct {
 func (v *VDRUtil) Create(
 	didMethod string,
 	keyType kms.KeyType,
-	registry vdr.Registry,
+	registry vdrapi.Registry,
 	keyManager keyManager,
 ) (*CreateResult, error) {
 	switch strings.ToLower(didMethod) {
@@ -56,7 +57,7 @@ func (v *VDRUtil) Create(
 	}
 }
 
-func (v *VDRUtil) CreateKey(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
+func (v *VDRUtil) CreateKey(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
 	verMethod, err := v.newVerMethods(1, keyManager, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -79,7 +80,7 @@ func (v *VDRUtil) CreateKey(keyType kms.KeyType, registry vdr.Registry, keyManag
 	}, nil
 }
 
-func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
+func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
 	verMethod, err := v.newVerMethods(1, keyManager, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -102,7 +103,7 @@ func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdr.Registry, keyManag
 	}, nil
 }
 
-func (v *VDRUtil) createION(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
+func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) {
 	verMethod, err := v.newVerMethods(1, keyManager, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)
@@ -140,9 +141,9 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdr.Registry, keyManag
 	didResolution, err := registry.Create(
 		"ion",
 		didDoc,
-		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
-		vdr.WithOption(longform.VDRAcceptOpt, "long-form"),
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(longform.VDRAcceptOpt, "long-form"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create long form did: %w", err)
@@ -154,7 +155,7 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdr.Registry, keyManag
 	}, nil
 }
 
-func (v *VDRUtil) createORB(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
+func (v *VDRUtil) createORB(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) {
 	methods, err := v.newVerMethods(3, keyManager, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -205,8 +206,8 @@ func (v *VDRUtil) createORB(keyType kms.KeyType, registry vdr.Registry, keyManag
 	didResolution, err := registry.Create(
 		orb.DIDMethod,
 		doc,
-		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
 	)
 
 	if err != nil {

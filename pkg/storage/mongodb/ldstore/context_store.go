@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
 	"go.mongodb.org/mongo-driver/bson"
@@ -29,7 +29,7 @@ const (
 	contextURLFieldName   = "contextURL"
 )
 
-var _ ld.ContextStore = (*ContextStore)(nil)
+var _ ldstore.ContextStore = (*ContextStore)(nil)
 
 type bsonRemoteDocument struct {
 	DocumentURL string                 `bson:"documentURL,omitempty"`

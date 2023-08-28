@@ -9,8 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 package ld
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	jsonld "github.com/piprate/json-gold/ld"
 )
 
@@ -25,7 +25,7 @@ type Cache interface {
 	Del(key interface{})
 }
 
-type ContextStore = ld.ContextStore
+type ContextStore = ldstore.ContextStore
 
 // CachedContextStore is a cached store for JSON-LD contexts.
 type CachedContextStore struct {

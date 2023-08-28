@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"time"
 
-	docjsonld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
+	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 

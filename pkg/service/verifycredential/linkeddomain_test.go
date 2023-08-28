@@ -15,11 +15,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -172,7 +172,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			name: "OK",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return &vdrmock.MockVDRegistry{
+					return &vdrmock.VDRegistry{
 						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
@@ -192,7 +192,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			name: "VDR resolve error",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return &vdrmock.MockVDRegistry{
+					return &vdrmock.VDRegistry{
 						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							return nil, errors.New("some error")
 						},
@@ -208,7 +208,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			name: "No LinkedDomains",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return &vdrmock.MockVDRegistry{
+					return &vdrmock.VDRegistry{
 						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
@@ -233,7 +233,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			name: "Unsupported service endpoint structure",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return &vdrmock.MockVDRegistry{
+					return &vdrmock.VDRegistry{
 						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
@@ -245,11 +245,11 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 							emptyServicesDoc.Service = []did.Service{
 								{
 									Type:            []interface{}{"IdentityHub"},
-									ServiceEndpoint: model.NewDIDCommV1Endpoint("https://example.com"),
+									ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://example.com"),
 								},
 								{
 									Type:            []string{"LinkedDomains"},
-									ServiceEndpoint: model.NewDIDCommV1Endpoint("https://example.com"),
+									ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://example.com"),
 								},
 							}
 
@@ -267,7 +267,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			name: "Invalid domain",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return &vdrmock.MockVDRegistry{
+					return &vdrmock.VDRegistry{
 						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
@@ -279,7 +279,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 							emptyServicesDoc.Service = []did.Service{
 								{
 									Type: []string{"LinkedDomains"},
-									ServiceEndpoint: model.NewDIDCoreEndpoint(
+									ServiceEndpoint: endpoint.NewDIDCoreEndpoint(
 										map[string][]string{
 											"origins": {"https://example.com"},
 										}),

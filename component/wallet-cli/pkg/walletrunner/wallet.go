@@ -13,12 +13,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-
-	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 const (

@@ -23,10 +23,10 @@ import (
 	"github.com/cli/browser"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
@@ -460,7 +460,7 @@ func (s *Service) getAuthCode(
 	config *OIDC4CIConfig,
 	authCodeURL string,
 ) (string, error) {
-	//var loginURL, consentURL *url.URL
+	// var loginURL, consentURL *url.URL
 	var authCode string
 
 	httpClient := &http.Client{

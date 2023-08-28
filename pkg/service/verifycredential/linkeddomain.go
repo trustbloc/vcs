@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/didconfig"
+	didconfig "github.com/hyperledger/aries-framework-go/component/didconfig/client"
 )
 
 const (

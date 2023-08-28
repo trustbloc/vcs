@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"

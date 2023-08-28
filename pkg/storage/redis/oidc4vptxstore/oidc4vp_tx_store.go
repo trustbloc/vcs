@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	jsonld "github.com/piprate/json-gold/ld"
 	redisapi "github.com/redis/go-redis/v9"
 

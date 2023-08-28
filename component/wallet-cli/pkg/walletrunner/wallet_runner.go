@@ -15,30 +15,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
-
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/context/remote"
+	ld "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
+	"github.com/hyperledger/aries-framework-go/component/vdr"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/vdr/web"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
 	"golang.org/x/oauth2"
@@ -76,7 +76,7 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	},
 	{
 		URL:         "https://w3id.org/citizenship/v1",
-		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", //resolvable
+		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", // resolvable
 		Content:     citizenshipVocab,
 	},
 	{
@@ -270,7 +270,7 @@ func createLDStore(storageProvider storage.Provider) (*ldStoreProvider, error) {
 
 func createJSONLDDocumentLoader(ldStore *ldStoreProvider, tlsConfig *tls.Config,
 	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
-	loaderOpts := []ld.DocumentLoaderOpts{ld.WithExtraContexts(extraContexts...)}
+	loaderOpts := []ld.Opts{ld.WithExtraContexts(extraContexts...)}
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -362,11 +362,11 @@ func createVDR(vcProviderConf *vcprovider.Config) (vdrapi.Registry, error) {
 }
 
 type kmsProvider struct {
-	store             kms.Store
+	store             kmsapi.Store
 	secretLockService secretlock.Service
 }
 
-func (k kmsProvider) StorageProvider() kms.Store {
+func (k kmsProvider) StorageProvider() kmsapi.Store {
 	return k.store
 }
 

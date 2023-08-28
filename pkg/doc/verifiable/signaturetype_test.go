@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/require"
 )
 

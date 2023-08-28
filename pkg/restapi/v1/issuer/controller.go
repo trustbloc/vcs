@@ -27,9 +27,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -239,7 +238,7 @@ func (c *Controller) buildCredentialsFromTemplate(
 			ID:           profile.SigningDID.DID,
 			CustomFields: *body.Claims,
 		},
-		Issued:       util2.NewTime(time.Now()),
+		Issued:       utiltime.NewTime(time.Now()),
 		CustomFields: map[string]interface{}{},
 	}
 
@@ -251,9 +250,9 @@ func (c *Controller) buildCredentialsFromTemplate(
 	}
 
 	if credentialTemplate.CredentialDefaultExpirationDuration != nil {
-		vcc.Expired = util2.NewTime(time.Now().UTC().Add(*credentialTemplate.CredentialDefaultExpirationDuration))
+		vcc.Expired = utiltime.NewTime(time.Now().UTC().Add(*credentialTemplate.CredentialDefaultExpirationDuration))
 	} else {
-		vcc.Expired = util2.NewTime(time.Now().Add(365 * 24 * time.Hour))
+		vcc.Expired = utiltime.NewTime(time.Now().Add(365 * 24 * time.Hour))
 	}
 
 	return vcc
@@ -738,8 +737,8 @@ func (c *Controller) validateClaims( //nolint:gocognit
 	data["type"] = types
 
 	return validator.ValidateJSONLDMap(data,
-		jsonld.WithDocumentLoader(c.documentLoader),
-		jsonld.WithStrictValidation(strictValidation),
+		validator.WithDocumentLoader(c.documentLoader),
+		validator.WithStrictValidation(strictValidation),
 	)
 }
 

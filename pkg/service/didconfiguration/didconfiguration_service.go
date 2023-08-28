@@ -13,8 +13,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -205,7 +205,7 @@ func (s *Service) getBaseCredentials() *verifiable.Credential {
 			vcTypeVerifiableCredential,
 			vcTypeDomainLinkageCredential,
 		},
-		Issued:  util.NewTime(time.Now()),
-		Expired: util.NewTime(time.Now().AddDate(1, 0, 0)),
+		Issued:  utiltime.NewTime(time.Now()),
+		Expired: utiltime.NewTime(time.Now().AddDate(1, 0, 0)),
 	}
 }

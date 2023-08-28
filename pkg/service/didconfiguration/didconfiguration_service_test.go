@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"

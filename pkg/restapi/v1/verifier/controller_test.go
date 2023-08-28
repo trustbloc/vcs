@@ -20,10 +20,10 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/presexch"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
@@ -138,7 +138,7 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 		VerifyCredentialSvc: mockVerifyCredentialSvc,
 		ProfileSvc:          mockProfileSvc,
 		DocumentLoader:      testutil.DocumentLoader(t),
-		VDR:                 &vdrmock.MockVDRegistry{},
+		VDR:                 &vdrmock.VDRegistry{},
 		Tracer:              trace.NewNoopTracerProvider().Tracer(""),
 	})
 
@@ -185,7 +185,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 		VerifyCredentialSvc: mockVerifyCredentialSvc,
 		ProfileSvc:          mockProfileSvc,
 		DocumentLoader:      testutil.DocumentLoader(t),
-		VDR:                 &vdrmock.MockVDRegistry{},
+		VDR:                 &vdrmock.VDRegistry{},
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -273,7 +273,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 					VerifyCredentialSvc: testCase.getVerifyCredentialSvc(),
 					ProfileSvc:          testCase.getProfileSvc(),
 					DocumentLoader:      testutil.DocumentLoader(t),
-					VDR:                 &vdrmock.MockVDRegistry{},
+					VDR:                 &vdrmock.VDRegistry{},
 				})
 
 				var body VerifyCredentialData
@@ -310,7 +310,7 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 		VerifyPresentationSvc: mockVerifyPresSvc,
 		ProfileSvc:            mockProfileSvc,
 		DocumentLoader:        testutil.DocumentLoader(t),
-		VDR:                   &vdrmock.MockVDRegistry{},
+		VDR:                   &vdrmock.VDRegistry{},
 		Tracer:                trace.NewNoopTracerProvider().Tracer(""),
 	})
 
@@ -357,7 +357,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 		VerifyPresentationSvc: mockVerifyPresentationSvc,
 		ProfileSvc:            mockProfileSvc,
 		DocumentLoader:        testutil.DocumentLoader(t),
-		VDR:                   &vdrmock.MockVDRegistry{},
+		VDR:                   &vdrmock.VDRegistry{},
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -445,7 +445,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 					VerifyPresentationSvc: testCase.getVerifyPresentationSvc(),
 					ProfileSvc:            testCase.getProfileSvc(),
 					DocumentLoader:        testutil.DocumentLoader(t),
-					VDR:                   &vdrmock.MockVDRegistry{},
+					VDR:                   &vdrmock.VDRegistry{},
 				})
 
 				var body VerifyPresentationData

@@ -19,11 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/presexch"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
@@ -570,7 +570,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 
 		logger.Debugc(ctx, "CheckAuthorizationResponse vp_token verified")
 
-		//todo: consider to apply this validation for JWT VP in verifypresentation.Service
+		// todo: consider to apply this validation for JWT VP in verifypresentation.Service
 		if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
 				errors.New("nonce should be the same for both id_token and vp_token"))

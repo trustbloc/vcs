@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
+	arieskms "github.com/hyperledger/aries-framework-go/spi/kms"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"

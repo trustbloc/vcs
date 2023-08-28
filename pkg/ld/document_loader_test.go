@@ -10,8 +10,8 @@ import (
 	"errors"
 	"testing"
 
-	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	mockldstore "github.com/hyperledger/aries-framework-go/component/models/ld/mock"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/ld"
@@ -32,7 +32,7 @@ func TestNewDocumentLoader(t *testing.T) {
 
 	t.Run("Fail to create a new document loader", func(t *testing.T) {
 		p := &mockProvider{
-			ContextStore:        &mockldstore.MockContextStore{ErrImport: errors.New("import error")},
+			ContextStore:        &mockldstore.ContextStore{ErrImport: errors.New("import error")},
 			RemoteProviderStore: mockldstore.NewMockRemoteProviderStore(),
 		}
 

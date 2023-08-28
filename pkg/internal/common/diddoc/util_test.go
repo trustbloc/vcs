@@ -9,8 +9,8 @@ package diddoc
 import (
 	"testing"
 
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	diddoc "github.com/hyperledger/aries-framework-go/component/models/did"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,19 +46,19 @@ func TestGetKeyIDFromVerificationMethod(t *testing.T) {
 }
 
 func TestGetDIDDocFromVerificationMethod(t *testing.T) {
-	did, err := GetDIDDocFromVerificationMethod(didID, &vdrmock.MockVDRegistry{})
+	did, err := GetDIDDocFromVerificationMethod(didID, &vdrmock.VDRegistry{})
 	require.Error(t, err)
 	require.Nil(t, did)
 
-	did, err = GetDIDDocFromVerificationMethod(keyID, &vdrmock.MockVDRegistry{})
+	did, err = GetDIDDocFromVerificationMethod(keyID, &vdrmock.VDRegistry{})
 	require.Error(t, err)
 	require.Nil(t, did)
 
-	did, err = GetDIDDocFromVerificationMethod(didID+"#"+keyID, &vdrmock.MockVDRegistry{})
+	did, err = GetDIDDocFromVerificationMethod(didID+"#"+keyID, &vdrmock.VDRegistry{})
 	require.Error(t, err)
 	require.Nil(t, did)
 
-	did, err = GetDIDDocFromVerificationMethod(didID+"#"+keyID, &vdrmock.MockVDRegistry{
+	did, err = GetDIDDocFromVerificationMethod(didID+"#"+keyID, &vdrmock.VDRegistry{
 		ResolveValue: &diddoc.Doc{},
 	})
 	require.NoError(t, err)

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/didconfig"
+	didconfigclient "github.com/hyperledger/aries-framework-go/component/didconfig/client"
 )
 
 const (
@@ -45,10 +45,10 @@ func (s *Service) runLinkedDomainVerification(didID string) error {
 			return err
 		}
 
-		didConfigurationClient := didconfig.New(
-			didconfig.WithJSONLDDocumentLoader(s.ariesServices.documentLoader),
-			didconfig.WithVDRegistry(s.ariesServices.vdrRegistry),
-			didconfig.WithHTTPClient(s.httpClient),
+		didConfigurationClient := didconfigclient.New(
+			didconfigclient.WithJSONLDDocumentLoader(s.ariesServices.documentLoader),
+			didconfigclient.WithVDRegistry(s.ariesServices.vdrRegistry),
+			didconfigclient.WithHTTPClient(s.httpClient),
 		)
 
 		if err = didConfigurationClient.VerifyDIDAndDomain(didID,

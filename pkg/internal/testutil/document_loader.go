@@ -10,10 +10,10 @@ import (
 	_ "embed" //nolint:gci // required for go:embed
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ld "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	mockldstore "github.com/hyperledger/aries-framework-go/component/models/ld/mock"
+	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/stretchr/testify/require"
 )
 

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	vcapi "github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -113,7 +113,7 @@ func (s *revocationList2020Processor) CreateVC(vcID string, listSize int, //noli
 	credential.ID = vcID
 	credential.Types = []string{vcType, revocationList2020VCType}
 	credential.Issuer = verifiable.Issuer{ID: profile.DID}
-	credential.Issued = util.NewTime(time.Now().UTC())
+	credential.Issued = utiltime.NewTime(time.Now().UTC())
 
 	size := listSize
 

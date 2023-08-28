@@ -9,8 +9,8 @@ package crypto
 import (
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 )
 
 func TestGetVerificationMethodFromProof(t *testing.T) {

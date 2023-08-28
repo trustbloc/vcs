@@ -24,15 +24,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	cryptomock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	model "github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -78,7 +78,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ExternalURL:   "https://localhost:8080",
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -129,7 +129,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ExternalURL:   "https://localhost:8080",
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -160,7 +160,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ExternalURL:   "https://localhost:8080",
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 
 		require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			VCStatusStore: nil,
 			ListSize:      1,
 			KMSRegistry:   mockKMSRegistry,
-			Crypto: vccrypto.New(&vdrmock.MockVDRegistry{},
+			Crypto: vccrypto.New(&vdrmock.VDRegistry{},
 				loader),
 		})
 		require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			VCStatusStore: newMockVCStatusStore(),
 			ListSize:      1,
 			KMSRegistry:   mockKMSRegistry,
-			Crypto: vccrypto.New(&vdrmock.MockVDRegistry{},
+			Crypto: vccrypto.New(&vdrmock.VDRegistry{},
 				loader),
 		})
 		require.NoError(t, err)
@@ -260,7 +260,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ExternalURL:   "https://localhost:8080",
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -283,7 +283,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			ListSize:    0,
 			KMSRegistry: mockKMSRegistry,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -332,7 +332,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ExternalURL:   "https://localhost:8080",
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -356,7 +356,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ListSize:      1,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -380,7 +380,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			KMSRegistry:   mockKMSRegistry,
 			ListSize:      1,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
@@ -405,7 +405,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			ListSize:    2,
 			KMSRegistry: mockKMSRegistry,
 			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc()}, loader),
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
 		})
 		require.NoError(t, err)
 
