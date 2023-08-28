@@ -27,7 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
@@ -216,7 +215,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	s.print("Adding credential to wallet")
-	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
+	if err = s.wallet.Add(b); err != nil {
 		return fmt.Errorf("add credential: %w", err)
 	}
 
@@ -378,7 +377,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	}
 
 	s.print("Adding credential to wallet")
-	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
+	if err = s.wallet.Add(b); err != nil {
 		return fmt.Errorf("add credential: %w", err)
 	}
 

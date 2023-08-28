@@ -34,10 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	ariescontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
@@ -244,12 +241,15 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 }
 
 func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
-	agent := newAgent(t)
+	keyManager := createKMS(t)
+
+	crypto, err := tinkcrypto.New()
+	require.NoError(t, err)
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	vp, pd, issuer, pubKeyFetcher, loader := newVPWithPD(t, agent)
+	vp, pd, issuer, pubKeyFetcher, loader := newVPWithPD(t, keyManager, crypto)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
@@ -343,8 +343,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, agent, mergedPS, "PhDDegree")
-		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, agent, mergedPS, "BachelorDegree")
+		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
+		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
 
 		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
 			switch issuerID {
@@ -430,8 +430,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, agent, mergedPS, "PhDDegree")
-		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, agent, mergedPS, "BachelorDegree")
+		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
+		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
 
 		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
 			switch issuerID {
@@ -792,14 +792,14 @@ func (m *mockEvent) Publish(_ context.Context, _ string, _ ...*spi.Event) error 
 	return nil
 }
 
-func newVPWithPD(t *testing.T, agent *ariescontext.Provider) (
+func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto) (
 	*verifiable.Presentation, *presexch.PresentationDefinition, string,
 	verifiable.PublicKeyFetcher, *lddocloader.DocumentLoader) {
 	uri := randomURI()
 
 	customType := "CustomType"
 
-	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, agent, []string{uri}, "", "")
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, []string{uri}, "", "")
 	expected.Types = append(expected.Types, customType)
 
 	defs := &presexch.PresentationDefinition{
@@ -822,9 +822,10 @@ func newVPWithPD(t *testing.T, agent *ariescontext.Provider) (
 	), defs, issuer, pubKeyFetcher, docLoader
 }
 
-func newVPWithPS(t *testing.T, agent *ariescontext.Provider, ps *presexch.PresentationSubmission, value string) (
+func newVPWithPS(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto,
+	ps *presexch.PresentationSubmission, value string) (
 	*verifiable.Presentation, string, verifiable.PublicKeyFetcher) {
-	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, agent, nil, "degree", value)
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, nil, "degree", value)
 
 	return newVP(t, ps,
 		expected,
@@ -895,16 +896,16 @@ func newDegreeVC(issuer string, degreeType string, ctx []string) *verifiable.Cre
 }
 
 func newSignedJWTVC(t *testing.T,
-	agent *ariescontext.Provider, ctx []string,
+	keyManager kms.KeyManager, crypto ariescrypto.Crypto, ctx []string,
 	vcType string, value string) (*verifiable.Credential, string, verifiable.PublicKeyFetcher) {
 	t.Helper()
 
-	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	keyID, kh, err := keyManager.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
+	signer := suite.NewCryptoSigner(crypto, kh)
 
-	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
+	pubKey, kt, err := keyManager.ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
 	require.Equal(t, kms.ED25519Type, kt)
 
@@ -965,18 +966,6 @@ func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) 
 	})
 
 	return loader
-}
-
-func newAgent(t *testing.T) *ariescontext.Provider {
-	t.Helper()
-
-	a, err := aries.New(aries.WithStoreProvider(mem.NewProvider()))
-	require.NoError(t, err)
-
-	ctx, err := a.Context()
-	require.NoError(t, err)
-
-	return ctx
 }
 
 func toMap(t *testing.T, v interface{}) map[string]interface{} {

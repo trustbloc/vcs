@@ -7,15 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
-
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
@@ -31,7 +31,21 @@ const (
 	didMethodION     = "ion"
 )
 
-func (s *Service) GetWallet() *wallet.Wallet {
+// Wallet provides verifiable credential storing, fetching, and presentation definition querying.
+type Wallet interface {
+	// Open opens wallet.
+	Open(passPhrase string) string
+	// Close closes wallet.
+	Close() bool
+	// Add adds a marshalled credential to the wallet.
+	Add(content json.RawMessage) error
+	// GetAll returns all stored credentials.
+	GetAll() (map[string]json.RawMessage, error)
+	// Query runs the given presentation definition on the stored credentials.
+	Query(pdBytes []byte) ([]*verifiable.Presentation, error)
+}
+
+func (s *Service) GetWallet() Wallet {
 	return s.wallet
 }
 
@@ -69,12 +83,9 @@ func (s *Service) CreateWallet() error {
 		s.wallet = w
 	}
 
-	token, err := s.wallet.Open(wallet.WithUnlockByPassphrase(s.vcProviderConf.WalletParams.Passphrase))
-	if err != nil {
-		if !errors.Is(err, wallet.ErrAlreadyUnlocked) {
-			return fmt.Errorf("unlock wallet: %w", err)
-		}
-	}
+	var err error
+
+	token := s.wallet.Open(s.vcProviderConf.WalletParams.Passphrase)
 
 	if token != "" {
 		s.vcProviderConf.WalletParams.Token = token
@@ -134,24 +145,21 @@ func (s *Service) CreateWallet() error {
 	return nil
 }
 
-func newWallet(shouldCreate bool, userID string, passphrase string, services *ariesServices) (*wallet.Wallet, error) {
-	if shouldCreate {
-		err := wallet.CreateProfile(userID, services, wallet.WithPassphrase(passphrase))
-		if err != nil {
-			return nil, fmt.Errorf("user profile create failed: %w", err)
-		}
-	}
-
-	w, err := wallet.New(userID, services)
+func newWallet(shouldCreate bool, userID string, passphrase string, services *ariesServices) (Wallet, error) {
+	store, err := services.storageProvider.OpenStore("wallet:credential")
 	if err != nil {
-		return nil, fmt.Errorf("create wallet failed: %w", err)
+		return nil, err
 	}
 
-	return w, nil
+	return &walletImpl{
+		credStore: store,
+		ldLoader:  services.documentLoader,
+		storeLock: sync.RWMutex{},
+	}, nil
 }
 
 func (s *Service) SaveCredentialInWallet(vc []byte) error {
-	err := s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, vc)
+	err := s.wallet.Add(vc)
 	if err != nil {
 		return fmt.Errorf("wallet add credential failed: %w", err)
 	}

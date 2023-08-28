@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
@@ -485,8 +484,7 @@ func getOrgAuthTokenKey(org string) string {
 }
 
 func (s *Steps) checkIssuedCredential() error {
-	credentialMap, err := s.walletRunner.GetWallet().GetAll(
-		s.walletRunner.GetConfig().WalletParams.Token, wallet.Credential)
+	credentialMap, err := s.walletRunner.GetWallet().GetAll()
 	if err != nil {
 		return fmt.Errorf("wallet.GetAll(): %w", err)
 	}

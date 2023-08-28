@@ -27,7 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
@@ -146,7 +145,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string, hooks *OIDC4VPHook
 type VPFlowExecutor struct {
 	tlsConfig                     *tls.Config
 	ariesServices                 *ariesServices
-	wallet                        *wallet.Wallet
+	wallet                        Wallet
 	walletToken                   string
 	walletDidID                   []string
 	walletDidKeyID                []string
@@ -296,10 +295,7 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletSingleVP() error {
 	}
 
 	// This query will always return one VP - so far no plans to change this
-	vps, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
-		Type:  "PresentationExchange",
-		Query: []json.RawMessage{pdBytes},
-	})
+	vps, err := e.wallet.Query(pdBytes)
 
 	if err != nil {
 		return fmt.Errorf("query vc using presentation definition: %w", err)
@@ -322,10 +318,7 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletMultiVP() error {
 
 	// This query will always return one VP - so far no plans to change this
 	// We will only use this to get relevant credentials from wallet
-	legacyVP, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
-		Type:  "PresentationExchange",
-		Query: []json.RawMessage{pdBytes},
-	})
+	legacyVP, err := e.wallet.Query(pdBytes)
 	if err != nil {
 		return fmt.Errorf("query credentials from wallet: %w", err)
 	}
