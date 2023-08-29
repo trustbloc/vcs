@@ -18,8 +18,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -161,8 +159,7 @@ func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
 	}
 
 	// Check whether credentials are known.
-	credentialMap, err := s.walletRunner.GetWallet().GetAll(
-		s.walletRunner.GetConfig().WalletParams.Token, wallet.Credential)
+	credentialMap, err := s.walletRunner.GetWallet().GetAll()
 	if err != nil {
 		return fmt.Errorf("wallet.GetAll(): %w", err)
 	}

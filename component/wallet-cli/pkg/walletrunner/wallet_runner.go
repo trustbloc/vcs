@@ -36,7 +36,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/component/vdr/key"
 	"github.com/hyperledger/aries-framework-go/component/vdr/web"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -104,7 +103,7 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 
 type Service struct {
 	ariesServices  *ariesServices
-	wallet         *wallet.Wallet
+	wallet         Wallet
 	vcProvider     vcprovider.VCProvider
 	vcProviderConf *vcprovider.Config
 	httpClient     *http.Client

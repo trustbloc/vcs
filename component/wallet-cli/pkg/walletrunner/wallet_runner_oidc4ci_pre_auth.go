@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
@@ -133,7 +132,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	s.print("Adding credential to wallet")
 
-	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
+	if err = s.wallet.Add(b); err != nil {
 		return nil, fmt.Errorf("add credential to wallet: %w", err)
 	}
 
