@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"net/url"
 
-	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -40,7 +40,7 @@ func NewStore(mongoClient *mongodb.Client) *Store {
 
 // Upsert does upsert operation of cslWrapper against underlying MongoDB.
 func (p *Store) Upsert(ctx context.Context, cslURL string, wrapper *credentialstatus.CSLVCWrapper) error {
-	mongoDBDocument, err := mongodbext.PrepareDataForBSONStorage(wrapper)
+	mongoDBDocument, err := internal.PrepareDataForBSONStorage(wrapper)
 	if err != nil {
 		return fmt.Errorf("failed to prepare data for BSON storage: %w", err)
 	}

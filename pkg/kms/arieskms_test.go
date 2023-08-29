@@ -91,6 +91,19 @@ func TestNewLocalKeyManager(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Fail mongodb", func(t *testing.T) {
+		km, err := kms.NewAriesKeyManager(&kms.Config{
+			KMSType:           kms.Local,
+			SecretLockKeyPath: secretLockKeyFile,
+			DBType:            "mongodb",
+			DBURL:             "not a url!",
+			DBPrefix:          "test",
+		}, nil)
+
+		require.Nil(t, km)
+		require.Contains(t, err.Error(), "failed to create a new MongoDB client")
+	})
+
 	t.Run("Incorrect SecretLockKeyPath", func(t *testing.T) {
 		_, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
