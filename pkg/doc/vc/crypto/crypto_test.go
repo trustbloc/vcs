@@ -17,10 +17,12 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
 	cryptomock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
@@ -649,6 +651,63 @@ func TestSignCredential(t *testing.T) {
 		require.Equal(t, 1, len(signedVC.Proofs))
 		require.Empty(t, signedVC.JWT)
 	})
+	t.Run("sign credential LDP Data Integrity - success", func(t *testing.T) {
+		customKMS := createKMS(t)
+
+		_, keyBytes, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDSAP256IEEEP1363)
+		require.NoError(t, err)
+
+		key, err := jwkkid.BuildJWK(keyBytes, kms.ECDSAP256IEEEP1363)
+		require.NoError(t, err)
+
+		const signingDID = "did:foo:bar"
+
+		const vmID = "#key1"
+
+		verificationMethod, err := did.NewVerificationMethodFromJWK(vmID, "JsonWebKey2020", signingDID, key)
+		require.NoError(t, err)
+
+		c := New(
+			&vdrmock.VDRegistry{
+				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+					return makeMockDIDResolution(signingDID, verificationMethod, did.Authentication), nil
+				}},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVc := verifiable.Credential{
+			ID:      "http://example.edu/credentials/1872",
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			Subject: verifiable.Subject{
+				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				CustomFields: map[string]interface{}{
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					"name":   "Jayden Doe",
+					"degree": map[string]interface{}{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
+				},
+			},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			CustomFields: map[string]interface{}{
+				"first_name": "First name",
+				"last_name":  "Last name",
+				"info":       "Info",
+			},
+		}
+
+		signedVC, err := c.SignCredential(getTestLDPDataIntegritySigner(), &unsignedVc)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+		require.Empty(t, signedVC.JWT)
+	})
 	t.Run("sign credential LDP - error", func(t *testing.T) {
 		c := New(
 			&vdrmock.VDRegistry{ResolveValue: nil},
@@ -765,7 +824,20 @@ func getTestLDPSigner() *vc.Signer {
 			kms:    &mockkms.KeyManager{},
 		},
 		Format: vcsverifiable.Ldp,
+		DataIntegrityProof: vc.DataIntegrityProofConfig{
+			Enable: false,
+		},
 	}
+}
+
+func getTestLDPDataIntegritySigner() *vc.Signer {
+	s := getTestLDPSigner()
+	s.DataIntegrityProof = vc.DataIntegrityProofConfig{
+		Enable:    true,
+		SuiteType: ecdsa2019.SuiteType,
+	}
+
+	return s
 }
 
 func getJWTSigner(
@@ -861,7 +933,7 @@ func createDIDDoc(didID string, opts ...opt) *did.Doc {
 		Service:              []did.Service{service},
 		Created:              &createdTime,
 		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey}},
-		Authentication:       []did.Verification{{VerificationMethod: signingKey}},
+		Authentication:       []did.Verification{{VerificationMethod: signingKey, Relationship: did.Authentication}},
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}

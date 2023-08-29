@@ -282,6 +282,8 @@ var (
 	odrl []byte
 	//go:embed contexts/revocation-list-2021.jsonld
 	revocationList2021 []byte
+	//go:embed contexts/vc-data-integrity-v1.jsonld
+	vcDataIntegrity []byte
 )
 
 var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
@@ -314,6 +316,10 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
 		DocumentURL: "https://raw.githubusercontent.com/w3c-ccg/vc-status-list-2021/343b8b59cddba4525e1ef355356ae760fc75904e/contexts/v1.jsonld",
 		Content:     revocationList2021,
+	},
+	ldcontext.Document{
+		URL:     "https://w3id.org/security/data-integrity/v1",
+		Content: vcDataIntegrity,
 	},
 }
 

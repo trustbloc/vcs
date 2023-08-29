@@ -103,7 +103,7 @@ func UpdateIssuer(credential *verifiable.Credential, issuerDID, issuerName strin
 	}
 }
 
-// UpdateSignatureTypeContext updates context for JSONWebSignature2020.
+// UpdateSignatureTypeContext updates context for JSONWebSignature2020 and BbsBlsSignature2020.
 func UpdateSignatureTypeContext(credential *verifiable.Credential, signatureType vcsverifiable.SignatureType) {
 	if signatureType == vcsverifiable.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)

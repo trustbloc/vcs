@@ -13,10 +13,21 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/spi/kms"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -639,6 +650,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 		proofChallenge   string
 		proofDomain      string
 		vcInVPValidation bool
+		isJWT            bool
 	}
 
 	tests := []struct {
@@ -673,6 +685,21 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "ProofDomain JWT invalid value",
+			args: args{
+				getVcByte: func() []byte {
+					vc := *signedVC
+					b, _ := vc.MarshalJSON()
+					return b
+				},
+				proofChallenge:   crypto.Challenge,
+				proofDomain:      "some value",
+				vcInVPValidation: false,
+				isJWT:            true,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -686,9 +713,144 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 				tt.args.proofChallenge,
 				tt.args.proofDomain,
 				tt.args.vcInVPValidation,
-				true); (err != nil) != tt.wantErr {
+				tt.args.isJWT); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateCredentialProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
+}
+
+func Test_DataIntegrity_SignVerify(t *testing.T) {
+	vcJSON := `
+	{
+	 "@context": [
+	   "https://www.w3.org/2018/credentials/v1",
+	   "https://www.w3.org/2018/credentials/examples/v1",
+		"https://w3id.org/security/data-integrity/v1"
+	 ],
+	 "id": "https://example.com/credentials/1872",
+	 "type": [
+	   "VerifiableCredential",
+	   "UniversityDegreeCredential"
+	 ],
+	 "issuer": "did:foo:bar",
+	 "issuanceDate": "2020-01-17T15:14:09.724Z",
+	 "credentialSubject": {
+	   "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	   "degree": {
+	     "type": "BachelorDegree"
+	   },
+	   "name": "Jayden Doe",
+	   "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	 }
+	}
+	`
+	mockKMS := createKMS(t)
+
+	mockCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	_, keyBytes, err := mockKMS.CreateAndExportPubKeyBytes(kmskeytypes.ECDSAP256IEEEP1363)
+	require.NoError(t, err)
+
+	key, err := jwkkid.BuildJWK(keyBytes, kmskeytypes.ECDSAP256IEEEP1363)
+	require.NoError(t, err)
+
+	const signingDID = "did:foo:bar"
+
+	const vmID = "#key-1"
+
+	docLoader := testutil.DocumentLoader(t)
+
+	verificationMethod, err := did.NewVerificationMethodFromJWK(signingDID+vmID, "JsonWebKey2020", signingDID, key)
+	require.NoError(t, err)
+
+	didResolver := &vdrmock.VDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			return makeMockDIDResolution(signingDID, verificationMethod, did.Authentication), nil
+		}}
+
+	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+		SignerGetter:     ecdsa2019.WithLocalKMSSigner(mockKMS, mockCrypto),
+		LDDocumentLoader: docLoader,
+	})
+
+	diSigner, err := dataintegrity.NewSigner(&dataintegrity.Options{
+		DIDResolver: didResolver,
+	}, signerSuite)
+	require.NoError(t, err)
+
+	signContext := &verifiable.DataIntegrityProofContext{
+		SigningKeyID: signingDID + vmID,
+		ProofPurpose: crypto.Authentication,
+		CryptoSuite:  ecdsa2019.SuiteType,
+		Created:      nil,
+		Domain:       "mock-domain",
+		Challenge:    "mock-challenge",
+	}
+
+	var vcParsed *verifiable.Credential
+	vcParsed, err = verifiable.ParseCredential([]byte(vcJSON),
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(docLoader))
+	require.NoError(t, err)
+
+	err = vcParsed.AddDataIntegrityProof(signContext, diSigner)
+	require.NoError(t, err)
+
+	vcBytes, e := vcParsed.MarshalJSON()
+	require.NoError(t, e)
+
+	t.Run("success", func(t *testing.T) {
+		s := &Service{
+			documentLoader: docLoader,
+			vdr:            didResolver,
+		}
+
+		if err = s.ValidateCredentialProof(
+			context.Background(),
+			vcBytes,
+			"mock-challenge",
+			"mock-domain",
+			false,
+			false); err != nil {
+			t.Errorf("ValidateCredentialProof() error = %v", err)
+		}
+	})
+}
+
+func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.VerificationRelationship) *did.DocResolution {
+	ver := []did.Verification{{
+		VerificationMethod: *vm,
+		Relationship:       vr,
+	}}
+
+	doc := &did.Doc{
+		ID: id,
+	}
+
+	switch vr { //nolint:exhaustive
+	case did.VerificationRelationshipGeneral:
+		doc.VerificationMethod = []did.VerificationMethod{*vm}
+	case did.Authentication:
+		doc.Authentication = ver
+	case did.AssertionMethod:
+		doc.AssertionMethod = ver
+	}
+
+	return &did.DocResolution{
+		DIDDocument: doc,
+	}
+}
+
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
+
+	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	require.NoError(t, err)
+
+	return k
 }

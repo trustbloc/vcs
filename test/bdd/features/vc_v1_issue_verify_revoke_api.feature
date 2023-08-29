@@ -20,10 +20,11 @@ Feature: Using VC REST API
     And   V1 revoked credential is unable to be verified under "<verifierProfile>" profile for organization "test_org"
 
     Examples:
-      | issuerProfile                    | verifierProfile      | credential                      |
-      | i_myprofile_cmtr_p256_ldp/v1.0   | v_myprofile_ldp/v1.0 | certified_mill_test_report.json |
-      | i_myprofile_ud_es256k_jwt/v1.0   | v_myprofile_jwt/v1.0 | permanent_resident_card.json    |
-      | i_myprofile_ud_es256k_sdjwt/v1.0 | v_myprofile_jwt/v1.0 | crude_product.json              |
+      | issuerProfile                     | verifierProfile      | credential                      |
+      | i_myprofile_cmtr_p256_ldp/v1.0    | v_myprofile_ldp/v1.0 | certified_mill_test_report.json |
+      | i_myprofile_ud_es256k_jwt/v1.0    | v_myprofile_jwt/v1.0 | permanent_resident_card.json    |
+      | i_myprofile_ud_es256k_sdjwt/v1.0  | v_myprofile_jwt/v1.0 | crude_product.json              |
+      | i_myprofile_ud_di_ecdsa-2019/v1.0 | v_myprofile_ldp/v1.0 | crude_product.json              |
 
   @e2e_ldp_jwt_sdjwt_revoke_err
   Scenario Outline: Unsuccessful attempt to revoke credential from wrong issuer (LDP, JWT, SD-JWT).

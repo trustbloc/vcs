@@ -31,6 +31,8 @@ var (
 	jws2020 []byte
 	//go:embed contexts/vc-status-list-2021-v1.jsonld
 	vcStatusList2021 []byte
+	//go:embed contexts/vc-data-integrity-v1.jsonld
+	vcDataIntegrity []byte
 )
 
 type mockLDStoreProvider struct {
@@ -80,6 +82,10 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 		ldcontext.Document{
 			URL:     "https://w3id.org/vc-status-list-2021/v1",
 			Content: vcStatusList2021,
+		},
+		ldcontext.Document{
+			URL:     "https://w3id.org/security/data-integrity/v1",
+			Content: vcDataIntegrity,
 		},
 	}
 

@@ -220,9 +220,7 @@ func (c *Controller) verifyCredential(
 		profile.Checks.Credential.CredentialExpiry,
 		profile.Checks.Credential.Strict,
 		c.documentLoader,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
-		),
+		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader),
 	)
 
