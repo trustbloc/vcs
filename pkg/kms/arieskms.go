@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
-	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
@@ -26,8 +25,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	awssvc "github.com/trustbloc/kms/pkg/aws"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/arieskmsstore"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -152,12 +152,7 @@ func createLocalKMS(cfg *Config) (keyManager, Crypto, error) {
 		return nil, nil, err
 	}
 
-	storeProvider, err := createStoreProvider(cfg.DBType, cfg.DBURL, cfg.DBPrefix)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	kmsStore, err := arieskms.NewAriesProviderWrapper(storeProvider)
+	kmsStore, err := createStore(cfg.DBType, cfg.DBURL, cfg.DBPrefix)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -223,29 +218,20 @@ func createLocalSecretLock(keyPath string) (secretlock.Service, error) {
 	return secretLock, nil
 }
 
-func createStoreProvider(typ, url, prefix string) (storage.Provider, error) {
-	var createProvider func(url, prefix string) (storage.Provider, error)
-
+func createStore(typ, url, prefix string) (kmsapi.Store, error) {
 	switch {
 	case strings.EqualFold(typ, storageTypeMemOption):
-		createProvider = func(string, string) (storage.Provider, error) { //nolint:unparam
-			return mem.NewProvider(), nil
-		}
-
+		return arieskms.NewAriesProviderWrapper(mem.NewProvider())
 	case strings.EqualFold(typ, storageTypeMongoDBOption):
-		createProvider = func(url, prefix string) (storage.Provider, error) {
-			mongoDBProvider, err := mongodb.NewProvider(url, mongodb.WithDBPrefix(prefix))
-			if err != nil {
-				return nil, err
-			}
-
-			return mongoDBProvider, nil
+		mongoClient, err := mongodb.New(url, prefix)
+		if err != nil {
+			return nil, err
 		}
+
+		return arieskmsstore.NewStore(mongoClient), nil
 	default:
 		return nil, fmt.Errorf("not supported database type: %s", typ)
 	}
-
-	return createProvider(url, prefix)
 }
 
 type kmsProvider struct {

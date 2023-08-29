@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -50,7 +50,7 @@ func (p *Store) Put(
 		TypedID:        typedID,
 	}
 
-	mongoDBDocument, err := mongodbext.PrepareDataForBSONStorage(document)
+	mongoDBDocument, err := internal.PrepareDataForBSONStorage(document)
 	if err != nil {
 		return err
 	}

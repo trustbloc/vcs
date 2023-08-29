@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/henvic/httpretty"
-	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -40,6 +39,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/mongodb"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
@@ -188,7 +188,7 @@ func (s *Service) createAgentServices(vcProviderConf *vcprovider.Config) (*aries
 	var storageProvider storage.Provider
 	switch strings.ToLower(s.vcProviderConf.StorageProvider) {
 	case "mongodb":
-		p, err := mongodb.NewProvider(s.vcProviderConf.StorageProviderConnString)
+		p, err := mongodb.NewProvider(s.vcProviderConf.StorageProviderConnString, nil)
 		if err != nil {
 			return nil, err
 		}
