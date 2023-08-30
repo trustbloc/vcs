@@ -872,6 +872,22 @@ components:
           type: string
         url:
           type: string
+        background_color:
+          type: string
+        text_color:
+          type: string
+        logo:
+          $ref: '#/components/schemas/Logo'
+    Logo:
+      title: Logo
+      x-tag:
+        - issuer
+      type: object
+      properties:
+        url:
+          type: string
+        alt_text:
+          type: string
     CredentialIssuer:
       title: CredentialIssuer
       x-tag:

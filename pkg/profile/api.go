@@ -76,8 +76,23 @@ type CredentialTemplateChecks struct {
 	Strict bool `json:"strict,omitempty"`
 }
 
+type Logo struct {
+	URL             string `json:"url"`
+	AlternativeText string `json:"alt_text"`
+}
+
+type CredentialDisplay struct {
+	Name            string `json:"name"`
+	Locale          string `json:"locale"`
+	URL             string `json:"url"`
+	BackgroundColor string `json:"background_color"`
+	TextColor       string `json:"text_color"`
+	Logo            *Logo  `json:"logo"`
+}
+
 type CredentialMetaData struct {
 	CredentialsSupported []map[string]interface{} `json:"credentials_supported"`
+	Display              []*CredentialDisplay     `json:"display"`
 }
 
 // OIDCConfig represents issuer's OIDC configuration.

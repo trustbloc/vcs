@@ -1541,6 +1541,19 @@ func TestOpenIDIssuerConfigurationController(t *testing.T) {
 					"id": "VerifiedEmployee_JWT",
 				},
 			},
+			Display: []*profileapi.CredentialDisplay{
+				{
+					Name:            "Test Issuer",
+					Locale:          "en-US",
+					URL:             "https://example.com",
+					BackgroundColor: "#FFFFFF",
+					TextColor:       "#000000",
+					Logo: &profileapi.Logo{
+						URL:             "https://example.com/credentials-logo.png",
+						AlternativeText: "Issuer Logo",
+					},
+				},
+			},
 		},
 	}, nil)
 
