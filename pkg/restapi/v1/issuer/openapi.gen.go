@@ -22,9 +22,12 @@ import (
 
 // CredentialDisplay defines model for CredentialDisplay.
 type CredentialDisplay struct {
-	Locale *string `json:"locale,omitempty"`
-	Name   *string `json:"name,omitempty"`
-	Url    *string `json:"url,omitempty"`
+	BackgroundColor *string `json:"background_color,omitempty"`
+	Locale          *string `json:"locale,omitempty"`
+	Logo            *Logo   `json:"logo,omitempty"`
+	Name            *string `json:"name,omitempty"`
+	TextColor       *string `json:"text_color,omitempty"`
+	Url             *string `json:"url,omitempty"`
 }
 
 // Credential status.
@@ -145,6 +148,12 @@ type IssueCredentialOptions struct {
 
 	// The URI of the verificationMethod used for the proof. If omitted first ed25519 public key of DID (Issuer or Profile DID) will be used.
 	VerificationMethod *string `json:"verificationMethod,omitempty"`
+}
+
+// Logo defines model for Logo.
+type Logo struct {
+	AltText *string `json:"alt_text,omitempty"`
+	Url     *string `json:"url,omitempty"`
 }
 
 // Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.

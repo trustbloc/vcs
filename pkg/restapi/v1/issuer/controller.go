@@ -824,6 +824,39 @@ func (c *Controller) getOpenIDIssuerConfig(
 		finalCredentials = append(finalCredentials, t)
 	}
 
+	var display []CredentialDisplay
+
+	if issuer.CredentialMetaData.Display != nil {
+		display = make([]CredentialDisplay, 0, len(issuer.CredentialMetaData.Display))
+
+		for _, d := range issuer.CredentialMetaData.Display {
+			credentialDisplay := CredentialDisplay{
+				BackgroundColor: lo.ToPtr(d.BackgroundColor),
+				Locale:          lo.ToPtr(d.Locale),
+				Name:            lo.ToPtr(d.Name),
+				TextColor:       lo.ToPtr(d.TextColor),
+				Url:             lo.ToPtr(d.URL),
+			}
+
+			if d.Logo != nil {
+				credentialDisplay.Logo = &Logo{
+					AltText: lo.ToPtr(d.Logo.AlternativeText),
+					Url:     lo.ToPtr(d.Logo.URL),
+				}
+			}
+
+			display = append(display, credentialDisplay)
+		}
+	} else {
+		display = []CredentialDisplay{
+			{
+				Locale: lo.ToPtr("en-US"),
+				Name:   lo.ToPtr(issuer.Name),
+				Url:    lo.ToPtr(issuer.URL),
+			},
+		}
+	}
+
 	issuerURL, _ := url.JoinPath(c.externalHostURL, "issuer", profileID, profileVersion)
 
 	final := &WellKnownOpenIDIssuerConfiguration{
@@ -832,13 +865,7 @@ func (c *Controller) getOpenIDIssuerConfig(
 		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
 		CredentialsSupported:    finalCredentials,
 		CredentialIssuer:        issuerURL,
-		Display: lo.ToPtr([]CredentialDisplay{
-			{
-				Locale: lo.ToPtr("en-US"),
-				Name:   lo.ToPtr(issuer.Name),
-				Url:    lo.ToPtr(issuer.URL),
-			},
-		}),
+		Display:                 lo.ToPtr(display),
 	}
 
 	return final, nil
