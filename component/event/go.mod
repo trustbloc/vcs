@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/event
 go 1.21
 
 require (
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230828151543-984699876d28
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230901120639-e17eddd3ad3e
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
@@ -70,7 +70,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230828151543-984699876d28 // indirect
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230901120639-e17eddd3ad3e // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
