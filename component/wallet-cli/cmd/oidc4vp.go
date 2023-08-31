@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -70,7 +71,7 @@ func NewOIDC4VPCommand() *cobra.Command {
 				return fmt.Errorf("unable to create wallet runner: %v", err)
 			}
 
-			return runner.RunOIDC4VPFlow(oidc4vpAuthorizationRequest, nil)
+			return runner.RunOIDC4VPFlow(context.TODO(), oidc4vpAuthorizationRequest, nil)
 		},
 	}
 

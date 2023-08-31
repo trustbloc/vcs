@@ -8,6 +8,7 @@ package oidc4vc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -78,7 +80,7 @@ func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, field
 		return fmt.Errorf("OIDC4Vp fetch authorization request: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4VPFlow(initiateInteractionResult.AuthorizationRequest, s.oidc4vpHooks)
+	err = s.walletRunner.RunOIDC4VPFlow(context.TODO(), initiateInteractionResult.AuthorizationRequest, s.oidc4vpHooks)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4VPFlow: %w", err)
 	}

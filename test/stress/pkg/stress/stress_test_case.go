@@ -8,6 +8,7 @@ package stress
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -237,7 +238,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 			return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
 		}
 
-		err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest, nil)
+		err = c.walletRunner.RunOIDC4VPFlow(context.TODO(), authorizationRequest, nil)
 		if err != nil {
 			return credID, nil, fmt.Errorf("CredId [%v]. run vp: %w", credID, err)
 		}
