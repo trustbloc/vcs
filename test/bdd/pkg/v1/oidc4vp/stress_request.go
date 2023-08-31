@@ -8,6 +8,7 @@ package oidc4vp
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
@@ -70,7 +71,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 
 	startTime = time.Now()
 
-	err = r.sendAuthorizedResponse(authorizedResponse)
+	err = r.sendAuthorizedResponse(context.TODO(), authorizedResponse)
 	if err != nil {
 		return "", nil, err
 	}
@@ -123,8 +124,8 @@ func (r *stressRequest) createAuthorizedResponse() (string, error) {
 	return r.vpFlowExecutor.CreateAuthorizedResponse()
 }
 
-func (r *stressRequest) sendAuthorizedResponse(responseBody string) error {
-	_, err := r.vpFlowExecutor.SendAuthorizedResponse(responseBody)
+func (r *stressRequest) sendAuthorizedResponse(ctx context.Context, responseBody string) error {
+	_, err := r.vpFlowExecutor.SendAuthorizedResponse(ctx, responseBody)
 	return err
 }
 

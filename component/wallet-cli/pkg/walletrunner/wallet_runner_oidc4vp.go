@@ -8,6 +8,7 @@ package walletrunner
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -51,7 +52,7 @@ type OIDC4VPHooks struct {
 	CreateAuthorizedResponse []RPConfigOverride
 }
 
-func (s *Service) RunOIDC4VPFlow(authorizationRequest string, hooks *OIDC4VPHooks) error {
+func (s *Service) RunOIDC4VPFlow(ctx context.Context, authorizationRequest string, hooks *OIDC4VPHooks) error {
 	log.Println("Start OIDC4VP flow")
 	log.Println("AuthorizationRequest:", authorizationRequest)
 
@@ -131,7 +132,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string, hooks *OIDC4VPHook
 
 	log.Println("Sending authorized response")
 	startTime = time.Now()
-	dur, err = s.vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
+	dur, err = s.vpFlowExecutor.SendAuthorizedResponse(ctx, authorizedResponse)
 	s.perfInfo.SendAuthorizedResponse = dur
 	s.perfInfo.VcsVPFlowDuration += dur
 	if err != nil {
@@ -155,6 +156,7 @@ type VPFlowExecutor struct {
 	requestPresentationSubmission *presexch.PresentationSubmission
 
 	skipSchemaValidation bool
+	httpClient           *http.Client
 }
 
 func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
@@ -167,6 +169,11 @@ func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
 		walletDidKeyID:       s.vcProviderConf.WalletParams.DidKeyID,
 		walletSignType:       s.vcProviderConf.WalletParams.SignType,
 		skipSchemaValidation: skipSchemaValidation,
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: s.vcProviderConf.TLS,
+			},
+		},
 	}
 }
 
@@ -646,20 +653,24 @@ func signTokenJWT(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	return tokenBytes, nil
 }
 
-func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) (time.Duration, error) {
+func (e *VPFlowExecutor) SendAuthorizedResponse(ctx context.Context, responseBody string) (time.Duration, error) {
 	log.Printf("auth req: %s\n", responseBody)
 
-	req, err := http.NewRequest(http.MethodPost, e.requestObject.RedirectURI, bytes.NewBuffer([]byte(responseBody)))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		e.requestObject.RedirectURI,
+		bytes.NewBuffer([]byte(responseBody)),
+	)
 	if err != nil {
 		return 0, err
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	c := &http.Client{Transport: &http.Transport{TLSClientConfig: e.tlsConfig}}
-
+	client := HttpClientFromContext(ctx, e.httpClient)
 	st := time.Now()
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	dur := time.Since(st)
 
 	if err != nil {

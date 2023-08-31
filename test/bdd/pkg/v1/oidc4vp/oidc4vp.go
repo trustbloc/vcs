@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,7 +94,7 @@ func (e *Steps) sendAuthorizedResponse() error {
 		return err
 	}
 
-	_, err = e.vpFlowExecutor.SendAuthorizedResponse(body)
+	_, err = e.vpFlowExecutor.SendAuthorizedResponse(context.TODO(), body)
 	return err
 }
 
