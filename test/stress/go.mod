@@ -9,7 +9,7 @@ go 1.21
 require (
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230828151543-984699876d28
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230901120639-e17eddd3ad3e
 	github.com/imroc/req/v3 v3.34.0
 	github.com/joho/godotenv v1.4.0
 	github.com/labstack/echo/v4 v4.9.0
@@ -85,7 +85,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/henvic/httpretty v0.1.0 // indirect
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230828151543-984699876d28 // indirect
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230901120639-e17eddd3ad3e // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49 // indirect
