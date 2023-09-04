@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
+
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
@@ -123,7 +124,23 @@ func (s *Service) CreateWallet() error {
 
 	for i := 0; i < s.vcProviderConf.WalletDidCount; i++ {
 		for j := 1; j <= vdrResolveMaxRetry; j++ {
-			_, err = s.ariesServices.vdrRegistry.Resolve(s.vcProviderConf.WalletParams.DidID[i])
+			didID := s.vcProviderConf.WalletParams.DidID[i]
+			resolved, err := s.ariesServices.vdrRegistry.Resolve(didID)
+
+			key := s.vcProviderConf.WalletParams.DidKeyID[i]
+			var foundType string
+			for _, method := range resolved.DIDDocument.VerificationMethod {
+				if method.ID == key {
+					foundType = method.Type
+				}
+			}
+
+			if foundType == "" {
+				return fmt.Errorf("type nout found for key %v and did %v", key, didID)
+			}
+
+			s.vcProviderConf.WalletParams.DidTypes = append(s.vcProviderConf.WalletParams.DidTypes, foundType)
+
 			if err == nil {
 				break
 			}

@@ -57,6 +57,7 @@ type WalletParams struct {
 	DidID      []string
 	DidKeyID   []string
 	SignType   vcs.SignatureType
+	DidTypes   []string
 }
 
 type ConfigOption func(c *Config)

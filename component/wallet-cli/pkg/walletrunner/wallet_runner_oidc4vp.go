@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
+	"github.com/samber/lo"
 	"github.com/valyala/fastjson"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
@@ -157,6 +158,7 @@ type VPFlowExecutor struct {
 
 	skipSchemaValidation bool
 	httpClient           *http.Client
+	walletDidTypes       []string
 }
 
 func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
@@ -167,6 +169,7 @@ func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
 		walletToken:          s.vcProviderConf.WalletParams.Token,
 		walletDidID:          s.vcProviderConf.WalletParams.DidID,
 		walletDidKeyID:       s.vcProviderConf.WalletParams.DidKeyID,
+		walletDidTypes:       s.vcProviderConf.WalletParams.DidTypes,
 		walletSignType:       s.vcProviderConf.WalletParams.SignType,
 		skipSchemaValidation: skipSchemaValidation,
 		httpClient: &http.Client{
@@ -396,6 +399,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string
 
 		didIDIndex := e.getDIDIndex(didID)
 		didKeyID := e.walletDidKeyID[didIDIndex]
+		signatureType := e.walletDidTypes[didIDIndex]
 
 		var signedVPToken string
 
@@ -404,8 +408,12 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string
 			e.requestPresentationSubmission.DescriptorMap[i].Format = "jwt_vp"
 			signedVPToken, err = e.signPresentationJWT(vp, e.walletSignType, didID, didKeyID)
 		case vcs.Ldp:
+			if lo.Contains(e.requestObject.Registration.VPFormats.LdpVP.ProofType, signatureType) {
+				return "", fmt.Errorf("e.requestObject.Registration.VPFormats.LdpVP.ProofType does not support %v",
+					signatureType)
+			}
 			e.requestPresentationSubmission.DescriptorMap[i].Format = "ldp_vp"
-			signedVPToken, err = e.signPresentationLDP(vp, configRP.supportedSignatureType, didKeyID)
+			signedVPToken, err = e.signPresentationLDP(vp, vcs.SignatureType(signatureType), didKeyID)
 		}
 		if err != nil {
 			return "", fmt.Errorf("format %s sign VP: %w", configRP.supportedVPFormat, err)
