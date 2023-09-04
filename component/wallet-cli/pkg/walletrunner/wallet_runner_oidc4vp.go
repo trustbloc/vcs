@@ -21,7 +21,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/samber/lo"
 	"github.com/valyala/fastjson"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
@@ -408,10 +407,6 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string
 			e.requestPresentationSubmission.DescriptorMap[i].Format = "jwt_vp"
 			signedVPToken, err = e.signPresentationJWT(vp, e.walletSignType, didID, didKeyID)
 		case vcs.Ldp:
-			if !lo.Contains(e.requestObject.Registration.VPFormats.LdpVP.ProofType, signatureType) {
-				return "", fmt.Errorf("e.requestObject.Registration.VPFormats.LdpVP.ProofType does not support %v",
-					signatureType)
-			}
 			e.requestPresentationSubmission.DescriptorMap[i].Format = "ldp_vp"
 			signedVPToken, err = e.signPresentationLDP(vp, vcs.SignatureType(signatureType), didKeyID)
 		}
