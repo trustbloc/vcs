@@ -125,7 +125,7 @@ func (s *Service) CreateWallet() error {
 	for i := 0; i < s.vcProviderConf.WalletDidCount; i++ {
 		for j := 1; j <= vdrResolveMaxRetry; j++ {
 			didID := s.vcProviderConf.WalletParams.DidID[i]
-			resolved, err := s.ariesServices.vdrRegistry.Resolve(didID)
+			resolved, resolveErr := s.ariesServices.vdrRegistry.Resolve(didID)
 
 			key := s.vcProviderConf.WalletParams.DidKeyID[i]
 			var foundType string
@@ -139,9 +139,8 @@ func (s *Service) CreateWallet() error {
 				return fmt.Errorf("type nout found for key %v and did %v", key, didID)
 			}
 
-			s.vcProviderConf.WalletParams.DidTypes = append(s.vcProviderConf.WalletParams.DidTypes, foundType)
-
-			if err == nil {
+			if resolveErr == nil {
+				s.vcProviderConf.WalletParams.DidTypes = append(s.vcProviderConf.WalletParams.DidTypes, foundType)
 				break
 			}
 
