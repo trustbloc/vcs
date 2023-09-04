@@ -862,7 +862,7 @@ func buildEchoHandler(
 		TransactionManager:       oidc4vpTxManager,
 		RequestObjectPublicStore: requestObjectStoreService,
 		KMSRegistry:              kmsRegistry,
-		PublicKeyFetcher:         verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher(),
+		VDR:                      conf.VDR,
 		DocumentLoader:           documentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,
