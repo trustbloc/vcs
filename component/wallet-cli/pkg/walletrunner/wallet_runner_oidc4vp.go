@@ -408,7 +408,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string
 			e.requestPresentationSubmission.DescriptorMap[i].Format = "jwt_vp"
 			signedVPToken, err = e.signPresentationJWT(vp, e.walletSignType, didID, didKeyID)
 		case vcs.Ldp:
-			if lo.Contains(e.requestObject.Registration.VPFormats.LdpVP.ProofType, signatureType) {
+			if !lo.Contains(e.requestObject.Registration.VPFormats.LdpVP.ProofType, signatureType) {
 				return "", fmt.Errorf("e.requestObject.Registration.VPFormats.LdpVP.ProofType does not support %v",
 					signatureType)
 			}
