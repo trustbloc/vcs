@@ -112,24 +112,29 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 	return result, nil
 }
 
-func (s *Service) parseAndVerifyLDPVC(vcBytes []byte) (*verifiable.Credential, error) {
+func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Credential, error) {
 	diVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
 		return nil, fmt.Errorf("get data integrity verifier: %w", err)
 	}
 
-	cred, err := verifiable.ParseCredential(vcBytes,
+	opts := []verifiable.CredentialOpt{
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
 		),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-		verifiable.WithStrictValidation(),
 		verifiable.WithDataIntegrityVerifier(diVerifier),
 		// Use empty domain and challenge in order to skip the validation.
 		// See usage of vcInVPValidation variable in ValidateCredentialProof method.
 		// TODO: define verifier purpose field.
 		verifiable.WithExpectedDataIntegrityFields(crypto.Authentication, "", ""),
-	)
+	}
+
+	if !isJWT {
+		opts = append(opts, verifiable.WithStrictValidation())
+	}
+
+	cred, err := verifiable.ParseCredential(vcBytes, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("verifiable credential proof validation error : %w", err)
 	}
@@ -137,29 +142,16 @@ func (s *Service) parseAndVerifyLDPVC(vcBytes []byte) (*verifiable.Credential, e
 	return cred, nil
 }
 
-func (s *Service) parseAndVerifyJWTVC(vcBytes []byte) error {
-	_, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-		),
-		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
-	if err != nil {
-		return fmt.Errorf("verifiable credential proof validation error : %w", err)
-	}
-
-	return nil
-}
-
 // ValidateCredentialProof validate credential proof.
 func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proofChallenge, proofDomain string,
 	vcInVPValidation, isJWT bool) error { // nolint: lll,gocyclo
-	if isJWT {
-		return s.parseAndVerifyJWTVC(vcByte)
-	}
-
-	credential, err := s.parseAndVerifyLDPVC(vcByte)
+	credential, err := s.parseAndVerifyVC(vcByte, isJWT)
 	if err != nil {
 		return err
+	}
+
+	if len(credential.JWT) > 0 {
+		return nil
 	}
 
 	if len(credential.Proofs) == 0 {
