@@ -106,4 +106,14 @@ go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeou
 amend_coverage_file
 cd "$pwd"
 
+# Running profile reader component unit tests
+echo "... done"
+echo "profile reader unit tests..."
+cd component/profile/reader/file
+PKGS=`go list github.com/trustbloc/vcs/component/profile/reader/file/... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd "$pwd"
+
 echo "... done all unit-tests"

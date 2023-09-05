@@ -15,27 +15,30 @@ import (
 
 // Log Fields.
 const (
-	FieldAdditionalMessage   = "additionalMessage"
-	FieldCommand             = "command"
-	FieldConcurrencyRequests = "concurrencyRequests"
-	FieldDockerComposeCmd    = "dockerComposeCmd"
-	FieldEvent               = "event"
-	FieldIDToken             = "idToken"
-	FieldTransactionID       = "transactionId"
-	FieldJSONQuery           = "JSONQuery"
-	FieldJSONResolution      = "JSONResolution"
-	FieldPresDefID           = "presDefID"
-	FieldProfileID           = "profileID"
-	FieldProfileVersion      = "profileVersion"
-	FieldCredentialID        = "credentialID" //nolint:gosec
-	FieldResponses           = "responses"
-	FieldSleep               = "sleep"
-	FieldTotalRequests       = "totalRequests"
-	FieldUserLogLevel        = "userLogLevel"
-	FieldVP                  = "vp"
-	FieldVPToken             = "vpToken"
-	FieldWorkers             = "workers"
-	FieldClaimKeys           = "claimKeys"
+	FieldAdditionalMessage    = "additionalMessage"
+	FieldCommand              = "command"
+	FieldConcurrencyRequests  = "concurrencyRequests"
+	FieldDockerComposeCmd     = "dockerComposeCmd"
+	FieldEvent                = "event"
+	FieldIDToken              = "idToken"
+	FieldTransactionID        = "transactionId"
+	FieldJSONQuery            = "JSONQuery"
+	FieldJSONResolution       = "JSONResolution"
+	FieldPresDefID            = "presDefID"
+	FieldProfileID            = "profileID"
+	FieldProfileVersion       = "profileVersion"
+	FieldCredentialID         = "credentialID" //nolint:gosec
+	FieldResponses            = "responses"
+	FieldSleep                = "sleep"
+	FieldTotalRequests        = "totalRequests"
+	FieldUserLogLevel         = "userLogLevel"
+	FieldVP                   = "vp"
+	FieldVPToken              = "vpToken"
+	FieldWorkers              = "workers"
+	FieldClaimKeys            = "claimKeys"
+	FieldCredentialTemplateID = "credentialTemplateID" //nolint:gosec
+	FieldJSONSchemaID         = "jsonSchemaID"
+	FieldJSONSchema           = "jsonSchema"
 )
 
 // WithAdditionalMessage sets the AdditionalMessage field.
@@ -157,4 +160,19 @@ func NewObjectMarshaller(key string, obj interface{}) *ObjectMarshaller {
 // MarshalLogObject marshals the object's fields.
 func (m *ObjectMarshaller) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	return e.AddReflected(m.key, m.obj)
+}
+
+// WithCredentialTemplateID sets the credentialTemplateID field.
+func WithCredentialTemplateID(value string) zap.Field {
+	return zap.String(FieldCredentialTemplateID, value)
+}
+
+// WithJSONSchemaID sets the jsonSchemaID field.
+func WithJSONSchemaID(value string) zap.Field {
+	return zap.String(FieldJSONSchemaID, value)
+}
+
+// WithJSONSchema sets the jsonSchema field.
+func WithJSONSchema(value string) zap.Field {
+	return zap.String(FieldJSONSchema, value)
 }
