@@ -579,29 +579,29 @@ func singRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigne
 func GetSupportedVPFormats(
 	kmsSupportedKeyTypes []kmsapi.KeyType,
 	supportedVPFormats,
-	supportedVCFormats []vcsverifiable.Format) *presexch.Format {
-	jwtSignatureTypes := make(map[vcsverifiable.SignatureType]struct{})
-	ldpSignatureTypes := make(map[vcsverifiable.SignatureType]struct{})
+	supportedVCFormats []vcsverifiable.Format,
+) *presexch.Format {
+	var jwtSignatureTypeNames []string // order here is important
+	var ldpSignatureTypeNames []string
 
 	for _, keyType := range kmsSupportedKeyTypes {
 		for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, vcsverifiable.Jwt) {
-			jwtSignatureTypes[st] = struct{}{}
+			name := st.Name()
+			if lo.Contains(jwtSignatureTypeNames, name) {
+				continue
+			}
+
+			jwtSignatureTypeNames = append(jwtSignatureTypeNames, name)
 		}
 
 		for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, vcsverifiable.Ldp) {
-			ldpSignatureTypes[st] = struct{}{}
+			name := st.Name()
+			if lo.Contains(ldpSignatureTypeNames, name) {
+				continue
+			}
+
+			ldpSignatureTypeNames = append(ldpSignatureTypeNames, name)
 		}
-	}
-
-	jwtSignatureTypeNames := make([]string, 0, len(jwtSignatureTypes))
-	ldpSignatureTypeNames := make([]string, 0, len(ldpSignatureTypes))
-
-	for st := range jwtSignatureTypes {
-		jwtSignatureTypeNames = append(jwtSignatureTypeNames, st.Name())
-	}
-
-	for st := range ldpSignatureTypes {
-		ldpSignatureTypeNames = append(ldpSignatureTypeNames, st.Name())
 	}
 
 	formats := &presexch.Format{}
