@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/hashicorp/go-version"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
@@ -22,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
+	"go.uber.org/zap"
 
 	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
 	"github.com/hyperledger/aries-framework-go/component/vdr/key"
@@ -123,6 +125,15 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 		createdIssuers[v.Data.ID] = v.Data
 		issuerProfileVersions[v.Data.ID] = append(issuerProfileVersions[v.Data.ID], issuerVersion)
 		issuerProfiles[getProfileVersionKey(v.Data.ID, issuerVersion)] = v.Data
+
+		for _, ct := range v.Data.CredentialTemplates {
+			if err := populateCredentialTemplateSchema(ct); err != nil {
+				logger.Error("Error populating credential template JSON schema", log.WithError(err),
+					zap.String("profileID", v.Data.ID), zap.String("credentialTemplateID", ct.ID))
+
+				return nil, fmt.Errorf("credential template schema error: %w", err)
+			}
+		}
 	}
 
 	populateLatestTag(issuerProfileVersions, issuerProfiles, r.issuers)
@@ -293,4 +304,32 @@ func createDid(didDomain string, didServiceAuthToken string, kmsConfig *vcskms.C
 		UpdateKeyURL:   createResult.updateKeyURL,
 		RecoveryKeyURL: createResult.recoveryKeyURL,
 	}, nil
+}
+
+func populateCredentialTemplateSchema(ct *profileapi.CredentialTemplate) error {
+	if ct.JSONSchema == "" {
+		return nil
+	}
+
+	var doc map[string]interface{}
+
+	err := json.Unmarshal([]byte(ct.JSONSchema), &doc)
+	if err != nil {
+		return fmt.Errorf("unmarshal JSON schema: %w", err)
+	}
+
+	schemaIDObj, ok := doc["$id"]
+	if !ok {
+		return fmt.Errorf("missing $id field in JSON schema")
+	}
+
+	_, ok = schemaIDObj.(string)
+	if !ok {
+		return fmt.Errorf("expecting field '$id' in JSON schema to be a string type but was %s",
+			reflect.TypeOf(schemaIDObj))
+	}
+
+	ct.JSONSchemaDoc = doc
+
+	return nil
 }

@@ -1266,6 +1266,9 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 }
 
 func TestController_PrepareCredential(t *testing.T) {
+	var universityDegreeSchemaDoc map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(universityDegreeSchema), &universityDegreeSchemaDoc))
+
 	sampleVC, err := verifiable.ParseCredential(
 		sampleVCUniversityDegree,
 		verifiable.WithDisabledProofCheck(),
@@ -1304,7 +1307,8 @@ func TestController_PrepareCredential(t *testing.T) {
 					Retry:                   false,
 					EnforceStrictValidation: true,
 					CredentialTemplate: &profileapi.CredentialTemplate{
-						JSONSchema: universityDegreeSchema,
+						JSONSchema:    universityDegreeSchema,
+						JSONSchemaDoc: universityDegreeSchemaDoc,
 						Checks: profileapi.CredentialTemplateChecks{
 							Strict: true,
 						},
@@ -1446,6 +1450,9 @@ func TestController_PrepareCredential(t *testing.T) {
 	})
 
 	t.Run("claims schema validation error", func(t *testing.T) {
+		var universityDegreeSchemaDoc map[string]interface{}
+		require.NoError(t, json.Unmarshal([]byte(universityDegreeSchema), &universityDegreeSchemaDoc))
+
 		invalidVC, err := verifiable.ParseCredential(
 			sampleVCInvalidUniversityDegree,
 			verifiable.WithDisabledProofCheck(),
@@ -1480,7 +1487,8 @@ func TestController_PrepareCredential(t *testing.T) {
 					Retry:                   false,
 					EnforceStrictValidation: true,
 					CredentialTemplate: &profileapi.CredentialTemplate{
-						JSONSchema: universityDegreeSchema,
+						JSONSchema:    universityDegreeSchema,
+						JSONSchemaDoc: universityDegreeSchemaDoc,
 						Checks: profileapi.CredentialTemplateChecks{
 							Strict: true,
 						},
@@ -1781,6 +1789,19 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 }
 
 func Test_validateJSONSchema(t *testing.T) {
+	c := NewController(&Config{})
+
+	var universityDegreeSchemaDoc map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(universityDegreeSchema), &universityDegreeSchemaDoc))
+
+	var invalidSchemaDoc map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(`{"$id": "https://trustbloc.com/invalid.schema.json","type":"invalid"}`),
+		&invalidSchemaDoc))
+
+	var noIDSchemaDoc map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(`{"type":"invalid"}`),
+		&noIDSchemaDoc))
+
 	t.Run("success", func(t *testing.T) {
 		data := map[string]interface{}{
 			"alumniOf": map[string]interface{}{
@@ -1802,7 +1823,7 @@ func Test_validateJSONSchema(t *testing.T) {
 			},
 		}
 
-		err := validateJSONSchema(data, universityDegreeSchema)
+		err := c.schemaValidator.Validate(data, universityDegreeSchemaDoc)
 		require.NoError(t, err)
 	})
 
@@ -1822,31 +1843,26 @@ func Test_validateJSONSchema(t *testing.T) {
 			},
 		}
 
-		err := validateJSONSchema(data, universityDegreeSchema)
+		err := c.schemaValidator.Validate(data, universityDegreeSchemaDoc)
 		require.EqualError(t, err,
 			"validation error: [(root): degree is required; alumniOf.name.0.lang: Invalid type. "+
 				"Expected: string, given: integer; alumniOf.name.1: lang is required]")
 	})
 
-	t.Run("schema error", func(t *testing.T) {
-		data := map[string]interface{}{
-			"alumniOf": map[string]interface{}{
-				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				"name": []map[string]interface{}{
-					{
-						"value": "Example University",
-						"lang":  0,
-					},
-					{
-						"value": "Exemple d'Université",
-					},
-				},
-			},
-		}
+	t.Run("$id not found in schema", func(t *testing.T) {
+		data := map[string]interface{}{}
 
-		err := validateJSONSchema(data, `{"type":"invalid"}`)
+		err := c.schemaValidator.Validate(data, noIDSchemaDoc)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "schema error")
+		require.Contains(t, err.Error(), "field '$id' not found in JSON schema")
+	})
+
+	t.Run("invalid schema error", func(t *testing.T) {
+		data := map[string]interface{}{}
+
+		err := c.schemaValidator.Validate(data, invalidSchemaDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "has a primitive type that is NOT VALID")
 	})
 }
 

@@ -21,6 +21,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230901120639-e17eddd3ad3e
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230822161205-69119012ed5c
@@ -31,7 +32,6 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9
 	github.com/labstack/echo/v4 v4.8.0
-	github.com/multiformats/go-multibase v0.1.1
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/ory/fosite v0.44.0
 	github.com/ory/x v0.0.573
@@ -125,7 +125,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230901120639-e17eddd3ad3e // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
@@ -155,6 +154,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.1.0 // indirect
+	github.com/multiformats/go-multibase v0.1.1 // indirect
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect

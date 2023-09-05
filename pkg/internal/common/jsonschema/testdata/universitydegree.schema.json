@@ -1,0 +1,49 @@
+{
+  "$id": "https://trustbloc.com/universitydegree.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UniversityDegreeCredential",
+  "type": "object",
+  "properties": {
+    "alumniOf": {
+      "type": "object",
+      "description": "Describes the university.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "array",
+          "description": "A list of language-specific names.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "lang": {
+                "type": "string"
+              }
+            },
+            "required": ["value", "lang"]
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "degree": {
+      "type": "object",
+      "description": "Describes the degree.",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["type","name"]
+    }
+  },
+  "required": ["alumniOf","degree"]
+}

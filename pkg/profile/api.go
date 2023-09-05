@@ -63,6 +63,8 @@ type CredentialTemplate struct {
 	Checks                              CredentialTemplateChecks     `json:"checks"`
 	SdJWT                               *SelectiveDisclosureTemplate `json:"sdJWT"`
 	JSONSchema                          string                       `json:"jsonSchema,omitempty"`
+
+	JSONSchemaDoc map[string]interface{} `json:"-"`
 }
 
 type SelectiveDisclosureTemplate struct {

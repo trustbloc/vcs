@@ -23,7 +23,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
-	"github.com/xeipuuv/gojsonschema"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
@@ -34,6 +33,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/internal/common/jsonschema"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -90,6 +90,10 @@ type Config struct {
 	Tracer                 trace.Tracer
 }
 
+type jsonSchemaValidator interface {
+	Validate(data interface{}, schemaDoc jsonschema.Document) error
+}
+
 // Controller for Issuer Profile Management API.
 type Controller struct {
 	profileSvc             profileService
@@ -100,6 +104,7 @@ type Controller struct {
 	vcStatusManager        vcStatusManager
 	externalHostURL        string
 	tracer                 trace.Tracer
+	schemaValidator        jsonSchemaValidator
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -113,6 +118,7 @@ func NewController(config *Config) *Controller {
 		vcStatusManager:        config.VcStatusManager,
 		externalHostURL:        config.ExternalHostURL,
 		tracer:                 config.Tracer,
+		schemaValidator:        jsonschema.NewCachingValidator(),
 	}
 }
 
@@ -651,8 +657,10 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			errors.New("credentials should not be nil"))
 	}
 
-	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
-		return err
+	if result.EnforceStrictValidation {
+		if err = c.validateClaims(result.Credential, result.CredentialTemplate); err != nil {
+			return err
+		}
 	}
 
 	var signOpts []crypto.SigningOpts
@@ -673,13 +681,32 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 func (c *Controller) validateClaims( //nolint:gocognit
 	cred *verifiable.Credential,
 	credentialTemplate *profileapi.CredentialTemplate,
-	strictValidation bool,
 ) error {
-	if !strictValidation {
-		return nil
+	subjects, err := getCredentialSubjects(cred.Subject)
+	if err != nil {
+		return err
 	}
 
-	data := map[string]interface{}{}
+	for _, sub := range subjects {
+		if err := c.validateCredentialSubject(cred, credentialTemplate, sub); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//nolint:gocognit
+func (c *Controller) validateCredentialSubject(
+	cred *verifiable.Credential,
+	credentialTemplate *profileapi.CredentialTemplate,
+	sub verifiable.Subject,
+) error {
+	if credentialTemplate != nil && credentialTemplate.JSONSchemaDoc != nil {
+		if err := c.schemaValidator.Validate(sub.CustomFields, credentialTemplate.JSONSchemaDoc); err != nil {
+			return fmt.Errorf("validate claims: %w", err)
+		}
+	}
 
 	var ctx []interface{}
 	for _, ct := range cred.Context {
@@ -691,46 +718,27 @@ func (c *Controller) validateClaims( //nolint:gocognit
 		types = append(types, t)
 	}
 
-	validate := func(sub verifiable.Subject) error {
-		if credentialTemplate != nil && credentialTemplate.JSONSchema != "" {
-			if err := validateJSONSchema(sub.CustomFields, credentialTemplate.JSONSchema); err != nil {
-				return fmt.Errorf("validate claims: %w", err)
-			}
-		}
+	data := map[string]interface{}{}
 
-		for k, v := range sub.CustomFields {
-			if k == "type" || k == "@type" {
-				if v1, ok1 := v.(string); ok1 {
-					types = append(types, v1)
-
-					continue
-				}
-
-				if reflect.TypeOf(v).Kind() == reflect.Slice {
-					s := reflect.ValueOf(v)
-					for i := 0; i < s.Len(); i++ {
-						types = append(types, s.Index(i).Interface())
-					}
-				}
+	for k, v := range sub.CustomFields {
+		if k == "type" || k == "@type" {
+			if v1, ok1 := v.(string); ok1 {
+				types = append(types, v1)
 
 				continue
 			}
 
-			data[k] = v
+			if reflect.TypeOf(v).Kind() == reflect.Slice {
+				s := reflect.ValueOf(v)
+				for i := 0; i < s.Len(); i++ {
+					types = append(types, s.Index(i).Interface())
+				}
+			}
+
+			continue
 		}
 
-		return nil
-	}
-
-	subjects, err := getCredentialSubjects(cred.Subject)
-	if err != nil {
-		return err
-	}
-
-	for _, sub := range subjects {
-		if err := validate(sub); err != nil {
-			return err
-		}
+		data[k] = v
 	}
 
 	data["@context"] = ctx
@@ -738,7 +746,7 @@ func (c *Controller) validateClaims( //nolint:gocognit
 
 	return validator.ValidateJSONLDMap(data,
 		validator.WithDocumentLoader(c.documentLoader),
-		validator.WithStrictValidation(strictValidation),
+		validator.WithStrictValidation(true),
 	)
 }
 
@@ -756,37 +764,6 @@ func getCredentialSubjects(subject interface{}) ([]verifiable.Subject, error) {
 	}
 
 	return nil, fmt.Errorf("invalid type for credential subject: %T", subject)
-}
-
-type JSONSchemaValidationErrors []gojsonschema.ResultError
-
-func (e JSONSchemaValidationErrors) Error() string {
-	var errMsg string
-
-	for i, msg := range e {
-		errMsg += msg.String()
-		if i+1 < len(e) {
-			errMsg += "; "
-		}
-	}
-
-	return fmt.Sprintf("[%s]", errMsg)
-}
-
-func validateJSONSchema(data interface{}, schema string) error {
-	result, err := gojsonschema.Validate(
-		gojsonschema.NewStringLoader(schema),
-		gojsonschema.NewGoLoader(data),
-	)
-	if err != nil {
-		return fmt.Errorf("schema error: %w", err)
-	}
-
-	if !result.Valid() {
-		return fmt.Errorf("validation error: %w", JSONSchemaValidationErrors(result.Errors()))
-	}
-
-	return nil
 }
 
 // OpenidConfig request openid configuration for issuer.
