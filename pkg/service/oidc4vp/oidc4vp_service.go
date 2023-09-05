@@ -23,13 +23,17 @@ import (
 	"github.com/valyala/fastjson"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
@@ -110,7 +114,7 @@ type Config struct {
 	EventSvc                 eventService
 	EventTopic               string
 	PresentationVerifier     presentationVerifier
-	PublicKeyFetcher         verifiable.PublicKeyFetcher
+	VDR                      vdrapi.Registry
 
 	RedirectURL   string
 	TokenLifetime time.Duration
@@ -130,7 +134,7 @@ type Service struct {
 	documentLoader           ld.DocumentLoader
 	profileService           profileService
 	presentationVerifier     presentationVerifier
-	publicKeyFetcher         verifiable.PublicKeyFetcher
+	vdr                      vdrapi.Registry
 
 	redirectURL   string
 	tokenLifetime time.Duration
@@ -172,7 +176,7 @@ func NewService(cfg *Config) *Service {
 		presentationVerifier:     cfg.PresentationVerifier,
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
-		publicKeyFetcher:         cfg.PublicKeyFetcher,
+		vdr:                      cfg.VDR,
 		metrics:                  metrics,
 	}
 }
@@ -443,6 +447,21 @@ func (s *Service) DeleteClaims(_ context.Context, claimsID string) error {
 	return s.transactionManager.DeleteReceivedClaims(claimsID)
 }
 
+func (s *Service) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
+	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: s.documentLoader,
+	})
+
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: s.vdr,
+	}, verifySuite)
+	if err != nil {
+		return nil, fmt.Errorf("new verifier: %w", err)
+	}
+
+	return verifier, nil
+}
+
 func (s *Service) extractClaimData(
 	ctx context.Context,
 	tx *Transaction,
@@ -457,11 +476,17 @@ func (s *Service) extractClaimData(
 		token.Presentation.JWT = ""
 		presentations = append(presentations, token.Presentation)
 	}
+	diVerifier, err := s.getDataIntegrityVerifier()
+	if err != nil {
+		return fmt.Errorf("get data integrity verifier: %w", err)
+	}
 
 	opts := []presexch.MatchOption{
 		presexch.WithCredentialOptions(
+			verifiable.WithDataIntegrityVerifier(diVerifier),
+			verifiable.WithExpectedDataIntegrityFields(crypto.Authentication, "", ""),
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithPublicKeyFetcher(s.publicKeyFetcher)),
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher())),
 		presexch.WithDisableSchemaValidation(),
 	}
 

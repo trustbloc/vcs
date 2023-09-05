@@ -24,17 +24,20 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
 	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
 	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
-	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
@@ -249,7 +252,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	vp, pd, issuer, pubKeyFetcher, loader := newVPWithPD(t, keyManager, crypto)
+	vp, pd, issuer, vdr, loader := newVPWithPD(t, keyManager, crypto)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
@@ -258,7 +261,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		PresentationVerifier: presentationVerifier,
 		ProfileService:       profileService,
 		DocumentLoader:       loader,
-		PublicKeyFetcher:     pubKeyFetcher,
+		VDR:                  vdr,
 	})
 
 	txManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -343,20 +346,20 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
-		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
+		vp1, issuer1, vdr1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
+		vp2, issuer2, vdr2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
 
-		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
-			switch issuerID {
-			case issuer1:
-				return pubKeyFetcher1(issuerID, keyID)
+		combinedDIDResolver := &vdrmock.VDRegistry{
+			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				switch didID {
+				case issuer1:
+					return vdr1.Resolve(didID, opts...)
+				case issuer2:
+					return vdr2.Resolve(didID, opts...)
+				}
 
-			case issuer2:
-				return pubKeyFetcher2(issuerID, keyID)
-			}
-
-			return nil, fmt.Errorf("unexpected issuer")
-		}
+				return nil, fmt.Errorf("unexpected issuer")
+			}}
 
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
@@ -367,7 +370,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
 			DocumentLoader:       testLoader,
-			PublicKeyFetcher:     combinedFetcher,
+			VDR:                  combinedDIDResolver,
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -430,20 +433,20 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
-		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
+		vp1, issuer1, vdr1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
+		vp2, issuer2, vdr2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
 
-		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
-			switch issuerID {
-			case issuer1:
-				return pubKeyFetcher1(issuerID, keyID)
+		combinedDIDResolver := &vdrmock.VDRegistry{
+			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				switch didID {
+				case issuer1:
+					return vdr1.Resolve(didID, opts...)
+				case issuer2:
+					return vdr2.Resolve(didID, opts...)
+				}
 
-			case issuer2:
-				return pubKeyFetcher2(issuerID, keyID)
-			}
-
-			return nil, fmt.Errorf("unexpected issuer")
-		}
+				return nil, fmt.Errorf("unexpected issuer")
+			}}
 
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
@@ -454,7 +457,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
 			DocumentLoader:       testLoader,
-			PublicKeyFetcher:     combinedFetcher,
+			VDR:                  combinedDIDResolver,
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -580,7 +583,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationVerifier: errPresentationVerifier,
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
-			PublicKeyFetcher:     pubKeyFetcher,
+			VDR:                  vdr,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -623,7 +626,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
-			PublicKeyFetcher:     pubKeyFetcher,
+			VDR:                  vdr,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -794,7 +797,7 @@ func (m *mockEvent) Publish(_ context.Context, _ string, _ ...*spi.Event) error 
 
 func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto) (
 	*verifiable.Presentation, *presexch.PresentationDefinition, string,
-	verifiable.PublicKeyFetcher, *lddocloader.DocumentLoader) {
+	vdrapi.Registry, *lddocloader.DocumentLoader) {
 	uri := randomURI()
 
 	customType := "CustomType"
@@ -824,7 +827,7 @@ func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Cry
 
 func newVPWithPS(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto,
 	ps *presexch.PresentationSubmission, value string) (
-	*verifiable.Presentation, string, verifiable.PublicKeyFetcher) {
+	*verifiable.Presentation, string, vdrapi.Registry) {
 	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, nil, "degree", value)
 
 	return newVP(t, ps,
@@ -897,7 +900,7 @@ func newDegreeVC(issuer string, degreeType string, ctx []string) *verifiable.Cre
 
 func newSignedJWTVC(t *testing.T,
 	keyManager kms.KeyManager, crypto ariescrypto.Crypto, ctx []string,
-	vcType string, value string) (*verifiable.Credential, string, verifiable.PublicKeyFetcher) {
+	vcType string, value string) (*verifiable.Credential, string, vdrapi.Registry) {
 	t.Helper()
 
 	keyID, kh, err := keyManager.Create(kms.ED25519Type)
@@ -909,9 +912,18 @@ func newSignedJWTVC(t *testing.T,
 	require.NoError(t, err)
 	require.Equal(t, kms.ED25519Type, kt)
 
-	pubKeyFetcher := verifiable.SingleKey(pubKey, kms.ED25519)
+	key, err := jwkkid.BuildJWK(pubKey, kms.ED25519)
+	require.NoError(t, err)
 
 	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+
+	verificationMethod, err := did.NewVerificationMethodFromJWK(verMethod, "JsonWebKey2020", issuer, key)
+	require.NoError(t, err)
+
+	didResolver := &vdrmock.VDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			return makeMockDIDResolution(issuer, verificationMethod, did.Authentication), nil
+		}}
 
 	var vc *verifiable.Credential
 
@@ -935,7 +947,31 @@ func newSignedJWTVC(t *testing.T,
 
 	vc.JWT = jws
 
-	return vc, issuer, pubKeyFetcher
+	return vc, issuer, didResolver
+}
+
+func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.VerificationRelationship) *did.DocResolution {
+	ver := []did.Verification{{
+		VerificationMethod: *vm,
+		Relationship:       vr,
+	}}
+
+	doc := &did.Doc{
+		ID: id,
+	}
+
+	switch vr { //nolint:exhaustive
+	case did.VerificationRelationshipGeneral:
+		doc.VerificationMethod = []did.VerificationMethod{*vm}
+	case did.Authentication:
+		doc.Authentication = ver
+	case did.AssertionMethod:
+		doc.AssertionMethod = ver
+	}
+
+	return &did.DocResolution{
+		DIDDocument: doc,
+	}
 }
 
 func randomURI() string {

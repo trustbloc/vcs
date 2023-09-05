@@ -700,6 +700,19 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "Invalid credentials",
+			args: args{
+				getVcByte: func() []byte {
+					return []byte(`{..`)
+				},
+				proofChallenge:   crypto.Challenge,
+				proofDomain:      "some value",
+				vcInVPValidation: false,
+				isJWT:            true,
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
