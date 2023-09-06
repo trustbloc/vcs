@@ -1,0 +1,9 @@
+{
+  "alumniOf": {
+    "id": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "degree": {
+    "type": "BachelorDegree",
+    "name": "Bachelor of Science and Arts"
+  }
+}

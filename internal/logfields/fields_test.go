@@ -49,6 +49,9 @@ func TestStandardFields(t *testing.T) {
 		workers := 5
 		claimKeys := []string{"1", "2"}
 		tranasctionID := "someTransactionID"
+		credentialTemplateID := "someCredentialTemplateID"
+		jsonSchemaID := "someSchemaID"
+		jsonSchema := "someSchema"
 
 		logger.Info(
 			"Some message",
@@ -71,6 +74,9 @@ func TestStandardFields(t *testing.T) {
 			WithVPToken(vpToken),
 			WithWorkers(workers),
 			WithClaimKeys(claimKeys),
+			WithCredentialTemplateID(credentialTemplateID),
+			WithJSONSchemaID(jsonSchemaID),
+			WithJSONSchema(jsonSchema),
 		)
 
 		l := unmarshalLogData(t, stdOut.Bytes())
@@ -93,6 +99,9 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, vpToken, l.VPToken)
 		require.Equal(t, workers, l.Workers)
 		require.Equal(t, claimKeys, l.ClaimKeys)
+		require.Equal(t, credentialTemplateID, l.CredentialTemplateID)
+		require.Equal(t, jsonSchemaID, l.JSONSchemaID)
+		require.Equal(t, jsonSchema, l.JSONSchema)
 	})
 }
 
@@ -109,25 +118,28 @@ type logData struct {
 	Msg    string `json:"msg"`
 	Error  string `json:"error"`
 
-	AdditionalMessage   string      `json:"additionalMessage"`
-	Command             string      `json:"command"`
-	ConcurrencyRequests int         `json:"concurrencyRequests"`
-	DockerComposeCmd    string      `json:"dockerComposeCmd"`
-	Event               *mockObject `json:"event"`
-	IDToken             string      `json:"idToken"`
-	JSONQuery           string      `json:"jsonQuery"`
-	JSONResolution      string      `json:"jsonResolution"`
-	PresDefID           string      `json:"presDefID"`
-	ProfileID           string      `json:"profileID"`
-	Responses           int         `json:"responses"`
-	TransactionID       string      `json:"transactionID"`
-	Sleep               string      `json:"sleep"`
-	TotalRequests       int         `json:"totalRequests"`
-	UserLogLevel        string      `json:"userLogLevel"`
-	VP                  string      `json:"vp"`
-	VPToken             string      `json:"vpToken"`
-	Workers             int         `json:"workers"`
-	ClaimKeys           []string    `json:"claimKeys"`
+	AdditionalMessage    string      `json:"additionalMessage"`
+	Command              string      `json:"command"`
+	ConcurrencyRequests  int         `json:"concurrencyRequests"`
+	DockerComposeCmd     string      `json:"dockerComposeCmd"`
+	Event                *mockObject `json:"event"`
+	IDToken              string      `json:"idToken"`
+	JSONQuery            string      `json:"jsonQuery"`
+	JSONResolution       string      `json:"jsonResolution"`
+	PresDefID            string      `json:"presDefID"`
+	ProfileID            string      `json:"profileID"`
+	Responses            int         `json:"responses"`
+	TransactionID        string      `json:"transactionID"`
+	Sleep                string      `json:"sleep"`
+	TotalRequests        int         `json:"totalRequests"`
+	UserLogLevel         string      `json:"userLogLevel"`
+	VP                   string      `json:"vp"`
+	VPToken              string      `json:"vpToken"`
+	Workers              int         `json:"workers"`
+	ClaimKeys            []string    `json:"claimKeys"`
+	CredentialTemplateID string      `json:"credentialTemplateID"`
+	JSONSchemaID         string      `json:"JSONSchemaID"`
+	JSONSchema           string      `json:"JSONSchema"`
 }
 
 func unmarshalLogData(t *testing.T, b []byte) *logData {

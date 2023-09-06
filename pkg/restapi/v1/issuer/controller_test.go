@@ -56,7 +56,7 @@ var (
 	//go:embed testdata/sample_vc_invalid_university_degree.jsonld
 	sampleVCInvalidUniversityDegree []byte
 	//go:embed testdata/universitydegree.schema.json
-	universityDegreeSchema string
+	universityDegreeSchema []byte
 )
 
 // nolint:gochecknoglobals
@@ -1266,6 +1266,9 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 }
 
 func TestController_PrepareCredential(t *testing.T) {
+	var universityDegreeSchemaDoc map[string]interface{}
+	require.NoError(t, json.Unmarshal(universityDegreeSchema, &universityDegreeSchemaDoc))
+
 	sampleVC, err := verifiable.ParseCredential(
 		sampleVCUniversityDegree,
 		verifiable.WithDisabledProofCheck(),
@@ -1304,7 +1307,8 @@ func TestController_PrepareCredential(t *testing.T) {
 					Retry:                   false,
 					EnforceStrictValidation: true,
 					CredentialTemplate: &profileapi.CredentialTemplate{
-						JSONSchema: universityDegreeSchema,
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
 						Checks: profileapi.CredentialTemplateChecks{
 							Strict: true,
 						},
@@ -1446,6 +1450,9 @@ func TestController_PrepareCredential(t *testing.T) {
 	})
 
 	t.Run("claims schema validation error", func(t *testing.T) {
+		var universityDegreeSchemaDoc map[string]interface{}
+		require.NoError(t, json.Unmarshal(universityDegreeSchema, &universityDegreeSchemaDoc))
+
 		invalidVC, err := verifiable.ParseCredential(
 			sampleVCInvalidUniversityDegree,
 			verifiable.WithDisabledProofCheck(),
@@ -1480,7 +1487,8 @@ func TestController_PrepareCredential(t *testing.T) {
 					Retry:                   false,
 					EnforceStrictValidation: true,
 					CredentialTemplate: &profileapi.CredentialTemplate{
-						JSONSchema: universityDegreeSchema,
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
 						Checks: profileapi.CredentialTemplateChecks{
 							Strict: true,
 						},
@@ -1781,7 +1789,11 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 }
 
 func Test_validateJSONSchema(t *testing.T) {
+	const schemaID = "https://trustbloc.com/universitydegree.schema.json"
+
 	t.Run("success", func(t *testing.T) {
+		c := NewController(&Config{})
+
 		data := map[string]interface{}{
 			"alumniOf": map[string]interface{}{
 				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -1802,11 +1814,13 @@ func Test_validateJSONSchema(t *testing.T) {
 			},
 		}
 
-		err := validateJSONSchema(data, universityDegreeSchema)
+		err := c.schemaValidator.Validate(data, schemaID, universityDegreeSchema)
 		require.NoError(t, err)
 	})
 
 	t.Run("validation error", func(t *testing.T) {
+		c := NewController(&Config{})
+
 		data := map[string]interface{}{
 			"alumniOf": map[string]interface{}{
 				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -1822,31 +1836,41 @@ func Test_validateJSONSchema(t *testing.T) {
 			},
 		}
 
-		err := validateJSONSchema(data, universityDegreeSchema)
+		err := c.schemaValidator.Validate(data, schemaID, universityDegreeSchema)
 		require.EqualError(t, err,
 			"validation error: [(root): degree is required; alumniOf.name.0.lang: Invalid type. "+
 				"Expected: string, given: integer; alumniOf.name.1: lang is required]")
 	})
 
-	t.Run("schema error", func(t *testing.T) {
-		data := map[string]interface{}{
-			"alumniOf": map[string]interface{}{
-				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				"name": []map[string]interface{}{
-					{
-						"value": "Example University",
-						"lang":  0,
-					},
-					{
-						"value": "Exemple d'Université",
-					},
-				},
-			},
-		}
+	t.Run("$id not found in schema", func(t *testing.T) {
+		c := NewController(&Config{})
 
-		err := validateJSONSchema(data, `{"type":"invalid"}`)
+		err := c.schemaValidator.Validate(map[string]interface{}{}, "schema1.json", []byte(`{}`))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "schema error")
+		require.Contains(t, err.Error(), "field '$id' not found in JSON schema")
+	})
+
+	t.Run("invalid schema error", func(t *testing.T) {
+		c := NewController(&Config{})
+
+		data := map[string]interface{}{}
+
+		err := c.schemaValidator.Validate(data, schemaID,
+			[]byte(`{"$id": "https://trustbloc.com/universitydegree.schema.json","type":"invalid"}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "has a primitive type that is NOT VALID")
+	})
+
+	t.Run("schema ID mismatch", func(t *testing.T) {
+		c := NewController(&Config{})
+
+		data := map[string]interface{}{}
+
+		err := c.schemaValidator.Validate(data, schemaID,
+			[]byte(`{"$id": "id_1","type":"object"}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(),
+			"field '$id' in JSON schema [id_1] does not match schema ID [https://trustbloc.com/universitydegree.schema.json]")
 	})
 }
 

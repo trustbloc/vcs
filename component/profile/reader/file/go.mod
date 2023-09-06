@@ -15,9 +15,11 @@ require (
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230622171716-43af8054a539
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/spf13/cobra v1.7.0
+	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vcs v0.0.0
+	go.uber.org/zap v1.23.0
 )
 
 require (
@@ -130,7 +132,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.16.0 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
@@ -157,7 +158,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/mod v0.12.0 // indirect

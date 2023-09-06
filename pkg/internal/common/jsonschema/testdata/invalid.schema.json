@@ -1,0 +1,11 @@
+{
+  "$id": "https://trustbloc.com/universitydegree.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UniversityDegreeCredential",
+  "type": "object",
+  "properties": {
+    "alumniOf": {
+      "type": "invalid"
+    }
+  }
+}
