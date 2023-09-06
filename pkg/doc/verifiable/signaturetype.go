@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/samber/lo"
 )
 
 // SignatureType type of signature used to sign vc.
@@ -97,22 +98,21 @@ func GetSignatureTypeByName(signatureType string) (SignatureType, error) {
 }
 
 func GetSignatureTypesByKeyTypeFormat(keyType kms.KeyType, vcFormat Format) []SignatureType {
-	uniqueSignatureTypes := make(map[SignatureType]struct{})
+	var uniqueSignatureTypes []SignatureType
 
 	for _, supportedSignature := range signatureTypes {
 		for _, supportedKeyType := range supportedSignature.SupportedKeyTypes {
 			if supportedKeyType == keyType && supportedSignature.VCFormat == vcFormat {
-				uniqueSignatureTypes[supportedSignature.SignatureType] = struct{}{}
+				if lo.Contains(uniqueSignatureTypes, supportedSignature.SignatureType) {
+					continue
+				}
+
+				uniqueSignatureTypes = append(uniqueSignatureTypes, supportedSignature.SignatureType)
 			}
 		}
 	}
 
-	result := make([]SignatureType, 0, len(uniqueSignatureTypes))
-	for st := range uniqueSignatureTypes {
-		result = append(result, st)
-	}
-
-	return result
+	return uniqueSignatureTypes
 }
 
 func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.KeyType, error) {
