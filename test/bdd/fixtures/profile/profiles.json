@@ -660,6 +660,7 @@
           "enable_dynamic_client_registration": true,
           "pre-authorized_grant_anonymous_access_supported": true,
           "wallet_initiated_auth_flow_supported": true,
+          "signed_credential_offer_supported": true,
           "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=CrudeProductCredential"
         },
         "credentialTemplates": [

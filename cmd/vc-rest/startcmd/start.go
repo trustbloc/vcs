@@ -657,6 +657,8 @@ func buildEchoHandler(
 		PreAuthCodeTTL:                conf.StartupParameters.transientDataParams.claimDataTTL,
 		CredentialOfferReferenceStore: credentialOfferStore,
 		DataProtector:                 claimsDataProtector,
+		KMSRegistry:                   kmsRegistry,
+		CryptoJWTSigner:               vcCrypto,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -931,6 +933,10 @@ type credentialOfferReferenceStore interface {
 	Create(
 		ctx context.Context,
 		request *oidc4ci.CredentialOfferResponse,
+	) (string, error)
+	CreateJWT(
+		ctx context.Context,
+		credentialOfferJWT string,
 	) (string, error)
 }
 

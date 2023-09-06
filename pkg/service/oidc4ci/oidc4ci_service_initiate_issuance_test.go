@@ -18,8 +18,10 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -113,6 +115,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
 				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
+				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
 		{
@@ -952,6 +955,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 		eventService         = NewMockEventService(gomock.NewController(t))
 		pinGenerator         = NewMockPinGenerator(gomock.NewController(t))
 		referenceStore       = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+		kmsRegistry          = NewMockKMSRegistry(gomock.NewController(t))
+		cryptoJWTSigner      = NewMockCryptoJWTSigner(gomock.NewController(t))
 		issuanceReq          *oidc4ci.InitiateIssuanceRequest
 		profile              *profileapi.Issuer
 	)
@@ -965,7 +970,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
 	}{
 		{
-			name: "Success with reference store",
+			name: "JWT disabled - Success with reference store",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -1024,10 +1029,11 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				require.Contains(t, resp.InitiateIssuanceURL,
 					"https://wallet.example.com/initiate_issuance?"+
 						"credential_offer_uri=https%3A%2F%2Fremote_url%2Ffile.jwt")
+				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
 		{
-			name: "Fail uploading to remote",
+			name: "JWT disabled - Fail uploading to remote",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -1081,6 +1087,230 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				require.Nil(t, resp)
 			},
 		},
+		{
+			name: "JWT enabled - Success with reference store",
+			setup: func() {
+				const mockSignedCredentialOfferJWT = "aa.bb.cc"
+
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialFormat: verifiable.Jwt,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+							},
+						}, nil
+					})
+				referenceStore = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+				referenceStore.EXPECT().CreateJWT(gomock.Any(), mockSignedCredentialOfferJWT).
+					DoAndReturn(func(
+						ctx context.Context,
+						signedCredentialOffer string,
+					) (string, error) {
+						return "https://remote_url/file.jwt", nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{
+						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
+					}, nil)
+
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				kmsConfig := &vcskms.Config{
+					KMSType:           vcskms.AWS,
+					Endpoint:          "example.com",
+					Region:            "us-central-1",
+					AliasPrefix:       "AliasPrefix",
+					SecretLockKeyPath: "SecretLockKeyPath",
+					DBType:            "DBType",
+					DBURL:             "DBURL",
+					DBPrefix:          "DBPrefix",
+				}
+
+				kmsRegistry.EXPECT().GetKeyManager(kmsConfig).Return(nil, nil)
+
+				cryptoJWTSigner.EXPECT().NewJWTSigned(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(claims interface{}, signerData *vc.Signer) (string, error) {
+						assert.Equal(t, &vc.Signer{
+							KeyType:       "ECDSASecp256k1DER",
+							KMSKeyID:      "",
+							KMS:           nil,
+							SignatureType: "JsonWebSignature2020",
+							Creator:       "",
+						}, signerData)
+
+						credentialOfferClaims, ok := claims.(*oidc4ci.JWTCredentialOfferClaims)
+						assert.True(t, ok)
+
+						assert.Equal(t, "did:orb:anything", credentialOfferClaims.Issuer)
+						assert.Equal(t, "did:orb:anything", credentialOfferClaims.Subject)
+						assert.False(t, credentialOfferClaims.IssuedAt.Time().IsZero())
+
+						return mockSignedCredentialOfferJWT, nil
+					})
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              "eyJhbGciOiJSU0Et",
+				}
+
+				profileSignedCredentialOfferSupported := testProfile
+				profileSignedCredentialOfferSupported.KMSConfig = kmsConfig
+				profileSignedCredentialOfferSupported.OIDCConfig = &profileapi.OIDCConfig{
+					SignedCredentialOfferSupported: true,
+				}
+
+				profile = &profileSignedCredentialOfferSupported
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				require.Contains(t, resp.InitiateIssuanceURL,
+					"https://wallet.example.com/initiate_issuance?"+
+						"credential_offer_uri=https%3A%2F%2Fremote_url%2Ffile.jwt")
+				require.Equal(t, oidc4ci.ContentTypeApplicationJWT, resp.ContentType)
+			},
+		},
+		{
+			name: "JWT enabled - KMS registry error",
+			setup: func() {
+				referenceStore = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+				mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
+				cryptoJWTSigner = NewMockCryptoJWTSigner(gomock.NewController(t))
+
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialFormat: verifiable.Jwt,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+							},
+						}, nil
+					})
+
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, errors.New("some error"))
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              "eyJhbGciOiJSU0Et",
+				}
+
+				profileSignedCredentialOfferSupported := testProfile
+				profileSignedCredentialOfferSupported.OIDCConfig = &profileapi.OIDCConfig{
+					SignedCredentialOfferSupported: true,
+				}
+
+				profile = &profileSignedCredentialOfferSupported
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.ErrorContains(t, err, "get kms:")
+			},
+		},
+		{
+			name: "JWT enabled - crypto signer error",
+			setup: func() {
+				referenceStore = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+				mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
+
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialFormat: verifiable.Jwt,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+							},
+						}, nil
+					})
+
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				kmsConfig := &vcskms.Config{
+					KMSType:           vcskms.AWS,
+					Endpoint:          "example.com",
+					Region:            "us-central-1",
+					AliasPrefix:       "AliasPrefix",
+					SecretLockKeyPath: "SecretLockKeyPath",
+					DBType:            "DBType",
+					DBURL:             "DBURL",
+					DBPrefix:          "DBPrefix",
+				}
+
+				kmsRegistry.EXPECT().GetKeyManager(kmsConfig).Return(nil, nil)
+
+				cryptoJWTSigner.EXPECT().NewJWTSigned(gomock.Any(), gomock.Any()).Return("", errors.New("some error"))
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              "eyJhbGciOiJSU0Et",
+				}
+
+				profileSignedCredentialOfferSupported := testProfile
+				profileSignedCredentialOfferSupported.KMSConfig = kmsConfig
+				profileSignedCredentialOfferSupported.OIDCConfig = &profileapi.OIDCConfig{
+					SignedCredentialOfferSupported: true,
+				}
+
+				profile = &profileSignedCredentialOfferSupported
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.ErrorContains(t, err, "sign credential offer:")
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1094,6 +1324,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				EventService:                  eventService,
 				PinGenerator:                  pinGenerator,
 				CredentialOfferReferenceStore: referenceStore,
+				KMSRegistry:                   kmsRegistry,
+				CryptoJWTSigner:               cryptoJWTSigner,
 				EventTopic:                    spi.IssuerEventTopic,
 			})
 			require.NoError(t, err)

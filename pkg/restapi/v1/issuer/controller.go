@@ -399,19 +399,19 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 
 	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", body, attributeutil.WithRedacted("claim_data")))
 
-	resp, err := c.initiateIssuance(ctx, &body, profile)
+	resp, ct, err := c.initiateIssuance(ctx, &body, profile)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(e)(resp, nil)
+	return util.WriteOutputWithContentType(e)(resp, ct, nil)
 }
 
 func (c *Controller) initiateIssuance(
 	ctx context.Context,
 	req *InitiateOIDC4CIRequest,
 	profile *profileapi.Issuer,
-) (*InitiateOIDC4CIResponse, error) {
+) (*InitiateOIDC4CIResponse, string, error) {
 	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
 		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
@@ -433,17 +433,17 @@ func (c *Controller) initiateIssuance(
 	if err != nil {
 		if errors.Is(err, oidc4ci.ErrCredentialTemplateNotFound) ||
 			errors.Is(err, oidc4ci.ErrCredentialTemplateIDRequired) {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
+			return nil, "", resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
 		}
 
-		return nil, resterr.NewSystemError("OIDC4CIService", "InitiateIssuance", err)
+		return nil, "", resterr.NewSystemError("OIDC4CIService", "InitiateIssuance", err)
 	}
 
 	return &InitiateOIDC4CIResponse{
 		OfferCredentialUrl: resp.InitiateIssuanceURL,
 		TxId:               string(resp.TxID),
 		UserPin:            lo.ToPtr(resp.UserPin),
-	}, nil
+	}, resp.ContentType, nil
 }
 
 // PushAuthorizationDetails updates authorization details.

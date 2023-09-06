@@ -33,6 +33,7 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	ariescrypto "github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -819,6 +820,7 @@ func getTestLDPSigner() *vc.Signer {
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:trustbloc:abc#key1",
 		KMSKeyID:      "key1",
+		KeyType:       kms.ED25519,
 		KMS: &mockVCSKeyManager{
 			crypto: &cryptomock.Crypto{},
 			kms:    &mockkms.KeyManager{},
@@ -881,12 +883,17 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 }
 
 type mockVCSKeyManager struct {
+	err    error
 	crypto ariescrypto.Crypto
 	kms    kms.KeyManager
 }
 
 func (m *mockVCSKeyManager) NewVCSigner(creator string,
 	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
 	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType, nil)
 }
 
@@ -936,5 +943,116 @@ func createDIDDoc(didID string, opts ...opt) *did.Doc {
 		Authentication:       []did.Verification{{VerificationMethod: signingKey, Relationship: did.Authentication}},
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
+	}
+}
+
+func TestCrypto_NewJWTSigned(t *testing.T) {
+	testClaims := map[string]interface{}{
+		"key": "value",
+	}
+
+	type fields struct {
+		vdr            vdrapi.Registry
+		documentLoader ld.DocumentLoader
+	}
+	type args struct {
+		getClaims     func() interface{}
+		getSignerData func() *vc.Signer
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "Success",
+			fields: fields{
+				vdr:            &vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+				documentLoader: testutil.DocumentLoader(t),
+			},
+			args: args{
+				getClaims: func() interface{} {
+					return testClaims
+				},
+				getSignerData: getTestLDPSigner,
+			},
+			want:    "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp0cnVzdGJsb2M6YWJjI2tleTEifQ.eyJrZXkiOiJ2YWx1ZSJ9.",
+			wantErr: false,
+		},
+		{
+			name: "Error KeyTypeToJWSAlgo",
+			fields: fields{
+				vdr:            &vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+				documentLoader: testutil.DocumentLoader(t),
+			},
+			args: args{
+				getClaims: func() interface{} {
+					return testClaims
+				},
+				getSignerData: func() *vc.Signer {
+					s := getTestLDPSigner()
+					s.KeyType = ""
+
+					return s
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Error getSigner",
+			fields: fields{
+				vdr:            &vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+				documentLoader: testutil.DocumentLoader(t),
+			},
+			args: args{
+				getClaims: func() interface{} {
+					return testClaims
+				},
+				getSignerData: func() *vc.Signer {
+					s := getTestLDPSigner()
+					s.KMS = &mockVCSKeyManager{
+						err: errors.New("some error"),
+					}
+
+					return s
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Error NewSigned",
+			fields: fields{
+				vdr:            &vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+				documentLoader: testutil.DocumentLoader(t),
+			},
+			args: args{
+				getClaims: func() interface{} {
+					return func() {}
+				},
+				getSignerData: getTestLDPSigner,
+			},
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Crypto{
+				vdr:            tt.fields.vdr,
+				documentLoader: tt.fields.documentLoader,
+			}
+			got, err := c.NewJWTSigned(tt.args.getClaims(), tt.args.getSignerData())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewJWTSigned() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("NewJWTSigned() got = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

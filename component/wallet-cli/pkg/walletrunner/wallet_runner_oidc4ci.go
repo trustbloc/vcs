@@ -72,9 +72,16 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
 	ctx := context.Background()
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
+
+	err := s.CreateWallet()
+	if err != nil {
+		return fmt.Errorf("create wallet: %w", err)
+	}
+
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
 		config.InitiateIssuanceURL,
 		s.httpClient,
+		s.ariesServices.vdrRegistry,
 	)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
@@ -192,11 +199,6 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	s.token = token
-
-	err = s.CreateWallet()
-	if err != nil {
-		return fmt.Errorf("create wallet: %w", err)
-	}
 
 	s.print("Getting credential")
 	vc, _, err := s.getCredential(

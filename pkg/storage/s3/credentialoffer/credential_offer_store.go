@@ -61,9 +61,23 @@ func (p *Store) Create(
 		return "", err
 	}
 
+	return p.put(ctx, data)
+}
+
+func (p *Store) CreateJWT(
+	ctx context.Context,
+	credentialOfferJWT string,
+) (string, error) {
+	return p.put(ctx, []byte(credentialOfferJWT))
+}
+
+func (p *Store) put(
+	ctx context.Context,
+	data []byte,
+) (string, error) {
 	key := fmt.Sprintf("%v.jwt", uuid.NewString())
 
-	_, err = p.s3Client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := p.s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader(data),
 		Key:         aws.String(key),
 		Bucket:      aws.String(p.bucket),
