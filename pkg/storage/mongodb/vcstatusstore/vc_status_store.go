@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 	"go.mongodb.org/mongo-driver/bson"

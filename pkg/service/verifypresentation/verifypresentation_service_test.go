@@ -15,12 +15,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	mockvdr "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	mockvdr "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/vc-go/sdjwt/common"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"

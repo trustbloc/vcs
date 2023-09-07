@@ -16,8 +16,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"

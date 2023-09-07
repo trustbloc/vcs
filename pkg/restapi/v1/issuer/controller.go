@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
-	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/ld/validator"
+	utiltime "github.com/trustbloc/vc-go/util/time"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"

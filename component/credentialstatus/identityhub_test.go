@@ -21,14 +21,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/method/longform"
 
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
-	vdr2 "github.com/hyperledger/aries-framework-go/component/vdr"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
+	vdr2 "github.com/trustbloc/did-go/vdr"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/did/endpoint"
 )
 
 const (

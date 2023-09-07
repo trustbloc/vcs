@@ -12,7 +12,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 

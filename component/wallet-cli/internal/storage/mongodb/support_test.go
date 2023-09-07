@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/spi/storage"
 )
 
 // CheckAll tests common storage functionality.

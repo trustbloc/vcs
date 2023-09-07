@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package storage
 
 import (
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/trustbloc/kms-go/spi/storage"
 )
 
 // MockProvider is a mock edge storage provider that can hold several stores, not just one.

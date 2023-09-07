@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/trustbloc/kms-go/spi/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"

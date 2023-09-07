@@ -16,9 +16,9 @@ import (
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/jwt"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"

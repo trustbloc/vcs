@@ -9,9 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 package ld
 
 import (
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	jsonld "github.com/piprate/json-gold/ld"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	ldstore "github.com/trustbloc/vc-go/ld/store"
 )
 
 const (

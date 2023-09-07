@@ -19,11 +19,11 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/spi/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/bson/primitive"

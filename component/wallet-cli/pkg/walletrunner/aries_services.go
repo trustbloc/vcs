@@ -9,11 +9,11 @@ package walletrunner
 import (
 	"fmt"
 
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	"github.com/hyperledger/aries-framework-go/spi/crypto"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/kms-go/spi/crypto"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/storage"
 )
 
 type ariesServices struct {

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/hyperledger/aries-framework-go/component/models/jwt"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/valyala/fastjson"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"

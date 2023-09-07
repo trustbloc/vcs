@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"

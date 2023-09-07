@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/vc-go/did"
 )
 
 const (

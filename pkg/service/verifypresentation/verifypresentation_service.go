@@ -15,13 +15,13 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
-	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/ld/validator"
+	jsonutil "github.com/trustbloc/vc-go/util/json"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"

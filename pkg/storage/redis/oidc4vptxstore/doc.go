@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
+	"github.com/trustbloc/vc-go/presexch"
 )
 
 type txDocument struct {

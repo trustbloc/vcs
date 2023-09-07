@@ -9,9 +9,9 @@ package oidc4vp
 import (
 	"context"
 
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
-	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/presexch"
+	util "github.com/trustbloc/vc-go/util/time"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"

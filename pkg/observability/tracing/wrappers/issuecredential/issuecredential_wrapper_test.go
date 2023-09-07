@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"

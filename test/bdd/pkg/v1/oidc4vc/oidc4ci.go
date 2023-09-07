@@ -18,9 +18,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
+	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"

@@ -20,12 +20,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"

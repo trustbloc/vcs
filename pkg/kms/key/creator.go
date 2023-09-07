@@ -17,11 +17,11 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	jose2 "github.com/go-jose/go-jose/v3"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/spi/kms"
 )
 
 type keyManager interface {

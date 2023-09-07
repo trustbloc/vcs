@@ -10,14 +10,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	"github.com/hyperledger/aries-framework-go/component/vdr/key"
-	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/trustbloc/did-go/method/longform"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/did-go/vdr/key"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/did/endpoint"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"

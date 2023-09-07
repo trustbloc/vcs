@@ -15,12 +15,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/stretchr/testify/require"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/did/endpoint"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )

@@ -15,15 +15,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/trustbloc/kms-go/spi/storage"
 
 	"github.com/cenkalti/backoff/v4"
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	"github.com/hyperledger/aries-framework-go/component/models/ld/context/embed"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	"github.com/trustbloc/vc-go/ld/context/embed"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"

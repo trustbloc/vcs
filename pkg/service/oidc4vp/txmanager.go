@@ -15,9 +15,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 )

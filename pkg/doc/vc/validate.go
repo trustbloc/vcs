@@ -12,11 +12,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/jwt"
-	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/jwt"
+	docjsonld "github.com/trustbloc/vc-go/ld/validator"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
