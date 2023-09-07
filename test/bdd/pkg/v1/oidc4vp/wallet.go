@@ -17,7 +17,7 @@ func (e *Steps) createWallet(numOfDIDs int) error {
 	var err error
 	e.walletRunner, err = walletrunner.New(vcprovider.ProviderVCS, func(c *vcprovider.Config) {
 		c.WalletDidCount = numOfDIDs
-		c.DidMethod = "orb"
+		c.DidMethod = "ion"
 	})
 	if err != nil {
 		return fmt.Errorf("walletrunner.New: %w", err)

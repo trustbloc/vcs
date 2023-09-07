@@ -14,7 +14,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1DER",
           "format": "ldp",
-          "didMethod": "web",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           }
@@ -182,7 +182,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           }
@@ -206,7 +206,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           },
@@ -234,7 +234,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2021Status"
           }
@@ -258,7 +258,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2021Status"
           },
@@ -286,7 +286,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2020Status"
           }
@@ -464,7 +464,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2020Status"
           },
@@ -492,7 +492,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "web",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2020Status"
           }
@@ -516,7 +516,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1DER",
           "format": "ldp",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           }
@@ -540,7 +540,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2020Status"
           }
@@ -564,7 +564,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "ldp",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           }
@@ -588,7 +588,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2020Status"
           }
@@ -810,7 +810,7 @@
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           },
@@ -993,7 +993,7 @@
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           },
@@ -1176,7 +1176,7 @@
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           }
@@ -1449,7 +1449,7 @@
         "oidcConfig": {
           "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
           "keyType": "ECDSASecp256k1DER",
-          "didMethod": "orb"
+          "didMethod": "ion"
         },
         "presentationDefinitions": [
           {

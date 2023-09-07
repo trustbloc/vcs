@@ -18,7 +18,6 @@ import (
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
@@ -327,21 +326,12 @@ func createVDR(vcProviderConf *vcprovider.Config) (vdrapi.Registry, error) {
 		opts = append(opts, vdr.WithVDR(universalResolverVDRI))
 	}
 
-	vdrService, err := orb.New(nil,
-		orb.WithDomain(vcProviderConf.DidDomain),
-		orb.WithTLSConfig(vcProviderConf.TLS),
-		orb.WithAuthToken(vcProviderConf.DidServiceAuthToken))
-	if err != nil {
-		return nil, err
-	}
-
 	longForm, err := longform.New()
 	if err != nil {
 		return nil, err
 	}
 
 	opts = append(opts,
-		vdr.WithVDR(vdrService),
 		vdr.WithVDR(longForm),
 		vdr.WithVDR(key.New()),
 		vdr.WithVDR(jwk.New()),

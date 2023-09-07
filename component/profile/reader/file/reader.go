@@ -19,7 +19,6 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
 	"github.com/hyperledger/aries-framework-go/component/vdr/key"
 	"github.com/spf13/cobra"
@@ -252,15 +251,10 @@ func getDifDIDOrigin(webHook string) (string, error) {
 	return difDIDOrigin, nil
 }
 
-func createDid(didDomain string, didServiceAuthToken string, kmsConfig *vcskms.Config, webHook string, config *Config,
+func createDid(didDomain string, _ string, kmsConfig *vcskms.Config, webHook string, config *Config,
 	oidcConfig *profileapi.OIDC4VPConfig, vcConfig *profileapi.VCConfig) (*profileapi.SigningDID, error) {
 	if oidcConfig == nil && vcConfig == nil {
 		return nil, fmt.Errorf("create did: either oidcConfig or vcConfig must be provided")
-	}
-	vdr, err := orb.New(nil, orb.WithDomain(didDomain), orb.WithTLSConfig(config.TLSConfig),
-		orb.WithAuthToken(didServiceAuthToken))
-	if err != nil {
-		return nil, err
 	}
 
 	lf, err := longform.New()
@@ -268,8 +262,9 @@ func createDid(didDomain string, didServiceAuthToken string, kmsConfig *vcskms.C
 		return nil, err
 	}
 
-	didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr),
-		vdrpkg.WithVDR(lf), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))})
+	didCreator := newCreator(&creatorConfig{
+		vdr: vdrpkg.New(vdrpkg.WithVDR(lf), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New())),
+	})
 
 	keyCreator, err := config.KMSRegistry.GetKeyManager(kmsConfig)
 	if err != nil {

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
@@ -128,10 +127,10 @@ func (c *Creator) createDID(
 	recoveryKey, recoveryURL := keys[1], keyURLs[1]
 
 	didResolution, err := c.config.vdr.Create(
-		orb.DIDMethod,
+		"ion",
 		doc,
-		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(longform.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(longform.RecoveryPublicKeyOpt, recoveryKey),
 	)
 
 	if err != nil {
@@ -262,7 +261,7 @@ func (c *Creator) ionDID(
 	for i := 0; i < 2; i++ {
 		keyURLs[i], keys[i], err = km.CreateCryptoKey(keyType)
 		if err != nil {
-			return nil, fmt.Errorf("did:orb: failed to create %s key: %w", types[i], err)
+			return nil, fmt.Errorf("did:ion: failed to create %s key: %w", types[i], err)
 		}
 	}
 
@@ -272,8 +271,8 @@ func (c *Creator) ionDID(
 	didResolution, err := c.config.vdr.Create(
 		"ion",
 		didDoc,
-		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(longform.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(longform.RecoveryPublicKeyOpt, recoveryKey),
 		vdrapi.WithOption(longform.VDRAcceptOpt, "long-form"),
 	)
 	if err != nil {

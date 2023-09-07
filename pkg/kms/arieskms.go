@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
-	awssvc "github.com/trustbloc/kms/pkg/aws"
+	awssvc "github.com/trustbloc/vcs/pkg/kms/aws"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/arieskmsstore"
 
