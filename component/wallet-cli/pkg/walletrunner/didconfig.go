@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	didconfigclient "github.com/trustbloc/did-go/didconfig/client"
+	didconfigclient "github.com/trustbloc/vc-go/didconfig/client"
 )
 
 const (

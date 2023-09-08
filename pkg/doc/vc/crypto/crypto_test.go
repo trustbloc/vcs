@@ -18,6 +18,9 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/did/endpoint"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
@@ -30,10 +33,7 @@ import (
 	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/did/endpoint"
 	"github.com/trustbloc/vc-go/sdjwt/common"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"

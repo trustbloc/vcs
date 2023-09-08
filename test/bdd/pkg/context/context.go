@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 
 	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
-	"github.com/trustbloc/did-go/method/longform"
+	"github.com/trustbloc/did-go/method/httpbinding"
+	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdrpkg "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/did-go/vdr/httpbinding"
 
 	"github.com/trustbloc/vcs/pkg/profile"
 )

@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	jsonld "github.com/piprate/json-gold/ld"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 	"github.com/trustbloc/kms-go/spi/storage"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldstore "github.com/trustbloc/vc-go/ld/store"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

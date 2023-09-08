@@ -24,14 +24,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/did-go/doc/did"
+	model "github.com/trustbloc/did-go/doc/did/endpoint"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	cryptomock "github.com/trustbloc/kms-go/mock/crypto"
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/did"
-	model "github.com/trustbloc/vc-go/did/endpoint"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"

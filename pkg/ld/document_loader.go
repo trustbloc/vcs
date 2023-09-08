@@ -11,9 +11,9 @@ import (
 	"fmt"
 
 	jsonld "github.com/piprate/json-gold/ld"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
-	ldstore "github.com/trustbloc/vc-go/ld/store"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
+	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 )
 
 // nolint:gochecknoglobals //embedded contexts

@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/trustbloc/did-go/vdr/key"
+	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/sdjwt/common"

@@ -9,7 +9,7 @@ package crypto
 import (
 	"testing"
 
-	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

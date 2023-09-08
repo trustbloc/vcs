@@ -13,7 +13,7 @@ import (
 	"errors"
 	"time"
 
-	utiltime "github.com/trustbloc/vc-go/util/time"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
