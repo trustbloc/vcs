@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	diddoc "github.com/trustbloc/did-go/doc/did"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	diddoc "github.com/trustbloc/vc-go/did"
 )
 
 const (

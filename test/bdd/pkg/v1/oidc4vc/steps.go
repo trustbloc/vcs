@@ -13,7 +13,7 @@ import (
 
 	"github.com/cucumber/godog"
 
-	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
+	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"

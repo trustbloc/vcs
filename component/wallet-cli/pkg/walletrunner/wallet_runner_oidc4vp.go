@@ -23,7 +23,7 @@ import (
 	"github.com/trustbloc/did-go/method/jwk"
 	"github.com/valyala/fastjson"
 
-	didkey "github.com/trustbloc/did-go/vdr/key"
+	didkey "github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"

@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	cryptomock "github.com/trustbloc/kms-go/mock/crypto"
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/did"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"

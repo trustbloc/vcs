@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/vc-go/did"
 )
 
 const (

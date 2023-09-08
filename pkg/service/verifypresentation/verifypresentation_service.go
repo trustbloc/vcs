@@ -17,9 +17,9 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"github.com/trustbloc/did-go/doc/ld/validator"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/trustbloc/vc-go/ld/validator"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 	"github.com/trustbloc/vc-go/verifiable"
 

@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	util "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"

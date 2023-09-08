@@ -20,13 +20,12 @@ import (
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/did-go/method/jwk"
-	"github.com/trustbloc/did-go/method/longform"
+	"github.com/trustbloc/did-go/method/key"
+	longform "github.com/trustbloc/did-go/method/sidetreelongform"
+	vdrpkg "github.com/trustbloc/did-go/vdr"
 	"github.com/trustbloc/logutil-go/pkg/log" //nolint:typecheck
 
-	vdrpkg "github.com/trustbloc/did-go/vdr"
-	"github.com/trustbloc/did-go/vdr/key"
 	"github.com/trustbloc/vcs/internal/logfields"
-
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )

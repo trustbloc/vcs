@@ -10,8 +10,8 @@ package ld
 
 import (
 	jsonld "github.com/piprate/json-gold/ld"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldstore "github.com/trustbloc/vc-go/ld/store"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 )
 
 const (

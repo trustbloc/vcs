@@ -17,9 +17,9 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/tidwall/gjson v1.14.4
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/did-go v0.0.0-20230908141145-00044e1e7123
+	github.com/trustbloc/did-go v0.0.0-20230908203710-8c4f5146a514
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v0.0.0-20230907141321-b2c52f023fe9
+	github.com/trustbloc/vc-go v0.0.0-20230908212925-754e5de46099
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000

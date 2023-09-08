@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/did-go/method/longform"
+	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 
 	vdr2 "github.com/trustbloc/did-go/vdr"
 	vdr "github.com/trustbloc/did-go/vdr/api"

@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	ldstore "github.com/trustbloc/vc-go/ld/store"
+	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

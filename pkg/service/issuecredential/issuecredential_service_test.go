@@ -19,6 +19,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/did/endpoint"
+	util "github.com/trustbloc/did-go/doc/util/time"
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
@@ -28,9 +31,6 @@ import (
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/did/endpoint"
-	util "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"

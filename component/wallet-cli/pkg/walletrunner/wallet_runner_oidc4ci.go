@@ -24,7 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/trustbloc/did-go/method/jwk"
-	didkey "github.com/trustbloc/did-go/vdr/key"
+	didkey "github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"

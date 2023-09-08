@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	utiltime "github.com/trustbloc/vc-go/util/time"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcapi "github.com/trustbloc/vcs/pkg/doc/vc"

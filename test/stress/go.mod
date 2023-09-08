@@ -15,7 +15,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/samber/lo v1.38.1
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v0.0.0-20230907141321-b2c52f023fe9
+	github.com/trustbloc/vc-go v0.0.0-20230908212925-754e5de46099
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
 	github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b
 	golang.org/x/oauth2 v0.7.0
@@ -139,7 +139,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/trustbloc/did-go v0.0.0-20230908141145-00044e1e7123 // indirect
+	github.com/trustbloc/did-go v0.0.0-20230908203710-8c4f5146a514 // indirect
 	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea // indirect

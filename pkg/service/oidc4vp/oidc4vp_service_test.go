@@ -21,6 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/did-go/doc/did"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
+	util "github.com/trustbloc/did-go/doc/util/time"
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
@@ -33,12 +37,8 @@ import (
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/did"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/signature/suite"
-	util "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"

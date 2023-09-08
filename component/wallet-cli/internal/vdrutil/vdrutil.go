@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/method/jwk"
-	"github.com/trustbloc/did-go/method/longform"
+	didkey "github.com/trustbloc/did-go/method/key"
+	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	didkey "github.com/trustbloc/did-go/vdr/key"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/did"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms/key"

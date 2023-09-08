@@ -13,9 +13,9 @@ import (
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
+	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/jwt"
-	docjsonld "github.com/trustbloc/vc-go/ld/validator"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"

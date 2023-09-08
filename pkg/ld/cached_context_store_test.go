@@ -13,7 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 
 	"github.com/trustbloc/vcs/pkg/ld"
 )

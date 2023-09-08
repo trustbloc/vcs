@@ -13,11 +13,11 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/did-go/doc/did"
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
-	"github.com/trustbloc/vc-go/did"
 	"github.com/trustbloc/vc-go/jwt"
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
 	ariessigner "github.com/trustbloc/vc-go/signature/signer"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"

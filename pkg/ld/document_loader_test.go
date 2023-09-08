@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	mockldstore "github.com/trustbloc/vc-go/ld/mock"
-	ldstore "github.com/trustbloc/vc-go/ld/store"
+	mockldstore "github.com/trustbloc/did-go/doc/ld/mock"
+	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 
 	"github.com/trustbloc/vcs/pkg/ld"
 )

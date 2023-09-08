@@ -9,8 +9,8 @@ package oidc4vp
 import (
 	"context"
 
+	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/presexch"
-	util "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"

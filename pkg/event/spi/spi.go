@@ -9,7 +9,7 @@ package spi
 import (
 	"time"
 
-	utiltime "github.com/trustbloc/vc-go/util/time"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 )
 
 const (
