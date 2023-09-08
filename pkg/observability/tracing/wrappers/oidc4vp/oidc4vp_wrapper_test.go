@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/presexch"
 	"go.opentelemetry.io/otel/trace"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"

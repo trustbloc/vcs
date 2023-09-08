@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
 
 	"github.com/trustbloc/vcs/pkg/ld"
 )

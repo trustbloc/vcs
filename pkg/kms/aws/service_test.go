@@ -18,9 +18,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/golang/mock/gomock"
-	arieskms "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	arieskms "github.com/trustbloc/kms-go/spi/kms"
 )
 
 func TestSign(t *testing.T) {

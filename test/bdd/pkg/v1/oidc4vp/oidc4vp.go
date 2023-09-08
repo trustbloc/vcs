@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"

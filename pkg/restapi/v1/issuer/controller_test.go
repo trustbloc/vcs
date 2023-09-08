@@ -21,12 +21,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"

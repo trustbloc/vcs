@@ -9,7 +9,7 @@ package verifycredential
 import (
 	"context"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )

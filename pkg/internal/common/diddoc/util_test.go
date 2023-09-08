@@ -9,9 +9,9 @@ package diddoc
 import (
 	"testing"
 
-	diddoc "github.com/hyperledger/aries-framework-go/component/models/did"
-	vdrmock "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/stretchr/testify/require"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	diddoc "github.com/trustbloc/vc-go/did"
 )
 
 const (

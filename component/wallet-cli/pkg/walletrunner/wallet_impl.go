@@ -16,10 +16,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 type walletImpl struct {

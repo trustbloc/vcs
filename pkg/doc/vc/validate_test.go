@@ -17,11 +17,11 @@ import (
 	"reflect"
 	"testing"
 
-	afgojwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	afgojwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"

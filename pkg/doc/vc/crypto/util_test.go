@@ -9,8 +9,8 @@ package crypto
 import (
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 func TestGetVerificationMethodFromProof(t *testing.T) {

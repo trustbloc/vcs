@@ -22,12 +22,12 @@ import (
 
 	"github.com/cli/browser"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-	"github.com/hyperledger/aries-framework-go/component/models/jwt"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
 	"github.com/samber/lo"
+	"github.com/trustbloc/did-go/method/jwk"
+	didkey "github.com/trustbloc/did-go/vdr/key"
+	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"

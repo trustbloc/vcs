@@ -11,10 +11,10 @@ import (
 	"crypto/tls"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"

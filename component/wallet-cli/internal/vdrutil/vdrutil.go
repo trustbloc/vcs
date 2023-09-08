@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/did-go/method/longform"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	didkey "github.com/trustbloc/did-go/vdr/key"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/did"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms/key"

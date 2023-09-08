@@ -12,15 +12,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
-	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230822161205-69119012ed5c
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230901120639-e17eddd3ad3e
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230622171716-43af8054a539
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
@@ -28,6 +20,9 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
+	github.com/trustbloc/did-go v0.0.0-20230829164736-34a3a04cf992
+	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
+	github.com/trustbloc/vc-go v0.0.0-20230907141321-b2c52f023fe9
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/valyala/fastjson v1.6.3
 	go.mongodb.org/mongo-driver v1.11.4
@@ -94,9 +89,9 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hyperledger/aries-framework-go v0.3.3-0.20230901120639-e17eddd3ad3e // indirect
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230615141038-5d444d6c36de // indirect
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220509181817-261c3746d03e // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
@@ -107,7 +102,7 @@ require (
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
-	github.com/labstack/echo/v4 v4.8.0 // indirect
+	github.com/labstack/echo/v4 v4.9.0 // indirect
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -157,7 +152,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/logutil-go v1.0.0-rc1 // indirect
-	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
+	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect

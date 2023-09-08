@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
-	mockcrypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"

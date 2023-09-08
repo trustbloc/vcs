@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	util "github.com/trustbloc/vc-go/util/time"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/vc"

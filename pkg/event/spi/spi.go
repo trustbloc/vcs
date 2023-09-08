@@ -9,7 +9,7 @@ package spi
 import (
 	"time"
 
-	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	utiltime "github.com/trustbloc/vc-go/util/time"
 )
 
 const (

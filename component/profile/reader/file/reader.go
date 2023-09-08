@@ -17,15 +17,16 @@ import (
 	"reflect"
 
 	"github.com/hashicorp/go-version"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
-	"github.com/hyperledger/aries-framework-go/component/vdr/key"
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
-	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
+	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/did-go/method/longform"
+	"github.com/trustbloc/logutil-go/pkg/log" //nolint:typecheck
 
+	vdrpkg "github.com/trustbloc/did-go/vdr"
+	"github.com/trustbloc/did-go/vdr/key"
 	"github.com/trustbloc/vcs/internal/logfields"
+
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )

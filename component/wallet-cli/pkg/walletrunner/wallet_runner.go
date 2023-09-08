@@ -16,29 +16,30 @@ import (
 	"time"
 
 	"github.com/henvic/httpretty"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	"github.com/hyperledger/aries-framework-go/component/models/ld/context/remote"
-	ld "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/component/vdr"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
-	"github.com/hyperledger/aries-framework-go/component/vdr/key"
-	"github.com/hyperledger/aries-framework-go/component/vdr/web"
-	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
-	"github.com/hyperledger/aries-framework-go/spi/secretlock"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/did-go/legacy/mem"
+	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/did-go/method/longform"
+	"github.com/trustbloc/did-go/vdr"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/did-go/vdr/httpbinding"
+	"github.com/trustbloc/did-go/vdr/key"
+	"github.com/trustbloc/did-go/vdr/web"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/secretlock"
+	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/vc-go/did"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	"github.com/trustbloc/vc-go/ld/context/remote"
+	ld "github.com/trustbloc/vc-go/ld/documentloader"
+	ldstore "github.com/trustbloc/vc-go/ld/store"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/mongodb"
+	"github.com/trustbloc/vcs/internal/storewrapper"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
@@ -194,7 +195,7 @@ func (s *Service) createAgentServices(vcProviderConf *vcprovider.Config) (*aries
 		storageProvider = p
 	case "leveldb":
 		p := leveldb.NewProvider(s.vcProviderConf.StorageProviderConnString)
-		storageProvider = p
+		storageProvider = storewrapper.WrapProvider(p)
 	default:
 		storageProvider = mem.NewProvider()
 	}

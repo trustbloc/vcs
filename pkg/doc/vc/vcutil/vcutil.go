@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )

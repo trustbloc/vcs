@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	utiltime "github.com/trustbloc/vc-go/util/time"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	vcapi "github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"

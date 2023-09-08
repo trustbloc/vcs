@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/models/presexch"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	verifiable2 "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )

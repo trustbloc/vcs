@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
@@ -34,6 +32,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/vc-go/jwt"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 

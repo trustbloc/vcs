@@ -10,10 +10,10 @@ import (
 	_ "embed"
 	"fmt"
 
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	ld "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/trustbloc/did-go/legacy/mem"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	ld "github.com/trustbloc/vc-go/ld/documentloader"
+	ldstore "github.com/trustbloc/vc-go/ld/store"
 )
 
 // nolint:gochecknoglobals //embedded test contexts

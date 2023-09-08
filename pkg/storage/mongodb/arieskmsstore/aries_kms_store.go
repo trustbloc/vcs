@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 
-	arieskms "github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	arieskms "github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

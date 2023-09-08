@@ -10,10 +10,10 @@ import (
 	_ "embed" //nolint:gci // required for go:embed
 	"fmt"
 
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	jsonld "github.com/piprate/json-gold/ld"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
+	ldstore "github.com/trustbloc/vc-go/ld/store"
 )
 
 // nolint:gochecknoglobals //embedded contexts

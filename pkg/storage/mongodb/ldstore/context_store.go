@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"strings"
 
-	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/kms-go/spi/storage"
+	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	ldstore "github.com/trustbloc/vc-go/ld/store"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

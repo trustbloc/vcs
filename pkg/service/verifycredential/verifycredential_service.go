@@ -17,10 +17,10 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
-	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"

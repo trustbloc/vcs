@@ -18,8 +18,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/did"
-	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/did/endpoint"
 )
 
 const (

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/spi/kms"
 )
 
 func TestProfileStore_ValidateVCSignatureAlgorithm(t *testing.T) {

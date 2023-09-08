@@ -12,14 +12,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/trustbloc/did-go/legacy/mem"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/kms/key"
 )

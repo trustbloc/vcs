@@ -14,11 +14,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
-	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
+	"github.com/trustbloc/did-go/method/longform"
+	vdrpkg "github.com/trustbloc/did-go/vdr"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/did-go/vdr/httpbinding"
 
 	"github.com/trustbloc/vcs/pkg/profile"
 )

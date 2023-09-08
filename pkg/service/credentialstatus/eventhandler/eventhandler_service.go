@@ -13,9 +13,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"

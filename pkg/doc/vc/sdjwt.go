@@ -9,7 +9,7 @@ package vc
 import (
 	"crypto"
 
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
+	"github.com/trustbloc/vc-go/sdjwt/common"
 )
 
 // SDJWT represents the SD-JWT configuration.

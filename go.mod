@@ -21,15 +21,10 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230822161205-69119012ed5c
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230901120639-e17eddd3ad3e
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230622171716-43af8054a539
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9
-	github.com/labstack/echo/v4 v4.8.0
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/ory/fosite v0.44.0
 	github.com/ory/x v0.0.573
@@ -42,8 +37,11 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
+	github.com/trustbloc/did-go v0.0.0-20230829164736-34a3a04cf992
+	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
+	github.com/trustbloc/orb v1.0.0-rc7
+	github.com/trustbloc/vc-go v0.0.0-20230907141321-b2c52f023fe9
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6
 	github.com/valyala/fastjson v1.6.3
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -117,8 +115,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220509181817-261c3746d03e // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230615141038-5d444d6c36de // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect

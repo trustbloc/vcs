@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )

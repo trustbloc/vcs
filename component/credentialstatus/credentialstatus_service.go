@@ -18,11 +18,11 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"

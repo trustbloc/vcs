@@ -10,9 +10,9 @@ import (
 	"errors"
 	"testing"
 
-	mockldstore "github.com/hyperledger/aries-framework-go/component/models/ld/mock"
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	"github.com/stretchr/testify/require"
+	mockldstore "github.com/trustbloc/vc-go/ld/mock"
+	ldstore "github.com/trustbloc/vc-go/ld/store"
 
 	"github.com/trustbloc/vcs/pkg/ld"
 )
