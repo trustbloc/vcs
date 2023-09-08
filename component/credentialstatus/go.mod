@@ -12,7 +12,7 @@ require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
-	github.com/trustbloc/did-go v0.0.0-20230829164736-34a3a04cf992
+	github.com/trustbloc/did-go v0.0.0-20230908141145-00044e1e7123
 	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vc-go v0.0.0-20230907141321-b2c52f023fe9
@@ -65,8 +65,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230615141038-5d444d6c36de // indirect
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

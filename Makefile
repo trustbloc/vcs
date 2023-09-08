@@ -180,13 +180,7 @@ clean:
 
 .PHONY: update-aries
 update-aries:
-	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
-		dir_path=$$(dirname "$$gomod_path"); \
-		if grep -q "github.com/hyperledger/aries-framework-go" "$$gomod_path"; then \
-			echo "Executing 'updating aries' in directory: $$dir_path"; \
-			(cd "$$dir_path" && go get github.com/hyperledger/aries-framework-go@$(ARIES_FRAMEWORK_VERSION) && go get github.com/hyperledger/aries-framework-go/component/models@$(ARIES_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
-		fi; \
-	done
+	@echo "INFO: 'make update-aries' is now a deprecated no-op, as VCS no longer imports aries"
 
 .PHONY: tidy-modules
 tidy-modules:

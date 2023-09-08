@@ -11,14 +11,13 @@ import (
 	"sync/atomic"
 
 	"github.com/trustbloc/logutil-go/pkg/log"
-	orberrors "github.com/trustbloc/orb/pkg/errors"
 )
 
 var logger = log.New("lifecycle")
 
 // ErrNotStarted indicates that an attempt was made to invoke a service that has not been started
 // or is still in the process of starting.
-var ErrNotStarted = orberrors.NewTransient(errors.New("service has not started"))
+var ErrNotStarted = errors.New("service has not started")
 
 // State is the state of the service.
 type State = uint32

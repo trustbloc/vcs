@@ -2,7 +2,8 @@
 Copyright Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-package mongodb_test
+
+package test
 
 import (
 	"encoding/json"
@@ -14,10 +15,10 @@ import (
 	"github.com/trustbloc/kms-go/spi/storage"
 )
 
-// CheckAll tests common storage functionality.
+// TestAll tests common storage functionality.
 // These tests demonstrate behaviour that is expected to be consistent across store implementations.
 // Some tests can be skipped by passing in the appropriate TestOptions here.
-func CheckAll(t *testing.T, provider storage.Provider) {
+func TestAll(t *testing.T, provider storage.Provider) {
 	// Run this first so the store count is predictable.
 	t.Run("Provider: GetOpenStores", func(t *testing.T) {
 		ProviderGetOpenStores(t, provider)
@@ -61,7 +62,7 @@ func CheckAll(t *testing.T, provider storage.Provider) {
 // ProviderOpenStoreSetGetConfig tests common Provider OpenStore, SetStoreConfig, and GetStoreConfig functionality.
 func ProviderOpenStoreSetGetConfig(t *testing.T, provider storage.Provider) { //nolint: funlen // Test file
 	t.Run("Set store config with all new tags", func(t *testing.T) {
-		testStoreName := randomStoreName()
+		testStoreName := RandomStoreName()
 
 		store, err := provider.OpenStore(testStoreName)
 		require.NoError(t, err)
@@ -83,7 +84,7 @@ func ProviderOpenStoreSetGetConfig(t *testing.T, provider storage.Provider) { //
 			"Unexpected tag names")
 	})
 	t.Run("Merge a new tag name in with existing tag names in a store config", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -118,7 +119,7 @@ func ProviderOpenStoreSetGetConfig(t *testing.T, provider storage.Provider) { //
 			"Unexpected tag names")
 	})
 	t.Run("Remove all existing tag names in a store config", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -142,7 +143,7 @@ func ProviderOpenStoreSetGetConfig(t *testing.T, provider storage.Provider) { //
 		require.True(t, equalTagNamesAnyOrder(nil, config.TagNames), "Unexpected tag names")
 	})
 	t.Run("Merge a new tag in with existing tags while deleting some too", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -174,7 +175,7 @@ func ProviderOpenStoreSetGetConfig(t *testing.T, provider storage.Provider) { //
 		require.True(t, errors.Is(err, storage.ErrStoreNotFound), "Got unexpected error or no error")
 	})
 	t.Run("Attempt to set a config that specifies a tag name with a ':' character", func(t *testing.T) {
-		testStoreName := randomStoreName()
+		testStoreName := RandomStoreName()
 
 		store, err := provider.OpenStore(testStoreName)
 		require.NoError(t, err)
@@ -382,7 +383,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		})
 	})
 	t.Run("Put a single value, then delete it, then put again using the same key", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -405,7 +406,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 	t.Run("Tests demonstrating proper store namespacing", func(t *testing.T) {
 		t.Run("Put key + value in one store, "+
 			"then check that it can't be found in a second store with a different name", func(t *testing.T) {
-			store1, err := provider.OpenStore(randomStoreName())
+			store1, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 
 			defer func() {
@@ -415,7 +416,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 			err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 			require.NoError(t, err)
 
-			store2, err := provider.OpenStore(randomStoreName())
+			store2, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 
 			defer func() {
@@ -430,7 +431,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		t.Run("Put same key + value in two stores with different names, then update value in one store, "+
 			"then check that the other store was not changed",
 			func(t *testing.T) {
-				store1, err := provider.OpenStore(randomStoreName())
+				store1, err := provider.OpenStore(RandomStoreName())
 				require.NoError(t, err)
 
 				defer func() {
@@ -440,7 +441,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
-				store2, err := provider.OpenStore(randomStoreName())
+				store2, err := provider.OpenStore(RandomStoreName())
 				require.NoError(t, err)
 
 				defer func() {
@@ -471,7 +472,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		t.Run("Put same key + value in two stores with different names, then delete value in one store, "+
 			"then check that the other store still has its key+value pair intact",
 			func(t *testing.T) {
-				store1, err := provider.OpenStore(randomStoreName())
+				store1, err := provider.OpenStore(RandomStoreName())
 				require.NoError(t, err)
 
 				defer func() {
@@ -481,7 +482,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
-				store2, err := provider.OpenStore(randomStoreName())
+				store2, err := provider.OpenStore(RandomStoreName())
 				require.NoError(t, err)
 
 				defer func() {
@@ -510,7 +511,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		t.Run("Put same key + value in two stores with the same name (so they should point to the same "+
 			"underlying databases), then update value in one store, then check that the other store also reflects this",
 			func(t *testing.T) {
-				storeName := randomStoreName()
+				storeName := RandomStoreName()
 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
@@ -543,7 +544,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		t.Run("Put same key + value in two stores with the same name (so they should point to the same "+
 			"underlying databases), then delete value in one store, then check that the other store also reflects this",
 			func(t *testing.T) {
-				storeName := randomStoreName()
+				storeName := RandomStoreName()
 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
@@ -583,7 +584,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 			})
 	})
 	t.Run("Get using empty key", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -594,7 +595,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		require.Error(t, err)
 	})
 	t.Run("Put with empty key", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -605,7 +606,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 		require.Error(t, err)
 	})
 	t.Run("Put with vil value", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -617,7 +618,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 	})
 	t.Run("Put with tag containing a ':' character", func(t *testing.T) {
 		t.Run("First tag name contains a ':'", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
+			store, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 
 			defer func() {
@@ -632,7 +633,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 			require.Error(t, err)
 		})
 		t.Run("First tag value contains a ':'", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
+			store, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 
 			defer func() {
@@ -647,7 +648,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 			require.Error(t, err)
 		})
 		t.Run("Second tag name contains a ':'", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
+			store, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 
 			defer func() {
@@ -662,7 +663,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 			require.Error(t, err)
 		})
 		t.Run("Second tag value contains a ':'", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
+			store, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 
 			defer func() {
@@ -681,7 +682,7 @@ func PutGet(t *testing.T, provider storage.Provider) { //nolint: funlen // Test 
 
 // StoreGetTags tests common Store GetTags functionality.
 func StoreGetTags(t *testing.T, provider storage.Provider) {
-	storeName := randomStoreName()
+	storeName := RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -708,7 +709,7 @@ func StoreGetTags(t *testing.T, provider storage.Provider) {
 
 			receivedTags, errGetTags := store.GetTags(key)
 			require.NoError(t, errGetTags)
-			require.True(t, equalTags(tags, receivedTags), "Got unexpected tags")
+			require.True(t, EqualTags(tags, receivedTags), "Got unexpected tags")
 		})
 		t.Run("Tag values are decimal numbers", func(t *testing.T) {
 			tags := []storage.Tag{{Name: "tagName1", Value: "1"}, {Name: "tagName2", Value: "2"}}
@@ -720,7 +721,7 @@ func StoreGetTags(t *testing.T, provider storage.Provider) {
 
 			receivedTags, errGetTags := store.GetTags(key)
 			require.NoError(t, errGetTags)
-			require.True(t, equalTags(tags, receivedTags), "Got unexpected tags")
+			require.True(t, EqualTags(tags, receivedTags), "Got unexpected tags")
 		})
 	})
 	t.Run("Data not found", func(t *testing.T) {
@@ -738,7 +739,7 @@ func StoreGetTags(t *testing.T, provider storage.Provider) {
 // StoreGetBulk tests common Store GetBulk functionality.
 func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen // Test file
 	t.Run("All values found", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -768,7 +769,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 	})
 	t.Run("Two values found, one not", func(t *testing.T) {
 		t.Run("Value not found was the second one", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
+			store, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
@@ -799,7 +800,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 			require.Equal(t, "value2", string(values[2]))
 		})
 		t.Run("Value not found was the third one", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
+			store, err := provider.OpenStore(RandomStoreName())
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
@@ -831,7 +832,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 		})
 	})
 	t.Run("One value found, one not because it was deleted", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -863,7 +864,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 		require.Nil(t, values[1])
 	})
 	t.Run("No values found", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -885,7 +886,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 		require.Nil(t, values[1])
 	})
 	t.Run("Nil keys slice", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -898,7 +899,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 		require.Nil(t, values)
 	})
 	t.Run("Empty keys slice", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -911,7 +912,7 @@ func StoreGetBulk(t *testing.T, provider storage.Provider) { //nolint: funlen //
 		require.Nil(t, values)
 	})
 	t.Run("Third key is empty", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -930,7 +931,7 @@ func StoreDelete(t *testing.T, provider storage.Provider) {
 	t.Run("Delete a stored key", func(t *testing.T) {
 		const testKey = "key"
 
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -948,7 +949,7 @@ func StoreDelete(t *testing.T, provider storage.Provider) {
 		require.Empty(t, value)
 	})
 	t.Run("Delete a key that doesn't exist (not considered an error)", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -959,7 +960,7 @@ func StoreDelete(t *testing.T, provider storage.Provider) {
 		require.NoError(t, err)
 	})
 	t.Run("Delete with blank key argument", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 
 		defer func() {
@@ -993,7 +994,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		doBatchTestPutThreeValues(t, provider, true)
 	})
 	t.Run("Success: update three different previously-stored values", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1038,25 +1039,25 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.Equal(t, "value1_new", string(value))
 		retrievedTags, err := store.GetTags("key1")
-		require.True(t, equalTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2_new", string(value))
 		retrievedTags, err = store.GetTags("key2")
-		require.True(t, equalTags(key2UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key2UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3_new", string(value))
 		retrievedTags, err = store.GetTags("key3")
-		require.True(t, equalTags(key3UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key3UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
 	t.Run("Success: delete three different previously-stored values", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1116,7 +1117,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		doBatchTestPutOneUpdateOneDeleteOne(t, provider, false)
 	})
 	t.Run("Success: delete three values, only two of which were previously-stored", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1163,7 +1164,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.Nil(t, tags)
 	})
 	t.Run("Success: put value and then delete it in the same Batch call", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1195,7 +1196,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.Nil(t, tags)
 	})
 	t.Run("Success: put value and update it in the same Batch call", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1226,11 +1227,11 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.Equal(t, "value2", string(value))
 		retrievedTags, err := store.GetTags("key1")
-		require.True(t, equalTags(updatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(updatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
 	t.Run("Success: update previously-stored value and delete it in the same Batch call", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1272,7 +1273,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 	t.Run("Success: update previously-stored value, then delete it, "+
 		"then put it in again using the same key from the first operation, "+
 		"all in the same Batch call", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1311,12 +1312,12 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.Equal(t, "value1_new2", string(value))
 		retrievedTags, err := store.GetTags("key1")
-		require.True(t, equalTags(key1SecondUpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key1SecondUpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
 	t.Run("Success: put values in one batch call, then delete in a second batch call, then put again using "+
 		"the same keys that were used in the first batch call in a third batch call", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1367,25 +1368,25 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.Equal(t, "value1_new", string(value))
 		retrievedTags, err := store.GetTags("key1")
-		require.True(t, equalTags(key1FinalTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key1FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2_new", string(value))
 		retrievedTags, err = store.GetTags("key2")
-		require.True(t, equalTags(key2FinalTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key2FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3_new", string(value))
 		retrievedTags, err = store.GetTags("key3")
-		require.True(t, equalTags(key3FinalTagsToStore, retrievedTags), "Got unexpected tags")
+		require.True(t, EqualTags(key3FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
 	t.Run("Failure: Operations slice is nil", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -1397,7 +1398,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.Error(t, err)
 	})
 	t.Run("Failure: Operations slice is empty", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -1409,7 +1410,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 		require.Error(t, err)
 	})
 	t.Run("Failure: Operation has an empty key", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -1430,7 +1431,7 @@ func StoreBatch(t *testing.T, provider storage.Provider) { // nolint:funlen // T
 // StoreFlush tests common Store Flush functionality.
 func StoreFlush(t *testing.T, provider storage.Provider) {
 	t.Run("Success", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -1458,7 +1459,7 @@ func StoreFlush(t *testing.T, provider storage.Provider) {
 // StoreClose tests common Store Close functionality.
 func StoreClose(t *testing.T, provider storage.Provider) {
 	t.Run("Successfully close store", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -1466,7 +1467,7 @@ func StoreClose(t *testing.T, provider storage.Provider) {
 		require.NoError(t, err)
 	})
 	t.Run("Close same store multiple times without error", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
+		store, err := provider.OpenStore(RandomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -1482,7 +1483,7 @@ func StoreClose(t *testing.T, provider storage.Provider) {
 }
 
 func doPutThenGetTest(t *testing.T, provider storage.Provider, key string, value []byte) {
-	store, err := provider.OpenStore(randomStoreName())
+	store, err := provider.OpenStore(RandomStoreName())
 	require.NoError(t, err)
 
 	defer func() {
@@ -1531,7 +1532,7 @@ type testStruct struct {
 }
 
 func doPutThenGetTestWithJSONFormattedObject(t *testing.T, provider storage.Provider, key string) {
-	store, err := provider.OpenStore(randomStoreName())
+	store, err := provider.OpenStore(RandomStoreName())
 	require.NoError(t, err)
 
 	defer func() {
@@ -1547,7 +1548,7 @@ func doPutThenGetTestWithJSONFormattedObject(t *testing.T, provider storage.Prov
 }
 
 func doPutThenUpdateThenGetTest(t *testing.T, provider storage.Provider, key string, value, updatedValue []byte) {
-	store, err := provider.OpenStore(randomStoreName())
+	store, err := provider.OpenStore(RandomStoreName())
 	require.NoError(t, err)
 
 	defer func() {
@@ -1566,7 +1567,7 @@ func doPutThenUpdateThenGetTest(t *testing.T, provider storage.Provider, key str
 }
 
 func doPutThenUpdateThenGetTestWithJSONFormattedObject(t *testing.T, provider storage.Provider, key string) {
-	store, err := provider.OpenStore(randomStoreName())
+	store, err := provider.OpenStore(RandomStoreName())
 	require.NoError(t, err)
 
 	defer func() {
@@ -1692,7 +1693,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 		queryExpression := "tagName3"
 
 		t.Run("Default page setting", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1708,7 +1709,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			iterator, err := store.Query(queryExpression)
 			require.NoError(t, err)
@@ -1717,7 +1718,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1733,7 +1734,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(2))
@@ -1743,7 +1744,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1759,7 +1760,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(1))
 			require.NoError(t, err)
@@ -1768,7 +1769,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1784,7 +1785,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(100))
@@ -1808,7 +1809,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 		queryExpression := "tagName5"
 
 		t.Run("Default page setting", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1824,7 +1825,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			iterator, err := store.Query(queryExpression)
 			require.NoError(t, err)
@@ -1833,7 +1834,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1849,7 +1850,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(2))
@@ -1859,7 +1860,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				false, true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1875,7 +1876,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(1))
 			require.NoError(t, err)
@@ -1884,7 +1885,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1900,7 +1901,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(100))
@@ -1928,7 +1929,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 		queryExpression := "tagName3:tagValue1"
 
 		t.Run("Default page setting", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1944,7 +1945,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			iterator, err := store.Query(queryExpression)
 			require.NoError(t, err)
@@ -1953,7 +1954,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1969,7 +1970,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(2))
@@ -1979,7 +1980,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -1995,7 +1996,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(1))
 			require.NoError(t, err)
@@ -2004,7 +2005,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				true, expectedTotalItemsCount)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -2020,7 +2021,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPut, valuesToPut, tagsToPut)
+			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(100))
@@ -2046,7 +2047,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 		expectedTags := [][]storage.Tag{tagsToPut[3]}
 		expectedTotalItemsCount := 1
 
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -2062,7 +2063,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 		}
 
-		putData(t, store, keysToPut, valuesToPut, tagsToPut)
+		PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 		err = store.Delete("key2")
 		require.NoError(t, err)
@@ -2074,7 +2075,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			true, expectedTotalItemsCount)
 	})
 	t.Run("Tag name and value query - 0 values found since the store is empty", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -2097,7 +2098,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			true, 0)
 	})
 	t.Run("Invalid expression formats", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -2193,7 +2194,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 		expectedTotalItemsCount := 10
 
 		t.Run("Data inserted in ascending order", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -2208,7 +2209,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPutAscendingOrder, valuesToPutAscendingOrder, tagsToPutAscendingOrder)
+			PutData(t, store, keysToPutAscendingOrder, valuesToPutAscendingOrder, tagsToPutAscendingOrder)
 
 			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
 				// The results should be sorted numerically (and not lexicographically) on the tag values associated
@@ -2507,7 +2508,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 			})
 		})
 		t.Run("Data inserted in arbitrary order", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -2541,7 +2542,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 				tagsToPutAscendingOrder[3],
 			}
 
-			putData(t, store, keysToPutArbitraryOrder, valuesToPutArbitraryOrder, tagsToPutArbitraryOrder)
+			PutData(t, store, keysToPutArbitraryOrder, valuesToPutArbitraryOrder, tagsToPutArbitraryOrder)
 
 			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
 				// The results should be sorted numerically (and not lexicographically) on the tag values associated
@@ -2906,7 +2907,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 		expectedTotalItemsCount := 10
 
 		t.Run("Data inserted in ascending order", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -2921,7 +2922,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 				require.NoError(t, err)
 			}
 
-			putData(t, store, keysToPutAscendingOrder, valuesToPutAscendingOrder, tagsToPutAscendingOrder)
+			PutData(t, store, keysToPutAscendingOrder, valuesToPutAscendingOrder, tagsToPutAscendingOrder)
 
 			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
 				// The results should be sorted numerically (and not lexicographically) on the tag values associated
@@ -3221,7 +3222,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 			})
 		})
 		t.Run("Data inserted in arbitrary order", func(t *testing.T) {
-			storeName := randomStoreName()
+			storeName := RandomStoreName()
 
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
@@ -3255,7 +3256,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 				tagsToPutAscendingOrder[3],
 			}
 
-			putData(t, store, keysToPutArbitraryOrder, valuesToPutArbitraryOrder, tagsToPutArbitraryOrder)
+			PutData(t, store, keysToPutArbitraryOrder, valuesToPutArbitraryOrder, tagsToPutArbitraryOrder)
 
 			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
 				// The results should be sorted numerically (and not lexicographically) on the tag values associated
@@ -3558,7 +3559,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 }
 
 func doBatchTestPutThreeValues(t *testing.T, provider storage.Provider, useNewKeyOptimization bool) {
-	storeName := randomStoreName()
+	storeName := RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -3594,7 +3595,7 @@ func doBatchTestPutThreeValues(t *testing.T, provider storage.Provider, useNewKe
 	require.Equal(t, "value1", string(value))
 
 	retrievedTags, err := store.GetTags("key1")
-	require.True(t, equalTags(key1TagsToStore, retrievedTags), "Got unexpected tags")
+	require.True(t, EqualTags(key1TagsToStore, retrievedTags), "Got unexpected tags")
 	require.NoError(t, err)
 
 	value, err = store.Get("key2")
@@ -3602,7 +3603,7 @@ func doBatchTestPutThreeValues(t *testing.T, provider storage.Provider, useNewKe
 	require.Equal(t, `{"field":"value"}`, string(value))
 
 	retrievedTags, err = store.GetTags("key2")
-	require.True(t, equalTags(key2TagsToStore, retrievedTags), "Got unexpected tags")
+	require.True(t, EqualTags(key2TagsToStore, retrievedTags), "Got unexpected tags")
 	require.NoError(t, err)
 
 	value, err = store.Get("key3")
@@ -3610,12 +3611,12 @@ func doBatchTestPutThreeValues(t *testing.T, provider storage.Provider, useNewKe
 	require.Equal(t, `"value3"`, string(value))
 
 	retrievedTags, err = store.GetTags("key3")
-	require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
+	require.True(t, EqualTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
 	require.NoError(t, err)
 }
 
 func doBatchTestPutOneUpdateOneDeleteOne(t *testing.T, provider storage.Provider, useNewKeyOptimization bool) {
-	storeName := randomStoreName()
+	storeName := RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -3655,7 +3656,7 @@ func doBatchTestPutOneUpdateOneDeleteOne(t *testing.T, provider storage.Provider
 	require.Equal(t, "value3", string(value))
 
 	retrievedTags, err := store.GetTags("key3")
-	require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
+	require.True(t, EqualTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
 	require.NoError(t, err)
 
 	value, err = store.Get("key1")
@@ -3663,7 +3664,7 @@ func doBatchTestPutOneUpdateOneDeleteOne(t *testing.T, provider storage.Provider
 	require.Equal(t, "value1_new", string(value))
 
 	retrievedTags, err = store.GetTags("key1")
-	require.True(t, equalTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+	require.True(t, EqualTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 	require.NoError(t, err)
 
 	value, err = store.Get("key2")
@@ -3675,11 +3676,13 @@ func doBatchTestPutOneUpdateOneDeleteOne(t *testing.T, provider storage.Provider
 	require.Nil(t, retrievedTags)
 }
 
-func randomStoreName() string {
+// RandomStoreName creates a random store name.
+func RandomStoreName() string {
 	return "store-" + uuid.NewString()
 }
 
-func putData(t *testing.T, store storage.Store, keys []string, values [][]byte, tags [][]storage.Tag) {
+// PutData puts the given data in the given store.
+func PutData(t *testing.T, store storage.Store, keys []string, values [][]byte, tags [][]storage.Tag) {
 	t.Helper()
 
 	for i := 0; i < len(keys); i++ {
@@ -3755,7 +3758,7 @@ func verifyIteratorAnyOrder(t *testing.T, actualResultsItr storage.Iterator, //n
 		for i := 0; i < len(dataChecklist.keys); i++ {
 			if receivedKey == dataChecklist.keys[i] {
 				if string(receivedValue) == string(dataChecklist.values[i]) {
-					if equalTags(receivedTags, dataChecklist.tags[i]) {
+					if EqualTags(receivedTags, dataChecklist.tags[i]) {
 						dataChecklist.received[i] = true
 
 						break
@@ -3808,7 +3811,7 @@ func verifyIteratorInOrder(t *testing.T, actualResultsItr storage.Iterator,
 
 		receivedTags, itrErr := actualResultsItr.Tags()
 		require.NoError(t, itrErr)
-		require.True(t, equalTags(receivedTags, expectedTags[currentIndex]),
+		require.True(t, EqualTags(receivedTags, expectedTags[currentIndex]),
 			"received unexpected query results")
 
 		moreResultsToCheck, err = actualResultsItr.Next()
@@ -3833,7 +3836,8 @@ func verifyIteratorInOrder(t *testing.T, actualResultsItr storage.Iterator,
 	require.NoError(t, err)
 }
 
-func equalTags(tags1, tags2 []storage.Tag) bool { //nolint:gocyclo // Test file
+// EqualTags returns whether the given lists of tags contain the same tags, ignoring order.
+func EqualTags(tags1, tags2 []storage.Tag) bool { //nolint:gocyclo // Test file
 	if len(tags1) != len(tags2) {
 		return false
 	}

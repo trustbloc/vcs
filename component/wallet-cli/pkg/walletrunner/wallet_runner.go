@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/henvic/httpretty"
-	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/legacy/mem"
 	"github.com/trustbloc/did-go/method/jwk"
@@ -38,10 +37,10 @@ import (
 	"github.com/trustbloc/vc-go/ld/context/remote"
 	ld "github.com/trustbloc/vc-go/ld/documentloader"
 	ldstore "github.com/trustbloc/vc-go/ld/store"
-	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/mongodb"
-	"github.com/trustbloc/vcs/internal/storewrapper"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/leveldb"
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/mongodb"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 )
 
@@ -194,8 +193,7 @@ func (s *Service) createAgentServices(vcProviderConf *vcprovider.Config) (*aries
 		}
 		storageProvider = p
 	case "leveldb":
-		p := leveldb.NewProvider(s.vcProviderConf.StorageProviderConnString)
-		storageProvider = storewrapper.WrapProvider(p)
+		storageProvider = leveldb.NewProvider(s.vcProviderConf.StorageProviderConnString)
 	default:
 		storageProvider = mem.NewProvider()
 	}
