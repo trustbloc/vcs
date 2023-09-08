@@ -13,7 +13,6 @@ TrustBloc Verifiable Credential Service (VCS) project provides following service
 - [Verifier](https://w3c-ccg.github.io/vc-api/#verifying) 
 - [Holder](https://w3c-ccg.github.io/vc-api/#presenting)
 
-The VCS uses golang packages from [Hyperledger Aries Framework Go]([aries-framework-go](https://github.com/hyperledger/aries-framework-go/tree/main/pkg/doc/verifiable)) for KMS, VC and DID operations.
 
 ## Build
 To build from source see [here](docs/build.md).
