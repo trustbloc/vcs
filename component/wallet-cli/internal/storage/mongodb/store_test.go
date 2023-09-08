@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/test"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -118,7 +119,7 @@ func TestStore_Put_Failure(t *testing.T) {
 			"deadline exceeded, current topology: { Type: Unknown, Servers: [{ Addr: badurl:27017, Type: Unknown }, ] }")
 	})
 	t.Run("Invalid tags", func(t *testing.T) {
-		// We only test for < and > here since the : case is handled in the common unit tests (commontest.CheckAll)
+		// We only test for < and > here since the : case is handled in the common unit tests (commontest.TestAll)
 		t.Run("Tag name contains <", func(t *testing.T) {
 			provider, err := mongodb.NewProvider("mongodb://test")
 			require.NoError(t, err)
@@ -246,7 +247,7 @@ func TestStore_Delete_Failure(t *testing.T) {
 }
 
 func TestStore_Batch_TimeoutFailure(t *testing.T) {
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	provider, err := mongodb.NewProvider("mongodb://BadURL", mongodb.WithTimeout(1))
 	require.NoError(t, err)
@@ -279,7 +280,7 @@ func doAllTests(t *testing.T, connString string) {
 	}))
 	require.NoError(t, err)
 
-	CheckAll(t, provider)
+	test.TestAll(t, provider)
 	testGetStoreConfigUnderlyingDatabaseCheck(t, connString)
 	testMultipleProvidersSettingSameStoreConfigurationAtTheSameTime(t, connString)
 	testMultipleProvidersStoringSameDataAtTheSameTime(t, connString)
@@ -307,7 +308,7 @@ func testGetStoreConfigUnderlyingDatabaseCheck(t *testing.T, connString string) 
 		require.NoError(t, provider.Close())
 	}()
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	// The MongoDB database shouldn't exist yet.
 	config, err := provider.GetStoreConfig(storeName)
@@ -363,7 +364,7 @@ func testGetStoreConfigUnderlyingDatabaseCheck(t *testing.T, connString string) 
 	// As mentioned above, MongoDB defers creating databases until there is data put in or indexes are set.
 	// The code above triggered database creation by creating indexes. Below we will do the same type of test, but this
 	// time we create the database by storing data.
-	storeName2 := randomStoreName()
+	storeName2 := test.RandomStoreName()
 
 	store, err := provider2.OpenStore(storeName2)
 	require.NoError(t, err)
@@ -399,7 +400,7 @@ func testMultipleProvidersSettingSameStoreConfigurationAtTheSameTime(t *testing.
 
 	const numberOfProviders = 100
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	providers := make([]*mongodb.Provider, numberOfProviders)
 
@@ -471,7 +472,7 @@ func testMultipleProvidersStoringSameDataAtTheSameTime(t *testing.T, connString 
 
 	const numberOfProviders = 100
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	providers := make([]*mongodb.Provider, numberOfProviders)
 
@@ -548,7 +549,7 @@ func testMultipleProvidersStoringSameBulkDataAtTheSameTime(t *testing.T, connStr
 
 	const numberOfProviders = 100
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	providers := make([]*mongodb.Provider, numberOfProviders)
 
@@ -695,7 +696,7 @@ func testQueryWithMultipleTags(t *testing.T, connString string) { //nolint: gocy
 
 	keysToPut, valuesToPut, tagsToPut := getTestData()
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -714,7 +715,7 @@ func testQueryWithMultipleTags(t *testing.T, connString string) { //nolint: gocy
 		require.NoError(t, store.Close())
 	}()
 
-	putData(t, store, keysToPut, valuesToPut, tagsToPut)
+	test.PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 	t.Run("Both pairs are tag names + values - 3 values found", func(t *testing.T) {
 		queryExpressionsToTest := []string{
@@ -886,7 +887,7 @@ func testQueryWithLessThanGreaterThanOperators(t *testing.T, connString string) 
 
 	keysToPut, valuesToPut, tagsToPut := getTestData()
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -906,7 +907,7 @@ func testQueryWithLessThanGreaterThanOperators(t *testing.T, connString string) 
 		require.NoError(t, store.Close())
 	}()
 
-	putData(t, store, keysToPut, valuesToPut, tagsToPut)
+	test.PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 	t.Run("Less than or equal to", func(t *testing.T) {
 		queryExpression := "Age<=2"
@@ -1015,7 +1016,7 @@ func testStoreJSONNeedingEscaping(t *testing.T, connString string) {
 		require.NoError(t, provider.Close())
 	}()
 
-	store, err := provider.OpenStore(randomStoreName())
+	store, err := provider.OpenStore(test.RandomStoreName())
 	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
@@ -1315,7 +1316,7 @@ func testStoreJSONNeedingEscaping(t *testing.T, connString string) {
 func testBatchIsNewKeyError(t *testing.T, connString string) {
 	t.Helper()
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	provider, err := mongodb.NewProvider(connString)
 	require.NoError(t, err)
@@ -1360,7 +1361,7 @@ func testGetAsRawMap(t *testing.T, connString string) {
 	provider, err := mongodb.NewProvider(connString)
 	require.NoError(t, err)
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -1394,7 +1395,7 @@ func testGetBulkAsRawMap(t *testing.T, connString string) {
 	provider, err := mongodb.NewProvider(connString)
 	require.NoError(t, err)
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -1463,7 +1464,7 @@ func testCustomIndexAndQuery(t *testing.T, connString string) {
 		provider, err := mongodb.NewProvider(connString)
 		require.NoError(t, err)
 
-		storeName := randomStoreName()
+		storeName := test.RandomStoreName()
 
 		_, err = provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1480,7 +1481,7 @@ func doCustomIndexAndQueryTest(t *testing.T, connString string, useBatch bool, o
 	provider, err := mongodb.NewProvider(connString)
 	require.NoError(t, err)
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -1583,7 +1584,7 @@ func testDocumentReplacementAndMarshalling(t *testing.T, connString string) {
 	require.NoError(t, err)
 
 	t.Run("Put method - switching between wrapped data types", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := test.RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1622,7 +1623,7 @@ func testDocumentReplacementAndMarshalling(t *testing.T, connString string) {
 		require.True(t, found, "stored document was not replaced properly")
 	})
 	t.Run("PutAsJSON - test JSON struct tags", func(t *testing.T) {
-		storeName := randomStoreName()
+		storeName := test.RandomStoreName()
 
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
@@ -1712,7 +1713,7 @@ func testBulkWrite(t *testing.T, connString string) {
 	provider, err := mongodb.NewProvider(connString)
 	require.NoError(t, err)
 
-	storeName := randomStoreName()
+	storeName := test.RandomStoreName()
 
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
@@ -2186,7 +2187,7 @@ func verifyIteratorAnyOrder2(t *testing.T, actualResultsItr storage.Iterator, //
 					}
 				} else {
 					if string(receivedValue) == string(dataChecklist.values[i]) {
-						if equalTags(receivedTags, dataChecklist.tags[i]) {
+						if test.EqualTags(receivedTags, dataChecklist.tags[i]) {
 							dataChecklist.received[i] = true
 
 							break

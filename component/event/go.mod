@@ -104,9 +104,8 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/trustbloc/did-go v0.0.0-20230829164736-34a3a04cf992 // indirect
+	github.com/trustbloc/did-go v0.0.0-20230908141145-00044e1e7123 // indirect
 	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d // indirect
-	github.com/trustbloc/orb v1.0.0-rc7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

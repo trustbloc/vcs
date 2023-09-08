@@ -17,16 +17,16 @@ RUN apk add --no-cache \
 	libtool \
 	bash \
 	make;
-ADD . $GOPATH/src/github.com/hyperledger/aries-framework-go
-WORKDIR $GOPATH/src/github.com/hyperledger/aries-framework-go
+ADD . $GOPATH/src/github.com/trustbloc/vcs
+WORKDIR $GOPATH/src/github.com/trustbloc/vcs
 ENV EXECUTABLES go git
 
-FROM golang as aries-framework
+FROM golang as vcs
 ARG GO_TAGS
 ARG GOPROXY
 RUN GO_TAGS=${GO_TAGS} GOPROXY=${GOPROXY} make sample-webhook
 
 
 FROM ${ALPINE_IMAGE}:${ALPINE_VER} as base
-COPY --from=aries-framework /go/src/github.com/hyperledger/aries-framework-go/build/bin/webhook-server /usr/local/bin
+COPY --from=vcs /go/src/github.com/trustbloc/vcs/build/bin/webhook-server /usr/local/bin
 CMD WEBHOOK_PORT=${WEBHOOK_PORT} webhook-server

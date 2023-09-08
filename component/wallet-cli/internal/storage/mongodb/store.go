@@ -4,7 +4,7 @@ Copyright Scoir Inc, Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package mongodb implements a storage provider conforming to the storage interface in aries-framework-go.
+// Package mongodb implements a storage provider conforming to the storage interface in kms-go.
 // It is compatible with MongoDB v4.0.0, v4.2.8, and v5.0.0. It is also compatible with Amazon DocumentDB 4.0.0.
 // It may be compatible with other versions, but they haven't been tested.
 package mongodb
@@ -650,7 +650,6 @@ func (s *Store) GetTags(key string) ([]storage.Tag, error) {
 // If no data exists under a given key, then a nil []byte is returned for that value. It is not considered an error.
 // Depending on the implementation, this method may be faster than calling Get for each key individually.
 // If any of the given keys are empty, then an error will be returned.
-// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 func (s *Store) GetBulk(keys ...string) ([][]byte, error) {
 	if len(keys) == 0 {
 		return nil, errors.New("keys slice must contain at least one key")
@@ -1117,7 +1116,6 @@ func (i *iterator) ValueAsRawMap() (map[string]interface{}, error) {
 }
 
 // Tags returns the tags associated with the key of the current entry.
-// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 func (i *iterator) Tags() ([]storage.Tag, error) {
 	tags, err := getTagsFromMongoDBResult(i.cursor)
 	if err != nil {
@@ -1134,7 +1132,6 @@ func (i *iterator) Tags() ([]storage.Tag, error) {
 // results as if you queried starting from the first page and with an unlimited page size).
 // Depending on the storage implementation, you may need to ensure that the TagName used in the query is in the
 // Store's StoreConfiguration before trying to call this method (or it may be optional, but recommended).
-// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 func (i *iterator) TotalItems() (int, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), i.timeout)
 	defer cancel()
