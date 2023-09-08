@@ -13,7 +13,9 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	ariessigner "github.com/hyperledger/aries-framework-go/component/models/signature/signer"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
@@ -166,6 +168,35 @@ func (c *Crypto) SignCredential(
 	default:
 		return nil, fmt.Errorf("unknown signature format %s", signerData.Format)
 	}
+}
+
+// NewJWTSigned returns JWT signed claims.
+func (c *Crypto) NewJWTSigned(claims interface{}, signerData *vc.Signer) (string, error) {
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(signerData.KeyType)
+	if err != nil {
+		return "", fmt.Errorf("getting JWS algo based on signature type: %w", err)
+	}
+
+	jwtAlgoStr, err := jwsAlgo.Name()
+	if err != nil {
+		return "", fmt.Errorf("get jwt algo name: %w", err)
+	}
+
+	signer, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signerData.SignatureType)
+	if err != nil {
+		return "", err
+	}
+
+	headers := map[string]interface{}{
+		jose.HeaderKeyID: signerData.Creator,
+	}
+
+	token, err := jwt.NewSigned(claims, headers, verifiable.GetJWTSigner(signer, jwtAlgoStr))
+	if err != nil {
+		return "", fmt.Errorf("newSigned: %w", err)
+	}
+
+	return token.Serialize(false)
 }
 
 // signCredentialLDP adds verifiable.LinkedDataProofContext to the VC.

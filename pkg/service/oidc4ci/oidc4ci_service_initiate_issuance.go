@@ -14,11 +14,14 @@ import (
 	"net/url"
 	"time"
 
+	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -132,7 +135,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, errSendEvent
 	}
 
-	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
+	finalURL, contentType, err := s.buildInitiateIssuanceURL(ctx, req, template, tx, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +145,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 		Tx:                  tx,
+		ContentType:         contentType,
 	}, nil
 }
 
@@ -307,24 +311,150 @@ func (s *Service) prepareCredentialOffer(
 	return resp
 }
 
+// JWTCredentialOfferClaims is JWT Claims extension by CredentialOfferResponse (with custom "credential_offer" claim).
+type JWTCredentialOfferClaims struct {
+	*jwt.Claims
+
+	CredentialOffer *CredentialOfferResponse `json:"credential_offer,omitempty"`
+}
+
+func (s *Service) getJWTCredentialOfferClaims(
+	profileSigningDID string,
+	credentialOffer *CredentialOfferResponse,
+) *JWTCredentialOfferClaims {
+	return &JWTCredentialOfferClaims{
+		Claims: &jwt.Claims{
+			Issuer:   profileSigningDID,
+			Subject:  profileSigningDID,
+			IssuedAt: josejwt.NewNumericDate(time.Now()),
+		},
+		CredentialOffer: credentialOffer,
+	}
+}
+
+// storeCredentialOffer stores signedCredentialOfferJWT or CredentialOfferResponse object
+// to underlying credentialOfferReferenceStore.
+//
+// Returns:
+//
+//	remoteOfferURL
+//	error
+//
+// returned remoteOfferURL might be empty in case credentialOfferReferenceStore is not initialized.
+func (s *Service) storeCredentialOffer( //nolint:nonamedreturns
+	ctx context.Context,
+	credentialOffer *CredentialOfferResponse,
+	signedCredentialOfferJWT string,
+) (remoteOfferURL string, err error) {
+	if s.credentialOfferReferenceStore == nil {
+		return "", nil
+	}
+
+	if signedCredentialOfferJWT != "" {
+		return s.credentialOfferReferenceStore.CreateJWT(ctx, signedCredentialOfferJWT)
+	}
+
+	return s.credentialOfferReferenceStore.Create(ctx, credentialOffer)
+}
+
+func (s *Service) getSignedCredentialOfferJWT(
+	profile *profileapi.Issuer,
+	credentialOffer *CredentialOfferResponse,
+) (string, error) {
+	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
+	if err != nil {
+		return "", fmt.Errorf("get kms: %w", err)
+	}
+
+	signerData := &vc.Signer{
+		KeyType:       profile.VCConfig.KeyType,
+		KMSKeyID:      profile.SigningDID.KMSKeyID,
+		KMS:           kms,
+		SignatureType: profile.VCConfig.SigningAlgorithm,
+		Creator:       profile.SigningDID.Creator,
+	}
+
+	credentialOfferClaims := s.getJWTCredentialOfferClaims(profile.SigningDID.DID, credentialOffer)
+
+	signedCredentialOffer, err := s.cryptoJWTSigner.NewJWTSigned(credentialOfferClaims, signerData)
+	if err != nil {
+		return "", fmt.Errorf("sign credential offer: %w", err)
+	}
+
+	return signedCredentialOffer, nil
+}
+
 func (s *Service) buildInitiateIssuanceURL(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) (string, error) {
+	profile *profileapi.Issuer,
+) (string, InitiateIssuanceResponseContentType, error) {
 	credentialOffer := s.prepareCredentialOffer(ctx, req, template, tx)
 
-	var remoteOfferURL string
-	if s.credentialOfferReferenceStore != nil {
-		remoteURL, remoteErr := s.credentialOfferReferenceStore.Create(ctx, credentialOffer)
-		if remoteErr != nil {
-			return "", remoteErr
-		}
+	var (
+		signedCredentialOfferJWT string
+		remoteOfferURL           string
+		err                      error
+	)
 
-		remoteOfferURL = remoteURL
+	if profile.OIDCConfig.SignedCredentialOfferSupported {
+		signedCredentialOfferJWT, err = s.getSignedCredentialOfferJWT(profile, credentialOffer)
+		if err != nil {
+			return "", "", err
+		}
 	}
 
+	remoteOfferURL, err = s.storeCredentialOffer(ctx, credentialOffer, signedCredentialOfferJWT)
+	if err != nil {
+		return "", "", err
+	}
+
+	initiateIssuanceQueryParams, err := s.getInitiateIssuanceQueryParams(
+		remoteOfferURL, signedCredentialOfferJWT, credentialOffer)
+	if err != nil {
+		return "", "", err
+	}
+
+	ct := ContentTypeApplicationJSON
+	if signedCredentialOfferJWT != "" {
+		ct = ContentTypeApplicationJWT
+	}
+
+	initiateIssuanceURL := s.getInitiateIssuanceURL(ctx, req)
+
+	return initiateIssuanceURL + "?" + initiateIssuanceQueryParams.Encode(), ct, nil
+}
+
+func (s *Service) getInitiateIssuanceQueryParams(
+	remoteOfferURL, signedCredentialOfferJWT string,
+	credentialOffer *CredentialOfferResponse,
+) (url.Values, error) {
+	q := url.Values{}
+	if remoteOfferURL != "" {
+		q.Set("credential_offer_uri", remoteOfferURL)
+
+		return q, nil
+	}
+
+	if signedCredentialOfferJWT != "" {
+		q.Set("credential_offer", signedCredentialOfferJWT)
+
+		return q, nil
+	}
+
+	b, err := json.Marshal(credentialOffer)
+	if err != nil {
+		return nil, err
+	}
+
+	q.Set("credential_offer", string(b))
+
+	return q, nil
+}
+
+func (s *Service) getInitiateIssuanceURL(ctx context.Context, req *InitiateIssuanceRequest) string {
 	var initiateIssuanceURL string
 
 	if req.ClientInitiateIssuanceURL != "" {
@@ -343,16 +473,5 @@ func (s *Service) buildInitiateIssuanceURL(
 		initiateIssuanceURL = "openid-credential-offer://"
 	}
 
-	q := url.Values{}
-	if remoteOfferURL != "" {
-		q.Set("credential_offer_uri", remoteOfferURL)
-	} else {
-		b, err := json.Marshal(credentialOffer)
-		if err != nil {
-			return "", err
-		}
-		q.Set("credential_offer", string(b))
-	}
-
-	return initiateIssuanceURL + "?" + q.Encode(), nil
+	return initiateIssuanceURL
 }

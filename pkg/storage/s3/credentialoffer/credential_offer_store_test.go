@@ -23,7 +23,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 )
 
-func TestNewStore(t *testing.T) {
+func TestCreate(t *testing.T) {
 	req := &oidc4ci.CredentialOfferResponse{
 		CredentialIssuer: "https://localhost",
 	}
@@ -73,6 +73,51 @@ func TestNewStore(t *testing.T) {
 			})
 
 		finalURL, err := s.Create(context.TODO(), req)
+		assert.ErrorContains(t, err, "upload err")
+		assert.Empty(t, finalURL)
+	})
+}
+
+func TestCreateJWT(t *testing.T) {
+	const mockSignedCredentialOfferJWT = "aa.bb.cc"
+
+	t.Run("success", func(t *testing.T) {
+		up := NewMockS3Uploader(gomock.NewController(t))
+		s := credentialoffer.NewStore(up, "a", "b", "")
+
+		key := ""
+		up.EXPECT().PutObject(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(
+				ctx context.Context,
+				input *s3.PutObjectInput,
+				opts ...func(*s3.Options),
+			) (*s3.PutObjectOutput, error) {
+				key = *input.Key
+				b, err := io.ReadAll(input.Body)
+				assert.NoError(t, err)
+
+				assert.Equal(t, mockSignedCredentialOfferJWT, string(b))
+
+				assert.Equal(t, "a", *input.Bucket)
+				assert.NotEmpty(t, *input.Key)
+				assert.Equal(t, "application/json", *input.ContentType)
+
+				return &s3.PutObjectOutput{}, nil
+			})
+
+		finalURL, err := s.CreateJWT(context.TODO(), mockSignedCredentialOfferJWT)
+		assert.NoError(t, err)
+		assert.Contains(t, finalURL, fmt.Sprintf("https://a.s3.b.amazonaws.com/%v", key))
+		assert.True(t, strings.HasSuffix(key, ".jwt"))
+	})
+
+	t.Run("err upload", func(t *testing.T) {
+		up := NewMockS3Uploader(gomock.NewController(t))
+		s := credentialoffer.NewStore(up, "a", "b", "")
+
+		up.EXPECT().PutObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("upload err"))
+
+		finalURL, err := s.CreateJWT(context.TODO(), mockSignedCredentialOfferJWT)
 		assert.ErrorContains(t, err, "upload err")
 		assert.Empty(t, finalURL)
 	})

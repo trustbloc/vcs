@@ -30,14 +30,26 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	ctx := context.Background()
+
+	startTime := time.Now()
+	err := s.CreateWallet()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wallet: %w", err)
+	}
+	s.perfInfo.CreateWallet = time.Since(startTime)
+
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
+		config.InitiateIssuanceURL,
+		s.httpClient,
+		s.ariesServices.vdrRegistry,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")
-	startTime := time.Now()
+	startTime = time.Now()
 	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
@@ -105,13 +117,6 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	s.token = lo.ToPtr(oauth2.Token{AccessToken: token.AccessToken}).WithExtra(map[string]interface{}{
 		"c_nonce": *token.CNonce,
 	})
-
-	startTime = time.Now()
-	err = s.CreateWallet()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create wallet: %w", err)
-	}
-	s.perfInfo.CreateWallet = time.Since(startTime)
 
 	s.print("Getting credential")
 	startTime = time.Now()

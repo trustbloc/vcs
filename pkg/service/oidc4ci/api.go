@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/labstack/echo/v4"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -32,6 +33,8 @@ type Transaction struct {
 
 type TransactionState int16
 
+type InitiateIssuanceResponseContentType = string
+
 const (
 	TransactionStateUnknown                         = TransactionState(0)
 	TransactionStateIssuanceInitiated               = TransactionState(1)
@@ -39,6 +42,11 @@ const (
 	TransactionStateAwaitingIssuerOIDCAuthorization = TransactionState(3) // auth only
 	TransactionStateIssuerOIDCAuthorizationDone     = TransactionState(4)
 	TransactionStateCredentialsIssued               = TransactionState(5)
+)
+
+const (
+	ContentTypeApplicationJSON InitiateIssuanceResponseContentType = echo.MIMEApplicationJSONCharsetUTF8
+	ContentTypeApplicationJWT  InitiateIssuanceResponseContentType = "application/jwt"
 )
 
 // ClaimData represents user claims in pre-auth code flow.
@@ -127,7 +135,8 @@ type InitiateIssuanceResponse struct {
 	InitiateIssuanceURL string
 	TxID                TxID
 	UserPin             string
-	Tx                  *Transaction `json:"-"`
+	Tx                  *Transaction                        `json:"-"`
+	ContentType         InitiateIssuanceResponseContentType `json:"-"`
 }
 
 // PrepareClaimDataAuthorizationRequest is the request to prepare the claim data authorization request.

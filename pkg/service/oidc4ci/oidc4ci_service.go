@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner
 
 package oidc4ci
 
@@ -19,13 +19,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/trustbloc/logutil-go/pkg/log"
-
 	util "github.com/hyperledger/aries-framework-go/component/models/util/time"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -90,13 +91,25 @@ type eventService interface {
 type credentialOfferReferenceStore interface {
 	Create(
 		ctx context.Context,
-		request *CredentialOfferResponse,
+		credentialOffer *CredentialOfferResponse,
+	) (string, error)
+	CreateJWT(
+		ctx context.Context,
+		credentialOfferJWT string,
 	) (string, error)
 }
 
 type dataProtector interface {
 	Encrypt(ctx context.Context, msg []byte) (*dataprotect.EncryptedData, error)
 	Decrypt(ctx context.Context, encryptedData *dataprotect.EncryptedData) ([]byte, error)
+}
+
+type kmsRegistry interface {
+	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
+}
+
+type cryptoJWTSigner interface {
+	NewJWTSigned(claims interface{}, signerData *vc.Signer) (string, error)
 }
 
 // Config holds configuration options and dependencies for Service.
@@ -113,6 +126,8 @@ type Config struct {
 	PreAuthCodeTTL                int32
 	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
 	DataProtector                 dataProtector
+	KMSRegistry                   kmsRegistry
+	CryptoJWTSigner               cryptoJWTSigner
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -129,6 +144,8 @@ type Service struct {
 	preAuthCodeTTL                int32
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 	dataProtector                 dataProtector
+	kmsRegistry                   kmsRegistry
+	cryptoJWTSigner               cryptoJWTSigner
 }
 
 // NewService returns a new Service instance.
@@ -146,6 +163,8 @@ func NewService(config *Config) (*Service, error) {
 		preAuthCodeTTL:                config.PreAuthCodeTTL,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 		dataProtector:                 config.DataProtector,
+		kmsRegistry:                   config.KMSRegistry,
+		cryptoJWTSigner:               config.CryptoJWTSigner,
 	}, nil
 }
 

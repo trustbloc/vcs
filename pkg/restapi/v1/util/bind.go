@@ -40,3 +40,18 @@ func WriteOutput(ctx echo.Context) func(output interface{}, err error) error {
 		return ctx.JSONBlob(http.StatusOK, b)
 	}
 }
+
+func WriteOutputWithContentType(ctx echo.Context) func(output interface{}, ct string, err error) error {
+	return func(output interface{}, ct string, err error) error {
+		if err != nil {
+			return err
+		}
+
+		b, err := json.Marshal(output)
+		if err != nil {
+			return err
+		}
+
+		return ctx.Blob(http.StatusOK, ct, b)
+	}
+}

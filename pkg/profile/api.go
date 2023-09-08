@@ -108,6 +108,7 @@ type OIDCConfig struct {
 	InitialAccessTokenLifespan                 time.Duration `json:"initial_access_token_lifespan"`
 	PreAuthorizedGrantAnonymousAccessSupported bool          `json:"pre-authorized_grant_anonymous_access_supported"`
 	WalletInitiatedAuthFlowSupported           bool          `json:"wallet_initiated_auth_flow_supported"`
+	SignedCredentialOfferSupported             bool          `json:"signed_credential_offer_supported"`
 	ClaimsEndpoint                             string        `json:"claims_endpoint"`
 }
 
