@@ -12,7 +12,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	didkey "github.com/hyperledger/aries-framework-go/component/vdr/key"
@@ -46,8 +45,6 @@ func (v *VDRUtil) Create(
 	switch strings.ToLower(didMethod) {
 	case "ion":
 		return v.createION(keyType, registry, keyManager)
-	case "orb":
-		return v.createORB(keyType, registry, keyManager)
 	case "key":
 		return v.CreateKey(keyType, registry, keyManager)
 	case "jwk":
@@ -141,8 +138,8 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	didResolution, err := registry.Create(
 		"ion",
 		didDoc,
-		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdrapi.WithOption(longform.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(longform.RecoveryPublicKeyOpt, recoveryKey),
 		vdrapi.WithOption(longform.VDRAcceptOpt, "long-form"),
 	)
 	if err != nil {
@@ -152,71 +149,6 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	return &CreateResult{
 		DidID: didResolution.DIDDocument.ID,
 		KeyID: didResolution.DIDDocument.ID + "#" + vm.ID,
-	}, nil
-}
-
-func (v *VDRUtil) createORB(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) {
-	methods, err := v.newVerMethods(3, keyManager, keyType) // nolint:gomnd
-	if err != nil {
-		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
-	}
-
-	authentication := methods[0]
-	assertion := methods[0]
-	capabilityDelegation := methods[1]
-	capabilityInvocation := methods[2]
-
-	doc := &did.Doc{
-		Authentication: []did.Verification{{
-			VerificationMethod: *authentication,
-			Relationship:       did.Authentication,
-			Embedded:           true,
-		}},
-		AssertionMethod: []did.Verification{{
-			VerificationMethod: *assertion,
-			Relationship:       did.AssertionMethod,
-			Embedded:           true,
-		}},
-		CapabilityDelegation: []did.Verification{{
-			VerificationMethod: *capabilityDelegation,
-			Relationship:       did.CapabilityDelegation,
-			Embedded:           true,
-		}},
-		CapabilityInvocation: []did.Verification{{
-			VerificationMethod: *capabilityInvocation,
-			Relationship:       did.CapabilityInvocation,
-			Embedded:           true,
-		}},
-	}
-
-	keys := [2]interface{}{}
-	keyURLs := [2]string{}
-	types := [2]string{"update", "recovery"}
-
-	for i := 0; i < 2; i++ {
-		keyURLs[i], keys[i], err = key.CryptoKeyCreator(keyType)(keyManager)
-		if err != nil {
-			return nil, fmt.Errorf("did:orb: failed to create %s key: %w", types[i], err)
-		}
-	}
-
-	updateKey, _ := keys[0], keyURLs[0]
-	recoveryKey, _ := keys[1], keyURLs[1]
-
-	didResolution, err := registry.Create(
-		orb.DIDMethod,
-		doc,
-		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("did:orb: failed to create did: %w", err)
-	}
-
-	return &CreateResult{
-		DidID: didResolution.DIDDocument.ID,
-		KeyID: didResolution.DIDDocument.ID + "#" + assertion.ID,
 	}, nil
 }
 

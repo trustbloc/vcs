@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-
 	"github.com/hyperledger/aries-framework-go/component/models/presexch"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
@@ -33,7 +31,7 @@ type (
 const (
 	WebDIDMethod Method = "web"
 	KeyDIDMethod Method = key.DIDMethod
-	OrbDIDMethod Method = orb.DIDMethod
+	OrbDIDMethod Method = "orb"
 )
 
 // Issuer profile.

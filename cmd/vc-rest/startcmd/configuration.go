@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesdid "github.com/hyperledger/aries-framework-go/component/models/did"
 	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
 	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
@@ -90,14 +89,9 @@ func createVDRI(universalResolver, orbDomain string, tlsConfig *tls.Config) (vdr
 		return nil, err
 	}
 
-	orbVDR, err := orb.New(nil, orb.WithDomain(orbDomain), orb.WithTLSConfig(tlsConfig))
-	if err != nil {
-		return nil, err
-	}
-
 	// add vdr
-	opts = append(opts, vdrpkg.WithVDR(longformVDR), vdrpkg.WithVDR(orbVDR),
-		vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(&webVDR{
+	opts = append(opts, vdrpkg.WithVDR(longformVDR), vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(jwk.New()),
+		vdrpkg.WithVDR(&webVDR{
 			http: &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: tlsConfig,

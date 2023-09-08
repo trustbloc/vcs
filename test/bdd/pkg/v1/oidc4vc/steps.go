@@ -76,7 +76,7 @@ func (s *Steps) ResetAndSetup() error {
 	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
 		func(c *vcprovider.Config) {
 			c.DidKeyType = "ECDSAP384DER"
-			c.DidMethod = "orb"
+			c.DidMethod = "ion"
 			c.KeepWalletOpen = true
 		})
 	if err != nil {

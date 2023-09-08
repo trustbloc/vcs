@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	vdrpkg "github.com/hyperledger/aries-framework-go/component/vdr"
 	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
@@ -131,11 +131,10 @@ func createVDRI(didResolverURL string, tlsConf *tls.Config) (vdrapi.Registry, er
 		return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
 	}
 
-	blocVDR, err := orb.New(nil, orb.WithTLSConfig(tlsConf),
-		orb.WithDomain("testnet.orb.local"))
+	lf, err := longform.New()
 	if err != nil {
 		return nil, err
 	}
 
-	return vdrpkg.New(vdrpkg.WithVDR(blocVDR), vdrpkg.WithVDR(didResolverVDRI)), nil
+	return vdrpkg.New(vdrpkg.WithVDR(lf), vdrpkg.WithVDR(didResolverVDRI)), nil
 }

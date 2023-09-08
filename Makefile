@@ -98,7 +98,7 @@ vcs-stress-docker: generate
 sample-webhook:
 	@echo "Building sample webhook server"
 	@mkdir -p ./build/bin
-	@go build -o ./build/bin/webhook-server test/bdd/webhook/main.go
+	@go build -modfile test/bdd/go.mod -o ./build/bin/webhook-server test/bdd/webhook/main.go
 
 .PHONY: sample-webhook-docker
 sample-webhook-docker:
