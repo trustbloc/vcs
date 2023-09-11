@@ -30,11 +30,6 @@ import (
 
 var _ ServiceInterface = (*Manager)(nil)
 
-const (
-	defaultInitialAccessTokenLifespan = 5 * time.Minute
-	defaultTokenEndpointAuthMethod    = "client_secret_basic"
-)
-
 type store interface {
 	InsertClient(ctx context.Context, client *oauth2client.Client) (string, error)
 	GetClient(ctx context.Context, id string) (fosite.Client, error)
@@ -118,23 +113,23 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		return nil, InvalidClientMetadataError("scope", err)
 	}
 
-	if err = setGrantTypes(client, profile.OIDCConfig.GrantTypesSupported, data.GrantTypes); err != nil {
+	if err = setGrantTypes(client, oauth2client.GrantTypesSupported(), data.GrantTypes); err != nil {
 		return nil, InvalidClientMetadataError("grant_types", err)
 	}
 
-	if err = setResponseTypes(client, profile.OIDCConfig.ResponseTypesSupported, data.ResponseTypes); err != nil {
+	if err = setResponseTypes(client, oauth2client.ResponseTypesSupported(), data.ResponseTypes); err != nil {
 		return nil, InvalidClientMetadataError("response_types", err)
 	}
 
 	if err = setTokenEndpointAuthMethod(
 		client,
-		profile.OIDCConfig.TokenEndpointAuthMethodsSupported,
+		oauth2client.TokenEndpointAuthMethodsSupported(),
 		data.TokenEndpointAuthMethod,
 	); err != nil {
 		return nil, InvalidClientMetadataError("token_endpoint_auth_method", err)
 	}
 
-	if client.TokenEndpointAuthMethod != "none" {
+	if client.TokenEndpointAuthMethod != oauth2client.TokenEndpointAuthMethodNone {
 		var secret []byte
 
 		if secret, err = generateSecret(); err != nil {
@@ -142,12 +137,7 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		}
 
 		client.Secret = secret
-
-		if profile.OIDCConfig.InitialAccessTokenLifespan != 0 {
-			client.SecretExpiresAt = time.Now().Add(profile.OIDCConfig.InitialAccessTokenLifespan)
-		} else {
-			client.SecretExpiresAt = time.Now().Add(defaultInitialAccessTokenLifespan)
-		}
+		client.SecretExpiresAt = 0 // never expires
 	}
 
 	if err = setJSONWebKeys(client, data.JSONWebKeys); err != nil {
@@ -220,12 +210,7 @@ func setResponseTypes(client *oauth2client.Client, responseTypesSupported []stri
 
 func setTokenEndpointAuthMethod(client *oauth2client.Client, methodsSupported []string, method string) error {
 	if method == "" {
-		if len(methodsSupported) == 0 || lo.Contains(methodsSupported, defaultTokenEndpointAuthMethod) {
-			client.TokenEndpointAuthMethod = defaultTokenEndpointAuthMethod
-		} else {
-			client.TokenEndpointAuthMethod = methodsSupported[0]
-		}
-
+		client.TokenEndpointAuthMethod = oauth2client.TokenEndpointAuthMethodClientSecretBasic
 		return nil
 	}
 
@@ -298,18 +283,6 @@ func validateClient(client *oauth2client.Client) error {
 			InvalidValue: "redirect_uris",
 			Err:          fmt.Errorf("redirect_uris must be set for authorization_code grant type"),
 		}
-	}
-
-	// validate relationship between Grant Types and Response Types
-	// https://datatracker.ietf.org/doc/html/rfc7591#section-2.1
-	if lo.Contains(client.GrantTypes, "authorization_code") && !lo.Contains(client.ResponseTypes, "code") {
-		return InvalidClientMetadataError("response_types",
-			fmt.Errorf("authorization_code grant type requires code response type"))
-	}
-
-	if lo.Contains(client.GrantTypes, "implicit") && !lo.Contains(client.ResponseTypes, "token") {
-		return InvalidClientMetadataError("response_types",
-			fmt.Errorf("implicit grant type requires token response type"))
 	}
 
 	return nil

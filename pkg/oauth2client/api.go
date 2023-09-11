@@ -16,8 +16,14 @@ import (
 var _ fosite.Client = (*Client)(nil)
 
 const (
-	defaultGrantType    = "authorization_code"
-	defaultResponseType = "code"
+	GrantTypeAuthorizationCode = "authorization_code"
+	GrantTypePreAuthorizedCode = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+
+	ResponseTypeCode = "code"
+
+	TokenEndpointAuthMethodNone              = "none"
+	TokenEndpointAuthMethodClientSecretBasic = "client_secret_basic"
+	TokenEndpointAuthMethodClientSecretPost  = "client_secret_post"
 )
 
 // Client represents an OAuth2 client.
@@ -26,7 +32,7 @@ type Client struct {
 	Name                    string              `json:"client_name"`
 	URI                     string              `json:"client_uri"`
 	Secret                  []byte              `json:"client_secret,omitempty"`
-	SecretExpiresAt         time.Time           `json:"client_secret_expires_at,omitempty"`
+	SecretExpiresAt         int64               `json:"client_secret_expires_at,omitempty"`
 	RotatedSecrets          [][]byte            `json:"rotated_secrets,omitempty"`
 	RedirectURIs            []string            `json:"redirect_uris"`
 	GrantTypes              []string            `json:"grant_types"`
@@ -63,7 +69,7 @@ func (c *Client) GetRedirectURIs() []string {
 // GetGrantTypes returns the client grant types.
 func (c *Client) GetGrantTypes() fosite.Arguments {
 	if len(c.GrantTypes) == 0 {
-		return fosite.Arguments{defaultGrantType}
+		return fosite.Arguments{GrantTypeAuthorizationCode}
 	}
 
 	return c.GrantTypes
@@ -72,7 +78,7 @@ func (c *Client) GetGrantTypes() fosite.Arguments {
 // GetResponseTypes returns the client response types.
 func (c *Client) GetResponseTypes() fosite.Arguments {
 	if len(c.ResponseTypes) == 0 {
-		return fosite.Arguments{defaultResponseType}
+		return fosite.Arguments{ResponseTypeCode}
 	}
 
 	return c.ResponseTypes
@@ -91,4 +97,28 @@ func (c *Client) IsPublic() bool {
 // GetAudience returns the client audience.
 func (c *Client) GetAudience() fosite.Arguments {
 	return c.Audience
+}
+
+// GrantTypesSupported returns grant types supported by the VCS OIDC provider.
+func GrantTypesSupported() []string {
+	return []string{
+		GrantTypeAuthorizationCode,
+		GrantTypePreAuthorizedCode,
+	}
+}
+
+// ResponseTypesSupported returns response types supported by the VCS OIDC provider.
+func ResponseTypesSupported() []string {
+	return []string{
+		ResponseTypeCode,
+	}
+}
+
+// TokenEndpointAuthMethodsSupported returns client authentication methods supported by the VCS token endpoint.
+func TokenEndpointAuthMethodsSupported() []string {
+	return []string{
+		TokenEndpointAuthMethodNone,
+		TokenEndpointAuthMethodClientSecretBasic,
+		TokenEndpointAuthMethodClientSecretPost,
+	}
 }

@@ -44,19 +44,19 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								ScopesSupported:                   []string{"foo", "bar"},
-								GrantTypesSupported:               []string{"authorization_code"},
-								ResponseTypesSupported:            []string{"code"},
-								TokenEndpointAuthMethodsSupported: []string{"client_secret_basic"},
-								EnableDynamicClientRegistration:   true,
+								ScopesSupported:                 []string{"foo", "bar"},
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Return(uuid.New().String(), nil)
 
 				data = &clientmanager.ClientMetadata{
-					Scope:        "foo",
-					RedirectURIs: []string{"https://example.com/redirect"},
+					Scope:                   "foo",
+					GrantTypes:              []string{"authorization_code"},
+					ResponseTypes:           []string{"code"},
+					TokenEndpointAuthMethod: "client_secret_basic",
+					RedirectURIs:            []string{"https://example.com/redirect"},
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
@@ -125,7 +125,6 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported:             []string{"authorization_code"},
 								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
@@ -152,7 +151,6 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								ResponseTypesSupported:          []string{"code"},
 								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
@@ -179,15 +177,14 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								TokenEndpointAuthMethodsSupported: []string{"client_secret_basic"},
-								EnableDynamicClientRegistration:   true,
+								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
 
 				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
 
 				data = &clientmanager.ClientMetadata{
-					TokenEndpointAuthMethod: "none",
+					TokenEndpointAuthMethod: "not_supported_auth_method",
 				}
 			},
 			check: func(t *testing.T, client *oauth2client.Client, err error) {
@@ -196,7 +193,7 @@ func TestManager_Create(t *testing.T) {
 				require.ErrorAs(t, err, &regErr)
 				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
 				require.Equal(t, "token_endpoint_auth_method", regErr.InvalidValue)
-				require.Equal(t, "token endpoint auth method none not supported", regErr.Error())
+				require.Equal(t, "token endpoint auth method not_supported_auth_method not supported", regErr.Error())
 			},
 		},
 		{
@@ -291,7 +288,6 @@ func TestManager_Create(t *testing.T) {
 					Return(
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported:             []string{"authorization_code"},
 								EnableDynamicClientRegistration: true,
 							},
 						}, nil)
@@ -309,65 +305,6 @@ func TestManager_Create(t *testing.T) {
 				require.Equal(t, clientmanager.ErrCodeInvalidRedirectURI, regErr.Code)
 				require.Equal(t, "redirect_uris", regErr.InvalidValue)
 				require.Equal(t, "redirect_uris must be set for authorization_code grant type", regErr.Error())
-			},
-		},
-		{
-			name: "authorization_code grant type requires code response type error",
-			setup: func() {
-				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
-					Return(
-						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported:             []string{"authorization_code", "implicit"},
-								ResponseTypesSupported:          []string{"code", "token"},
-								EnableDynamicClientRegistration: true,
-							},
-						}, nil)
-
-				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
-
-				data = &clientmanager.ClientMetadata{
-					GrantTypes:    []string{"authorization_code"},
-					ResponseTypes: []string{"token"},
-					RedirectURIs:  []string{"https://example.com/redirect"},
-				}
-			},
-			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				var regErr *clientmanager.RegistrationError
-
-				require.ErrorAs(t, err, &regErr)
-				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
-				require.Equal(t, "response_types", regErr.InvalidValue)
-				require.Equal(t, "authorization_code grant type requires code response type", regErr.Error())
-			},
-		},
-		{
-			name: "implicit grant type requires token response type error",
-			setup: func() {
-				mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
-					Return(
-						&profileapi.Issuer{
-							OIDCConfig: &profileapi.OIDCConfig{
-								GrantTypesSupported:             []string{"authorization_code", "implicit"},
-								ResponseTypesSupported:          []string{"code", "token"},
-								EnableDynamicClientRegistration: true,
-							},
-						}, nil)
-
-				mockStore.EXPECT().InsertClient(gomock.Any(), gomock.Any()).Times(0)
-
-				data = &clientmanager.ClientMetadata{
-					GrantTypes:    []string{"implicit"},
-					ResponseTypes: []string{"code"},
-				}
-			},
-			check: func(t *testing.T, client *oauth2client.Client, err error) {
-				var regErr *clientmanager.RegistrationError
-
-				require.ErrorAs(t, err, &regErr)
-				require.Equal(t, clientmanager.ErrCodeInvalidClientMetadata, regErr.Code)
-				require.Equal(t, "response_types", regErr.InvalidValue)
-				require.Equal(t, "implicit grant type requires token response type", regErr.Error())
 			},
 		},
 		{
@@ -456,8 +393,6 @@ func TestManager_Create(t *testing.T) {
 						&profileapi.Issuer{
 							OIDCConfig: &profileapi.OIDCConfig{
 								ScopesSupported:                 []string{"foo", "bar"},
-								GrantTypesSupported:             []string{"authorization_code"},
-								ResponseTypesSupported:          []string{"code"},
 								EnableDynamicClientRegistration: true,
 							},
 						}, nil)

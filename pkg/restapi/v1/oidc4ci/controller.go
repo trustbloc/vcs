@@ -844,7 +844,7 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 
 	if client.Secret != nil {
 		resp.ClientSecret = lo.ToPtr(string(client.Secret))
-		resp.ClientSecretExpiresAt = lo.ToPtr(int(client.SecretExpiresAt.Unix()))
+		resp.ClientSecretExpiresAt = lo.ToPtr(int(client.SecretExpiresAt))
 	}
 
 	if client.Name != "" {

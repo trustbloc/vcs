@@ -2105,7 +2105,7 @@ func TestController_OidcRegisterClient(t *testing.T) {
 						Name:                    "client-name",
 						URI:                     "https://example.com",
 						Secret:                  []byte("secret"),
-						SecretExpiresAt:         time.Now().Add(5 * time.Minute),
+						SecretExpiresAt:         0,
 						RedirectURIs:            []string{"https://example.com/callback"},
 						GrantTypes:              []string{"authorization_code"},
 						ResponseTypes:           []string{"code"},
