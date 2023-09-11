@@ -61,19 +61,20 @@ func (p *Store) Create(
 		return "", err
 	}
 
-	return p.put(ctx, data)
+	return p.put(ctx, data, "application/json")
 }
 
 func (p *Store) CreateJWT(
 	ctx context.Context,
 	credentialOfferJWT string,
 ) (string, error) {
-	return p.put(ctx, []byte(credentialOfferJWT))
+	return p.put(ctx, []byte(credentialOfferJWT), "application/jwt")
 }
 
 func (p *Store) put(
 	ctx context.Context,
 	data []byte,
+	ct string,
 ) (string, error) {
 	key := fmt.Sprintf("%v.jwt", uuid.NewString())
 
@@ -81,7 +82,7 @@ func (p *Store) put(
 		Body:        bytes.NewReader(data),
 		Key:         aws.String(key),
 		Bucket:      aws.String(p.bucket),
-		ContentType: aws.String("application/json"),
+		ContentType: aws.String(ct),
 	})
 	if err != nil {
 		return "", err

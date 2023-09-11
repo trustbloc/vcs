@@ -43,17 +43,18 @@ const (
 )
 
 type OIDC4CIConfig struct {
-	InitiateIssuanceURL  string
-	ClientID             string
-	Scope                []string
-	RedirectURI          string
-	CredentialType       string
-	CredentialFormat     string
-	Pin                  string
-	Login                string
-	Password             string
-	IssuerState          string
-	DiscoverableClientID bool
+	InitiateIssuanceURL      string
+	ClientID                 string
+	Scope                    []string
+	RedirectURI              string
+	CredentialType           string
+	CredentialFormat         string
+	Pin                      string
+	Login                    string
+	Password                 string
+	IssuerState              string
+	DiscoverableClientID     bool
+	JWTSignedCredentialOffer bool
 }
 
 type OauthClientOpt func(config *oauth2.Config)
@@ -79,9 +80,12 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
-		config.InitiateIssuanceURL,
-		s.httpClient,
-		s.ariesServices.vdrRegistry,
+		&credentialoffer.Params{
+			InitiateIssuanceURL:               config.InitiateIssuanceURL,
+			Client:                            s.httpClient,
+			VDRRegistry:                       s.ariesServices.vdrRegistry,
+			JWTSignedCredentialOfferSupported: config.JWTSignedCredentialOffer,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)

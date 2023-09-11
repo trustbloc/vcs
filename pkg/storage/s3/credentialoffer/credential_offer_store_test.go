@@ -100,7 +100,7 @@ func TestCreateJWT(t *testing.T) {
 
 				assert.Equal(t, "a", *input.Bucket)
 				assert.NotEmpty(t, *input.Key)
-				assert.Equal(t, "application/json", *input.ContentType)
+				assert.Equal(t, "application/jwt", *input.ContentType)
 
 				return &s3.PutObjectOutput{}, nil
 			})

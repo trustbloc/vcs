@@ -2,6 +2,7 @@ package credentialoffer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,8 +16,17 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
-func ParseInitiateIssuanceUrl(rawURL string, client *http.Client, vdrRegistry vdrapi.Registry) (*oidc4ci.CredentialOfferResponse, error) {
-	initiateIssuanceURLParsed, err := url.Parse(rawURL)
+var errSignedCredentialOfferIsNotSupported = errors.New("credential offer is in JWT format, but it is not supported by configuration")
+
+type Params struct {
+	InitiateIssuanceURL               string
+	Client                            *http.Client
+	VDRRegistry                       vdrapi.Registry
+	JWTSignedCredentialOfferSupported bool
+}
+
+func ParseInitiateIssuanceUrl(params *Params) (*oidc4ci.CredentialOfferResponse, error) {
+	initiateIssuanceURLParsed, err := url.Parse(params.InitiateIssuanceURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse url %w", err)
 	}
@@ -29,7 +39,11 @@ func ParseInitiateIssuanceUrl(rawURL string, client *http.Client, vdrRegistry vd
 		// Depends on Issuer configuration, credentialOfferURL might be either JWT signed CredentialOfferResponse,
 		// or encoded oidc4ci.CredentialOfferResponse itself.
 		if jwt.IsJWS(credentialOfferQueryParam) {
-			credentialOfferPayload, err = getCredentialOfferJWTPayload(credentialOfferQueryParam, vdrRegistry)
+			if !params.JWTSignedCredentialOfferSupported {
+				return nil, errSignedCredentialOfferIsNotSupported
+			}
+
+			credentialOfferPayload, err = getCredentialOfferJWTPayload(credentialOfferQueryParam, params.VDRRegistry)
 			if err != nil {
 				return nil, err
 			}
@@ -47,7 +61,7 @@ func ParseInitiateIssuanceUrl(rawURL string, client *http.Client, vdrRegistry vd
 		return nil, fmt.Errorf("credential_offer and credential_offer_uri are both empty")
 	}
 
-	resp, err := client.Get(remoteURI)
+	resp, err := params.Client.Get(remoteURI)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +76,11 @@ func ParseInitiateIssuanceUrl(rawURL string, client *http.Client, vdrRegistry vd
 	// Depends on Issuer configuration, rspBody might be either JWT signed CredentialOfferResponse,
 	// or encoded oidc4ci.CredentialOfferResponse itself.
 	if jwt.IsJWS(string(credentialOfferPayload)) {
-		credentialOfferPayload, err = getCredentialOfferJWTPayload(string(credentialOfferPayload), vdrRegistry)
+		if !params.JWTSignedCredentialOfferSupported {
+			return nil, errSignedCredentialOfferIsNotSupported
+		}
+
+		credentialOfferPayload, err = getCredentialOfferJWTPayload(string(credentialOfferPayload), params.VDRRegistry)
 		if err != nil {
 			return nil, err
 		}
