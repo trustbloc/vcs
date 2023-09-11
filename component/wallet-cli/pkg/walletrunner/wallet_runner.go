@@ -39,6 +39,7 @@ import (
 	"github.com/trustbloc/kms-go/spi/storage"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/leveldb"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/mongodb"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
@@ -143,7 +144,7 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 			SkipSanitize:    true,
 			Colors:          true,
 			SkipRequestInfo: true,
-			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}},
+			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}, &formatter.JWTFormatter{}},
 			MaxResponseBody: 102400,
 		}
 

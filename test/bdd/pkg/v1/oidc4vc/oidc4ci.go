@@ -123,10 +123,11 @@ func (s *Steps) runOIDC4CIPreAuth(initiateOIDC4CIRequest initiateOIDC4CIRequest)
 	}
 
 	_, err = s.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Pin:                 *initiateOIDC4CIResponseData.UserPin,
+		InitiateIssuanceURL:      initiateOIDC4CIResponseData.OfferCredentialURL,
+		CredentialType:           s.issuedCredentialType,
+		CredentialFormat:         s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Pin:                      *initiateOIDC4CIResponseData.UserPin,
+		JWTSignedCredentialOffer: true,
 	})
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
@@ -257,14 +258,15 @@ func (s *Steps) runOIDC4CIAuthWithError(updatedClientID, errorContains string) e
 	}
 
 	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:            "oidc4vc_client",
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+		InitiateIssuanceURL:      initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:                 "oidc4vc_client",
+		Scope:                    []string{"openid", "profile"},
+		RedirectURI:              "http://127.0.0.1/callback",
+		CredentialType:           s.issuedCredentialType,
+		CredentialFormat:         s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:                    "bdd-test",
+		Password:                 "bdd-test-pass",
+		JWTSignedCredentialOffer: true,
 	}, &walletrunner.Hooks{
 		BeforeTokenRequest: []walletrunner.OauthClientOpt{
 			walletrunner.WithClientID(updatedClientID),
@@ -308,14 +310,15 @@ func (s *Steps) runOIDC4CIAuth() error {
 	}
 
 	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:            "oidc4vc_client",
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+		InitiateIssuanceURL:      initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:                 "oidc4vc_client",
+		Scope:                    []string{"openid", "profile"},
+		RedirectURI:              "http://127.0.0.1/callback",
+		CredentialType:           s.issuedCredentialType,
+		CredentialFormat:         s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:                    "bdd-test",
+		Password:                 "bdd-test-pass",
+		JWTSignedCredentialOffer: true,
 	}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CI: %w", err)
@@ -349,13 +352,14 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 	}
 
 	config := &walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+		InitiateIssuanceURL:      initiateOIDC4CIResponseData.OfferCredentialURL,
+		Scope:                    []string{"openid", "profile"},
+		RedirectURI:              "http://127.0.0.1/callback",
+		CredentialType:           s.issuedCredentialType,
+		CredentialFormat:         s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:                    "bdd-test",
+		Password:                 "bdd-test-pass",
+		JWTSignedCredentialOffer: true,
 	}
 
 	switch method {
