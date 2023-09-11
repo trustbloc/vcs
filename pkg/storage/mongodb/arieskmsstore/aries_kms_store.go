@@ -43,9 +43,11 @@ func (s *Store) Put(keysetID string, key []byte) error {
 	ctx, cancel := s.client.ContextWithTimeout()
 	defer cancel()
 
-	_, err := coll.UpdateByID(ctx, keysetID, &dataWrapper{
-		ID:  keysetID,
-		Bin: key,
+	_, err := coll.UpdateByID(ctx, keysetID, bson.M{
+		"$set": &dataWrapper{
+			ID:  keysetID,
+			Bin: key,
+		},
 	}, options.Update().SetUpsert(true))
 	if err != nil {
 		return err
