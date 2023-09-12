@@ -660,10 +660,8 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			errors.New("credentials should not be nil"))
 	}
 
-	if result.EnforceStrictValidation {
-		if err = c.validateClaims(result.Credential, result.CredentialTemplate); err != nil {
-			return err
-		}
+	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
+		return fmt.Errorf("validate claims: %w", err)
 	}
 
 	var signOpts []crypto.SigningOpts
@@ -684,6 +682,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 func (c *Controller) validateClaims( //nolint:gocognit
 	cred *verifiable.Credential,
 	credentialTemplate *profileapi.CredentialTemplate,
+	validateJSONLD bool,
 ) error {
 	subjects, err := getCredentialSubjects(cred.Subject)
 	if err != nil {
@@ -691,33 +690,26 @@ func (c *Controller) validateClaims( //nolint:gocognit
 	}
 
 	for _, sub := range subjects {
-		if err := c.validateCredentialSubject(cred, credentialTemplate, sub); err != nil {
-			return err
+		if validateJSONLD {
+			if err := c.validateJSONLD(cred, sub); err != nil {
+				return err
+			}
+		}
+
+		if credentialTemplate != nil && credentialTemplate.JSONSchemaID != "" {
+			if err := c.validateJSONSchema(cred, credentialTemplate, sub); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-//nolint:gocognit
-func (c *Controller) validateCredentialSubject(
+func (c *Controller) validateJSONLD(
 	cred *verifiable.Credential,
-	credentialTemplate *profileapi.CredentialTemplate,
 	sub verifiable.Subject,
 ) error {
-	if credentialTemplate != nil && credentialTemplate.JSONSchemaID != "" {
-		logger.Debug("Validating credential against JSON schema",
-			logfields.WithCredentialID(cred.ID),
-			logfields.WithCredentialTemplateID(credentialTemplate.ID),
-			logfields.WithJSONSchemaID(credentialTemplate.JSONSchemaID),
-		)
-
-		if err := c.schemaValidator.Validate(sub.CustomFields, credentialTemplate.JSONSchemaID,
-			[]byte(credentialTemplate.JSONSchema)); err != nil {
-			return fmt.Errorf("validate claims: %w", err)
-		}
-	}
-
 	var ctx []interface{}
 	for _, ct := range cred.Context {
 		ctx = append(ctx, ct)
@@ -758,6 +750,21 @@ func (c *Controller) validateCredentialSubject(
 		validator.WithDocumentLoader(c.documentLoader),
 		validator.WithStrictValidation(true),
 	)
+}
+
+func (c *Controller) validateJSONSchema(
+	cred *verifiable.Credential,
+	credentialTemplate *profileapi.CredentialTemplate,
+	sub verifiable.Subject,
+) error {
+	logger.Debug("Validating credential against JSON schema",
+		logfields.WithCredentialID(cred.ID),
+		logfields.WithCredentialTemplateID(credentialTemplate.ID),
+		logfields.WithJSONSchemaID(credentialTemplate.JSONSchemaID),
+	)
+
+	return c.schemaValidator.Validate(sub.CustomFields, credentialTemplate.JSONSchemaID,
+		[]byte(credentialTemplate.JSONSchema))
 }
 
 func getCredentialSubjects(subject interface{}) ([]verifiable.Subject, error) {

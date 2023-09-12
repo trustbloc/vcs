@@ -1485,7 +1485,7 @@ func TestController_PrepareCredential(t *testing.T) {
 					Credential:              invalidVC,
 					Format:                  vcsverifiable.Ldp,
 					Retry:                   false,
-					EnforceStrictValidation: true,
+					EnforceStrictValidation: false,
 					CredentialTemplate: &profileapi.CredentialTemplate{
 						JSONSchema:   string(universityDegreeSchema),
 						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
