@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v0.0.0-20230908203710-8c4f5146a514
+	github.com/trustbloc/did-go v0.0.0-20230912072609-b99774e957a9
 	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vcs v0.0.0
@@ -67,7 +67,6 @@ require (
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect

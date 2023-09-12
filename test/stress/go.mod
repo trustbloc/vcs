@@ -83,7 +83,6 @@ require (
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
@@ -139,7 +138,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/trustbloc/did-go v0.0.0-20230908203710-8c4f5146a514 // indirect
+	github.com/trustbloc/did-go v0.0.0-20230912072609-b99774e957a9 // indirect
 	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea // indirect
