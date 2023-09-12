@@ -2,7 +2,6 @@ package credentialoffer
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,13 +15,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
-var errSignedCredentialOfferIsNotSupported = errors.New("credential offer is in JWT format, but it is not supported by configuration")
-
 type Params struct {
-	InitiateIssuanceURL               string
-	Client                            *http.Client
-	VDRRegistry                       vdrapi.Registry
-	JWTSignedCredentialOfferSupported bool
+	InitiateIssuanceURL string
+	Client              *http.Client
+	VDRRegistry         vdrapi.Registry
 }
 
 func ParseInitiateIssuanceUrl(params *Params) (*oidc4ci.CredentialOfferResponse, error) {
@@ -39,10 +35,6 @@ func ParseInitiateIssuanceUrl(params *Params) (*oidc4ci.CredentialOfferResponse,
 		// Depends on Issuer configuration, credentialOfferURL might be either JWT signed CredentialOfferResponse,
 		// or encoded oidc4ci.CredentialOfferResponse itself.
 		if jwt.IsJWS(credentialOfferQueryParam) {
-			if !params.JWTSignedCredentialOfferSupported {
-				return nil, errSignedCredentialOfferIsNotSupported
-			}
-
 			credentialOfferPayload, err = getCredentialOfferJWTPayload(credentialOfferQueryParam, params.VDRRegistry)
 			if err != nil {
 				return nil, err
@@ -76,10 +68,6 @@ func ParseInitiateIssuanceUrl(params *Params) (*oidc4ci.CredentialOfferResponse,
 	// Depends on Issuer configuration, rspBody might be either JWT signed CredentialOfferResponse,
 	// or encoded oidc4ci.CredentialOfferResponse itself.
 	if jwt.IsJWS(string(credentialOfferPayload)) {
-		if !params.JWTSignedCredentialOfferSupported {
-			return nil, errSignedCredentialOfferIsNotSupported
-		}
-
 		credentialOfferPayload, err = getCredentialOfferJWTPayload(string(credentialOfferPayload), params.VDRRegistry)
 		if err != nil {
 			return nil, err

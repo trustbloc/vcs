@@ -55,3 +55,13 @@ func WriteOutputWithContentType(ctx echo.Context) func(output interface{}, ct st
 		return ctx.Blob(http.StatusOK, ct, b)
 	}
 }
+
+func WriteRawOutputWithContentType(ctx echo.Context) func(output []byte, ct string, err error) error {
+	return func(output []byte, ct string, err error) error {
+		if err != nil {
+			return err
+		}
+
+		return ctx.Blob(http.StatusOK, ct, output)
+	}
+}

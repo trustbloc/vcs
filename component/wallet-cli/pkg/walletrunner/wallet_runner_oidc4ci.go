@@ -25,9 +25,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/did-go/method/jwk"
 	didkey "github.com/trustbloc/did-go/method/key"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/valyala/fastjson"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
@@ -43,18 +45,17 @@ const (
 )
 
 type OIDC4CIConfig struct {
-	InitiateIssuanceURL      string
-	ClientID                 string
-	Scope                    []string
-	RedirectURI              string
-	CredentialType           string
-	CredentialFormat         string
-	Pin                      string
-	Login                    string
-	Password                 string
-	IssuerState              string
-	DiscoverableClientID     bool
-	JWTSignedCredentialOffer bool
+	InitiateIssuanceURL  string
+	ClientID             string
+	Scope                []string
+	RedirectURI          string
+	CredentialType       string
+	CredentialFormat     string
+	Pin                  string
+	Login                string
+	Password             string
+	IssuerState          string
+	DiscoverableClientID bool
 }
 
 type OauthClientOpt func(config *oauth2.Config)
@@ -81,10 +82,9 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
 		&credentialoffer.Params{
-			InitiateIssuanceURL:               config.InitiateIssuanceURL,
-			Client:                            s.httpClient,
-			VDRRegistry:                       s.ariesServices.vdrRegistry,
-			JWTSignedCredentialOfferSupported: config.JWTSignedCredentialOffer,
+			InitiateIssuanceURL: config.InitiateIssuanceURL,
+			Client:              s.httpClient,
+			VDRRegistry:         s.ariesServices.vdrRegistry,
 		},
 	)
 	if err != nil {
@@ -257,6 +257,11 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 				"Make sure one of the provided scopes is in the VCS issuer URL format")
 	}
 
+	err := s.CreateWallet()
+	if err != nil {
+		return fmt.Errorf("create wallet: %w", err)
+	}
+
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
 		issuerUrl,
 	)
@@ -361,11 +366,6 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 
 	s.token = token
 
-	err = s.CreateWallet()
-	if err != nil {
-		return fmt.Errorf("create wallet: %w", err)
-	}
-
 	s.print("Getting credential")
 	vc, _, err := s.getCredential(
 		oidcIssuerCredentialConfig.CredentialEndpoint,
@@ -454,11 +454,52 @@ func (s *Service) getIssuerCredentialsOIDCConfig(
 
 	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
 
-	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
+	wellKnownOpenIDIssuerConfigurationPayload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read issuer configuration payload body: %w", err)
+	}
+
+	if jwt.IsJWS(string(wellKnownOpenIDIssuerConfigurationPayload)) {
+		wellKnownOpenIDIssuerConfigurationPayload, err =
+			getWellKnownOpenIDIssuerConfigurationJWTPayload(
+				string(wellKnownOpenIDIssuerConfigurationPayload), s.ariesServices.vdrRegistry)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err = json.Unmarshal(wellKnownOpenIDIssuerConfigurationPayload, &oidcConfig); err != nil {
 		return nil, fmt.Errorf("decode issuer well-known: %w", err)
 	}
 
 	return &oidcConfig, nil
+}
+
+func getWellKnownOpenIDIssuerConfigurationJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, error) {
+	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
+		verifiable.NewVDRKeyResolver(vdrRegistry).PublicKeyFetcher()))
+
+	_, credentialOfferPayload, err := jwt.Parse(
+		rawResponse,
+		jwt.WithSignatureVerifier(jwtVerifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("parse issuer configuration JWT: %w", err)
+	}
+
+	var fastParser fastjson.Parser
+	v, err := fastParser.ParseBytes(credentialOfferPayload)
+	if err != nil {
+		return nil, fmt.Errorf("decode claims: %w", err)
+	}
+
+	sb, err := v.Get("well_known_openid_issuer_configuration").Object()
+	if err != nil {
+		return nil, fmt.Errorf("fastjson.Parser Get well_known_openid_issuer_configuration: %w", err)
+	}
+
+	return sb.MarshalTo([]byte{}), nil
 }
 
 func (s *Service) getAuthCode(

@@ -4,9 +4,9 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination wellknown_service_mocks_test.go -package wellknown_test -source=wellknown_service.go -mock_names httpClient=MockHTTPClient
+//go:generate mockgen -destination wellknown_service_mocks_test.go -package fetcher_test -source=wellknown_service.go -mock_names httpClient=MockHTTPClient
 
-package wellknown
+package fetcher
 
 import (
 	"context"

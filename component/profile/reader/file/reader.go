@@ -28,6 +28,7 @@ import (
 	"github.com/trustbloc/vcs/internal/logfields"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	issuerrestapi "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
 const (
@@ -44,12 +45,18 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type openidCredentialIssuerConfigProvider interface {
+	GetOpenIDCredentialIssuerConfig(
+		issuerProfile *profileapi.Issuer) (*issuerrestapi.WellKnownOpenIDIssuerConfiguration, string, error)
+}
+
 // Config contain config.
 type Config struct {
-	KMSRegistry *vcskms.Registry
-	TLSConfig   *tls.Config
-	CMD         *cobra.Command
-	HTTPClient  httpClient
+	KMSRegistry                *vcskms.Registry
+	TLSConfig                  *tls.Config
+	CMD                        *cobra.Command
+	HTTPClient                 httpClient
+	OpenidIssuerConfigProvider openidCredentialIssuerConfigProvider
 }
 
 // IssuerReader read issuer profiles.
