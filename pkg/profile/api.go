@@ -96,20 +96,19 @@ type CredentialMetaData struct {
 
 // OIDCConfig represents issuer's OIDC configuration.
 type OIDCConfig struct {
-	IssuerWellKnownURL                         string        `json:"issuer_well_known"`
-	ClientID                                   string        `json:"client_id"`
-	ClientSecretHandle                         string        `json:"client_secret_handle"`
-	ScopesSupported                            []string      `json:"scopes_supported"`
-	GrantTypesSupported                        []string      `json:"grant_types_supported"`
-	ResponseTypesSupported                     []string      `json:"response_types_supported"`
-	TokenEndpointAuthMethodsSupported          []string      `json:"token_endpoint_auth_methods_supported"`
-	EnableDynamicClientRegistration            bool          `json:"enable_dynamic_client_registration"`
-	EnableDiscoverableClientIDScheme           bool          `json:"enable_discoverable_client_id_scheme"`
-	InitialAccessTokenLifespan                 time.Duration `json:"initial_access_token_lifespan"`
-	PreAuthorizedGrantAnonymousAccessSupported bool          `json:"pre-authorized_grant_anonymous_access_supported"`
-	WalletInitiatedAuthFlowSupported           bool          `json:"wallet_initiated_auth_flow_supported"`
-	SignedCredentialOfferSupported             bool          `json:"signed_credential_offer_supported"`
-	ClaimsEndpoint                             string        `json:"claims_endpoint"`
+	IssuerWellKnownURL                         string   `json:"issuer_well_known"`
+	ClientID                                   string   `json:"client_id"`
+	ClientSecretHandle                         string   `json:"client_secret_handle"`
+	ScopesSupported                            []string `json:"scopes_supported"`
+	GrantTypesSupported                        []string `json:"grant_types_supported"`
+	ResponseTypesSupported                     []string `json:"response_types_supported"`
+	TokenEndpointAuthMethodsSupported          []string `json:"token_endpoint_auth_methods_supported"`
+	EnableDynamicClientRegistration            bool     `json:"enable_dynamic_client_registration"`
+	EnableDiscoverableClientIDScheme           bool     `json:"enable_discoverable_client_id_scheme"`
+	PreAuthorizedGrantAnonymousAccessSupported bool     `json:"pre-authorized_grant_anonymous_access_supported"`
+	WalletInitiatedAuthFlowSupported           bool     `json:"wallet_initiated_auth_flow_supported"`
+	SignedCredentialOfferSupported             bool     `json:"signed_credential_offer_supported"`
+	ClaimsEndpoint                             string   `json:"claims_endpoint"`
 }
 
 // VCConfig describes how to sign verifiable credentials.
