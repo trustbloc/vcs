@@ -109,6 +109,11 @@ func (c *Creator) createDID(
 			Relationship:       did.Authentication,
 			Embedded:           true,
 		}},
+		AssertionMethod: []did.Verification{{
+			VerificationMethod: *authentication,
+			Relationship:       did.AssertionMethod,
+			Embedded:           true,
+		}},
 	}
 
 	keys := [2]interface{}{}
@@ -244,6 +249,11 @@ func (c *Creator) ionDID(
 		Authentication: []did.Verification{{
 			VerificationMethod: *vm,
 			Relationship:       did.Authentication,
+			Embedded:           true,
+		}},
+		AssertionMethod: []did.Verification{{
+			VerificationMethod: *vm,
+			Relationship:       did.AssertionMethod,
 			Embedded:           true,
 		}},
 	}
