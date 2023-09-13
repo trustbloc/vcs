@@ -483,7 +483,7 @@ func (s *Service) extractClaimData(
 	opts := []presexch.MatchOption{
 		presexch.WithCredentialOptions(
 			verifiable.WithDataIntegrityVerifier(diVerifier),
-			verifiable.WithExpectedDataIntegrityFields(crypto.Authentication, "", ""),
+			verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher())),
 		presexch.WithDisableSchemaValidation(),
