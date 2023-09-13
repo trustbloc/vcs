@@ -39,7 +39,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 	c := New(
 		&vdrmock.VDRegistry{
 			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-				return makeMockDIDResolution(signingDID, verificationMethod, did.Authentication), nil
+				return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 			}},
 		testutil.DocumentLoader(t),
 	)
@@ -82,7 +82,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 		require.Equal(t, "DataIntegrityProof", signedVC.Proofs[0]["type"])
 		require.Equal(t, "ecdsa-2019", signedVC.Proofs[0]["cryptosuite"])
 		require.Equal(t, "#key1", signedVC.Proofs[0]["verificationMethod"])
-		require.Equal(t, "authentication", signedVC.Proofs[0]["proofPurpose"])
+		require.Equal(t, "assertionMethod", signedVC.Proofs[0]["proofPurpose"])
 		require.Empty(t, signedVC.Proofs[0]["challenge"])
 		require.Empty(t, signedVC.Proofs[0]["domain"])
 		require.NotEmpty(t, signedVC.Proofs[0]["proofValue"])
