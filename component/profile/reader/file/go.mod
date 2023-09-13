@@ -10,8 +10,8 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v0.0.0-20230912072609-b99774e957a9
-	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
+	github.com/trustbloc/did-go v1.0.0
+	github.com/trustbloc/kms-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vcs v0.0.0
 )
@@ -115,7 +115,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
-	github.com/trustbloc/vc-go v0.0.0-20230908212925-754e5de46099 // indirect
+	github.com/trustbloc/vc-go v1.0.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
