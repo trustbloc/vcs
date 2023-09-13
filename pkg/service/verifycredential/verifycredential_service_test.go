@@ -780,7 +780,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 
 	didResolver := &vdrmock.VDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-			return makeMockDIDResolution(signingDID, verificationMethod, did.Authentication), nil
+			return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 		}}
 
 	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
@@ -795,7 +795,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 
 	signContext := &verifiable.DataIntegrityProofContext{
 		SigningKeyID: signingDID + vmID,
-		ProofPurpose: crypto.Authentication,
+		ProofPurpose: crypto.AssertionMethod,
 		CryptoSuite:  ecdsa2019.SuiteType,
 		Created:      nil,
 		Domain:       "mock-domain",

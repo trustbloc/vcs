@@ -127,7 +127,7 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Cred
 		// Use empty domain and challenge in order to skip the validation.
 		// See usage of vcInVPValidation variable in ValidateCredentialProof method.
 		// TODO: define verifier purpose field.
-		verifiable.WithExpectedDataIntegrityFields(crypto.Authentication, "", ""),
+		verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
 	}
 
 	if !isJWT {
