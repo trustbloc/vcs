@@ -32,7 +32,7 @@ func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
 	}
 
 	if signOpts.Purpose == "" {
-		signOpts.Purpose = Authentication
+		signOpts.Purpose = AssertionMethod
 	}
 
 	signatureType := signerData.SignatureType

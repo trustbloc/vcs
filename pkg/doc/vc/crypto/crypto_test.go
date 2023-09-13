@@ -671,7 +671,7 @@ func TestSignCredential(t *testing.T) {
 		c := New(
 			&vdrmock.VDRegistry{
 				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-					return makeMockDIDResolution(signingDID, verificationMethod, did.Authentication), nil
+					return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 				}},
 			testutil.DocumentLoader(t),
 		)
@@ -939,7 +939,7 @@ func createDIDDoc(didID string, opts ...opt) *did.Doc {
 		VerificationMethod:   []did.VerificationMethod{signingKey},
 		Service:              []did.Service{service},
 		Created:              &createdTime,
-		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey}},
+		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey, Relationship: did.AssertionMethod}},
 		Authentication:       []did.Verification{{VerificationMethod: signingKey, Relationship: did.Authentication}},
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
