@@ -36,10 +36,10 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
-	github.com/trustbloc/did-go v0.0.0-20230912072609-b99774e957a9
-	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
+	github.com/trustbloc/did-go v1.0.0
+	github.com/trustbloc/kms-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v0.0.0-20230908212925-754e5de46099
+	github.com/trustbloc/vc-go v1.0.0
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6
 	github.com/valyala/fastjson v1.6.3
 	github.com/xeipuuv/gojsonschema v1.2.0
