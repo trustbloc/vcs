@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/verifiable"
+
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
@@ -139,8 +140,15 @@ func (s *Service) CreateWallet() error {
 
 	fmt.Printf("\tStorage: %s\n", storageType)
 	fmt.Printf("\tWallet UserID: [%s]\n", s.vcProviderConf.WalletParams.UserID)
-	fmt.Printf("\tWallet DID: [%s]\n", s.vcProviderConf.WalletParams.DidID)
-	fmt.Printf("\tWallet DID KeyID: [%s]\n\n", s.vcProviderConf.WalletParams.DidKeyID)
+	fmt.Printf("\tWallet DID: %s\n", s.vcProviderConf.WalletParams.DidID)
+	fmt.Printf("\tWallet DID KeyID: %s\n\n", s.vcProviderConf.WalletParams.DidKeyID)
+
+	if shouldCreateWallet {
+		fmt.Printf("[HINT] Set the following environment vars to simplify further interaction with wallet:\n\n")
+		fmt.Printf("export WALLET_CLI_USER_ID=%s\n", s.vcProviderConf.WalletParams.UserID)
+		fmt.Printf("export WALLET_CLI_DID=%s\n", s.vcProviderConf.WalletParams.DidID[0])
+		fmt.Printf("export WALLET_CLI_DID_KEY_ID=%s\n\n", s.vcProviderConf.WalletParams.DidKeyID[0])
+	}
 
 	return nil
 }

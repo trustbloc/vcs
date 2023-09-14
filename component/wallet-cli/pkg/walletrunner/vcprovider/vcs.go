@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/trustbloc/did-go/legacy/mem"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -121,7 +122,7 @@ func (p *vcsCredentialsProvider) authorizeOrganization(clientID, secret string) 
 }
 
 func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken string) ([]byte, error) {
-	loader, err := ldutil.DocumentLoader()
+	loader, err := ldutil.DocumentLoader(mem.NewProvider())
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}

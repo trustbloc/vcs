@@ -91,7 +91,7 @@ func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("did:key: failed to create did: %w", err)
+		return nil, fmt.Errorf("did:jwk: failed to create did: %w", err)
 	}
 
 	return &CreateResult{
@@ -128,7 +128,7 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	for i := 0; i < 2; i++ {
 		keyURLs[i], keys[i], err = key.CryptoKeyCreator(keyType)(keyManager)
 		if err != nil {
-			return nil, fmt.Errorf("did:orb: failed to create %s key: %w", types[i], err)
+			return nil, fmt.Errorf("did:ion: failed to create %s key: %w", types[i], err)
 		}
 	}
 

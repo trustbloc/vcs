@@ -41,18 +41,18 @@ const (
 	jwtProofTypHeader = "openid4vci-proof+jwt"
 )
 
-type OIDC4CIConfig struct {
-	InitiateIssuanceURL  string
-	ClientID             string
-	Scope                []string
-	RedirectURI          string
-	CredentialType       string
-	CredentialFormat     string
-	Pin                  string
-	Login                string
-	Password             string
-	IssuerState          string
-	DiscoverableClientID bool
+type OIDC4VCIConfig struct {
+	CredentialOfferURI         string
+	ClientID                   string
+	Scopes                     []string
+	RedirectURI                string
+	CredentialType             string
+	CredentialFormat           string
+	Pin                        string
+	Login                      string
+	Password                   string
+	IssuerState                string
+	EnableDiscoverableClientID bool
 }
 
 type OauthClientOpt func(config *oauth2.Config)
@@ -67,60 +67,60 @@ func WithClientID(clientID string) OauthClientOpt {
 	}
 }
 
-func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
+func (s *Service) RunOIDC4VCI(config *OIDC4VCIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
+	log.Printf("Credential Offer URI:\n\n\t%s\n\n", config.CredentialOfferURI)
+
 	ctx := context.Background()
-	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 
 	err := s.CreateWallet()
 	if err != nil {
 		return fmt.Errorf("create wallet: %w", err)
 	}
 
-	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
-		&credentialoffer.Params{
-			InitiateIssuanceURL: config.InitiateIssuanceURL,
-			Client:              s.httpClient,
-			VDRRegistry:         s.ariesServices.vdrRegistry,
-		},
-	)
+	parser := &credentialoffer.Parser{
+		HTTPClient:  s.httpClient,
+		VDRRegistry: s.ariesServices.vdrRegistry,
+	}
+
+	credentialOfferResponse, err := parser.Parse(config.CredentialOfferURI)
 	if err != nil {
-		return fmt.Errorf("parse initiate issuance url: %w", err)
+		return fmt.Errorf("parse credential offer uri: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")
 
 	oidcIssuerCredentialConfig, err := s.GetWellKnownOpenIDConfiguration(
-		offerResponse.CredentialIssuer,
+		credentialOfferResponse.CredentialIssuer,
 	)
 	if err != nil {
-		return fmt.Errorf("get issuer OIDC issuer config: %w", err)
+		return fmt.Errorf("get OIDC credential issuer metadata: %w", err)
 	}
 
-	redirectURL, err := url.Parse(config.RedirectURI)
+	redirectURI, err := url.Parse(config.RedirectURI)
 	if err != nil {
-		return fmt.Errorf("parse redirect url: %w", err)
+		return fmt.Errorf("parse redirect uri: %w", err)
 	}
 
 	var listener net.Listener
 
-	if config.Login == "" { // bind listener for callback server to support log in with a browser
+	if config.Login == "" { // bind listener for callback server to support login with a browser
 		listener, err = net.Listen("tcp4", "127.0.0.1:0")
 		if err != nil {
 			return fmt.Errorf("listen: %w", err)
 		}
 
-		redirectURL.Host = fmt.Sprintf(
+		redirectURI.Host = fmt.Sprintf(
 			"%s:%d",
-			redirectURL.Hostname(),
+			redirectURI.Hostname(),
 			listener.Addr().(*net.TCPAddr).Port,
 		)
 	}
 
 	s.oauthClient = &oauth2.Config{
 		ClientID:    config.ClientID,
-		RedirectURL: redirectURL.String(),
-		Scopes:      config.Scope,
+		RedirectURL: redirectURI.String(),
+		Scopes:      config.Scopes,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   oidcIssuerCredentialConfig.AuthorizationEndpoint,
 			TokenURL:  oidcIssuerCredentialConfig.TokenEndpoint,
@@ -128,7 +128,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		},
 	}
 
-	opState := offerResponse.Grants.AuthorizationCode.IssuerState
+	opState := credentialOfferResponse.Grants.AuthorizationCode.IssuerState
 	state := uuid.New().String()
 
 	b, err := json.Marshal(&common.AuthorizationDetails{
@@ -150,7 +150,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		oauth2.SetAuthURLParam("authorization_details", string(b)),
 	}
 
-	if config.DiscoverableClientID {
+	if config.EnableDiscoverableClientID {
 		authCodeOptions = append(authCodeOptions,
 			oauth2.SetAuthURLParam("client_id_scheme", discoverableClientIDScheme))
 	}
@@ -188,6 +188,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	s.print("Exchanging authorization code for access token")
+
 	token, err := s.oauthClient.Exchange(ctx, authCode,
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
 	)
@@ -198,11 +199,12 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	s.token = token
 
 	s.print("Getting credential")
+
 	vc, _, err := s.getCredential(
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
-		offerResponse.CredentialIssuer,
+		credentialOfferResponse.CredentialIssuer,
 	)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
@@ -239,7 +241,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	return nil
 }
 
-func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks) error {
+func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4VCIConfig, hooks *Hooks) error {
 	log.Println("Starting OIDC4VCI authorized code flow Wallet initiated")
 	ctx := context.Background()
 
@@ -285,7 +287,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	s.oauthClient = &oauth2.Config{
 		ClientID:    config.ClientID,
 		RedirectURL: redirectURL.String(),
-		Scopes:      config.Scope,
+		Scopes:      config.Scopes,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   oidcIssuerCredentialConfig.AuthorizationEndpoint,
 			TokenURL:  oidcIssuerCredentialConfig.TokenEndpoint,
@@ -397,7 +399,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 }
 
 func (s *Service) getAuthCode(
-	config *OIDC4CIConfig,
+	config *OIDC4VCIConfig,
 	authCodeURL string,
 ) (string, error) {
 	// var loginURL, consentURL *url.URL
@@ -470,7 +472,7 @@ func (s *Service) getAuthCodeFromBrowser(
 		case authCode := <-server.codeChan:
 			log.Printf("Received authorization code: %s", authCode)
 			return authCode, nil
-		case <-time.After(3 * time.Minute):
+		case <-time.After(5 * time.Minute):
 			return "", fmt.Errorf("timed out")
 		}
 	}
