@@ -20,9 +20,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -188,9 +186,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -216,9 +212,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -240,9 +234,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -268,9 +260,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -446,9 +436,7 @@
           ]
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -474,9 +462,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -498,9 +484,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -522,9 +506,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -546,9 +528,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -570,9 +550,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -594,9 +572,7 @@
           }
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -977,9 +953,7 @@
           ]
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -1160,9 +1134,7 @@
           ]
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -1279,9 +1251,7 @@
           ]
         }
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "issuer": {
@@ -1634,9 +1604,7 @@
           }
         ]
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     },
     {
       "verifier": {
