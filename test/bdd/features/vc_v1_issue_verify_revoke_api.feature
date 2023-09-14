@@ -9,7 +9,7 @@
 Feature: Using VC REST API
 
   Background:
-    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
+    Given Organization "test_org" has been authorized with client id "tenant-1" and secret "tenant-1-pwd"
 
   @e2e_ldp_jwt_sdjwt_success
   Scenario Outline: Store, retrieve, verify and revoke credential using different kind of profiles (LDP, JWT, SD-JWT).

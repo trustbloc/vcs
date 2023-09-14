@@ -9,7 +9,7 @@
 Feature: Using OIDC4VP REST API
 
   Background:
-    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
+    Given Organization "test_org" has been authorized with client id "tenant-1" and secret "tenant-1-pwd"
     And   User creates wallet with 3 DID
     And   New verifiable credentials is created from table:
       | IssuerProfile                   | Organization | Credential                   | DIDIndex |

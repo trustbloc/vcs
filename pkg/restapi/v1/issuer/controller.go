@@ -550,6 +550,8 @@ func (c *Controller) accessOIDCProfile(profileID, profileVersion, tenantID strin
 	}
 
 	// Profiles of other organization is not visible.
+	fmt.Printf("\n### profile.OrganizationID: %v", profile.OrganizationID)
+	fmt.Printf("\n### tenantID: %v", tenantID)
 	if profile.OrganizationID != tenantID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
 			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))

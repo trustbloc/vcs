@@ -41,3 +41,5 @@ To run BDD tests (`make bdd-test`) you need to modify your hosts file (`/etc/hos
     127.0.0.1 oidc-provider.example.com
     127.0.0.1 api-gateway.trustbloc.local
     127.0.0.1 cognito-mock.trustbloc.local
+    127.0.0.1 mock-login-consent.example.com
+    127.0.0.1 cognito-auth.local

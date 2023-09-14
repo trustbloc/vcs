@@ -1,5 +1,33 @@
 {
-  "Users": {},
+  "Users": {
+    "profile-user-1": {
+      "Username": "profile-user-1",
+      "Password": "profile-user-1-pwd",
+      "Attributes": [
+        {
+          "Name": "sub",
+          "Value": "ba23738c-d3e0-4fe4-a6b7-383089fb38a5"
+        },
+        {
+          "Name": "custom:tenant_id",
+          "Value": "00000000-0000-0000-0000-000000000001"
+        },
+        {
+          "Name": "custom:roles",
+          "Value": "issuer revoker verifier"
+        },
+        {
+          "Name": "email",
+          "Value": "profile-user-1@example.com"
+        }
+      ],
+      "Enabled": true,
+      "UserStatus": "CONFIRMED",
+      "UserCreateDate": "2023-09-06T09:10:29.107Z",
+      "UserLastModifiedDate": "2023-09-06T09:10:29.107Z",
+      "RefreshTokens": []
+    }
+  },
   "Options": {
     "Policies": {
       "PasswordPolicy": {
@@ -222,6 +250,28 @@
         "Required": false,
         "NumberAttributeConstraints": {
           "MinValue": "0"
+        }
+      },
+      {
+        "Name": "custom:tenant_id",
+        "AttributeDataType": "String",
+        "DeveloperOnlyAttribute": false,
+        "Mutable": false,
+        "Required": true,
+        "NumberAttributeConstraints": {
+          "MinValue": "1",
+          "MaxLength": "100"
+        }
+      },
+      {
+        "Name": "custom:roles",
+        "AttributeDataType": "String",
+        "DeveloperOnlyAttribute": false,
+        "Mutable": false,
+        "Required": true,
+        "NumberAttributeConstraints": {
+          "MinValue": "1",
+          "MaxLength": "100"
         }
       }
     ],

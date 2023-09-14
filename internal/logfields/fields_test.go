@@ -32,7 +32,7 @@ func TestStandardFields(t *testing.T) {
 		jsonResolution := "jsonResolution"
 		command := "echo 'hello world'"
 		concurrencyRequests := 3
-		dockerComposeCmd := "docker-compose up"
+		dockerComposeCmd := "docker compose up"
 		event := &mockObject{
 			Field1: "event1",
 			Field2: 123,

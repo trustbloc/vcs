@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"reflect"
 	"strings"
 	"time"
@@ -123,7 +124,37 @@ func HTTPSDo(method, url, contentType, token string, body io.Reader, tlsConfig *
 
 	c := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
 
+	c.Transport = &DumpTransport{r: c.Transport}
+
 	return c.Do(req)
+}
+
+// DumpTransport is http.RoundTripper that dumps request/response.
+type DumpTransport struct {
+	r http.RoundTripper
+}
+
+// RoundTrip implements the RoundTripper interface.
+func (d *DumpTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	reqDump, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dump request: %w", err)
+	}
+
+	fmt.Printf("REQUEST:\n%s\n", string(reqDump))
+
+	resp, err := d.r.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	respDump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dump response: %w", err)
+	}
+
+	fmt.Printf("RESPONSE:\n%s\n", string(respDump))
+	return resp, err
 }
 
 // GetSigner returns private key based signer for bdd tests
@@ -379,9 +410,13 @@ func IssueAccessToken(ctx context.Context, oidcProviderURL, clientID, secret str
 	})
 
 	token, err := conf.Token(ctx)
+	fmt.Printf("\n### clientID: %v", clientID)
+	fmt.Printf("\n### secret: %v", secret)
+	fmt.Printf("\n### token: %v", token)
+	fmt.Printf("\n### err: %v", err)
 	if err != nil {
 		return "", fmt.Errorf("failed to get token: %w", err)
 	}
 
-	return token.AccessToken, nil
+	return token.Extra("id_token").(string), nil
 }

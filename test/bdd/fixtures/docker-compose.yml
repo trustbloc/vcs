@@ -176,15 +176,37 @@ services:
       - FC_ENABLE=1
       - FC_SETTINGS=/etc/krakend/settings
       - FC_PARTIALS=/etc/krakend/partials
+      - FC_TEMPLATES=/etc/krakend/templates
     volumes:
       - ./krakend-config:/etc/krakend/
       - ./keys/tls:/etc/tls
     networks:
       - bdd_net
 
+
+  cognito-auth:
+    container_name: cognito-auth.local
+    image: registry.gitlab.com/securekey/dts/dip/cognito-auth:v1.1.0
+    ports:
+      - "8094:8094"
+    environment:
+      - HOST_URL=0.0.0.0:8094
+      - TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - TLS_SYSTEMCERTPOOL=true
+      - AWS_REGION=local
+      - COGNITO_CLIENT_ID=f13d1va9lp403pb9lyj89vk55
+      - COGNITO_CLIENT_SECRET=ejqxi9jb1vew2jbdnogpjcgrz
+      - COGNITO_ENDPOINT=http://cognito-mock.trustbloc.local:9229
+    restart: unless-stopped
+    command: start
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
   cognito-mock.trustbloc.local:
     container_name: cognito-mock.trustbloc.local
-    image: aholovko/cognito-local:${COGNITO_MOCK_IMAGE_TAG}
+    image: jagregory/cognito-local:latest
     ports:
       - "9229:9229"
     volumes:

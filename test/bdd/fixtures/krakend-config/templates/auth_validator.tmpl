@@ -13,4 +13,11 @@
       "x-tenant-id"
     ]
   ]
+  {{ if .roles_to_validate }}
+  ,
+  "roles_key": "custom:roles",
+  "roles": [
+  {{range $index, $role := .roles_to_validate }} {{if $index}},{{end}} "{{$role}}" {{ end }}
+  ]
+  {{ end }}
 }

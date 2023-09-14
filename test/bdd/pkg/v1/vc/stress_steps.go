@@ -34,12 +34,12 @@ func (e *Steps) authorizeOrganizationForStressTest(accessTokenURLEnv, orgIDEnv, 
 		return err
 	}
 
-	clientID, err := getEnv(clientIDEnv, "f13d1va9lp403pb9lyj89vk55")
+	clientID, err := getEnv(clientIDEnv, "profile-user-1")
 	if err != nil {
 		return err
 	}
 
-	secret, err := getEnv(secretEnv, "ejqxi9jb1vew2jbdnogpjcgrz")
+	secret, err := getEnv(secretEnv, "profile-user-1-pwd")
 	if err != nil {
 		return err
 	}

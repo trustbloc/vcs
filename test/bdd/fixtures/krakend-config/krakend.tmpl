@@ -24,7 +24,7 @@
         {{ end }}
         {{ if $endpoint.protected }}
         "extra_config": {
-        {{ include "auth_validator.tmpl" }}
+        {{ template "auth_validator.tmpl" $endpoint}}
         },
         {{ end }}
         "backend": [
