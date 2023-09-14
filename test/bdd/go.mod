@@ -19,7 +19,7 @@ require (
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/did-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.0.0
+	github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000

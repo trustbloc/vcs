@@ -22,7 +22,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/trustbloc/did-go v1.0.0
 	github.com/trustbloc/kms-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.0
+	github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/valyala/fastjson v1.6.3
 	go.mongodb.org/mongo-driver v1.11.4

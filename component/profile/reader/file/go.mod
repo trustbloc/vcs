@@ -122,7 +122,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
-	github.com/trustbloc/vc-go v1.0.0 // indirect
+	github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
