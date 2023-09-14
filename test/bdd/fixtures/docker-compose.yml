@@ -17,7 +17,6 @@ services:
       - VC_REST_API_GATEWAY_URL=https://api-gateway.trustbloc.local:5566
       - VC_REST_HOST_URL_EXTERNAL=http://vc-rest-echo.trustbloc.local:8075
       - VC_REST_PROFILES_FILE_PATH=/profile/profiles.json
-      - VC_REST_ORB_DOMAIN=testnet.orb.local
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=vc_rest_echo_
@@ -52,7 +51,6 @@ services:
       - "48127:48127"
     depends_on:
       - did-resolver.trustbloc.local
-      - sidetree
     entrypoint: ""
     command: /bin/sh -c "sleep 5;vc-rest start"
     volumes:
@@ -122,36 +120,6 @@ services:
       - ALLOW_EMPTY_PASSWORD=yes
     ports:
       - "6379:6379/tcp"
-    networks:
-      - bdd_net
-
-  sidetree:
-    container_name: testnet.orb.local
-    image: ghcr.io/trustbloc-cicd/orb:v1.0.0-rc4-snapshot-780ce20
-    restart: always
-    environment:
-      - ORB_HOST_URL=0.0.0.0:443
-      - ORB_EXTERNAL_ENDPOINT=https://testnet.orb.local
-      - DID_NAMESPACE=did:orb
-      - ALLOWED_ORIGINS=https://testnet.orb.local
-      - CAS_TYPE=local
-      - ANCHOR_CREDENTIAL_SIGNATURE_SUITE=Ed25519Signature2018
-      - DATABASE_TYPE=mem
-      - ORB_KMS_TYPE=local
-      - KMSSECRETS_DATABASE_TYPE=mem
-      - INCLUDE_PUBLISHED_OPERATIONS_IN_METADATA=true
-      - INCLUDE_UNPUBLISHED_OPERATIONS_IN_METADATA=true
-      - UNPUBLISHED_OPERATION_STORE_ENABLED=true
-      - BATCH_WRITER_TIMEOUT=1
-      - ORB_TLS_CERTIFICATE=/etc/keys/tls/ec-pubCert.pem
-      - ORB_TLS_KEY=/etc/keys/tls/ec-key.pem
-      - ORB_TLS_CACERTS=/etc/keys/tls/ec-cacert.pem
-      - ORB_TLS_SYSTEMCERTPOOL=true
-    ports:
-      - 443:443
-    command: start
-    volumes:
-      - ./keys/tls:/etc/keys/tls
     networks:
       - bdd_net
 
