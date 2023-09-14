@@ -11,7 +11,7 @@ VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 OPENAPIGEN_VERSION 					?=v1.11.0
-ARIES_FRAMEWORK_VERSION				=	main
+VC_FRAMEWORK_VERSION				=	main
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
@@ -178,9 +178,15 @@ clean:
 	@rm -rf coverage*.out
 	@rm -Rf ./test/bdd/docker-compose.log
 
-.PHONY: update-aries
-update-aries:
-	@echo "INFO: 'make update-aries' is now a deprecated no-op, as VCS no longer imports aries"
+.PHONY: update-vc
+update-vc:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/vc-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && go get github.com/trustbloc/vc-go@$(VC_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
 
 .PHONY: tidy-modules
 tidy-modules:

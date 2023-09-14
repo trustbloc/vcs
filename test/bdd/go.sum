@@ -696,8 +696,8 @@ github.com/trustbloc/logutil-go v1.0.0-rc1 h1:rRJbvgQfrlUfyej+mY0nuQJymGqjRW4oZE
 github.com/trustbloc/logutil-go v1.0.0-rc1/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
 github.com/trustbloc/sidetree-core-go v1.0.0 h1:kzfKZOJ0sgDy9D1AYNcoR3JHutqtMtKvF2P9UwUcDjU=
 github.com/trustbloc/sidetree-core-go v1.0.0/go.mod h1:jdxAFuorlIwFOGVW6O455/lZqxg2mZkRHNTEolcZdDI=
-github.com/trustbloc/vc-go v1.0.0 h1:O7O22V1gw7ZiwmlCn5I8hBK7TfD5eWOeNU2rOajlcL0=
-github.com/trustbloc/vc-go v1.0.0/go.mod h1:047WbpZu3QQ/mRqMO4JBDMUtY9M/LaEHwBJNo7XxdTY=
+github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269 h1:FG8enh3pfxjxedtKdI7gOMrUQeKMhUlpuXR3O8kGwvg=
+github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269/go.mod h1:047WbpZu3QQ/mRqMO4JBDMUtY9M/LaEHwBJNo7XxdTY=
 github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 h1:iqqHGeoI6fXZbjtjvV9OCql7XQtr8P4LQBE9d2j9Ll8=
 github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6/go.mod h1:D/dD0ld+XRAt/MjhKnrpaVbaKTe5Zq9uAXONf5c4OxU=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=

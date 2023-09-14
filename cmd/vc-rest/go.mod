@@ -23,7 +23,7 @@ require (
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.0
+	github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269
 	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000a
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
@@ -38,6 +38,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.39.0
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/trace v1.14.0
+	golang.org/x/net v0.14.0
 )
 
 require (
@@ -199,7 +200,6 @@ require (
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
