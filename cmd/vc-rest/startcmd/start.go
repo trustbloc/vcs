@@ -28,6 +28,8 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
@@ -1180,7 +1182,6 @@ func newHTTPClient(tlsConfig *tls.Config, params *startupParameters,
 			Timeout:   params.httpParameters.dialTimeout,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		ForceAttemptHTTP2:     params.httpParameters.forceAttemptHTTP2,
 		MaxIdleConns:          2000,
 		MaxConnsPerHost:       100,
 		IdleConnTimeout:       90 * time.Second,
@@ -1245,7 +1246,7 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 	if o.server == nil {
 		o.server = &http.Server{
 			Addr:    conf.StartupParameters.hostURL,
-			Handler: o.handler,
+			Handler: h2c.NewHandler(o.handler, &http2.Server{}),
 		}
 	}
 
