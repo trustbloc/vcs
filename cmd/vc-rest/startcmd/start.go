@@ -863,8 +863,7 @@ func buildEchoHandler(
 		documentLoader,
 	)
 
-	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
-		requestObjStoreEndpoint, conf.StartupParameters.verifierEventTopic)
+	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, requestObjStoreEndpoint)
 
 	var oidc4vpService oidc4vp.ServiceInterface
 

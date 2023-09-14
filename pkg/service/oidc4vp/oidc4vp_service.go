@@ -60,7 +60,7 @@ type transactionManager interface {
 }
 
 type requestObjectPublicStore interface {
-	Publish(ctx context.Context, requestObject string, accessRequestObjectEvent *spi.Event) (string, error)
+	Publish(ctx context.Context, requestObject string) (string, error)
 }
 
 type kmsRegistry interface {
@@ -254,12 +254,7 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction request object created")
 
-	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	requestURI, err := s.requestObjectPublicStore.Publish(ctx, token, accessRequestObjectEvent)
+	requestURI, err := s.requestObjectPublicStore.Publish(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("fail publish request object: %w", err)
 	}
@@ -376,6 +371,10 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		return fmt.Errorf("inconsistent transaction state %w", err)
+	}
+
+	if errSendEvent := s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionQRScanned); errSendEvent != nil {
+		return errSendEvent
 	}
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
