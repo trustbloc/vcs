@@ -25,14 +25,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -58,17 +56,6 @@ var (
 	//go:embed testdata/universitydegree.schema.json
 	universityDegreeSchema []byte
 )
-
-// nolint:gochecknoglobals
-var ariesSupportedKeyTypes = []kms.KeyType{
-	kms.ED25519Type,
-	kms.X25519ECDHKWType,
-	kms.ECDSASecp256k1TypeIEEEP1363,
-	kms.ECDSAP256TypeDER,
-	kms.ECDSAP384TypeDER,
-	kms.RSAPS256Type,
-	kms.BLS12381G2Type,
-}
 
 func TestController_PostIssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -513,20 +500,20 @@ func TestController_IssueCredentials(t *testing.T) {
 				getCtx: func() echo.Context {
 					return echoContext(withRequestBody(
 						[]byte(`{"credential":{
-    "@context": [
-      "https://www.w3.org/2018/credentials/v1"
-    ],
-    "credentialSubject": {
-      "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-    },
-    "issuer": {
-      "id": "did:example:76e12ec712ebc6f1c221ebfeb1f"
-    },
-    "type": [
-      "VerifiableCredential",
-      "UniversityDegreeCredential"
-    ]
-  },"options":{"credentialStatus":{"type":"statusPurpose"}}}`)))
+   "@context": [
+     "https://www.w3.org/2018/credentials/v1"
+   ],
+   "credentialSubject": {
+     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+   },
+   "issuer": {
+     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+   },
+   "type": [
+     "VerifiableCredential",
+     "UniversityDegreeCredential"
+   ]
+ },"options":{"credentialStatus":{"type":"statusPurpose"}}}`)))
 				},
 				getProfileSvc: func() profileService {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
@@ -594,12 +581,6 @@ func TestController_IssueCredentials(t *testing.T) {
 }
 
 func TestController_AuthFailed(t *testing.T) {
-	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
-	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
-
-	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
-
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Issuer{OrganizationID: orgID, SigningDID: &profileapi.SigningDID{}}, nil)
@@ -608,9 +589,9 @@ func TestController_AuthFailed(t *testing.T) {
 		c := echoContext(withTenantID(""), withRequestBody([]byte(sampleVCJWT)))
 
 		controller := NewController(&Config{
-			ProfileSvc:  mockProfileSvc,
-			KMSRegistry: kmsRegistry,
-			Tracer:      trace.NewNoopTracerProvider().Tracer(""),
+			ProfileSvc: mockProfileSvc,
+			//KMSRegistry: kmsRegistry,
+			Tracer: trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
@@ -621,9 +602,9 @@ func TestController_AuthFailed(t *testing.T) {
 		c := echoContext(withTenantID("orgID2"), withRequestBody([]byte(sampleVCJWT)))
 
 		controller := NewController(&Config{
-			ProfileSvc:  mockProfileSvc,
-			KMSRegistry: kmsRegistry,
-			Tracer:      trace.NewNoopTracerProvider().Tracer(""),
+			ProfileSvc: mockProfileSvc,
+			//KMSRegistry: kmsRegistry,
+			Tracer: trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
@@ -715,18 +696,12 @@ func Test_validateIssueCredOptions(t *testing.T) {
 }
 
 func TestController_PostCredentialsStatus(t *testing.T) {
-	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
-	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
-
-	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
-
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 	mockVCStatusManager.EXPECT().UpdateVCStatus(context.Background(), gomock.Any()).Return(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		controller := NewController(&Config{
-			KMSRegistry:     kmsRegistry,
+			//KMSRegistry:     kmsRegistry,
 			DocumentLoader:  testutil.DocumentLoader(t),
 			VcStatusManager: mockVCStatusManager,
 		})
@@ -1535,54 +1510,10 @@ func TestOpenIDConfigurationController(t *testing.T) {
 	assert.NoError(t, c.OpenidConfig(echoContext(), profileID, profileVersion))
 }
 
-func TestOpenIDIssuerConfigurationController(t *testing.T) {
-	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
-		Name: "random_name",
-		VCConfig: &profileapi.VCConfig{
-			DIDMethod: "orb",
-			KeyType:   "ECDSASecp256k1DER",
-		},
-		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: []map[string]interface{}{
-				{
-					"id": "VerifiedEmployee_JWT",
-				},
-			},
-			Display: []*profileapi.CredentialDisplay{
-				{
-					Name:            "Test Issuer",
-					Locale:          "en-US",
-					URL:             "https://example.com",
-					BackgroundColor: "#FFFFFF",
-					TextColor:       "#000000",
-					Logo: &profileapi.Logo{
-						URL:             "https://example.com/credentials-logo.png",
-						AlternativeText: "Issuer Logo",
-					},
-				},
-			},
-		},
-	}, nil)
-
-	c := &Controller{
-		externalHostURL: "https://localhost",
-		profileSvc:      profileSvc,
-	}
-
-	assert.NoError(t, c.OpenidCredentialIssuerConfig(echoContext(), profileID, profileVersion))
-}
-
-func TestOpenIdIssuerConfiguration(t *testing.T) {
+func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 	host := "https://localhost"
-	expected := &WellKnownOpenIDIssuerConfiguration{
-		AuthorizationServer: "https://localhost/oidc/authorize",
-		CredentialEndpoint:  "https://localhost/oidc/credential",
-		CredentialIssuer:    "https://localhost/issuer/testID/v1.0",
-	}
 
-	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
+	profile := &profileapi.Issuer{
 		Name: "random_name",
 		URL:  "https://localhost.com.local/abcd",
 		VCConfig: &profileapi.VCConfig{
@@ -1596,43 +1527,63 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 				},
 			},
 		},
-	}, nil).Times(2)
+	}
 
-	t.Run("with /", func(t *testing.T) {
+	t.Run("Success JWT", func(t *testing.T) {
+		openidIssuerConfigProvider := NewMockOpenIDCredentialIssuerConfigProvider(gomock.NewController(t))
+		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(nil, "aa.bb.cc", nil).Times(1)
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(profile, nil).Times(1)
+
 		c := &Controller{
-			externalHostURL: host,
-			profileSvc:      profileSvc,
+			externalHostURL:            host,
+			profileSvc:                 profileSvc,
+			openidIssuerConfigProvider: openidIssuerConfigProvider,
 		}
 
-		result, err := c.getOpenIDIssuerConfig(profileID, profileVersion)
+		recorder := httptest.NewRecorder()
+
+		echoCtx := echoContext(withRecorder(recorder))
+
+		err := c.OpenidCredentialIssuerConfig(echoCtx, profileID, profileVersion)
 		assert.NoError(t, err)
-		assert.Equal(t, expected.AuthorizationServer, result.AuthorizationServer)
-		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
 
-		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
-		assert.Equal(t, "random_name", *(*result.Display)[0].Name)
-		assert.Equal(t, "en-US", *(*result.Display)[0].Locale)
-		assert.Equal(t, "https://localhost.com.local/abcd", *(*result.Display)[0].Url)
-		assert.Len(t, result.CredentialsSupported, 1)
+		bodyBytes, err := io.ReadAll(recorder.Body)
+		assert.NoError(t, err)
 
-		meta := (result.CredentialsSupported)[0].(map[string]interface{}) //nolint
-		assert.Equal(t, "VerifiedEmployee_JWT", meta["id"])
-		assert.Equal(t, []string{"orb"}, meta["cryptographic_binding_methods_supported"])
-		assert.Equal(t, []string{"ECDSASecp256k1DER"}, meta["cryptographic_suites_supported"])
-		assert.Equal(t, expected.CredentialIssuer, result.CredentialIssuer)
+		assert.Equal(t, "aa.bb.cc", string(bodyBytes))
+		assert.Equal(t, "application/jwt", recorder.Header().Get("Content-Type"))
 	})
 
-	t.Run("without /", func(t *testing.T) {
+	t.Run("Success JSON", func(t *testing.T) {
+		openidIssuerConfigProvider := NewMockOpenIDCredentialIssuerConfigProvider(gomock.NewController(t))
+		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(
+			&WellKnownOpenIDIssuerConfiguration{
+				CredentialIssuer: "https://example.com",
+			}, "", nil).Times(1)
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(profile, nil).Times(1)
+
 		c := &Controller{
-			externalHostURL: host + "/",
-			profileSvc:      profileSvc,
+			externalHostURL:            host,
+			profileSvc:                 profileSvc,
+			openidIssuerConfigProvider: openidIssuerConfigProvider,
 		}
 
-		result, err := c.getOpenIDIssuerConfig(profileID, profileVersion)
+		recorder := httptest.NewRecorder()
+
+		echoCtx := echoContext(withRecorder(recorder))
+
+		err := c.OpenidCredentialIssuerConfig(echoCtx, profileID, profileVersion)
 		assert.NoError(t, err)
-		assert.Equal(t, expected.AuthorizationServer, result.AuthorizationServer)
-		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
-		assert.Equal(t, expected.CredentialIssuer, result.CredentialIssuer)
+
+		bodyBytes, err := io.ReadAll(recorder.Body)
+		assert.NoError(t, err)
+
+		assert.Contains(t, string(bodyBytes), "\"credential_issuer\":\"https://example.com\"")
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
 	})
 
 	t.Run("profile error", func(t *testing.T) {
@@ -1644,9 +1595,12 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 			profileSvc:      svc,
 		}
 
-		result, err := c.getOpenIDIssuerConfig(profileID, profileVersion)
-		assert.Nil(t, result)
-		assert.ErrorContains(t, err, "unexpected error")
+		recorder := httptest.NewRecorder()
+
+		echoCtx := echoContext(withRecorder(recorder))
+
+		err := c.OpenidCredentialIssuerConfig(echoCtx, profileID, profileVersion)
+		assert.Error(t, err)
 	})
 }
 
@@ -1901,8 +1855,9 @@ func Test_getCredentialSubjects(t *testing.T) {
 }
 
 type options struct {
-	tenantID    string
-	requestBody []byte
+	tenantID       string
+	requestBody    []byte
+	responseWriter http.ResponseWriter
 }
 
 type contextOpt func(*options)
@@ -1919,9 +1874,16 @@ func withRequestBody(body []byte) contextOpt {
 	}
 }
 
+func withRecorder(w http.ResponseWriter) contextOpt {
+	return func(o *options) {
+		o.responseWriter = w
+	}
+}
+
 func echoContext(opts ...contextOpt) echo.Context {
 	o := &options{
-		tenantID: orgID,
+		tenantID:       orgID,
+		responseWriter: httptest.NewRecorder(),
 	}
 
 	for _, fn := range opts {
@@ -1943,9 +1905,7 @@ func echoContext(opts ...contextOpt) echo.Context {
 		req.Header.Set("X-Tenant-ID", o.tenantID)
 	}
 
-	rec := httptest.NewRecorder()
-
-	return e.NewContext(req, rec)
+	return e.NewContext(req, o.responseWriter)
 }
 
 func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {

@@ -41,10 +41,9 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
 		&credentialoffer.Params{
-			InitiateIssuanceURL:               config.InitiateIssuanceURL,
-			Client:                            s.httpClient,
-			VDRRegistry:                       s.ariesServices.vdrRegistry,
-			JWTSignedCredentialOfferSupported: config.JWTSignedCredentialOffer,
+			InitiateIssuanceURL: config.InitiateIssuanceURL,
+			Client:              s.httpClient,
+			VDRRegistry:         s.ariesServices.vdrRegistry,
 		},
 	)
 	if err != nil {

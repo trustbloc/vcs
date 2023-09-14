@@ -108,6 +108,7 @@ type OIDCConfig struct {
 	PreAuthorizedGrantAnonymousAccessSupported bool     `json:"pre-authorized_grant_anonymous_access_supported"`
 	WalletInitiatedAuthFlowSupported           bool     `json:"wallet_initiated_auth_flow_supported"`
 	SignedCredentialOfferSupported             bool     `json:"signed_credential_offer_supported"`
+	SignedIssuerMetadataSupported              bool     `json:"signed_issuer_metadata_supported"`
 	ClaimsEndpoint                             string   `json:"claims_endpoint"`
 }
 

@@ -1,0 +1,52 @@
+{
+  "id": "profileID",
+  "version": "profileVersion",
+  "groupID": "",
+  "name": "random_name",
+  "active": false,
+  "oidcConfig": {
+    "signed_issuer_metadata_supported": true
+  },
+  "vcConfig": {
+    "keyType": "ECDSASecp256k1DER",
+    "didMethod": "orb",
+    "status": {
+      "type": "",
+      "disable": false
+    },
+    "sdjwt": {},
+    "dataIntegrityProof": {
+      "enable": false,
+      "suiteType": ""
+    }
+  },
+  "kmsConfig": {
+    "KMSType": "local",
+    "Endpoint": "https://example.com"
+  },
+  "signingDID": {
+    "did": "did:orb:bank_issuer",
+    "kmsKeyID": "123",
+    "creator": "did:orb:bank_issuer#123"
+  },
+  "credentialMetadata": {
+    "credentials_supported": [
+      {
+        "id": "VerifiedEmployee_JWT"
+      }
+    ],
+    "display": [
+      {
+        "name": "Test Issuer",
+        "locale": "en-US",
+        "url": "https://example.com",
+        "background_color": "#FFFFFF",
+        "text_color": "#000000",
+        "logo": {
+          "url": "https://example.com/credentials-logo.png",
+          "alt_text": "Issuer Logo"
+        }
+      }
+    ]
+  }
+}

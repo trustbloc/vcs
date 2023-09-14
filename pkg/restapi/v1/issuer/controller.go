@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService
+//go:generate mockgen -destination controller_mocks_test.go -self_package github.com/trustbloc/vcs/pkg/restapi/v1/issuer -package issuer -source=controller.go -mock_names profileService=MockProfileService,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,openidCredentialIssuerConfigProvider=MockOpenIDCredentialIssuerConfigProvider,eventService=MockEventService
 
 package issuer
 
@@ -35,7 +35,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/common/jsonschema"
-	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -54,12 +53,6 @@ const (
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
-
-type kmsManager = kms.VCSKeyManager
-
-type kmsRegistry interface {
-	GetKeyManager(config *kms.Config) (kmsManager, error)
-}
 
 type profileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
@@ -81,47 +74,51 @@ type vcStatusManager interface {
 	credentialstatus.ServiceInterface
 }
 
-type Config struct {
-	EventSvc               eventService
-	ProfileSvc             profileService
-	KMSRegistry            kmsRegistry
-	DocumentLoader         ld.DocumentLoader
-	IssueCredentialService issuecredential.ServiceInterface
-	OIDC4CIService         oidc4ciService
-	VcStatusManager        vcStatusManager
-	ExternalHostURL        string
-	Tracer                 trace.Tracer
+type openidCredentialIssuerConfigProvider interface {
+	GetOpenIDCredentialIssuerConfig(issuerProfile *profileapi.Issuer) (*WellKnownOpenIDIssuerConfiguration, string, error)
 }
 
 type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
+type Config struct {
+	EventSvc                   eventService
+	ProfileSvc                 profileService
+	DocumentLoader             ld.DocumentLoader
+	IssueCredentialService     issuecredential.ServiceInterface
+	OIDC4CIService             oidc4ciService
+	VcStatusManager            vcStatusManager
+	OpenidIssuerConfigProvider openidCredentialIssuerConfigProvider
+	ExternalHostURL            string
+	Tracer                     trace.Tracer
+}
+
 // Controller for Issuer Profile Management API.
 type Controller struct {
-	profileSvc             profileService
-	kmsRegistry            kmsRegistry
-	documentLoader         ld.DocumentLoader
-	issueCredentialService issuecredential.ServiceInterface
-	oidc4ciService         oidc4ciService
-	vcStatusManager        vcStatusManager
-	externalHostURL        string
-	tracer                 trace.Tracer
-	schemaValidator        jsonSchemaValidator
+	profileSvc                 profileService
+	documentLoader             ld.DocumentLoader
+	issueCredentialService     issuecredential.ServiceInterface
+	oidc4ciService             oidc4ciService
+	vcStatusManager            vcStatusManager
+	openidIssuerConfigProvider openidCredentialIssuerConfigProvider
+	externalHostURL            string
+	tracer                     trace.Tracer
+	schemaValidator            jsonSchemaValidator
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
 func NewController(config *Config) *Controller {
 	return &Controller{
-		profileSvc:             config.ProfileSvc,
-		kmsRegistry:            config.KMSRegistry,
-		documentLoader:         config.DocumentLoader,
-		issueCredentialService: config.IssueCredentialService,
-		oidc4ciService:         config.OIDC4CIService,
-		vcStatusManager:        config.VcStatusManager,
-		externalHostURL:        config.ExternalHostURL,
-		tracer:                 config.Tracer,
-		schemaValidator:        jsonschema.NewCachingValidator(),
+		profileSvc:                 config.ProfileSvc,
+		documentLoader:             config.DocumentLoader,
+		issueCredentialService:     config.IssueCredentialService,
+		oidc4ciService:             config.OIDC4CIService,
+		vcStatusManager:            config.VcStatusManager,
+		openidIssuerConfigProvider: config.OpenidIssuerConfigProvider,
+		externalHostURL:            config.ExternalHostURL,
+		tracer:                     config.Tracer,
+		schemaValidator:            jsonschema.NewCachingValidator(),
 	}
 }
 
@@ -792,77 +789,21 @@ func (c *Controller) OpenidConfig(ctx echo.Context, profileID, profileVersion st
 // OpenidCredentialIssuerConfig request openid credentials configuration for issuer.
 // GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
 func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, profileVersion string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDIssuerConfig(profileID, profileVersion))
-}
-
-func (c *Controller) getOpenIDIssuerConfig(
-	profileID string,
-	profileVersion string,
-) (*WellKnownOpenIDIssuerConfiguration, error) {
-	host := c.externalHostURL
-	if !strings.HasSuffix(host, "/") {
-		host += "/"
-	}
-
-	issuer, err := c.profileSvc.GetProfile(profileID, profileVersion)
+	issuerProfile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var finalCredentials []interface{}
-	for _, t := range issuer.CredentialMetaData.CredentialsSupported {
-		if issuer.VCConfig != nil {
-			t["cryptographic_binding_methods_supported"] = []string{string(issuer.VCConfig.DIDMethod)}
-			t["cryptographic_suites_supported"] = []string{string(issuer.VCConfig.KeyType)}
-		}
-		finalCredentials = append(finalCredentials, t)
+	config, jwtSignedConfig, err := c.openidIssuerConfigProvider.GetOpenIDCredentialIssuerConfig(issuerProfile)
+	if err != nil {
+		return err
 	}
 
-	var display []CredentialDisplay
-
-	if issuer.CredentialMetaData.Display != nil {
-		display = make([]CredentialDisplay, 0, len(issuer.CredentialMetaData.Display))
-
-		for _, d := range issuer.CredentialMetaData.Display {
-			credentialDisplay := CredentialDisplay{
-				BackgroundColor: lo.ToPtr(d.BackgroundColor),
-				Locale:          lo.ToPtr(d.Locale),
-				Name:            lo.ToPtr(d.Name),
-				TextColor:       lo.ToPtr(d.TextColor),
-				Url:             lo.ToPtr(d.URL),
-			}
-
-			if d.Logo != nil {
-				credentialDisplay.Logo = &Logo{
-					AltText: lo.ToPtr(d.Logo.AlternativeText),
-					Url:     lo.ToPtr(d.Logo.URL),
-				}
-			}
-
-			display = append(display, credentialDisplay)
-		}
-	} else {
-		display = []CredentialDisplay{
-			{
-				Locale: lo.ToPtr("en-US"),
-				Name:   lo.ToPtr(issuer.Name),
-				Url:    lo.ToPtr(issuer.URL),
-			},
-		}
+	if jwtSignedConfig != "" {
+		return util.WriteRawOutputWithContentType(ctx)([]byte(jwtSignedConfig), "application/jwt", nil)
 	}
 
-	issuerURL, _ := url.JoinPath(c.externalHostURL, "issuer", profileID, profileVersion)
-
-	final := &WellKnownOpenIDIssuerConfiguration{
-		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host),
-		BatchCredentialEndpoint: nil, // no support for now
-		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
-		CredentialsSupported:    finalCredentials,
-		CredentialIssuer:        issuerURL,
-		Display:                 lo.ToPtr(display),
-	}
-
-	return final, nil
+	return util.WriteOutput(ctx)(config, nil)
 }
 
 func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDConfiguration, error) {

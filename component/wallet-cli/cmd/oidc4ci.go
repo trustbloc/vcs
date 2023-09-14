@@ -29,24 +29,23 @@ const (
 )
 
 type oidc4ciCommandFlags struct {
-	QRCode                   string
-	InitiateIssuanceURL      string
-	DemoIssuerURL            string
-	ClientID                 string
-	GrantType                string
-	Scope                    []string
-	RedirectURI              string
-	Login                    string
-	Password                 string
-	IssuerState              string
-	VCFormat                 string
-	VCProvider               string
-	CredentialType           string
-	CredentialFormat         string
-	Debug                    bool
-	Pin                      string
-	DiscoverableClientID     bool
-	JWTSignedCredentialOffer bool
+	QRCode               string
+	InitiateIssuanceURL  string
+	DemoIssuerURL        string
+	ClientID             string
+	GrantType            string
+	Scope                []string
+	RedirectURI          string
+	Login                string
+	Password             string
+	IssuerState          string
+	VCFormat             string
+	VCProvider           string
+	CredentialType       string
+	CredentialFormat     string
+	Debug                bool
+	Pin                  string
+	DiscoverableClientID bool
 
 	WalletUserId     string
 	WalletPassPhrase string
@@ -158,18 +157,17 @@ func NewOIDC4CICommand() *cobra.Command {
 			}
 
 			config := &walletrunner.OIDC4CIConfig{
-				InitiateIssuanceURL:      initiateIssuanceURL,
-				ClientID:                 flags.ClientID,
-				Scope:                    flags.Scope,
-				RedirectURI:              flags.RedirectURI,
-				Login:                    flags.Login,
-				Password:                 flags.Password,
-				IssuerState:              flags.IssuerState,
-				CredentialType:           flags.CredentialType,
-				CredentialFormat:         flags.CredentialFormat,
-				Pin:                      flags.Pin,
-				DiscoverableClientID:     flags.DiscoverableClientID,
-				JWTSignedCredentialOffer: flags.JWTSignedCredentialOffer,
+				InitiateIssuanceURL:  initiateIssuanceURL,
+				ClientID:             flags.ClientID,
+				Scope:                flags.Scope,
+				RedirectURI:          flags.RedirectURI,
+				Login:                flags.Login,
+				Password:             flags.Password,
+				IssuerState:          flags.IssuerState,
+				CredentialType:       flags.CredentialType,
+				CredentialFormat:     flags.CredentialFormat,
+				Pin:                  flags.Pin,
+				DiscoverableClientID: flags.DiscoverableClientID,
 			}
 
 			if isPreAuthorize {
@@ -206,7 +204,6 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().BoolVar(&flags.Debug, "debug", false, "enable debug mode")
 	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure", false, "this option allows to skip the verification of ssl\\tls")
 	cmd.Flags().BoolVar(&flags.DiscoverableClientID, "discoverable-client-id", false, "use discoverable client id scheme")
-	cmd.Flags().BoolVar(&flags.JWTSignedCredentialOffer, "jwt-signed-credential-offer", false, "allow wallet cli to parse JWT signed credential offer")
 
 	cmd.Flags().StringVar(&flags.WalletUserId, "wallet-user-id", "", "existing wallet user id")
 	cmd.Flags().StringVar(&flags.WalletPassPhrase, "wallet-passphrase", "", "existing wallet pass phrase")

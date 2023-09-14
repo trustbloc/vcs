@@ -89,7 +89,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
-	"github.com/trustbloc/vcs/pkg/service/wellknown"
+	wellknownfetcher "github.com/trustbloc/vcs/pkg/service/wellknown/fetcher"
+	wellknownprovider "github.com/trustbloc/vcs/pkg/service/wellknown/provider"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslindexstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslvcstore"
@@ -536,12 +537,19 @@ func buildEchoHandler(
 		return newHTTPClient(tlsConfig, conf.StartupParameters, metrics, id)
 	}
 
+	openidCredentialIssuerConfigProviderSvc := wellknownprovider.NewService(&wellknownprovider.Config{
+		ExternalHostURL: conf.StartupParameters.apiGatewayURL,
+		KMSRegistry:     kmsRegistry,
+		CryptoJWTSigner: vcCrypto,
+	})
+
 	// Issuer Profile Management API
 	issuerProfileSvc, err := profilereader.NewIssuerReader(&profilereader.Config{
-		TLSConfig:   tlsConfig,
-		KMSRegistry: kmsRegistry,
-		CMD:         cmd,
-		HTTPClient:  getHTTPClient(metricsProvider.ClientIssuerProfile),
+		OpenidIssuerConfigProvider: openidCredentialIssuerConfigProviderSvc,
+		TLSConfig:                  tlsConfig,
+		KMSRegistry:                kmsRegistry,
+		CMD:                        cmd,
+		HTTPClient:                 getHTTPClient(metricsProvider.ClientIssuerProfile),
 	})
 	if err != nil {
 		return nil, err
@@ -647,7 +655,7 @@ func buildEchoHandler(
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
-		WellKnownService:              wellknown.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
+		WellKnownService:              wellknownfetcher.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
 		ProfileService:                issuerProfileSvc,
 		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
 		HTTPClient:                    getHTTPClient(metricsProvider.ClientOIDC4CI),
@@ -754,15 +762,15 @@ func buildEchoHandler(
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
-		EventSvc:               eventSvc,
-		ProfileSvc:             issuerProfileSvc,
-		KMSRegistry:            kmsRegistry,
-		DocumentLoader:         documentLoader,
-		IssueCredentialService: issueCredentialSvc,
-		VcStatusManager:        statusListVCSvc,
-		OIDC4CIService:         oidc4ciService,
-		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
-		Tracer:                 conf.Tracer,
+		EventSvc:                   eventSvc,
+		ProfileSvc:                 issuerProfileSvc,
+		DocumentLoader:             documentLoader,
+		IssueCredentialService:     issueCredentialSvc,
+		VcStatusManager:            statusListVCSvc,
+		OIDC4CIService:             oidc4ciService,
+		ExternalHostURL:            conf.StartupParameters.apiGatewayURL,
+		Tracer:                     conf.Tracer,
+		OpenidIssuerConfigProvider: openidCredentialIssuerConfigProviderSvc,
 	}))
 
 	// Verifier Profile Management API
