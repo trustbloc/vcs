@@ -14,6 +14,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"strings"
 
 	"github.com/makiuchi-d/gozxing"
 	gozxingqr "github.com/makiuchi-d/gozxing/qrcode"
@@ -185,13 +186,13 @@ func getWalletRunnerConfig(cmd *cobra.Command, flags *oidc4vpCommandFlags) (*run
 			c.SkipSchemaValidation = val
 		}
 
-		c.WalletUserId = flags.WalletUserId
-		c.WalletPassPhrase = flags.WalletPassPhrase
+		c.WalletUserId = strings.TrimSpace(flags.WalletUserId)
+		c.WalletPassPhrase = strings.TrimSpace(flags.WalletPassPhrase)
 		c.StorageProvider = flags.StorageProvider
 		c.StorageProviderConnString = flags.StorageProviderConnString
 
-		c.WalletDidKeyID = flags.WalletDidKeyID
-		c.WalletDidID = flags.WalletDidID
+		c.WalletDidKeyID = strings.TrimSpace(flags.WalletDidKeyID)
+		c.WalletDidID = strings.TrimSpace(flags.WalletDidID)
 
 		c.TLS.InsecureSkipVerify = flags.InsecureTls
 		c.OIDC4VPShouldFetchCredentials = flags.OIDC4VPShouldFetchCredentials

@@ -138,10 +138,10 @@ func NewOIDC4CICommand() *cobra.Command {
 						c.OidcProviderURL = oidcProviderUrl
 					}
 
-					c.WalletUserId = flags.WalletUserId
-					c.WalletPassPhrase = flags.WalletPassPhrase
-					c.WalletDidKeyID = flags.WalletDidKeyID
-					c.WalletDidID = flags.WalletDidID
+					c.WalletUserId = strings.TrimSpace(flags.WalletUserId)
+					c.WalletPassPhrase = strings.TrimSpace(flags.WalletPassPhrase)
+					c.WalletDidKeyID = strings.TrimSpace(flags.WalletDidKeyID)
+					c.WalletDidID = strings.TrimSpace(flags.WalletDidID)
 
 					c.StorageProvider = flags.StorageProvider
 					c.StorageProviderConnString = flags.StorageProviderConnString
