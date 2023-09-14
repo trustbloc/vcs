@@ -79,8 +79,8 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		PresentationDefinition: &presexch.PresentationDefinition{},
 	}, "nonce1", nil)
 	requestObjectPublicStore := NewMockRequestObjectPublicStore(gomock.NewController(t))
-	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().DoAndReturn(func(ctx context.Context, token string, event *spi.Event) (string, error) {
+	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any()).
+		AnyTimes().DoAndReturn(func(ctx context.Context, token string) (string, error) {
 		return "someurl/abc", nil
 	})
 
@@ -173,7 +173,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 	t.Run("publish request object failed", func(t *testing.T) {
 		requestObjectPublicStoreErr := NewMockRequestObjectPublicStore(gomock.NewController(t))
-		requestObjectPublicStoreErr.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
+		requestObjectPublicStoreErr.EXPECT().Publish(gomock.Any(), gomock.Any()).
 			AnyTimes().Return("", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{

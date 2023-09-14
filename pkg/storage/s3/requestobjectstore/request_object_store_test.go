@@ -17,15 +17,13 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 )
 
 func TestCreate(t *testing.T) {
 	targetObj := &requestobject.RequestObject{
-		Content:                  "any string",
-		AccessRequestObjectEvent: &spi.Event{ID: "1234"},
+		Content: "any string",
 	}
 
 	t.Run("success", func(t *testing.T) {

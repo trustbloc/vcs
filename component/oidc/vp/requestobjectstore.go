@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 )
 
@@ -24,39 +23,27 @@ type requestObjectStoreRepository interface {
 	GetResourceURL(key string) string
 }
 
-type eventService interface {
-	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
-}
-
 type RequestObjectStore struct {
-	repo       requestObjectStoreRepository
-	eventSvc   eventService
-	eventTopic string
-
+	repo    requestObjectStoreRepository
 	selfURI string
 }
 
 func NewRequestObjectStore(
 	repo requestObjectStoreRepository,
-	eventSvc eventService,
-	selfURI, eventTopic string,
+	selfURI string,
 ) *RequestObjectStore {
 	return &RequestObjectStore{
-		repo:       repo,
-		eventSvc:   eventSvc,
-		selfURI:    selfURI,
-		eventTopic: eventTopic,
+		repo:    repo,
+		selfURI: selfURI,
 	}
 }
 
 func (s *RequestObjectStore) Publish(
 	ctx context.Context,
 	requestObject string,
-	accessRequestObjectEvent *spi.Event,
 ) (string, error) {
 	resp, err := s.repo.Create(ctx, requestobject.RequestObject{
-		Content:                  requestObject,
-		AccessRequestObjectEvent: accessRequestObjectEvent,
+		Content: requestObject,
 	})
 	if err != nil {
 		return "", err
@@ -82,11 +69,6 @@ func (s *RequestObjectStore) Remove(
 
 func (s *RequestObjectStore) Get(ctx context.Context, id string) (*requestobject.RequestObject, error) {
 	result, err := s.repo.Find(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.eventSvc.Publish(ctx, s.eventTopic, result.AccessRequestObjectEvent)
 	if err != nil {
 		return nil, err
 	}
