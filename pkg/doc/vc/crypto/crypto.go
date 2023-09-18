@@ -278,6 +278,7 @@ func (c *Crypto) signCredentialJWT(
 		options := []verifiable.MakeSDJWTOption{
 			verifiable.MakeSDJWTWithHash(signerData.SDJWT.HashAlg),
 			verifiable.MakeSDJWTWithVersion(signerData.SDJWT.Version),
+			verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"id", "type", "@type"}),
 		}
 
 		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, method, options...)

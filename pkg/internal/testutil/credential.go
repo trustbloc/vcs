@@ -112,7 +112,9 @@ func proveVC(
 
 			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName, suite.NewCryptoSigner(customCrypto, kh))
 
-			sdjwtCredential, err := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID)
+			sdjwtCredential, err := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID,
+				verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"id", "type", "@type"}),
+			)
 			require.NoError(t, err)
 
 			vcParsed, err := verifiable.ParseCredential([]byte(sdjwtCredential),
