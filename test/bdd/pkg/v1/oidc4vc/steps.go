@@ -113,6 +113,8 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 
 // RegisterSteps registers OIDC4VC scenario steps.
 func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
+	sc.Step(`^Profile "([^"]*)" issuer has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeIssuerProfileUser)
+	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
 	sc.Step(`^Issuer with id "([^"]*)" is authorized as a Profile user$`, s.authorizeIssuer)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
 	sc.Step(`^credential is issued$`, s.checkIssuedCredential)
@@ -125,18 +127,18 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema$`, s.runOIDC4CIAuthWithInvalidClaims)
 
 	// VP.
-	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
-	sc.Step(`^Verifier from organization "([^"]*)" retrieves interactions claims$`, s.retrieveInteractionsClaim)
+	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
+	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims$`, s.retrieveInteractionsClaim)
 	sc.Step(`^wallet configured to use hardcoded vp_token format "([^"]*)" for OIDC4VP interaction$`, s.setHardcodedVPTokenFormat)
 
 	// Errors.
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims$`, s.runOIDC4CIPreAuthWithInvalidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims schema$`, s.initiateCredentialIssuanceWithClaimsSchemaValidationError)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow and receives "([^"]*)" error$`, s.runOIDC4CIPreAuthWithError)
-	sc.Step(`^Verifier form organization "([^"]*)" requests deleted interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
+	sc.Step(`^Verifier with profile "([^"]*)" requests deleted interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
 	sc.Step(`^Verifier form organization "([^"]*)" requests expired interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
 	sc.Step(`^Verifier form organization "([^"]*)" waits for interaction succeeded event$`, s.waitForOIDCInteractionSucceededEvent)
-	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)" and receives "([^"]*)" error$`, s.runOIDC4VPFlowWithError)
+	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and receives "([^"]*)" error$`, s.runOIDC4VPFlowWithError)
 	sc.Step(`^Malicious attacker stealing auth code from User and using "([^"]*)" ClientID makes /token request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithError)
 
 	// Stress test.

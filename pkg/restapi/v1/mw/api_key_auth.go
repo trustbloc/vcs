@@ -9,7 +9,6 @@ package mw
 
 import (
 	"crypto/subtle"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -40,7 +39,6 @@ const (
 func APIKeyAuth(apiKey string) echo.MiddlewareFunc { //nolint:gocognit
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			fmt.Printf("### REQUEST: %v", c.Request())
 			currentPath := strings.ToLower(c.Request().URL.Path)
 
 			// TODO: Implement a better way to support public API.

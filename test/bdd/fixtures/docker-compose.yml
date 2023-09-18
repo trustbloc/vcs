@@ -206,7 +206,7 @@ services:
 
   cognito-mock.trustbloc.local:
     container_name: cognito-mock.trustbloc.local
-    image: jagregory/cognito-local:latest
+    image: aholovko/cognito-local:${COGNITO_MOCK_IMAGE_TAG}
     ports:
       - "9229:9229"
     volumes:
