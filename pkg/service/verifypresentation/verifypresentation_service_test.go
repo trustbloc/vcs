@@ -132,7 +132,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Format:           nil,
 							CredentialExpiry: true,
 							Strict:           true,
-							IssuerTrustList:  []string{"https://example.edu/issuers/14"},
+							IssuerTrustList: map[string]profileapi.TrustList{
+								"https://example.edu/issuers/14": {},
+							},
 						},
 					},
 				},
@@ -142,6 +144,133 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 			},
 			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "OK with credential type",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return signedVPResult.VDR
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateVCStatus(
+						context.Background(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateLinkedDomain(
+						context.Background(),
+						gomock.Any()).Times(1).Return(nil)
+					return mockVerifier
+				},
+			},
+			args: args{
+				getPresentation: func() *verifiable.Presentation {
+					return signedVPResult.Presentation
+				},
+				profile: &profileapi.Verifier{
+					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
+							Proof:  true,
+							Format: nil,
+						},
+						Credential: profileapi.CredentialChecks{
+							Proof:            true,
+							Status:           true,
+							LinkedDomain:     true,
+							Format:           nil,
+							CredentialExpiry: true,
+							Strict:           true,
+							IssuerTrustList: map[string]profileapi.TrustList{
+								"https://example.edu/issuers/14": {
+									CredentialTypes: []string{
+										"UniversityDegreeCredential",
+									},
+								},
+							},
+						},
+					},
+				},
+				opts: &Options{
+					Domain:    crypto.Domain,
+					Challenge: crypto.Challenge,
+				},
+			},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "Err credential type not in trust list",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return signedVPResult.VDR
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateVCStatus(
+						context.Background(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateLinkedDomain(
+						context.Background(),
+						gomock.Any()).Times(1).Return(nil)
+					return mockVerifier
+				},
+			},
+			args: args{
+				getPresentation: func() *verifiable.Presentation {
+					return signedVPResult.Presentation
+				},
+				profile: &profileapi.Verifier{
+					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
+							Proof:  true,
+							Format: nil,
+						},
+						Credential: profileapi.CredentialChecks{
+							Proof:            true,
+							Status:           true,
+							LinkedDomain:     true,
+							Format:           nil,
+							CredentialExpiry: true,
+							Strict:           true,
+							IssuerTrustList: map[string]profileapi.TrustList{
+								"https://example.edu/issuers/14": {
+									CredentialTypes: []string{
+										"DrivingLicense",
+									},
+								},
+							},
+						},
+					},
+				},
+				opts: &Options{
+					Domain:    crypto.Domain,
+					Challenge: crypto.Challenge,
+				},
+			},
+			want: []PresentationVerificationCheckResult{
+				{
+					Check: "issuerTrustList",
+					Error: "credential type: UniversityDegreeCredential is not a member of trustlist configuration",
+				},
+			},
 			wantErr: false,
 		},
 		{
@@ -176,7 +305,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 			want:    nil,
 			wantErr: false,
 		},
-
 		{
 			name: "Error credentials",
 			fields: fields{
@@ -214,11 +342,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Format: nil,
 						},
 						Credential: profileapi.CredentialChecks{
-							Proof:           true,
-							Status:          true,
-							LinkedDomain:    true,
-							Format:          nil,
-							IssuerTrustList: []string{"random"},
+							Proof:        true,
+							Status:       true,
+							LinkedDomain: true,
+							Format:       nil,
+							IssuerTrustList: map[string]profileapi.TrustList{
+								"random": {},
+							},
 						},
 					},
 				},
@@ -823,15 +953,22 @@ func TestCredentialStrict(t *testing.T) {
 func TestCheckTrustList(t *testing.T) {
 	s := New(&Config{})
 
-	t.Run("from credentials", func(t *testing.T) {
-		cred := &verifiable.Credential{Issuer: verifiable.Issuer{
-			ID: "123432123",
-		}}
+	t.Run("from credentials v1 trust list", func(t *testing.T) {
+		cred := &verifiable.Credential{
+			Types: []string{
+				"VerifiableCredential",
+				"UniversityDegreeCredential",
+			},
+			Issuer: verifiable.Issuer{
+				ID: "123432123",
+			}}
 
 		err := s.checkIssuerTrustList(
 			context.TODO(),
 			[]*LazyCredential{NewLazyCredential(cred)},
-			[]string{"a"},
+			map[string]profileapi.TrustList{
+				"a": {},
+			},
 		)
 
 		assert.ErrorContains(t, err, "issuer with id: 123432123 is not a member of trustlist")
@@ -843,7 +980,9 @@ func TestCheckTrustList(t *testing.T) {
 		err := s.checkIssuerTrustList(
 			context.TODO(),
 			[]*LazyCredential{NewLazyCredential(cred)},
-			[]string{"a"},
+			map[string]profileapi.TrustList{
+				"a": {},
+			},
 		)
 
 		assert.ErrorContains(t, err,

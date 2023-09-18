@@ -208,23 +208,25 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	return &r, nil
 }
 
-func (p *VerifierReader) setTrustList(verifier *profileapi.Verifier) {
+func (p *VerifierReader) setTrustList(
+	verifier *profileapi.Verifier,
+) {
 	if verifier == nil || verifier.Checks == nil || len(createdIssuers) == 0 ||
 		len(verifier.Checks.Credential.IssuerTrustList) == 0 {
 		return
 	}
 
-	var updatedList []string
-	for _, item := range verifier.Checks.Credential.IssuerTrustList {
-		issuer, ok := createdIssuers[item]
+	updated := make(map[string]profileapi.TrustList)
+	for k, v := range verifier.Checks.Credential.IssuerTrustList {
+		issuer, ok := createdIssuers[k]
 		if !ok {
 			continue
 		}
 
-		updatedList = append(updatedList, issuer.SigningDID.DID)
+		updated[issuer.SigningDID.DID] = v
 	}
 
-	verifier.Checks.Credential.IssuerTrustList = updatedList
+	verifier.Checks.Credential.IssuerTrustList = updated
 }
 
 // GetProfile returns profile with given id.

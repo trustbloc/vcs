@@ -253,21 +253,48 @@ func (s *Service) checkCredentialExpiry(ctx context.Context, lazy []*LazyCredent
 	return nil
 }
 
-func (s *Service) checkIssuerTrustList(_ context.Context, lazy []*LazyCredential, trustList []string) error {
+func (s *Service) checkIssuerTrustList(
+	_ context.Context,
+	lazy []*LazyCredential,
+	trustList map[string]profileapi.TrustList,
+) error {
 	for _, input := range lazy {
 		var issuerID string
+		var credTypes []string
+
 		switch cred := input.Raw().(type) {
 		case *verifiable.Credential:
 			issuerID = cred.Issuer.ID
+			credTypes = cred.Types
 		case map[string]interface{}:
 			issuerID = fmt.Sprint(cred["issuer"])
+			cr, ok := cred["type"].([]interface{})
+			if ok {
+				for _, t := range cr {
+					credTypes = append(credTypes, fmt.Sprint(t))
+				}
+			}
 		default:
 			return fmt.Errorf("can not validate issuer trust list. unexpected type %v",
 				reflect.TypeOf(input.Raw()).String())
 		}
 
-		if !lo.Contains(trustList, issuerID) {
+		var finalCredType string
+		if len(credTypes) > 0 {
+			finalCredType = credTypes[len(credTypes)-1]
+		}
+
+		cfg, ok := trustList[issuerID]
+		if !ok {
 			return fmt.Errorf("issuer with id: %v is not a member of trustlist", issuerID)
+		}
+
+		if len(cfg.CredentialTypes) == 0 { // we are trusting to all credential types
+			continue
+		}
+
+		if !lo.Contains(cfg.CredentialTypes, finalCredType) {
+			return fmt.Errorf("credential type: %v is not a member of trustlist configuration", finalCredType)
 		}
 	}
 

@@ -1930,9 +1930,14 @@
             "format": [
               "jwt"
             ],
-            "issuerTrustList" : [
-              "bank_issuer_sdjwt_v5"
-            ],
+            "issuerTrustList": {
+              "bank_issuer" : {},
+              "bank_issuer_sdjwt_v5": {
+                "credentialTypes": [
+                  "CrudeProductCredential"
+                ]
+              }
+            },
             "proof": true,
             "status": true,
             "strict": true
