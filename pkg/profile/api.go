@@ -176,7 +176,12 @@ type CredentialChecks struct {
 	CredentialExpiry bool                   `json:"credentialExpiry,omitempty"`
 	Strict           bool                   `json:"strict,omitempty"`
 	LinkedDomain     bool                   `json:"linkedDomain,omitempty"`
-	IssuerTrustList  []string               `json:"issuerTrustList,omitempty"`
+	IssuerTrustList  map[string]TrustList   `json:"issuerTrustList,omitempty"`
+}
+
+// TrustList contains list of configuration that verifier is trusted to accept.
+type TrustList struct {
+	CredentialTypes []string `json:"credentialTypes,omitempty"`
 }
 
 // SigningDID contains information about profile signing did.

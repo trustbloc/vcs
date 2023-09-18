@@ -57,29 +57,36 @@ Feature: OIDC4VC REST API
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
-  Scenario: OIDC credential issuance and verification Pre Auth flow with trustlist (Success)
+  Scenario Outline: OIDC credential issuance and verification Pre Auth flow with trustlist (Success)
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
-    And   Issuer with id "bank_issuer_sdjwt_v5/v1.0" is authorized as a Profile user
-    And   User holds credential "CrudeProductCredential" with templateID "crudeProductCredentialTemplateID"
+    And   Issuer with id "<issuerProfile>" is authorized as a Profile user
+    And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
     Then credential is issued
-    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_whitelist/v1.0" profile for organization "test_org" with presentation definition ID "3c8b1d9a-limit-disclosure-optional-fields" and fields "unit_of_measure_barrel,api_gravity,category,supplier_address"
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier from organization "test_org" retrieves interactions claims
     Then we wait 2 seconds
     And Verifier form organization "test_org" requests deleted interactions claims
+    Examples:
+      | issuerProfile             | credentialType             | credentialTemplate               | verifierProfile                | presentationDefinitionID                  | fields                                                       |
+      | bank_issuer_sdjwt_v5/v1.0 | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt_whitelist/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer/v1.0          | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt_whitelist/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id                                               |
 
 # Error cases
 
-  Scenario: OIDC credential issuance and verification Pre Auth flow with trustlist (Fail)
+  Scenario Outline: OIDC credential issuance and verification Pre Auth flow with trustlist (Fail)
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
-    And   Issuer with id "bank_issuer/v1.0" is authorized as a Profile user
-    And   User holds credential "CrudeProductCredential" with templateID "crudeProductCredentialTemplateID"
+    And   Issuer with id "<issuerProfile>" is authorized as a Profile user
+    And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
     Then credential is issued
-    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_whitelist/v1.0" profile for organization "test_org" with presentation definition ID "3c8b1d9a-limit-disclosure-optional-fields" and fields "unit_of_measure_barrel,api_gravity,category,supplier_address" and receives "is not a member of trustlist" error
-
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "is not a member of trustlist" error
+    Examples:
+      | issuerProfile                  | credentialType             | credentialTemplate              | verifierProfile                | presentationDefinitionID                     | fields                                                    |
+      | bank_issuer_sdjwt_v5/v1.0      | UniversityDegreeCredential | universityDegreeTemplateID      | v_myprofile_jwt_whitelist/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                            |
+      | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID | v_myprofile_jwt_whitelist/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification |
 
   Scenario: OIDC credential issuance and verification Pre Auth flow (Invalid Claims)
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
