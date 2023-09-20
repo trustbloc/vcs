@@ -276,12 +276,17 @@ func (s *Service) findCredentialTemplate(
 }
 
 func (s *Service) prepareCredentialOffer(
-	_ context.Context,
+	profile *profileapi.Issuer,
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
 ) *CredentialOfferResponse {
-	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID, tx.ProfileVersion)
+	var staticURLPathChunk string
+	if profile.OIDCConfig != nil && profile.OIDCConfig.SignedIssuerMetadataSupported {
+		staticURLPathChunk = "static"
+	}
+
+	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", staticURLPathChunk, tx.ProfileID, tx.ProfileVersion)
 
 	resp := &CredentialOfferResponse{
 		CredentialIssuer: issuerURL,
@@ -391,7 +396,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	tx *Transaction,
 	profile *profileapi.Issuer,
 ) (string, InitiateIssuanceResponseContentType, error) {
-	credentialOffer := s.prepareCredentialOffer(ctx, req, template, tx)
+	credentialOffer := s.prepareCredentialOffer(profile, req, template, tx)
 
 	var (
 		signedCredentialOfferJWT string

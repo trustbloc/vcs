@@ -63,7 +63,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
 	}{
 		{
-			name: "Success",
+			name: "Success and SignedIssuerMetadataSupported: true",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -109,17 +109,25 @@ func TestService_InitiateIssuance(t *testing.T) {
 					Scope:                []string{"openid", "profile"},
 				}
 
-				profile = &testProfile
+				var localTestProfile profileapi.Issuer
+				require.NoError(t, json.Unmarshal(profileJSON, &localTestProfile))
+				localTestProfile.OIDCConfig.SignedIssuerMetadataSupported = true
+
+				profile = &localTestProfile
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
+				require.Equal(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance?"+
+					"credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2F"+
+					"static%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22%22%2C%22types%22%3A%5B%22VerifiableC"+
+					"redential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22authorization_code"+
+					"%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D")
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
 		{
-			name: "Success wallet flow",
+			name: "Success wallet flow and SignedIssuerMetadataSupported: false",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -173,7 +181,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
 				assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, resp.Tx.State)
-				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
+				require.Equal(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance?"+
+					"credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%"+
+					"22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22%22%2C%22types%22%3A%5B%22VerifiableCredent"+
+					"ial%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22authorization_code%22%3"+
+					"A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D")
 			},
 		},
 		{
