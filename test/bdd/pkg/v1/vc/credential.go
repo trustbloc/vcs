@@ -29,11 +29,11 @@ var vcsFormatToOIDC4CI = map[vcsverifiable.Format]vcsverifiable.OIDCFormat{ //no
 	vcsverifiable.Ldp: vcsverifiable.LdpVC,
 }
 
-func (e *Steps) issueVC(credential, profileVersionedID, organizationName string) error {
+func (e *Steps) issueVC(credential, profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	if _, err := e.createCredential(credentialServiceURL,
-		credential, profileID, profileVersion, organizationName, 0); err != nil {
+		credential, profileID, profileVersion, 0); err != nil {
 		return err
 	}
 
@@ -69,11 +69,10 @@ func (e *Steps) createCredential(
 	issueCredentialURL,
 	credential,
 	profileID,
-	profileVersion,
-	organizationName string,
+	profileVersion string,
 	didIndex int,
 ) (string, error) {
-	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	token := e.bddContext.Args[getOrgAuthTokenKey(fmt.Sprintf("%s/%s", profileID, profileVersion))]
 
 	template, ok := e.bddContext.TestData[credential]
 	if !ok {

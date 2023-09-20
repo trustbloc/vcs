@@ -136,8 +136,8 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims schema$`, s.initiateCredentialIssuanceWithClaimsSchemaValidationError)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow and receives "([^"]*)" error$`, s.runOIDC4CIPreAuthWithError)
 	sc.Step(`^Verifier with profile "([^"]*)" requests deleted interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
-	sc.Step(`^Verifier form organization "([^"]*)" requests expired interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
-	sc.Step(`^Verifier form organization "([^"]*)" waits for interaction succeeded event$`, s.waitForOIDCInteractionSucceededEvent)
+	sc.Step(`^Verifier with profile "([^"]*)" requests expired interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
+	sc.Step(`^Verifier with profile "([^"]*)" waits for interaction succeeded event$`, s.waitForOIDCInteractionSucceededEvent)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and receives "([^"]*)" error$`, s.runOIDC4VPFlowWithError)
 	sc.Step(`^Malicious attacker stealing auth code from User and using "([^"]*)" ClientID makes /token request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithError)
 

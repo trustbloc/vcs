@@ -52,9 +52,9 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^User creates wallet with (\d+) DID$`, e.createWallet)
 	s.Step(`^User saves credentials into wallet$`, e.saveCredentialsInWallet)
-	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile$`,
 		e.initiateInteraction)
-	s.Step(`^Verifier form organization "([^"]*)" requests interactions claims$`,
+	s.Step(`^Verifier with profile "([^"]*)" requests interactions claims$`,
 		e.retrieveInteractionsClaim)
 
 	s.Step(`^Wallet verify authorization request and decode claims$`, e.verifyAuthorizationRequestAndDecodeClaims)

@@ -196,7 +196,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	startTime := time.Now()
 
 	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential,
-		r.issuerProfileName, r.issuerProfileVersion, r.organizationName, 0)
+		r.issuerProfileName, r.issuerProfileVersion, 0)
 	if err != nil {
 		return credentialID, nil, fmt.Errorf("create vc %w", err)
 	}

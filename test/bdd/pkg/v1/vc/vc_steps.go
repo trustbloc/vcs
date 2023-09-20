@@ -9,6 +9,7 @@ package vc
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -88,9 +89,30 @@ func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
 	return nil
 }
 
+func (e *Steps) authorizeProfileUser(profileVersionedID, username, password string) error {
+	issuerProfile, ok := e.bddContext.IssuerProfiles[profileVersionedID]
+
+	if !ok {
+		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
+	}
+
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), OidcProviderURL,
+		username, password, []string{"org_admin"})
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[getOrgAuthTokenKey(issuerProfile.ID+"/"+issuerProfile.Version)] = accessToken
+
+	e.bddContext.IssuerProfiles[issuerProfile.ID+"/"+issuerProfile.Version] = issuerProfile
+
+	return nil
+}
+
 type createVCParams struct {
 	IssuerProfile string
-	Organization  string
+	UserName      string
+	Password      string
 	Credential    string
 	VCFormat      string
 	DIDIndex      int
@@ -106,11 +128,16 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 
 	for _, p := range params.([]*createVCParams) {
 
+		err := e.authorizeProfileUser(p.IssuerProfile, p.UserName, p.Password)
+		if err != nil {
+			return err
+		}
+
 		chunks := strings.Split(p.IssuerProfile, "/")
 		profileID, profileVersion := chunks[0], chunks[1]
 		_, err = e.createCredential(
 			credentialServiceURL,
-			p.Credential, profileID, profileVersion, p.Organization, p.DIDIndex)
+			p.Credential, profileID, profileVersion, p.DIDIndex)
 		if err != nil {
 			return err
 		}
