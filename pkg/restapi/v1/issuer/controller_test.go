@@ -1500,17 +1500,24 @@ func TestOpenIDConfigurationController(t *testing.T) {
 				},
 			},
 		},
-	}, nil)
+	}, nil).Times(2)
 
 	c := &Controller{
 		externalHostURL: "https://localhost",
 		profileSvc:      profileSvc,
 	}
 
-	assert.NoError(t, c.OpenidConfig(echoContext(), profileID, profileVersion))
+	for _, handlerMethod := range []func(ctx echo.Context, profileID, profileVersion string) error{
+		c.OpenidConfig,
+		c.OpenidConfigV2,
+	} {
+		assert.NoError(t, handlerMethod(echoContext(), profileID, profileVersion))
+	}
 }
 
 func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
+	type handler func(ctx echo.Context, profileID, profileVersion string) error
+
 	host := "https://localhost"
 
 	profile := &profileapi.Issuer{
@@ -1531,10 +1538,10 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 
 	t.Run("Success JWT", func(t *testing.T) {
 		openidIssuerConfigProvider := NewMockOpenIDCredentialIssuerConfigProvider(gomock.NewController(t))
-		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(nil, "aa.bb.cc", nil).Times(1)
+		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(nil, "aa.bb.cc", nil).Times(2)
 
 		profileSvc := NewMockProfileService(gomock.NewController(t))
-		profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(profile, nil).Times(1)
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(profile, nil).Times(2)
 
 		c := &Controller{
 			externalHostURL:            host,
@@ -1542,18 +1549,25 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			openidIssuerConfigProvider: openidIssuerConfigProvider,
 		}
 
-		recorder := httptest.NewRecorder()
+		handlers := []handler{
+			c.OpenidCredentialIssuerConfig,
+			c.OpenidCredentialIssuerConfigV2,
+		}
 
-		echoCtx := echoContext(withRecorder(recorder))
+		for _, handlerMethod := range handlers {
+			recorder := httptest.NewRecorder()
 
-		err := c.OpenidCredentialIssuerConfig(echoCtx, profileID, profileVersion)
-		assert.NoError(t, err)
+			echoCtx := echoContext(withRecorder(recorder))
 
-		bodyBytes, err := io.ReadAll(recorder.Body)
-		assert.NoError(t, err)
+			err := handlerMethod(echoCtx, profileID, profileVersion)
+			assert.NoError(t, err)
 
-		assert.Equal(t, "aa.bb.cc", string(bodyBytes))
-		assert.Equal(t, "application/jwt", recorder.Header().Get("Content-Type"))
+			bodyBytes, err := io.ReadAll(recorder.Body)
+			assert.NoError(t, err)
+
+			assert.Equal(t, "aa.bb.cc", string(bodyBytes))
+			assert.Equal(t, "application/jwt", recorder.Header().Get("Content-Type"))
+		}
 	})
 
 	t.Run("Success JSON", func(t *testing.T) {
@@ -1561,10 +1575,10 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(
 			&WellKnownOpenIDIssuerConfiguration{
 				CredentialIssuer: "https://example.com",
-			}, "", nil).Times(1)
+			}, "", nil).Times(2)
 
 		profileSvc := NewMockProfileService(gomock.NewController(t))
-		profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(profile, nil).Times(1)
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(profile, nil).Times(2)
 
 		c := &Controller{
 			externalHostURL:            host,
@@ -1572,35 +1586,50 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			openidIssuerConfigProvider: openidIssuerConfigProvider,
 		}
 
-		recorder := httptest.NewRecorder()
+		handlers := []handler{
+			c.OpenidCredentialIssuerConfig,
+			c.OpenidCredentialIssuerConfigV2,
+		}
 
-		echoCtx := echoContext(withRecorder(recorder))
+		for _, handlerMethod := range handlers {
+			recorder := httptest.NewRecorder()
 
-		err := c.OpenidCredentialIssuerConfig(echoCtx, profileID, profileVersion)
-		assert.NoError(t, err)
+			echoCtx := echoContext(withRecorder(recorder))
 
-		bodyBytes, err := io.ReadAll(recorder.Body)
-		assert.NoError(t, err)
+			err := handlerMethod(echoCtx, profileID, profileVersion)
+			assert.NoError(t, err)
 
-		assert.Contains(t, string(bodyBytes), "\"credential_issuer\":\"https://example.com\"")
-		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+			bodyBytes, err := io.ReadAll(recorder.Body)
+			assert.NoError(t, err)
+
+			assert.Contains(t, string(bodyBytes), "\"credential_issuer\":\"https://example.com\"")
+			assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+		}
 	})
 
 	t.Run("profile error", func(t *testing.T) {
 		svc := NewMockProfileService(gomock.NewController(t))
-		svc.EXPECT().GetProfile(profileID, profileVersion).Return(nil, errors.New("unexpected error"))
+		svc.EXPECT().GetProfile(profileID, profileVersion).
+			Return(nil, errors.New("unexpected error")).Times(2)
 
 		c := &Controller{
 			externalHostURL: host + "/",
 			profileSvc:      svc,
 		}
 
-		recorder := httptest.NewRecorder()
+		handlers := []handler{
+			c.OpenidCredentialIssuerConfig,
+			c.OpenidCredentialIssuerConfigV2,
+		}
 
-		echoCtx := echoContext(withRecorder(recorder))
+		for _, handlerMethod := range handlers {
+			recorder := httptest.NewRecorder()
 
-		err := c.OpenidCredentialIssuerConfig(echoCtx, profileID, profileVersion)
-		assert.Error(t, err)
+			echoCtx := echoContext(withRecorder(recorder))
+
+			err := handlerMethod(echoCtx, profileID, profileVersion)
+			assert.Error(t, err)
+		}
 	})
 }
 

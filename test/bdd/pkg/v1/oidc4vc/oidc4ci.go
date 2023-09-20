@@ -33,7 +33,7 @@ const (
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
-	vcsIssuerURL                        = vcsAPIGateway + "/issuer%s/%s/%s"
+	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
 	oidcProviderURL                     = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
@@ -325,11 +325,6 @@ func (s *Steps) runOIDC4CIAuth() error {
 }
 
 func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
-	var staticURLPathChunk string
-	if s.issuerProfile.OIDCConfig != nil && s.issuerProfile.OIDCConfig.SignedIssuerMetadataSupported {
-		staticURLPathChunk = "/static"
-	}
-
 	err := s.walletRunner.RunOIDC4CIWalletInitiated(&walletrunner.OIDC4CIConfig{
 		ClientID:         "oidc4vc_client",
 		Scope:            []string{"openid", "profile"},
@@ -338,7 +333,7 @@ func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
 		CredentialFormat: s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
 		Login:            "bdd-test",
 		Password:         "bdd-test-pass",
-		IssuerState:      fmt.Sprintf(vcsIssuerURL, staticURLPathChunk, s.issuerProfile.ID, s.issuerProfile.Version),
+		IssuerState:      fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version),
 	}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIWalletInitiated: %w", err)
