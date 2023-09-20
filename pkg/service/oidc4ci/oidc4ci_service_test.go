@@ -1210,6 +1210,7 @@ func TestService_PrepareCredential(t *testing.T) {
 		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
 		eventMock            = NewMockEventService(gomock.NewController(t))
 		crypto               = NewMockDataProtector(gomock.NewController(t))
+		profileService       = NewMockProfileService(gomock.NewController(t))
 		httpClient           *http.Client
 		req                  *oidc4ci.PrepareCredential
 	)
@@ -1261,9 +1262,16 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							SignedIssuerMetadataSupported: true,
+						},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
-					AudienceClaim: "/issuer//",
+					AudienceClaim: "/issuer/static//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1313,6 +1321,11 @@ func TestService_PrepareCredential(t *testing.T) {
 
 						return nil
 					})
+
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
@@ -1372,6 +1385,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
 					AudienceClaim: "/issuer//",
@@ -1420,6 +1438,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				clData := &oidc4ci.ClaimData{
 					EncryptedData: &dataprotect.EncryptedData{
 						Encrypted:      []byte{0x1, 0x2, 0x3},
@@ -1460,6 +1483,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						CredentialFormat: vcsverifiable.Jwt,
 					},
 				}, nil)
+
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
 
 				eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -1526,6 +1554,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
 					AudienceClaim: "/issuer//",
@@ -1579,6 +1612,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
 					AudienceClaim: "/issuer//",
@@ -1630,6 +1668,30 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "Profile service error",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:          "profileID",
+						ProfileVersion:     "profileVersion",
+						CredentialTemplate: &profileapi.CredentialTemplate{},
+					},
+				}, nil)
+
+				profileService.EXPECT().GetProfile("profileID", "profileVersion").
+					Return(nil, errors.New("profile service error"))
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err,
+					"profile service error")
+				require.Nil(t, resp)
+			},
+		},
+		{
 			name: "Fail to make request to claim endpoint",
 			setup: func() {
 				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
@@ -1645,6 +1707,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						},
 					},
 				}
+
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
@@ -1676,6 +1743,11 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
 					AudienceClaim: "/issuer//",
@@ -1706,6 +1778,11 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
 					AudienceClaim: "/issuer//",
@@ -1735,6 +1812,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						},
 					},
 				}
+
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
@@ -1774,9 +1856,59 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}
 
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID:          "txID",
 					AudienceClaim: "invalid",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err, "invalid aud")
+				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Invalid audience claim for SignedIssuerMetadataSupported:true",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "VerifiedEmployee",
+						},
+						CredentialFormat: vcsverifiable.Jwt,
+					},
+				}, nil)
+
+				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
+
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+							}, nil
+						},
+					},
+				}
+
+				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+					Return(&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							SignedIssuerMetadataSupported: true,
+						},
+					}, nil)
+
+				req = &oidc4ci.PrepareCredential{
+					TxID:          "txID",
+					AudienceClaim: "/issuer//",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
@@ -1796,6 +1928,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				EventService:     eventMock,
 				EventTopic:       spi.IssuerEventTopic,
 				DataProtector:    crypto,
+				ProfileService:   profileService,
 			})
 			require.NoError(t, err)
 
