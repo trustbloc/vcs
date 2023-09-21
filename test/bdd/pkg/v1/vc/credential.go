@@ -144,10 +144,10 @@ func (e *Steps) createCredential(
 	return cred.ID, nil
 }
 
-func (e *Steps) verifyVC(profileVersionedID, organizationName string) error {
+func (e *Steps) verifyVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, organizationName)
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
 	if err != nil {
 		return err
 	}
@@ -159,10 +159,10 @@ func (e *Steps) verifyVC(profileVersionedID, organizationName string) error {
 	return nil
 }
 
-func (e *Steps) verifyRevokedVC(profileVersionedID, organizationName string) error {
+func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, organizationName)
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
 	if err != nil {
 		return err
 	}
@@ -182,10 +182,10 @@ func (e *Steps) verifyRevokedVC(profileVersionedID, organizationName string) err
 	return nil
 }
 
-func (e *Steps) verifyVCInvalidFormat(verifierProfileVersionedID, organizationName string) error {
+func (e *Steps) verifyVCInvalidFormat(verifierProfileVersionedID string) error {
 	chunks := strings.Split(verifierProfileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, organizationName)
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
 	if result != nil {
 		return fmt.Errorf("verification result is not nil")
 	}
@@ -197,8 +197,8 @@ func (e *Steps) verifyVCInvalidFormat(verifierProfileVersionedID, organizationNa
 	return nil
 }
 
-func (e *Steps) revokeVCWithError(profileVersionedID, organizationName string) error {
-	err := e.revokeVC(profileVersionedID, organizationName)
+func (e *Steps) revokeVCWithError(profileVersionedID string) error {
+	err := e.revokeVC(profileVersionedID)
 	if err == nil {
 		return fmt.Errorf("error expected, but got nil")
 	}
@@ -210,7 +210,7 @@ func (e *Steps) revokeVCWithError(profileVersionedID, organizationName string) e
 	return nil
 }
 
-func (e *Steps) revokeVC(profileVersionedID, organizationName string) error {
+func (e *Steps) revokeVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	loader, err := bddutil.DocumentLoader()
@@ -245,7 +245,7 @@ func (e *Steps) revokeVC(profileVersionedID, organizationName string) error {
 
 	endpointURL := fmt.Sprintf(updateCredentialStatusURLFormat, credentialServiceURL)
 
-	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	token := e.bddContext.Args[getOrgAuthTokenKey(chunks[0]+"/"+chunks[1])]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
@@ -267,7 +267,9 @@ func (e *Steps) revokeVC(profileVersionedID, organizationName string) error {
 }
 
 func (e *Steps) getVerificationResult(
-	verifyCredentialURL, profileID, profileVersion, organizationName string) (*model.VerifyCredentialResponse, error) {
+	verifyCredentialURL,
+	profileID,
+	profileVersion string) (*model.VerifyCredentialResponse, error) {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return nil, err
@@ -293,7 +295,7 @@ func (e *Steps) getVerificationResult(
 	}
 
 	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifyCredentialURL, profileID, profileVersion)
-	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	token := e.bddContext.Args[getOrgAuthTokenKey(profileID+"/"+profileVersion)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(reqBytes), e.tlsConfig)
 	if err != nil {

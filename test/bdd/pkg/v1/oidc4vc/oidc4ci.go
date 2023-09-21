@@ -49,9 +49,6 @@ func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, passwor
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
-	if issuerProfile.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", profileVersionedID)
-	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
 		username, password, []string{"org_admin"})

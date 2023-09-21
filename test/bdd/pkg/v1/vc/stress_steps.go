@@ -206,7 +206,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	startTime = time.Now()
 
 	res, err := r.steps.getVerificationResult(
-		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion, r.organizationName)
+		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion)
 	if err != nil {
 		return credentialID, nil, err
 	}
