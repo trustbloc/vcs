@@ -24,9 +24,13 @@ import (
 var logger = log.New("oidc4vp-steps")
 
 //nolint:funlen,gocyclo
-func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormatEnv,
+func (e *Steps) stressTestForMultipleUsers(
+	userEnv,
+	initiateInteractionURLFormatEnv,
 	retrieveClaimURLFormatEnv,
-	verifyProfileIDEnv, orgIDEnv, concurrencyEnv string) error {
+	verifyProfileIDEnv,
+	concurrencyEnv string,
+) error {
 	concurrencyStr, err := getEnv(concurrencyEnv, "10")
 	if err != nil {
 		return err
@@ -77,12 +81,7 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 		return fmt.Errorf("invalid verifyProfileIDEnv")
 	}
 
-	orgID, err := getEnv(orgIDEnv, "test_org")
-	if err != nil {
-		return err
-	}
-
-	authToken := e.bddContext.Args[getOrgAuthTokenKey(orgID)]
+	authToken := e.bddContext.Args[getOrgAuthTokenKey(chunks[0]+"/"+chunks[1])]
 
 	logger.Info("Multi users test", logfields.WithTotalRequests(totalRequests), logfields.WithConcurrencyRequests(concurrencyReq))
 

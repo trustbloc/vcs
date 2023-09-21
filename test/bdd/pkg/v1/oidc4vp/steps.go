@@ -61,6 +61,6 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step("^Wallet looks for credential that match authorization multi VP$", e.queryCredentialFromWalletMultiVP)
 	s.Step("^Wallet send authorization response$", e.sendAuthorizedResponse)
 
-	s.Step(`^"([^"]*)" users execute oidc4vp flow with init "([^"]*)" url, with retrieve "([^"]*)" url, for verify profile "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
+	s.Step(`^"([^"]*)" users execute oidc4vp flow with init "([^"]*)" url, with retrieve "([^"]*)" url, for verify profile "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 }

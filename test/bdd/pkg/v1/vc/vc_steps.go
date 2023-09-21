@@ -74,7 +74,7 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 
-	s.Step(`^New verifiable credentials is created from table:$`, e.createCredentialsFromTable)
+	s.Step(`^With AccessTokenUrlEnv "([^"]*)", new verifiable credentials is created from table:$`, e.createCredentialsFromTable)
 }
 
 func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
@@ -89,14 +89,19 @@ func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
 	return nil
 }
 
-func (e *Steps) authorizeProfileUser(profileVersionedID, username, password string) error {
+func (e *Steps) authorizeProfileUser(accessTokenUrlEnv, profileVersionedID, username, password string) error {
+	accessTokenURL, err := getEnv(accessTokenUrlEnv, OidcProviderURL)
+	if err != nil {
+		return err
+	}
+
 	issuerProfile, ok := e.bddContext.IssuerProfiles[profileVersionedID]
 
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
 
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), OidcProviderURL,
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), accessTokenURL,
 		username, password, []string{"org_admin"})
 	if err != nil {
 		return err
@@ -118,7 +123,7 @@ type createVCParams struct {
 	DIDIndex      int
 }
 
-func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
+func (e *Steps) createCredentialsFromTable(accessTokenURLEnvName string, table *godog.Table) error {
 	params, err := assistdog.NewDefault().CreateSlice(&createVCParams{}, table)
 	if err != nil {
 		return err
@@ -128,7 +133,7 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 
 	for _, p := range params.([]*createVCParams) {
 
-		err := e.authorizeProfileUser(p.IssuerProfile, p.UserName, p.Password)
+		err := e.authorizeProfileUser(accessTokenURLEnvName, p.IssuerProfile, p.UserName, p.Password)
 		if err != nil {
 			return err
 		}
