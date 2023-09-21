@@ -63,7 +63,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
 	}{
 		{
-			name: "Success and SignedIssuerMetadataSupported: true",
+			name: "Success",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -109,25 +109,17 @@ func TestService_InitiateIssuance(t *testing.T) {
 					Scope:                []string{"openid", "profile"},
 				}
 
-				var localTestProfile profileapi.Issuer
-				require.NoError(t, json.Unmarshal(profileJSON, &localTestProfile))
-				localTestProfile.OIDCConfig.SignedIssuerMetadataSupported = true
-
-				profile = &localTestProfile
+				profile = &testProfile
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance?"+
-					"credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2F"+
-					"static%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22%22%2C%22types%22%3A%5B%22VerifiableC"+
-					"redential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22authorization_code"+
-					"%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D")
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
 		{
-			name: "Success wallet flow and SignedIssuerMetadataSupported: false",
+			name: "Success wallet flow",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -181,11 +173,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
 				assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, resp.Tx.State)
-				require.Equal(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance?"+
-					"credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%"+
-					"22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22%22%2C%22types%22%3A%5B%22VerifiableCredent"+
-					"ial%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22authorization_code%22%3"+
-					"A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D")
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
 			},
 		},
 		{
@@ -273,7 +261,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				assert.Equal(t, "123456789", resp.UserPin)
 				assert.NotNil(t, resp.Tx)
 				require.Equal(t,
-					"openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Atrue%7D%7D%7D", //nolint
+					"openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Atrue%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -352,7 +340,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -422,7 +410,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -495,7 +483,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},

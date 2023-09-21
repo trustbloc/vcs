@@ -52,9 +52,8 @@
       }
     },
     {
-      "endpoint": "/issuer/static/{profileID}/{profileVersion}/.well-known/openid-configuration",
+      "endpoint": "/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration",
       "method": "GET",
-      "endpoint_override": "/issuer/{profileID}/{profileVersion}/.well-known/openid-configuration",
       "input_query_strings": [
         "*"
       ],
@@ -77,9 +76,8 @@
       }
     },
     {
-      "endpoint": "/issuer/static/{profileID}/{profileVersion}/.well-known/openid-credential-issuer",
+      "endpoint": "/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer",
       "method": "GET",
-      "endpoint_override": "/issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer",
       "input_query_strings": [
         "*"
       ],

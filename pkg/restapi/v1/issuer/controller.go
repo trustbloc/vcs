@@ -786,6 +786,12 @@ func (c *Controller) OpenidConfig(ctx echo.Context, profileID, profileVersion st
 	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID, profileVersion))
 }
 
+// OpenidConfigV2 request openid configuration for issuer.
+// GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration.
+func (c *Controller) OpenidConfigV2(ctx echo.Context, profileID, profileVersion string) error {
+	return c.OpenidConfig(ctx, profileID, profileVersion)
+}
+
 // OpenidCredentialIssuerConfig request openid credentials configuration for issuer.
 // GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
 func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, profileVersion string) error {
@@ -804,6 +810,12 @@ func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, p
 	}
 
 	return util.WriteOutput(ctx)(config, nil)
+}
+
+// OpenidCredentialIssuerConfigV2 request openid credentials configuration for issuer.
+// GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
+func (c *Controller) OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID, profileVersion string) error {
+	return c.OpenidCredentialIssuerConfig(ctx, profileID, profileVersion)
 }
 
 func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDConfiguration, error) {

@@ -51,6 +51,34 @@ paths:
                 $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
       operationId: openid-credential-issuer-config
       description: Returns openid-config.
+      deprecated: true
+      tags:
+        - issuer
+  '/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile ID
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Profile Version
+    get:
+      summary: Request openid-credential-issuer public endpoint.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
+      operationId: openid-credential-issuer-config-v2
+      description: Returns openid-config.
       tags:
         - issuer
   '/issuer/{profileID}/{profileVersion}/.well-known/openid-configuration':
@@ -77,6 +105,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/WellKnownOpenIDConfiguration'
       operationId: openid-config
+      description: Returns openid-config.
+      deprecated: true
+      tags:
+        - issuer
+  '/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile Id
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Profile Version
+    get:
+      summary: Request openid-config public endpoint.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownOpenIDConfiguration'
+      operationId: openid-config-v2
       description: Returns openid-config.
       tags:
         - issuer

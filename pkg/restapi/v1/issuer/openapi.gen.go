@@ -493,6 +493,12 @@ type ClientInterface interface {
 
 	// OpenidCredentialIssuerConfig request
 	OpenidCredentialIssuerConfig(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenidConfigV2 request
+	OpenidConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenidCredentialIssuerConfigV2 request
+	OpenidCredentialIssuerConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) PostCredentialsStatusWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -737,6 +743,30 @@ func (c *Client) OpenidConfig(ctx context.Context, profileID string, profileVers
 
 func (c *Client) OpenidCredentialIssuerConfig(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewOpenidCredentialIssuerConfigRequest(c.Server, profileID, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenidConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenidConfigV2Request(c.Server, profileID, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenidCredentialIssuerConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenidCredentialIssuerConfigV2Request(c.Server, profileID, profileVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -1258,6 +1288,88 @@ func NewOpenidCredentialIssuerConfigRequest(server string, profileID string, pro
 	return req, nil
 }
 
+// NewOpenidConfigV2Request generates requests for OpenidConfigV2
+func NewOpenidConfigV2Request(server string, profileID string, profileVersion string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oidc/idp/%s/%s/.well-known/openid-configuration", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewOpenidCredentialIssuerConfigV2Request generates requests for OpenidCredentialIssuerConfigV2
+func NewOpenidCredentialIssuerConfigV2Request(server string, profileID string, profileVersion string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oidc/idp/%s/%s/.well-known/openid-credential-issuer", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1354,6 +1466,12 @@ type ClientWithResponsesInterface interface {
 
 	// OpenidCredentialIssuerConfig request
 	OpenidCredentialIssuerConfigWithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigResponse, error)
+
+	// OpenidConfigV2 request
+	OpenidConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidConfigV2Response, error)
+
+	// OpenidCredentialIssuerConfigV2 request
+	OpenidCredentialIssuerConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigV2Response, error)
 }
 
 type PostCredentialsStatusResponse struct {
@@ -1619,6 +1737,50 @@ func (r OpenidCredentialIssuerConfigResponse) StatusCode() int {
 	return 0
 }
 
+type OpenidConfigV2Response struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WellKnownOpenIDConfiguration
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenidConfigV2Response) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenidConfigV2Response) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type OpenidCredentialIssuerConfigV2Response struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WellKnownOpenIDIssuerConfiguration
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenidCredentialIssuerConfigV2Response) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenidCredentialIssuerConfigV2Response) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // PostCredentialsStatusWithBodyWithResponse request with arbitrary body returning *PostCredentialsStatusResponse
 func (c *ClientWithResponses) PostCredentialsStatusWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error) {
 	rsp, err := c.PostCredentialsStatusWithBody(ctx, contentType, body, reqEditors...)
@@ -1797,6 +1959,24 @@ func (c *ClientWithResponses) OpenidCredentialIssuerConfigWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseOpenidCredentialIssuerConfigResponse(rsp)
+}
+
+// OpenidConfigV2WithResponse request returning *OpenidConfigV2Response
+func (c *ClientWithResponses) OpenidConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidConfigV2Response, error) {
+	rsp, err := c.OpenidConfigV2(ctx, profileID, profileVersion, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenidConfigV2Response(rsp)
+}
+
+// OpenidCredentialIssuerConfigV2WithResponse request returning *OpenidCredentialIssuerConfigV2Response
+func (c *ClientWithResponses) OpenidCredentialIssuerConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigV2Response, error) {
+	rsp, err := c.OpenidCredentialIssuerConfigV2(ctx, profileID, profileVersion, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenidCredentialIssuerConfigV2Response(rsp)
 }
 
 // ParsePostCredentialsStatusResponse parses an HTTP response from a PostCredentialsStatusWithResponse call
@@ -2101,6 +2281,58 @@ func ParseOpenidCredentialIssuerConfigResponse(rsp *http.Response) (*OpenidCrede
 	return response, nil
 }
 
+// ParseOpenidConfigV2Response parses an HTTP response from a OpenidConfigV2WithResponse call
+func ParseOpenidConfigV2Response(rsp *http.Response) (*OpenidConfigV2Response, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenidConfigV2Response{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WellKnownOpenIDConfiguration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOpenidCredentialIssuerConfigV2Response parses an HTTP response from a OpenidCredentialIssuerConfigV2WithResponse call
+func ParseOpenidCredentialIssuerConfigV2Response(rsp *http.Response) (*OpenidCredentialIssuerConfigV2Response, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenidCredentialIssuerConfigV2Response{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WellKnownOpenIDIssuerConfiguration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Updates credential status.
@@ -2139,6 +2371,12 @@ type ServerInterface interface {
 	// Request openid-credential-issuer
 	// (GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
 	OpenidCredentialIssuerConfig(ctx echo.Context, profileID string, profileVersion string) error
+	// Request openid-config
+	// (GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration)
+	OpenidConfigV2(ctx echo.Context, profileID string, profileVersion string) error
+	// Request openid-credential-issuer
+	// (GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
+	OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID string, profileVersion string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -2329,6 +2567,54 @@ func (w *ServerInterfaceWrapper) OpenidCredentialIssuerConfig(ctx echo.Context) 
 	return err
 }
 
+// OpenidConfigV2 converts echo context to params.
+func (w *ServerInterfaceWrapper) OpenidConfigV2(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OpenidConfigV2(ctx, profileID, profileVersion)
+	return err
+}
+
+// OpenidCredentialIssuerConfigV2 converts echo context to params.
+func (w *ServerInterfaceWrapper) OpenidCredentialIssuerConfigV2(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OpenidCredentialIssuerConfigV2(ctx, profileID, profileVersion)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -2369,5 +2655,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-configuration", wrapper.OpenidConfig)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
+	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-configuration", wrapper.OpenidConfigV2)
+	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfigV2)
 
 }

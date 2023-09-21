@@ -439,18 +439,7 @@ func (s *Service) PrepareCredential(
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
-	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	var staticURLPathChunk string
-	if profile.OIDCConfig != nil && profile.OIDCConfig.SignedIssuerMetadataSupported {
-		staticURLPathChunk = "/static"
-	}
-
-	expectedAudience := fmt.Sprintf("%v/issuer%s/%s/%s",
-		s.issuerVCSPublicHost, staticURLPathChunk, tx.ProfileID, tx.ProfileVersion)
+	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, tx.ProfileID, tx.ProfileVersion)
 
 	if req.AudienceClaim == "" || req.AudienceClaim != expectedAudience {
 		return nil, resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, req.AudienceClaim,
