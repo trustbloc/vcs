@@ -54,6 +54,7 @@ import (
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/cslmanager"
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/doc/validator/jsonschema"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/kms"
@@ -654,6 +655,8 @@ func buildEchoHandler(
 		dataprotect.NewCompressor(conf.StartupParameters.dataEncryptionCompressorAlgo),
 	)
 
+	jsonSchemaValidator := jsonschema.NewCachingValidator()
+
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
@@ -669,6 +672,7 @@ func buildEchoHandler(
 		DataProtector:                 claimsDataProtector,
 		KMSRegistry:                   kmsRegistry,
 		CryptoJWTSigner:               vcCrypto,
+		JSONSchemaValidator:           jsonSchemaValidator,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -773,6 +777,7 @@ func buildEchoHandler(
 		ExternalHostURL:            conf.StartupParameters.apiGatewayURL,
 		Tracer:                     conf.Tracer,
 		OpenidIssuerConfigProvider: openidCredentialIssuerConfigProviderSvc,
+		JSONSchemaValidator:        jsonSchemaValidator,
 	}))
 
 	// Verifier Profile Management API

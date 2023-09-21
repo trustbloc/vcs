@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package github.com/trustbloc/vcs/pkg/restapi/v1/issuer -package issuer -source=controller.go -mock_names profileService=MockProfileService,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,openidCredentialIssuerConfigProvider=MockOpenIDCredentialIssuerConfigProvider,eventService=MockEventService
+//go:generate mockgen -destination controller_mocks_test.go -self_package github.com/trustbloc/vcs/pkg/restapi/v1/issuer -package issuer -source=controller.go -mock_names profileService=MockProfileService,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,openidCredentialIssuerConfigProvider=MockOpenIDCredentialIssuerConfigProvider,eventService=MockEventService,jsonSchemaValidator=MockJSONSchemaValidator
 
 package issuer
 
@@ -34,7 +34,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	"github.com/trustbloc/vcs/pkg/internal/common/jsonschema"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -92,6 +91,7 @@ type Config struct {
 	OpenidIssuerConfigProvider openidCredentialIssuerConfigProvider
 	ExternalHostURL            string
 	Tracer                     trace.Tracer
+	JSONSchemaValidator        jsonSchemaValidator
 }
 
 // Controller for Issuer Profile Management API.
@@ -118,7 +118,7 @@ func NewController(config *Config) *Controller {
 		openidIssuerConfigProvider: config.OpenidIssuerConfigProvider,
 		externalHostURL:            config.ExternalHostURL,
 		tracer:                     config.Tracer,
-		schemaValidator:            jsonschema.NewCachingValidator(),
+		schemaValidator:            config.JSONSchemaValidator,
 	}
 }
 

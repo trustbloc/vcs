@@ -104,6 +104,10 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			logger.Debugc(ctx, "issuer claim keys", logfields.WithClaimKeys(claimKeys))
 		}
 
+		if e := s.validateClaims(req.ClaimData, template); e != nil {
+			return nil, fmt.Errorf("validate claims: %w", e)
+		}
+
 		claimData, errEncrypt := s.EncryptClaims(ctx, req.ClaimData)
 		if errEncrypt != nil {
 			return nil, fmt.Errorf("can not encrypt claim data: %w", errEncrypt)
@@ -473,4 +477,21 @@ func (s *Service) getInitiateIssuanceURL(ctx context.Context, req *InitiateIssua
 	}
 
 	return initiateIssuanceURL
+}
+
+func (s *Service) validateClaims(
+	claims map[string]interface{},
+	credentialTemplate *profileapi.CredentialTemplate,
+) error {
+	if credentialTemplate == nil || credentialTemplate.JSONSchemaID == "" {
+		return nil
+	}
+
+	logger.Debug("Validating claims against JSON schema",
+		logfields.WithCredentialTemplateID(credentialTemplate.ID),
+		logfields.WithJSONSchemaID(credentialTemplate.JSONSchemaID),
+	)
+
+	return s.schemaValidator.Validate(claims, credentialTemplate.JSONSchemaID,
+		[]byte(credentialTemplate.JSONSchema))
 }
