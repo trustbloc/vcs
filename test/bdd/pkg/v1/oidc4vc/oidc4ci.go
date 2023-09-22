@@ -62,28 +62,6 @@ func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, passwor
 	return nil
 }
 
-func (s *Steps) authorizeIssuer(profileVersionedID string) error {
-	if err := s.ResetAndSetup(); err != nil {
-		return err
-	}
-	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
-	if !ok {
-		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
-	}
-	if issuer.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", profileVersionedID)
-	}
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
-		issuer.OrganizationID, "profile-user-issuer-1-pwd", []string{})
-	if err != nil {
-		return err
-	}
-	s.issuerProfile = issuer
-	s.bddContext.Args[getOrgAuthTokenKey(issuer.OrganizationID)] = accessToken
-
-	return nil
-}
-
 func (s *Steps) initiateCredentialIssuance(initiateOIDC4CIRequest initiateOIDC4CIRequest) (*initiateOIDC4CIResponse, error) {
 	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID, s.issuerProfile.Version)
 

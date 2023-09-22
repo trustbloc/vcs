@@ -115,7 +115,6 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Profile "([^"]*)" issuer has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeIssuerProfileUser)
 	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
-	sc.Step(`^Issuer with id "([^"]*)" is authorized as a Profile user$`, s.authorizeIssuer)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
 	sc.Step(`^credential is issued$`, s.checkIssuedCredential)
 

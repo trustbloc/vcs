@@ -55,10 +55,6 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
-	s.Step(`^Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
-		e.authorizeOrganization)
-	s.Step(`^"([^"]*)" Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
-		e.authorizeOrganizationForStressTest)
 	s.Step(`^V1 New verifiable credential is issued from "([^"]*)" under "([^"]*)" profile$`,
 		e.issueVC)
 	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile$`,
@@ -76,18 +72,6 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 
 	s.Step(`^New verifiable credentials is created from table:$`, e.createCredentialsFromTable)
 	s.Step(`^With AccessTokenUrlEnv "([^"]*)", new verifiable credentials is created from table:$`, e.createCredentialsFromTableWithEnv)
-}
-
-func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), OidcProviderURL,
-		clientID, secret, []string{"org_admin"})
-	if err != nil {
-		return err
-	}
-
-	e.bddContext.Args[getOrgAuthTokenKey(org)] = accessToken
-
-	return nil
 }
 
 func (e *Steps) authorizeProfileUser(accessTokenUrlEnv, profileVersionedID, username, password string) error {

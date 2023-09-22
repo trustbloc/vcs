@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -22,37 +21,6 @@ import (
 )
 
 var logger = log.New("vc-steps")
-
-func (e *Steps) authorizeOrganizationForStressTest(accessTokenURLEnv, orgIDEnv, clientIDEnv, secretEnv string) error {
-	accessTokenURL, err := getEnv(accessTokenURLEnv, OidcProviderURL)
-	if err != nil {
-		return err
-	}
-
-	org, err := getEnv(orgIDEnv, "test_org")
-	if err != nil {
-		return err
-	}
-
-	clientID, err := getEnv(clientIDEnv, "profile-user-1")
-	if err != nil {
-		return err
-	}
-
-	secret, err := getEnv(secretEnv, "profile-user-1-pwd")
-	if err != nil {
-		return err
-	}
-
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), accessTokenURL, clientID, secret, []string{"org_admin"})
-	if err != nil {
-		return err
-	}
-
-	e.bddContext.Args[getOrgAuthTokenKey(org)] = accessToken
-
-	return nil
-}
 
 //nolint:funlen,gocyclo
 func (e *Steps) stressTestForMultipleUsers(
