@@ -16,8 +16,8 @@ import (
 	"github.com/trustbloc/kms-go/kms/localkms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 
+	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	"github.com/trustbloc/did-go/legacy/mem"
-	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/spi/kms"
 
