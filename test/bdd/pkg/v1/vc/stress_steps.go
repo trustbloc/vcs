@@ -55,8 +55,13 @@ func (e *Steps) authorizeOrganizationForStressTest(accessTokenURLEnv, orgIDEnv, 
 }
 
 //nolint:funlen,gocyclo
-func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv,
-	verifyProfileIDEnv, orgIDEnv, concurrencyEnv string) error {
+func (e *Steps) stressTestForMultipleUsers(
+	userEnv,
+	vcURLEnv,
+	issuerProfileIDEnv,
+	verifyProfileIDEnv,
+	concurrencyEnv string,
+) error {
 	concurrencyStr, err := getEnv(concurrencyEnv, "10")
 	if err != nil {
 		return err
@@ -97,11 +102,6 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 		return err
 	}
 
-	orgID, err := getEnv(orgIDEnv, "test_org")
-	if err != nil {
-		return err
-	}
-
 	logger.Info("Multi users test", logfields.WithTotalRequests(totalRequests),
 		logfields.WithConcurrencyRequests(concurrencyReq))
 
@@ -116,7 +116,6 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 			issuerProfileName:    chunks[0],
 			issuerProfileVersion: chunks[1],
 			verifyProfileName:    verifyProfileID,
-			organizationName:     orgID,
 			credential:           "university_degree.json",
 			steps:                e,
 		}
@@ -181,7 +180,6 @@ type stressRequest struct {
 	issuerProfileName    string
 	issuerProfileVersion string
 	verifyProfileName    string
-	organizationName     string
 	steps                *Steps
 }
 

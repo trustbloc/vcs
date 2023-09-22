@@ -71,7 +71,7 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.verifyRevokedVC)
 	s.Step(`^V1 verifiable credential with wrong format is unable to be verified under "([^"]*)" profile$`,
 		e.verifyVCInvalidFormat)
-	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
+	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 
 	s.Step(`^New verifiable credentials is created from table:$`, e.createCredentialsFromTable)
