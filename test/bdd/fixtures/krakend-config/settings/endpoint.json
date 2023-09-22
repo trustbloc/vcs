@@ -194,6 +194,9 @@
     {
       "endpoint": "/verifier/interactions/authorization-response",
       "method": "POST",
+      "roles_to_validate": [
+        "verifier"
+      ],
       "input_headers": [
         "Content-Type"
       ]

@@ -385,32 +385,3 @@ func IssueAccessToken(ctx context.Context, oidcProviderURL, clientID, secret str
 
 	return token.Extra("id_token").(string), nil
 }
-
-// TODO: to be removed
-// DumpTransport is http.RoundTripper that dumps request/response.
-//type DumpTransport struct {
-//	r http.RoundTripper
-//}
-//
-//// RoundTrip implements the RoundTripper interface.
-//func (d *DumpTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-//	reqDump, err := httputil.DumpRequest(req, true)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to dump request: %w", err)
-//	}
-//
-//	fmt.Printf("\nREQUEST:\n%s\n", string(reqDump))
-//
-//	resp, err := d.r.RoundTrip(req)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	respDump, err := httputil.DumpResponse(resp, true)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to dump response: %w", err)
-//	}
-//
-//	fmt.Printf("RESPONSE:\n%s\n", string(respDump))
-//	return resp, err
-//}
