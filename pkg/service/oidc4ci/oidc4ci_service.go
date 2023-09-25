@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator
 
 package oidc4ci
 
@@ -112,6 +112,10 @@ type cryptoJWTSigner interface {
 	NewJWTSigned(claims interface{}, signerData *vc.Signer) (string, error)
 }
 
+type jsonSchemaValidator interface {
+	Validate(data interface{}, schemaID string, schema []byte) error
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -128,6 +132,7 @@ type Config struct {
 	DataProtector                 dataProtector
 	KMSRegistry                   kmsRegistry
 	CryptoJWTSigner               cryptoJWTSigner
+	JSONSchemaValidator           jsonSchemaValidator
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -146,6 +151,7 @@ type Service struct {
 	dataProtector                 dataProtector
 	kmsRegistry                   kmsRegistry
 	cryptoJWTSigner               cryptoJWTSigner
+	schemaValidator               jsonSchemaValidator
 }
 
 // NewService returns a new Service instance.
@@ -165,6 +171,7 @@ func NewService(config *Config) (*Service, error) {
 		dataProtector:                 config.DataProtector,
 		kmsRegistry:                   config.KMSRegistry,
 		cryptoJWTSigner:               config.CryptoJWTSigner,
+		schemaValidator:               config.JSONSchemaValidator,
 	}, nil
 }
 

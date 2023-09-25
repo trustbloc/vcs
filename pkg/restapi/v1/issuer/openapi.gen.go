@@ -2371,10 +2371,10 @@ type ServerInterface interface {
 	// Request openid-credential-issuer
 	// (GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
 	OpenidCredentialIssuerConfig(ctx echo.Context, profileID string, profileVersion string) error
-	// Request openid-config
+	// Request openid-config public endpoint.
 	// (GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration)
 	OpenidConfigV2(ctx echo.Context, profileID string, profileVersion string) error
-	// Request openid-credential-issuer
+	// Request openid-credential-issuer public endpoint.
 	// (GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
 	OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID string, profileVersion string) error
 }

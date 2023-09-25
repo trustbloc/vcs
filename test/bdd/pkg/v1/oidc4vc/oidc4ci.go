@@ -9,6 +9,7 @@ package oidc4vc
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -162,20 +163,19 @@ func (s *Steps) runOIDC4CIPreAuthWithInvalidClaims() error {
 	return nil
 }
 
-func (s *Steps) runOIDC4CIPreAuthWithInvalidClaimsSchema() error {
+func (s *Steps) initiateCredentialIssuanceWithClaimsSchemaValidationError() error {
 	initiateIssuanceRequest := initiateOIDC4CIRequest{
 		CredentialTemplateId: "universityDegreeTemplateID",
 		ClaimData: &map[string]interface{}{
 			"degree": map[string]string{
 				"degree": "MIT",
 			},
-			// "name":   "Jayden Doe",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
 		},
 		UserPinRequired: true,
 	}
 
-	err := s.runOIDC4CIPreAuth(initiateIssuanceRequest)
+	_, err := s.initiateCredentialIssuance(initiateIssuanceRequest)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -337,6 +337,51 @@ func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
 	}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIWalletInitiated: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4CIAuthWithInvalidClaims() error {
+	s.issuedCredentialType = "UniversityDegreeCredential"
+	s.issuedCredentialTemplateID = "universityDegreeTemplateID"
+
+	claims := map[string]interface{}{
+		"degree": map[string]string{
+			"degree": "MIT",
+		},
+		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+	}
+
+	claimsDataBytes, err := json.Marshal(claims)
+	if err != nil {
+		return fmt.Errorf("marshal claims: %w", err)
+	}
+
+	issuanceReq := s.getInitiateIssuanceRequest()
+	issuanceReq.ClaimEndpoint += fmt.Sprintf("&claim_data=%s", base64.URLEncoding.EncodeToString(claimsDataBytes))
+
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(issuanceReq)
+	if err != nil {
+		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+	}
+
+	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
+		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:            "oidc4vc_client",
+		Scope:               []string{"openid", "profile"},
+		RedirectURI:         "http://127.0.0.1/callback",
+		CredentialType:      s.issuedCredentialType,
+		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:               "bdd-test",
+		Password:            "bdd-test-pass",
+	}, nil)
+	if err == nil {
+		return fmt.Errorf("error expected, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "validate claims: validation error: [(root): name is required; degree: type is required]") {
+		return fmt.Errorf("unexpected error: %w", err)
 	}
 
 	return nil

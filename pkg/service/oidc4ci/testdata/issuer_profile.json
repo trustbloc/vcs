@@ -34,7 +34,9 @@
       ],
       "type": "PermanentResidentCard",
       "id": "templateID",
-      "issuer": "test_issuer"
+      "issuer": "test_issuer",
+      "jsonSchema": "{\"$id\":\"https://trustbloc.com/universitydegree.schema.json\",\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"title\":\"UniversityDegreeCredential\",\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"spouse\":{\"type\":\"string\"},\"degree\":{\"type\":\"object\",\"description\":\"Describes the degree.\",\"properties\":{\"type\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"}},\"required\":[\"type\",\"degree\"]}},\"required\":[\"name\",\"spouse\",\"degree\"]}",
+      "jsonSchemaID": "https://trustbloc.com/universitydegree.schema.json"
     },
     {
       "contexts": [

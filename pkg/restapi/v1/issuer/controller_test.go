@@ -590,7 +590,7 @@ func TestController_AuthFailed(t *testing.T) {
 
 		controller := NewController(&Config{
 			ProfileSvc: mockProfileSvc,
-			//KMSRegistry: kmsRegistry,
+			// KMSRegistry: kmsRegistry,
 			Tracer: trace.NewNoopTracerProvider().Tracer(""),
 		})
 
@@ -603,7 +603,7 @@ func TestController_AuthFailed(t *testing.T) {
 
 		controller := NewController(&Config{
 			ProfileSvc: mockProfileSvc,
-			//KMSRegistry: kmsRegistry,
+			// KMSRegistry: kmsRegistry,
 			Tracer: trace.NewNoopTracerProvider().Tracer(""),
 		})
 
@@ -701,7 +701,7 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		controller := NewController(&Config{
-			//KMSRegistry:     kmsRegistry,
+			// KMSRegistry:     kmsRegistry,
 			DocumentLoader:  testutil.DocumentLoader(t),
 			VcStatusManager: mockVCStatusManager,
 		})
@@ -1292,11 +1292,15 @@ func TestController_PrepareCredential(t *testing.T) {
 			},
 		)
 
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
 		c := NewController(&Config{
 			ProfileSvc:             mockProfileSvc,
 			IssueCredentialService: mockIssueCredentialSvc,
 			OIDC4CIService:         mockOIDC4CIService,
 			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
 		})
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
@@ -1326,10 +1330,13 @@ func TestController_PrepareCredential(t *testing.T) {
 			},
 		)
 
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+
 		c := NewController(&Config{
-			ProfileSvc:     mockProfileSvc,
-			OIDC4CIService: mockOIDC4CIService,
-			DocumentLoader: testutil.DocumentLoader(t),
+			ProfileSvc:          mockProfileSvc,
+			OIDC4CIService:      mockOIDC4CIService,
+			DocumentLoader:      testutil.DocumentLoader(t),
+			JSONSchemaValidator: mockJSONSchemaValidator,
 		})
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
@@ -1371,11 +1378,14 @@ func TestController_PrepareCredential(t *testing.T) {
 			},
 		)
 
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+
 		c := NewController(&Config{
 			ProfileSvc:             mockProfileSvc,
 			OIDC4CIService:         mockOIDC4CIService,
 			IssueCredentialService: mockIssueCredentialSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
 		})
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
@@ -1425,9 +1435,6 @@ func TestController_PrepareCredential(t *testing.T) {
 	})
 
 	t.Run("claims schema validation error", func(t *testing.T) {
-		var universityDegreeSchemaDoc map[string]interface{}
-		require.NoError(t, json.Unmarshal(universityDegreeSchema, &universityDegreeSchemaDoc))
-
 		invalidVC, err := verifiable.ParseCredential(
 			sampleVCInvalidUniversityDegree,
 			verifiable.WithDisabledProofCheck(),
@@ -1472,16 +1479,21 @@ func TestController_PrepareCredential(t *testing.T) {
 			},
 		)
 
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New("validation error"))
+
 		c := NewController(&Config{
 			ProfileSvc:             mockProfileSvc,
 			IssueCredentialService: mockIssueCredentialSvc,
 			OIDC4CIService:         mockOIDC4CIService,
 			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
 		})
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.EqualError(t, c.PrepareCredential(ctx), "validate claims: validation error: [alumniOf: name is required]")
+		assert.EqualError(t, c.PrepareCredential(ctx), "validate claims: validation error")
 	})
 }
 
@@ -1769,92 +1781,6 @@ func TestOpenIdConfiguration_GrantTypesSupportedAndScopesSupported(t *testing.T)
 
 	assert.Equal(t, config.GrantTypesSupported, gt)
 	assert.Equal(t, config.ScopesSupported, s)
-}
-
-func Test_validateJSONSchema(t *testing.T) {
-	const schemaID = "https://trustbloc.com/universitydegree.schema.json"
-
-	t.Run("success", func(t *testing.T) {
-		c := NewController(&Config{})
-
-		data := map[string]interface{}{
-			"alumniOf": map[string]interface{}{
-				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				"name": []map[string]interface{}{
-					{
-						"value": "Example University",
-						"lang":  "en",
-					},
-					{
-						"value": "Exemple d'Université",
-						"lang":  "fr",
-					},
-				},
-			},
-			"degree": map[string]interface{}{
-				"type": "BachelorDegree",
-				"name": "Bachelor of Science and Arts",
-			},
-		}
-
-		err := c.schemaValidator.Validate(data, schemaID, universityDegreeSchema)
-		require.NoError(t, err)
-	})
-
-	t.Run("validation error", func(t *testing.T) {
-		c := NewController(&Config{})
-
-		data := map[string]interface{}{
-			"alumniOf": map[string]interface{}{
-				"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				"name": []map[string]interface{}{
-					{
-						"value": "Example University",
-						"lang":  0,
-					},
-					{
-						"value": "Exemple d'Université",
-					},
-				},
-			},
-		}
-
-		err := c.schemaValidator.Validate(data, schemaID, universityDegreeSchema)
-		require.EqualError(t, err,
-			"validation error: [(root): degree is required; alumniOf.name.0.lang: Invalid type. "+
-				"Expected: string, given: integer; alumniOf.name.1: lang is required]")
-	})
-
-	t.Run("$id not found in schema", func(t *testing.T) {
-		c := NewController(&Config{})
-
-		err := c.schemaValidator.Validate(map[string]interface{}{}, "schema1.json", []byte(`{}`))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "field '$id' not found in JSON schema")
-	})
-
-	t.Run("invalid schema error", func(t *testing.T) {
-		c := NewController(&Config{})
-
-		data := map[string]interface{}{}
-
-		err := c.schemaValidator.Validate(data, schemaID,
-			[]byte(`{"$id": "https://trustbloc.com/universitydegree.schema.json","type":"invalid"}`))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has a primitive type that is NOT VALID")
-	})
-
-	t.Run("schema ID mismatch", func(t *testing.T) {
-		c := NewController(&Config{})
-
-		data := map[string]interface{}{}
-
-		err := c.schemaValidator.Validate(data, schemaID,
-			[]byte(`{"$id": "id_1","type":"object"}`))
-		require.Error(t, err)
-		require.Contains(t, err.Error(),
-			"field '$id' in JSON schema [id_1] does not match schema ID [https://trustbloc.com/universitydegree.schema.json]")
-	})
 }
 
 func Test_getCredentialSubjects(t *testing.T) {

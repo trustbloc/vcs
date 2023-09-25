@@ -42,14 +42,23 @@ var profileJSON []byte
 
 func TestService_InitiateIssuance(t *testing.T) {
 	var (
-		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
-		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
-		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
-		eventService         = NewMockEventService(gomock.NewController(t))
-		pinGenerator         = NewMockPinGenerator(gomock.NewController(t))
-		crypto               = NewMockDataProtector(gomock.NewController(t))
-		issuanceReq          *oidc4ci.InitiateIssuanceRequest
-		profile              *profileapi.Issuer
+		mockTransactionStore    = NewMockTransactionStore(gomock.NewController(t))
+		mockClaimDataStore      = NewMockClaimDataStore(gomock.NewController(t))
+		mockWellKnownService    = NewMockWellKnownService(gomock.NewController(t))
+		eventService            = NewMockEventService(gomock.NewController(t))
+		pinGenerator            = NewMockPinGenerator(gomock.NewController(t))
+		crypto                  = NewMockDataProtector(gomock.NewController(t))
+		mockJSONSchemaValidator = NewMockJSONSchemaValidator(gomock.NewController(t))
+		issuanceReq             *oidc4ci.InitiateIssuanceRequest
+		profile                 *profileapi.Issuer
+		degreeClaims            = map[string]interface{}{
+			"name":   "John Doe",
+			"spouse": "Jane Doe",
+			"degree": map[string]interface{}{
+				"type":   "BachelorDegree",
+				"degree": "MIT",
+			},
+		}
 	)
 
 	var testProfile profileapi.Issuer
@@ -182,7 +191,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
+					"name":   "John Doe",
+					"spouse": "Jane Doe",
+					"degree": map[string]interface{}{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
 				}
 
 				profile = &testProfile
@@ -247,6 +261,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
 
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
@@ -270,9 +286,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
-				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
-				}
+				claimData := degreeClaims
 
 				profile = &testProfile
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -326,6 +340,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
 
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
@@ -349,9 +365,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
-				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
-				}
+				claimData := degreeClaims
 
 				cp := testProfile
 				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
@@ -399,6 +413,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
@@ -419,9 +435,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				initialOpState := ""
 				expectedCode := "super-secret-pre-auth-code"
-				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
-				}
+				claimData := degreeClaims
 
 				cp := testProfile
 				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
@@ -470,6 +484,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
@@ -491,9 +507,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Fail Pre-Auth with PIN because of error during saving claim data",
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
-				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
-				}
+				claimData := degreeClaims
 
 				profile = &testProfile
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -513,6 +527,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
+
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
@@ -531,9 +548,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
-				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
-				}
+				claimData := degreeClaims
 
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -578,6 +593,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -883,6 +900,38 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.Contains(t, err.Error(), "unsupported scope invalid_value")
 			},
 		},
+		{
+			name: "Error because of claims validation error",
+			setup: func() {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				claimData := map[string]interface{}{
+					"name":   1,
+					"wife":   "Jane Doe",
+					"degree": "MIT",
+				}
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).
+					Return(&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("validation error"))
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              initialOpState,
+					UserPinRequired:      false,
+					ClaimData:            claimData,
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "validation error")
+				require.Nil(t, resp)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -897,6 +946,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				EventTopic:          spi.IssuerEventTopic,
 				PinGenerator:        pinGenerator,
 				DataProtector:       crypto,
+				JSONSchemaValidator: mockJSONSchemaValidator,
 			})
 			require.NoError(t, err)
 

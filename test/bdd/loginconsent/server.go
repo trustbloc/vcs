@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -329,7 +330,7 @@ func (s *server) completeConsent(w http.ResponseWriter, r *http.Request, request
 		GrantScope:               consentReq.GetRequestedScope(),
 		HandledAt:                &now,
 		Session: &client.ConsentRequestSession{
-			//AccessToken: nil,
+			// AccessToken: nil,
 			IdToken: request.UserClaims,
 		},
 	}).ConsentChallenge(consentChallenge).Execute()
@@ -349,6 +350,25 @@ func (s *server) claimDataHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("handling request: %s", r.URL.String())
 
 	// TODO: Perform token introspection
+
+	// Check if the claims are included in the query.
+	encodedClaimData := r.URL.Query().Get("claim_data")
+	if encodedClaimData != "" {
+		claimData, err := base64.URLEncoding.DecodeString(encodedClaimData)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+
+		if _, err := w.Write(claimData); err != nil {
+			log.Printf("failed to write response: %s", err.Error())
+		}
+
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
