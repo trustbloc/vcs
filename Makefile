@@ -10,6 +10,7 @@ DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
+COGNITO_AUTH_IMAGE_NAME				?= vcs/sample-cognito-auth
 OPENAPIGEN_VERSION 					?=v1.11.0
 VC_FRAMEWORK_VERSION				=	main
 MOCK_VERSION 	?=v1.7.0-rc.1
@@ -117,8 +118,24 @@ mock-login-consent-docker:
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) test/bdd/loginconsent
 
+.PHONY: sample-cognito-auth
+sample-cognito-auth:
+	@echo "Building sample cognito auth server"
+	@mkdir -p ./build/bin
+	@go build -modfile test/bdd/go.mod -o ./build/bin/cognito-auth-server test/bdd/cognito-auth/main.go
+
+.PHONY: sample-cognito-auth-docker
+sample-cognito-auth-docker:
+	@echo "Building sample cognito-auth server docker image"
+	@docker build -f ./images/mocks/cognito-auth/Dockerfile --no-cache -t $(COGNITO_AUTH_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
+	--build-arg GO_IMAGE=$(GO_IMAGE) \
+	--build-arg ALPINE_IMAGE=$(ALPINE_IMAGE) .
+
+
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
+bdd-test: clean vc-rest-docker sample-cognito-auth-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
 	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test

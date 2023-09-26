@@ -383,5 +383,5 @@ func IssueAccessToken(ctx context.Context, oidcProviderURL, clientID, secret str
 		return "", fmt.Errorf("failed to get token: %w", err)
 	}
 
-	return token.AccessToken, nil
+	return token.Extra("id_token").(string), nil
 }

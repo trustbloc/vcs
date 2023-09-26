@@ -94,7 +94,7 @@ func beforeSuiteHook() {
 		return
 	}
 
-	dockerComposeUp := []string{"docker-compose", "-f", composeFilePath, "up", "--force-recreate", "-d"}
+	dockerComposeUp := []string{"docker", "compose", "-f", composeFilePath, "up", "--force-recreate", "-d"}
 
 	logger.Info("Running ", logfields.WithDockerComposeCmd(strings.Join(dockerComposeUp, " ")))
 
@@ -124,7 +124,7 @@ func afterSuiteHook() {
 		return
 	}
 
-	dockerComposeDown := []string{"docker-compose", "-f", composeFilePath, "down"}
+	dockerComposeDown := []string{"docker", "compose", "-f", composeFilePath, "down"}
 
 	logger.Info("Running ", logfields.WithDockerComposeCmd(strings.Join(dockerComposeDown, " ")))
 

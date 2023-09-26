@@ -4,6 +4,9 @@
       "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/credentials/issue",
       "method": "POST",
       "protected": true,
+      "roles_to_validate": [
+        "issuer"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -13,6 +16,9 @@
       "endpoint": "/issuer/credentials/status",
       "method": "POST",
       "protected": true,
+      "roles_to_validate": [
+        "revoker"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -22,6 +28,9 @@
       "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc",
       "method": "POST",
       "protected": true,
+      "roles_to_validate": [
+        "issuer"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -138,6 +147,9 @@
       "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/credentials/verify",
       "method": "POST",
       "protected": true,
+      "roles_to_validate": [
+        "verifier"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -147,6 +159,9 @@
       "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/presentations/verify",
       "method": "POST",
       "protected": true,
+      "roles_to_validate": [
+        "verifier"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -156,6 +171,9 @@
       "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc",
       "method": "POST",
       "protected": true,
+      "roles_to_validate": [
+        "verifier"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -165,6 +183,9 @@
       "endpoint": "/verifier/interactions/{txID}/claim",
       "method": "GET",
       "protected": true,
+      "roles_to_validate": [
+        "verifier"
+      ],
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
@@ -173,6 +194,9 @@
     {
       "endpoint": "/verifier/interactions/authorization-response",
       "method": "POST",
+      "roles_to_validate": [
+        "verifier"
+      ],
       "input_headers": [
         "Content-Type"
       ]

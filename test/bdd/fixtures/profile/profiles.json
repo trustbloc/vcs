@@ -6,7 +6,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_P256k1",
         "name": "i_myprofile_ud_P256k1",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -28,7 +28,7 @@
         "version": "v1.0",
         "groupID": "i_myprofile_ud_di_ecdsa-2019",
         "name": "i_myprofile_ud_di_ecdsa-2019",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -172,7 +172,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256_jwt",
         "name": "i_myprofile_ud_es256_jwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -194,7 +194,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256_sdjwt",
         "name": "i_myprofile_ud_es256_sdjwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -220,7 +220,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es384_jwt",
         "name": "i_myprofile_ud_es384_jwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -242,7 +242,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es384_sdjwt",
         "name": "i_myprofile_ud_es384_sdjwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -268,7 +268,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256k_jwt",
         "name": "i_myprofile_ud_es256k_jwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -444,7 +444,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256k_sdjwt",
         "name": "i_myprofile_ud_es256k_sdjwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -470,7 +470,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_p256",
         "name": "i_myprofile_ud_p256",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -492,7 +492,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_prc_P256k1",
         "name": "i_myprofile_prc_P256k1",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -514,7 +514,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_prc_p256",
         "name": "i_myprofile_prc_p256",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -536,7 +536,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_cp_p384",
         "name": "i_myprofile_cp_p384",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -558,7 +558,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_cp_p256",
         "name": "i_myprofile_cp_p256",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -580,7 +580,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_cmtr_p384",
         "name": "i_myprofile_cmtr_p384",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -602,7 +602,7 @@
         "version": "v1.0",
         "groupID": "group_i_myprofile_cmtr_p256_ldp",
         "name": "i_myprofile_cmtr_p256_ldp",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -780,7 +780,7 @@
         "version": "v1.0",
         "groupID": "group_bank_issuer",
         "name": "Bank Issuer",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -961,7 +961,7 @@
         "version": "v1.0",
         "groupID": "group_bank_issuer_sdjwt_v5",
         "name": "Bank Issuer SDJWT v5",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -1142,7 +1142,7 @@
         "version": "v1.0",
         "groupID": "group_issuer_without_oidc",
         "name": "Issuer Without OIDC",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -1259,7 +1259,7 @@
         "version": "v1.0",
         "groupID": "group_i_disabled_preauth_without_client_id",
         "name": "i_disabled_preauth_without_client_id",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -1398,7 +1398,7 @@
         "id": "v_myprofile_ldp",
         "version": "v1.0",
         "name": "v_myprofile_ldp",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",
@@ -1611,7 +1611,7 @@
         "id": "v_myprofile_jwt",
         "version": "v1.0",
         "name": "v_myprofile_jwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",
@@ -1825,7 +1825,7 @@
         "id": "v_myprofile_multivp_jwt",
         "version": "v1.0",
         "name": "v_myprofile_multivp_jwt",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "https://test-verifier.com",
         "logoURL": "https://test-verifier.com/logo.png",
         "active": true,
@@ -1921,7 +1921,7 @@
         "id": "v_myprofile_jwt_whitelist",
         "version": "v1.0",
         "name": "v_myprofile_jwt_whitelist",
-        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",

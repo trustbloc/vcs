@@ -1,11 +1,8 @@
 {
   "Clients": {
     "f13d1va9lp403pb9lyj89vk55": {
-      "AllowedOAuthFlows": [
-        "client_credentials"
-      ],
-      "AllowedOAuthScopes": [
-        "org_admin"
+      "ExplicitAuthFlows": [
+        "USER_PASSWORD_AUTH"
       ],
       "ClientId": "f13d1va9lp403pb9lyj89vk55",
       "ClientName": "Test Org",

@@ -35,40 +35,37 @@ const (
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
-	oidcProviderURL                     = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
+	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
 )
 
-func (s *Steps) authorizeIssuer(profileVersionedID string) error {
+func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {
 	if err := s.ResetAndSetup(); err != nil {
 		return err
 	}
+	issuerProfile, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 
-	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
 
-	if issuer.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", profileVersionedID)
-	}
-
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
-		issuer.OrganizationID, "ejqxi9jb1vew2jbdnogpjcgrz", []string{"org_admin"})
+		username, password, []string{"org_admin"})
 	if err != nil {
 		return err
 	}
 
-	s.issuerProfile = issuer
-	s.bddContext.Args[getOrgAuthTokenKey(issuer.OrganizationID)] = accessToken
+	s.bddContext.Args[getOrgAuthTokenKey(issuerProfile.ID+"/"+issuerProfile.Version)] = accessToken
 
+	s.issuerProfile = issuerProfile
 	return nil
 }
 
 func (s *Steps) initiateCredentialIssuance(initiateOIDC4CIRequest initiateOIDC4CIRequest) (*initiateOIDC4CIResponse, error) {
 	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID, s.issuerProfile.Version)
-	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.OrganizationID)]
+
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.ID+"/"+s.issuerProfile.Version)]
 
 	reqBody, err := json.Marshal(initiateOIDC4CIRequest)
 	if err != nil {
@@ -392,7 +389,6 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 	if err != nil {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
-
 	config := &walletrunner.OIDC4CIConfig{
 		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
 		Scope:               []string{"openid", "profile"},

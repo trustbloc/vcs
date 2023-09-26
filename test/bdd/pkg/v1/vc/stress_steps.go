@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -23,40 +22,14 @@ import (
 
 var logger = log.New("vc-steps")
 
-func (e *Steps) authorizeOrganizationForStressTest(accessTokenURLEnv, orgIDEnv, clientIDEnv, secretEnv string) error {
-	accessTokenURL, err := getEnv(accessTokenURLEnv, OidcProviderURL)
-	if err != nil {
-		return err
-	}
-
-	org, err := getEnv(orgIDEnv, "test_org")
-	if err != nil {
-		return err
-	}
-
-	clientID, err := getEnv(clientIDEnv, "f13d1va9lp403pb9lyj89vk55")
-	if err != nil {
-		return err
-	}
-
-	secret, err := getEnv(secretEnv, "ejqxi9jb1vew2jbdnogpjcgrz")
-	if err != nil {
-		return err
-	}
-
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), accessTokenURL, clientID, secret, []string{"org_admin"})
-	if err != nil {
-		return err
-	}
-
-	e.bddContext.Args[getOrgAuthTokenKey(org)] = accessToken
-
-	return nil
-}
-
 //nolint:funlen,gocyclo
-func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv,
-	verifyProfileIDEnv, orgIDEnv, concurrencyEnv string) error {
+func (e *Steps) stressTestForMultipleUsers(
+	userEnv,
+	vcURLEnv,
+	issuerProfileIDEnv,
+	verifyProfileIDEnv,
+	concurrencyEnv string,
+) error {
 	concurrencyStr, err := getEnv(concurrencyEnv, "10")
 	if err != nil {
 		return err
@@ -97,11 +70,6 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 		return err
 	}
 
-	orgID, err := getEnv(orgIDEnv, "test_org")
-	if err != nil {
-		return err
-	}
-
 	logger.Info("Multi users test", logfields.WithTotalRequests(totalRequests),
 		logfields.WithConcurrencyRequests(concurrencyReq))
 
@@ -116,7 +84,6 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 			issuerProfileName:    chunks[0],
 			issuerProfileVersion: chunks[1],
 			verifyProfileName:    verifyProfileID,
-			organizationName:     orgID,
 			credential:           "university_degree.json",
 			steps:                e,
 		}
@@ -181,7 +148,6 @@ type stressRequest struct {
 	issuerProfileName    string
 	issuerProfileVersion string
 	verifyProfileName    string
-	organizationName     string
 	steps                *Steps
 }
 
@@ -196,7 +162,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	startTime := time.Now()
 
 	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential,
-		r.issuerProfileName, r.issuerProfileVersion, r.organizationName, 0)
+		r.issuerProfileName, r.issuerProfileVersion, 0)
 	if err != nil {
 		return credentialID, nil, fmt.Errorf("create vc %w", err)
 	}
@@ -206,7 +172,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	startTime = time.Now()
 
 	res, err := r.steps.getVerificationResult(
-		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion, r.organizationName)
+		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion)
 	if err != nil {
 		return credentialID, nil, err
 	}

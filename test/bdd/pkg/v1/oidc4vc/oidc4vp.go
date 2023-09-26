@@ -43,7 +43,26 @@ const (
 	RetrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
 
-func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, fields string) error {
+func (s *Steps) authorizeVerifierProfileUser(profileVersionedID, username, password string) error {
+	verifierProfile, ok := s.bddContext.VerifierProfiles[profileVersionedID]
+	if !ok {
+		return fmt.Errorf("verifier profile '%s' not found", profileVersionedID)
+	}
+
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
+		username, password, []string{"org_admin"})
+	if err != nil {
+		return err
+	}
+
+	s.bddContext.Args[getOrgAuthTokenKey(verifierProfile.ID+"/"+verifierProfile.Version)] = accessToken
+
+	s.verifierProfile = verifierProfile
+
+	return nil
+}
+
+func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
 	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
 	s.presentationDefinitionID = pdID
 
@@ -72,7 +91,7 @@ func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, field
 	}
 
 	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, chunks[0], chunks[1])
-	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
 	vpFlowExecutor := s.walletRunner.NewVPFlowExecutor(true)
 
 	initiateInteractionResult, err := vpFlowExecutor.InitiateInteraction(endpointURL, token, bytes.NewBuffer(reqBody))
@@ -88,8 +107,8 @@ func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, field
 	return nil
 }
 
-func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, organizationName, pdID, fields, errorContains string) error {
-	err := s.runOIDC4VPFlow(profileVersionedID, organizationName, pdID, fields)
+func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorContains string) error {
+	err := s.runOIDC4VPFlow(profileVersionedID, pdID, fields)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -111,7 +130,7 @@ func (s *Steps) setHardcodedVPTokenFormat(vpTokenFormat string) error {
 	return nil
 }
 
-func (s *Steps) waitForOIDCInteractionSucceededEvent(organizationName string) error {
+func (s *Steps) waitForOIDCInteractionSucceededEvent(profile string) error {
 	txID, err := s.waitForEvent("verifier.oidc-interaction-succeeded.v1")
 	if err != nil {
 		return err
@@ -122,12 +141,12 @@ func (s *Steps) waitForOIDCInteractionSucceededEvent(organizationName string) er
 	return nil
 }
 
-func (s *Steps) retrieveInteractionsClaim(organizationName string) error {
-	if err := s.waitForOIDCInteractionSucceededEvent(organizationName); err != nil {
+func (s *Steps) retrieveInteractionsClaim(profile string) error {
+	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
 		return err
 	}
 
-	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
 	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
 
 	claims, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
@@ -189,8 +208,8 @@ func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
 	return nil
 }
 
-func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(organizationName string) error {
-	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(profile string) error {
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
 
 	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
 

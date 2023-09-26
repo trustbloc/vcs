@@ -9,6 +9,7 @@ package vc
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -27,7 +28,7 @@ const (
 	issuerProfileURL                = "%s/issuer/profiles"
 	issuerProfileURLFormat          = issuerProfileURL + "/%s/%s"
 	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
-	OidcProviderURL                 = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
+	OidcProviderURL                 = "http://cognito-auth.local:8094/cognito"
 	updateCredentialStatusURLFormat = "%s/issuer/credentials/status"
 )
 
@@ -54,49 +55,64 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
-	s.Step(`^Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
-		e.authorizeOrganization)
-	s.Step(`^"([^"]*)" Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
-		e.authorizeOrganizationForStressTest)
-	s.Step(`^V1 New verifiable credential is issued from "([^"]*)" under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 New verifiable credential is issued from "([^"]*)" under "([^"]*)" profile$`,
 		e.issueVC)
-	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile$`,
 		e.verifyVC)
-	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to revoke credential for organization "([^"]*)"$`,
+	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to revoke credential$`,
 		e.revokeVCWithError)
-	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile$`,
 		e.revokeVC)
-	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile$`,
 		e.verifyRevokedVC)
-	s.Step(`^V1 verifiable credential with wrong format is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 verifiable credential with wrong format is unable to be verified under "([^"]*)" profile$`,
 		e.verifyVCInvalidFormat)
-	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
+	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 
 	s.Step(`^New verifiable credentials is created from table:$`, e.createCredentialsFromTable)
+	s.Step(`^With AccessTokenUrlEnv "([^"]*)", new verifiable credentials is created from table:$`, e.createCredentialsFromTableWithEnv)
 }
 
-func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), OidcProviderURL,
-		clientID, secret, []string{"org_admin"})
+func (e *Steps) authorizeProfileUser(accessTokenUrlEnv, profileVersionedID, username, password string) error {
+	accessTokenURL, err := getEnv(accessTokenUrlEnv, OidcProviderURL)
 	if err != nil {
 		return err
 	}
 
-	e.bddContext.Args[getOrgAuthTokenKey(org)] = accessToken
+	issuerProfile, ok := e.bddContext.IssuerProfiles[profileVersionedID]
+
+	if !ok {
+		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
+	}
+
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), accessTokenURL,
+		username, password, []string{"org_admin"})
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[getOrgAuthTokenKey(issuerProfile.ID+"/"+issuerProfile.Version)] = accessToken
+
+	e.bddContext.IssuerProfiles[issuerProfile.ID+"/"+issuerProfile.Version] = issuerProfile
 
 	return nil
 }
 
 type createVCParams struct {
 	IssuerProfile string
-	Organization  string
+	UserName      string
+	Password      string
 	Credential    string
 	VCFormat      string
 	DIDIndex      int
 }
 
 func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
+	return e.createCredentialsFromTableWithEnv("", table)
+}
+
+func (e *Steps) createCredentialsFromTableWithEnv(accessTokenURLEnvName string, table *godog.Table) error {
 	params, err := assistdog.NewDefault().CreateSlice(&createVCParams{}, table)
 	if err != nil {
 		return err
@@ -106,11 +122,16 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 
 	for _, p := range params.([]*createVCParams) {
 
+		err := e.authorizeProfileUser(accessTokenURLEnvName, p.IssuerProfile, p.UserName, p.Password)
+		if err != nil {
+			return err
+		}
+
 		chunks := strings.Split(p.IssuerProfile, "/")
 		profileID, profileVersion := chunks[0], chunks[1]
 		_, err = e.createCredential(
 			credentialServiceURL,
-			p.Credential, profileID, profileVersion, p.Organization, p.DIDIndex)
+			p.Credential, profileID, profileVersion, p.DIDIndex)
 		if err != nil {
 			return err
 		}

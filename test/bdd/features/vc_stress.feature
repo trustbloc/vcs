@@ -8,5 +8,6 @@
 Feature: VC stress test
   @vc_stress_test
   Scenario: Stress test method
-    When "ACCESS_TOKEN_URL" Organization "ORG_ID" has been authorized with client id "CLIENT_ID" and secret "SECRET"
-    And  "USER_NUMS" users request to create a vc and verify it "VC_URL" with profiles issuer "ISSUER_PROFILE_ID" verify "VERIFY_PROFILE_ID" and org id "ORG_ID" using "CONCURRENT_REQ" concurrent requests
+    When Profile "i_myprofile_ud_P256k1/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And Profile "v_myprofile_ldp/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    And  "USER_NUMS" users request to create a vc and verify it "VC_URL" with profiles issuer "ISSUER_PROFILE_ID" verify "VERIFY_PROFILE_ID" using "CONCURRENT_REQ" concurrent requests

@@ -31,19 +31,19 @@ const (
 	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
 )
 
-func (e *Steps) initiateInteraction(profileVersionedID, organizationName string) error {
-	return e.initiateInteractionHelper(profileVersionedID, organizationName, nil)
+func (e *Steps) initiateInteraction(profileVersionedID string) error {
+	return e.initiateInteractionHelper(profileVersionedID, nil)
 }
 
-func (e *Steps) initiateInteractionHelper(profileVersionedID, organizationName string, body io.Reader) error {
+func (e *Steps) initiateInteractionHelper(profileVersionedID string, body io.Reader) error {
 	e.vpFlowExecutor = e.walletRunner.NewVPFlowExecutor(false)
-
-	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	chunks := strings.Split(profileVersionedID, "/")
 	if len(chunks) != 2 {
 		return errors.New("initiateInteraction - invalid profileVersionedID field")
 	}
+
+	token := e.bddContext.Args[getOrgAuthTokenKey(chunks[0]+"/"+chunks[1])]
 
 	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, chunks[0], chunks[1])
 
@@ -59,6 +59,7 @@ func (e *Steps) initiateInteractionHelper(profileVersionedID, organizationName s
 }
 
 func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
+	fmt.Printf("e.initiateOIDC4VPResponse: %v", e.initiateOIDC4VPResponse)
 	if len(e.initiateOIDC4VPResponse.AuthorizationRequest) == 0 {
 		return fmt.Errorf("authorizationRequest is empty")
 	}
@@ -98,13 +99,18 @@ func (e *Steps) sendAuthorizedResponse() error {
 	return err
 }
 
-func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
+func (e *Steps) retrieveInteractionsClaim(profileVersionedID string) error {
 	txID, err := e.waitForEvent("verifier.oidc-interaction-succeeded.v1")
 	if err != nil {
 		return err
 	}
 
-	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	chunks := strings.Split(profileVersionedID, "/")
+	if len(chunks) != 2 {
+		return errors.New("initiateInteraction - invalid profileVersionedID field")
+	}
+
+	token := e.bddContext.Args[getOrgAuthTokenKey(chunks[0]+"/"+chunks[1])]
 
 	endpointURL := fmt.Sprintf(retrieveInteractionsClaimURLFormat, txID)
 

@@ -8,16 +8,16 @@
 @vc_rest_v1
 Feature: Using VC REST API
 
-  Background:
-    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
-
   @e2e_ldp_jwt_sdjwt_success
   Scenario Outline: Store, retrieve, verify and revoke credential using different kind of profiles (LDP, JWT, SD-JWT).
-    Given   V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile for organization "test_org"
-    And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "test_org"
-    Then   V1 verifiable credential is successfully revoked under "<issuerProfile>" profile for organization "test_org"
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    And V1 verifiable credential is verified under "<verifierProfile>" profile
+
+    Then  V1 verifiable credential is successfully revoked under "<issuerProfile>" profile
     Then we wait 3 seconds
-    And   V1 revoked credential is unable to be verified under "<verifierProfile>" profile for organization "test_org"
+    And   V1 revoked credential is unable to be verified under "<verifierProfile>" profile
 
     Examples:
       | issuerProfile                     | verifierProfile      | credential                      |
@@ -28,10 +28,14 @@ Feature: Using VC REST API
 
   @e2e_ldp_jwt_sdjwt_revoke_err
   Scenario Outline: Unsuccessful attempt to revoke credential from wrong issuer (LDP, JWT, SD-JWT).
-    Given   V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile for organization "test_org"
-    And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "test_org"
-    Then   V1 "<wrongIssuerProfile>" did unsuccessful attempt to revoke credential for organization "test_org"
-    And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "test_org"
+    Given   Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    And   V1 verifiable credential is verified under "<verifierProfile>" profile
+
+    Then Profile "<wrongIssuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And V1 "<wrongIssuerProfile>" did unsuccessful attempt to revoke credential
+    And   V1 verifiable credential is verified under "<verifierProfile>" profile
 
     Examples:
       | issuerProfile                    | wrongIssuerProfile              | verifierProfile      | credential                      |
@@ -41,8 +45,10 @@ Feature: Using VC REST API
 
   @e2e_ldp_jwt_sdjwt_verify_format_err
   Scenario Outline: Credential verification failed due to unsupported credential format by verifier (LDP, JWT, SD-JWT).
-    Given   V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile for organization "test_org"
-    And   V1 verifiable credential with wrong format is unable to be verified under "<wrongVerifierProfile>" profile for organization "test_org"
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
+    And Profile "<wrongVerifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    And   V1 verifiable credential with wrong format is unable to be verified under "<wrongVerifierProfile>" profile
 
     Examples:
       | issuerProfile                    | wrongVerifierProfile | credential                      |

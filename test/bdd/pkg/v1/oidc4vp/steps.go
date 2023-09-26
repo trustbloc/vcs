@@ -52,15 +52,15 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^User creates wallet with (\d+) DID$`, e.createWallet)
 	s.Step(`^User saves credentials into wallet$`, e.saveCredentialsInWallet)
-	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile$`,
 		e.initiateInteraction)
-	s.Step(`^Verifier form organization "([^"]*)" requests interactions claims$`,
+	s.Step(`^Verifier with profile "([^"]*)" requests interactions claims$`,
 		e.retrieveInteractionsClaim)
 
 	s.Step(`^Wallet verify authorization request and decode claims$`, e.verifyAuthorizationRequestAndDecodeClaims)
 	s.Step("^Wallet looks for credential that match authorization multi VP$", e.queryCredentialFromWalletMultiVP)
 	s.Step("^Wallet send authorization response$", e.sendAuthorizedResponse)
 
-	s.Step(`^"([^"]*)" users execute oidc4vp flow with init "([^"]*)" url, with retrieve "([^"]*)" url, for verify profile "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
+	s.Step(`^"([^"]*)" users execute oidc4vp flow with init "([^"]*)" url, with retrieve "([^"]*)" url, for verify profile "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 }

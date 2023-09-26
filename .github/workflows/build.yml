@@ -74,6 +74,7 @@ jobs:
           echo '127.0.0.1 api-gateway.trustbloc.local' | sudo tee -a /etc/hosts
           echo '127.0.0.1 cognito-mock.trustbloc.local' | sudo tee -a /etc/hosts
           echo '127.0.0.1 mock-login-consent.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 cognito-auth.local' | sudo tee -a /etc/hosts
           make bdd-test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
