@@ -101,8 +101,7 @@ Feature: OIDC4VC REST API
 
   @oidc4vc_rest_auth_schema_validation_error
   Scenario: OIDC credential issuance and verification Auth flow (Claims JSON schema validation error)
-    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
-    And   Issuer with id "bank_issuer/v1.0" is authorized as a Profile user
+    Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     Then User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema
 
   Scenario: OIDC credential issuance and verification Pre Auth flow (Invalid Field in Presentation Definition)
