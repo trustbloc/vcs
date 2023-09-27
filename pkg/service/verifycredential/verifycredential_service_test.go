@@ -14,7 +14,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-
 	"github.com/trustbloc/did-go/doc/did"
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
@@ -74,7 +73,7 @@ func TestService_VerifyCredential(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 		mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
-			&verifiable.Credential{
+			createVC(t, verifiable.CredentialContents{
 				Subject: []verifiable.Subject{{
 					ID: "",
 					CustomFields: map[string]interface{}{
@@ -83,10 +82,10 @@ func TestService_VerifyCredential(t *testing.T) {
 						"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 					},
 				}},
-				Issuer: verifiable.Issuer{
+				Issuer: &verifiable.Issuer{
 					ID: "did:trustblock:abc",
 				},
-			}, nil)
+			}), nil)
 
 		tests := []struct {
 			name string
@@ -210,7 +209,7 @@ func TestService_VerifyCredential(t *testing.T) {
 				mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 				mockStatusListVCGetter.EXPECT().Resolve(
 					context.Background(), gomock.Any()).AnyTimes().Return(
-					&verifiable.Credential{
+					createVC(t, verifiable.CredentialContents{
 						Subject: []verifiable.Subject{{
 							ID: "",
 							CustomFields: map[string]interface{}{
@@ -219,10 +218,10 @@ func TestService_VerifyCredential(t *testing.T) {
 								"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 							},
 						}},
-						Issuer: verifiable.Issuer{
+						Issuer: &verifiable.Issuer{
 							ID: "did:trustblock:abc",
 						},
-					}, nil)
+					}), nil)
 
 				mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
 					StatusProcessor: &status.MockVCStatusProcessor{
@@ -253,7 +252,7 @@ func TestService_VerifyCredential(t *testing.T) {
 				failedStatusListGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 				failedStatusListGetter.EXPECT().Resolve(
 					context.Background(), gomock.Any()).AnyTimes().Return(
-					&verifiable.Credential{
+					createVC(t, verifiable.CredentialContents{
 						Subject: []verifiable.Subject{{
 							ID: "",
 							CustomFields: map[string]interface{}{
@@ -262,10 +261,10 @@ func TestService_VerifyCredential(t *testing.T) {
 								"encodedList":     "H4sIAAAAAAAA_2ICBAAA__-hjgw8AQAAAA",
 							},
 						}},
-						Issuer: verifiable.Issuer{
+						Issuer: &verifiable.Issuer{
 							ID: "did:trustblock:abc",
 						},
-					}, nil)
+					}), nil)
 
 				mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
 					StatusProcessor: &status.MockVCStatusProcessor{
@@ -308,7 +307,7 @@ func TestService_checkVCStatus(t *testing.T) {
 	}
 	type args struct {
 		getVcStatus func() *verifiable.TypedID
-		issuer      string
+		issuer      *verifiable.Issuer
 	}
 	tests := []struct {
 		name    string
@@ -322,19 +321,20 @@ func TestService_checkVCStatus(t *testing.T) {
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 					mockStatusListVCGetter.EXPECT().Resolve(context.Background(),
-						"https://example.com/status/1").AnyTimes().Return(&verifiable.Credential{
-						Subject: []verifiable.Subject{{
-							ID: "",
-							CustomFields: map[string]interface{}{
-								"statusListIndex": "1",
-								"statusPurpose":   "2",
-								"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+						"https://example.com/status/1").AnyTimes().Return(
+						createVC(t, verifiable.CredentialContents{
+							Subject: []verifiable.Subject{{
+								ID: "",
+								CustomFields: map[string]interface{}{
+									"statusListIndex": "1",
+									"statusPurpose":   "2",
+									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+								},
+							}},
+							Issuer: &verifiable.Issuer{
+								ID: "did:trustblock:abc",
 							},
-						}},
-						Issuer: verifiable.Issuer{
-							ID: "did:trustblock:abc",
-						},
-					}, nil)
+						}), nil)
 
 					return mockStatusListVCGetter
 				},
@@ -353,7 +353,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return validVCStatus
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: false,
 		},
@@ -421,7 +421,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return &verifiable.TypedID{}
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -445,7 +445,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return &verifiable.TypedID{}
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -470,7 +470,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return validVCStatus
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -481,12 +481,12 @@ func TestService_checkVCStatus(t *testing.T) {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 					mockStatusListVCGetter.EXPECT().Resolve(
 						context.Background(), gomock.Any()).AnyTimes().Return(
-						&verifiable.Credential{
+						createVC(t, verifiable.CredentialContents{
 							Subject: []verifiable.Subject{},
-							Issuer: verifiable.Issuer{
+							Issuer: &verifiable.Issuer{
 								ID: "did:trustblock:123",
 							},
-						}, nil)
+						}), nil)
 
 					return mockStatusListVCGetter
 				},
@@ -502,7 +502,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return validVCStatus
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -512,12 +512,12 @@ func TestService_checkVCStatus(t *testing.T) {
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
-						&verifiable.Credential{
-							Subject: verifiable.Subject{},
-							Issuer: verifiable.Issuer{
+						createVC(t, verifiable.CredentialContents{
+							Subject: []verifiable.Subject{},
+							Issuer: &verifiable.Issuer{
 								ID: "did:trustblock:abc",
 							},
-						}, nil)
+						}), nil)
 
 					return mockStatusListVCGetter
 				},
@@ -533,7 +533,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return validVCStatus
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -543,7 +543,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
-						&verifiable.Credential{
+						createVC(t, verifiable.CredentialContents{
 							Subject: []verifiable.Subject{{
 								ID: "",
 								CustomFields: map[string]interface{}{
@@ -552,10 +552,10 @@ func TestService_checkVCStatus(t *testing.T) {
 									"encodedList":     "",
 								},
 							}},
-							Issuer: verifiable.Issuer{
+							Issuer: &verifiable.Issuer{
 								ID: "did:trustblock:abc",
 							},
-						}, nil)
+						}), nil)
 
 					return mockStatusListVCGetter
 				},
@@ -571,7 +571,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getVcStatus: func() *verifiable.TypedID {
 					return validVCStatus
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -581,7 +581,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
 					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
-						&verifiable.Credential{
+						createVC(t, verifiable.CredentialContents{
 							Subject: []verifiable.Subject{{
 								ID: "",
 								CustomFields: map[string]interface{}{
@@ -590,10 +590,10 @@ func TestService_checkVCStatus(t *testing.T) {
 									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 								},
 							}},
-							Issuer: verifiable.Issuer{
+							Issuer: &verifiable.Issuer{
 								ID: "did:trustblock:abc",
 							},
-						}, nil)
+						}), nil)
 
 					return mockStatusListVCGetter
 				},
@@ -619,7 +619,7 @@ func TestService_checkVCStatus(t *testing.T) {
 						},
 					}
 				},
-				issuer: "did:trustblock:abc",
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
 			wantErr: true,
 		},
@@ -646,7 +646,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 		t, []byte(sampleVCJsonLD), kmskeytypes.ED25519Type,
 		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod, false)
 	type args struct {
-		getVcByte        func() []byte
+		credential       *verifiable.Credential
 		proofChallenge   string
 		proofDomain      string
 		vcInVPValidation bool
@@ -661,11 +661,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 		{
 			name: "ProofChallenge invalid value",
 			args: args{
-				getVcByte: func() []byte {
-					vc := *signedVC
-					b, _ := vc.MarshalJSON()
-					return b
-				},
+				credential:       signedVC,
 				proofChallenge:   "some value",
 				vcInVPValidation: false,
 			},
@@ -674,11 +670,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 		{
 			name: "ProofDomain invalid value",
 			args: args{
-				getVcByte: func() []byte {
-					vc := *signedVC
-					b, _ := vc.MarshalJSON()
-					return b
-				},
+				credential:       signedVC,
 				proofChallenge:   crypto.Challenge,
 				proofDomain:      "some value",
 				vcInVPValidation: false,
@@ -688,24 +680,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 		{
 			name: "ProofDomain JWT invalid value",
 			args: args{
-				getVcByte: func() []byte {
-					vc := *signedVC
-					b, _ := vc.MarshalJSON()
-					return b
-				},
-				proofChallenge:   crypto.Challenge,
-				proofDomain:      "some value",
-				vcInVPValidation: false,
-				isJWT:            true,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Invalid credentials",
-			args: args{
-				getVcByte: func() []byte {
-					return []byte(`{..`)
-				},
+				credential:       signedVC,
 				proofChallenge:   crypto.Challenge,
 				proofDomain:      "some value",
 				vcInVPValidation: false,
@@ -722,11 +697,11 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 			}
 			if err := s.ValidateCredentialProof(
 				context.Background(),
-				tt.args.getVcByte(),
+				tt.args.credential,
 				tt.args.proofChallenge,
 				tt.args.proofDomain,
 				tt.args.vcInVPValidation,
-				tt.args.isJWT); (err != nil) != tt.wantErr {
+				!tt.args.isJWT); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateCredentialProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -784,7 +759,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		}}
 
 	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-		SignerGetter:     ecdsa2019.WithLocalKMSSigner(mockKMS, mockCrypto),
+		SignerGetter:     ecdsa2019.WithLocalKMSSigner(mockKMS, mockCrypto), //nolint:staticcheck
 		LDDocumentLoader: docLoader,
 	})
 
@@ -811,9 +786,6 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	err = vcParsed.AddDataIntegrityProof(signContext, diSigner)
 	require.NoError(t, err)
 
-	vcBytes, e := vcParsed.MarshalJSON()
-	require.NoError(t, e)
-
 	t.Run("success", func(t *testing.T) {
 		s := &Service{
 			documentLoader: docLoader,
@@ -822,11 +794,11 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 
 		if err = s.ValidateCredentialProof(
 			context.Background(),
-			vcBytes,
+			vcParsed,
 			"mock-challenge",
 			"mock-domain",
 			false,
-			false); err != nil {
+			true); err != nil {
 			t.Errorf("ValidateCredentialProof() error = %v", err)
 		}
 	})
@@ -866,4 +838,10 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	require.NoError(t, err)
 
 	return k
+}
+func createVC(t *testing.T, vcc verifiable.CredentialContents) *verifiable.Credential {
+	vc, err := verifiable.CreateCredential(vcc, nil)
+	require.NoError(t, err)
+
+	return vc
 }

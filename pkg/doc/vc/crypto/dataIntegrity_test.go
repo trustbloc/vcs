@@ -46,11 +46,11 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 
 	testSigner := getTestLDPDataIntegritySigner()
 
-	unsignedVc := verifiable.Credential{
+	unsignedVc, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
-		Subject: verifiable.Subject{
+		Subject: []verifiable.Subject{{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			CustomFields: map[string]interface{}{
 				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -60,32 +60,32 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 					"degree": "MIT",
 				},
 			},
-		},
+		}},
 		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
 		},
-		Issuer: verifiable.Issuer{
+		Issuer: &verifiable.Issuer{
 			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		},
-		CustomFields: map[string]interface{}{
-			"first_name": "First name",
-			"last_name":  "Last name",
-			"info":       "Info",
-		},
-	}
+	}, map[string]interface{}{
+		"first_name": "First name",
+		"last_name":  "Last name",
+		"info":       "Info",
+	})
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		signedVC, err := c.signCredentialLDPDataIntegrity(testSigner, &unsignedVc)
+		signedVC, err := c.signCredentialLDPDataIntegrity(testSigner, unsignedVc)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
+		require.Equal(t, 1, len(signedVC.Proofs()))
 
-		require.Equal(t, "DataIntegrityProof", signedVC.Proofs[0]["type"])
-		require.Equal(t, "ecdsa-2019", signedVC.Proofs[0]["cryptosuite"])
-		require.Equal(t, "#key1", signedVC.Proofs[0]["verificationMethod"])
-		require.Equal(t, "assertionMethod", signedVC.Proofs[0]["proofPurpose"])
-		require.Empty(t, signedVC.Proofs[0]["challenge"])
-		require.Empty(t, signedVC.Proofs[0]["domain"])
-		require.NotEmpty(t, signedVC.Proofs[0]["proofValue"])
+		require.Equal(t, "DataIntegrityProof", signedVC.Proofs()[0]["type"])
+		require.Equal(t, "ecdsa-2019", signedVC.Proofs()[0]["cryptosuite"])
+		require.Equal(t, "#key1", signedVC.Proofs()[0]["verificationMethod"])
+		require.Equal(t, "assertionMethod", signedVC.Proofs()[0]["proofPurpose"])
+		require.Empty(t, signedVC.Proofs()[0]["challenge"])
+		require.Empty(t, signedVC.Proofs()[0]["domain"])
+		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
 	})
 
 	t.Run("Success with options", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 		)
 		now := time.Now()
 
-		signedVC, err := testCrypto.signCredentialLDPDataIntegrity(testSigner, &unsignedVc,
+		signedVC, err := testCrypto.signCredentialLDPDataIntegrity(testSigner, unsignedVc,
 			WithDomain("example.com"),
 			WithChallenge("challenge"),
 			WithCreated(&now),
@@ -106,19 +106,21 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 			WithSignatureType("JsonWebSignature2020"),
 		)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
+		require.Equal(t, 1, len(signedVC.Proofs()))
 
-		require.Equal(t, "DataIntegrityProof", signedVC.Proofs[0]["type"])
-		require.Equal(t, "ecdsa-2019", signedVC.Proofs[0]["cryptosuite"])
-		require.Equal(t, "#key1", signedVC.Proofs[0]["verificationMethod"])
-		require.Equal(t, "assertionMethod", signedVC.Proofs[0]["proofPurpose"])
-		require.Equal(t, "challenge", signedVC.Proofs[0]["challenge"])
-		require.Equal(t, "example.com", signedVC.Proofs[0]["domain"])
-		require.NotEmpty(t, signedVC.Proofs[0]["proofValue"])
+		require.Equal(t, "DataIntegrityProof", signedVC.Proofs()[0]["type"])
+		require.Equal(t, "ecdsa-2019", signedVC.Proofs()[0]["cryptosuite"])
+		require.Equal(t, "#key1", signedVC.Proofs()[0]["verificationMethod"])
+		require.Equal(t, "assertionMethod", signedVC.Proofs()[0]["proofPurpose"])
+		require.Equal(t, "challenge", signedVC.Proofs()[0]["challenge"])
+		require.Equal(t, "example.com", signedVC.Proofs()[0]["domain"])
+		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
 	})
 
 	t.Run("Error invalid suite", func(t *testing.T) {
-		testCredentials := &verifiable.Credential{ID: "http://example.edu/credentials/1872"}
+		testCredentials, err := verifiable.CreateCredential(
+			verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}, nil)
+		require.NoError(t, err)
 
 		ariesSigner := getTestLDPDataIntegritySigner()
 		ariesSigner.DataIntegrityProof.SuiteType = "undefined"
@@ -138,14 +140,16 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 			},
 		}
 
-		signedVC, err := c.signCredentialLDPDataIntegrity(ariesSigner, &unsignedVc)
+		signedVC, err := c.signCredentialLDPDataIntegrity(ariesSigner, unsignedVc)
 		require.Nil(t, signedVC)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "some error")
 	})
 
 	t.Run("Error add proof", func(t *testing.T) {
-		testCredentials := &verifiable.Credential{ID: "http://example.edu/credentials/1872"}
+		testCredentials, err := verifiable.CreateCredential(
+			verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}, nil)
+		require.NoError(t, err)
 
 		testCrypto := New(
 			&vdrmock.VDRegistry{

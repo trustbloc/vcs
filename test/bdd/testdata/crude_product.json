@@ -13,6 +13,7 @@
   "issuer": "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b",
   "issuanceDate": "2020-05-01T00:45:04.789Z",
   "credentialSubject": {
+    "id": "did:example:b34ca6cd37bbf23",
     "producer": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
     "category": "Western Canadian Select",
     "hsCode": "270900",

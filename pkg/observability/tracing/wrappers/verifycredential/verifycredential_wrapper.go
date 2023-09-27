@@ -51,24 +51,24 @@ func (w *Wrapper) VerifyCredential(ctx context.Context, credential *verifiable.C
 }
 
 func (w *Wrapper) ValidateCredentialProof(ctx context.Context,
-	vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error {
+	vc *verifiable.Credential, proofChallenge, proofDomain string, vcInVPValidation, strictValidation bool) error {
 	ctx, span := w.tracer.Start(ctx, "verifycredential.ValidateCredentialProof")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("proof_challenge", proofChallenge))
 	span.SetAttributes(attribute.String("proof_domain", proofDomain))
 	span.SetAttributes(attribute.Bool("vc_in_vp_validation", vcInVPValidation))
-	span.SetAttributes(attribute.Bool("is_jwt", isJWT))
+	span.SetAttributes(attribute.Bool("strict_validation", strictValidation))
 
-	return w.svc.ValidateCredentialProof(ctx, vcByte, proofChallenge, proofDomain, vcInVPValidation, isJWT)
+	return w.svc.ValidateCredentialProof(ctx, vc, proofChallenge, proofDomain, vcInVPValidation, strictValidation)
 }
 
-func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error {
+func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error {
 	ctx, span := w.tracer.Start(ctx, "verifycredential.ValidateCredentialProof")
 	defer span.End()
 
 	span.SetAttributes(attributeutil.JSON("vc_status", vcStatus))
-	span.SetAttributes(attribute.String("issuer", issuer))
+	span.SetAttributes(attributeutil.JSON("issuer", issuer))
 
 	return w.svc.ValidateVCStatus(ctx, vcStatus, issuer)
 }

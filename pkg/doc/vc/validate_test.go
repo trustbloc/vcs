@@ -230,10 +230,13 @@ func TestValidateCredential(t *testing.T) {
 					cred, err := verifiable.ParseCredential([]byte(sampleVCJWT), verifiable.WithDisabledProofCheck(),
 						verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 					require.NoError(t, err)
-					claims, err := cred.JWTClaims(false)
+
+					jwsVC, err := cred.CreateSignedJWTVC(
+						false, verifiable.EdDSA, &signer{privKey},
+						cred.Contents().Issuer.ID+"#keys-1")
 					require.NoError(t, err)
 
-					jws, err := claims.MarshalJWS(verifiable.EdDSA, &signer{privKey}, cred.Issuer.ID+"#keys-1")
+					jws, err := jwsVC.ToJWTString()
 					require.NoError(t, err)
 
 					return jws
@@ -250,17 +253,12 @@ func TestValidateCredential(t *testing.T) {
 				cred, err := verifiable.ParseCredential([]byte(sampleVCJWT), verifiable.WithDisabledProofCheck(),
 					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 				require.NoError(t, err)
-				claims, err := cred.JWTClaims(false)
+
+				jwsCred, err := cred.CreateSignedJWTVC(false,
+					verifiable.EdDSA, &signer{privKey}, cred.Contents().Issuer.ID+"#keys-1")
 				require.NoError(t, err)
 
-				jws, err := claims.MarshalJWS(verifiable.EdDSA, &signer{privKey}, cred.Issuer.ID+"#keys-1")
-				require.NoError(t, err)
-
-				cred, err = verifiable.ParseCredential([]byte(jws), verifiable.WithDisabledProofCheck(),
-					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
-				require.NoError(t, err)
-
-				return cred
+				return jwsCred
 			},
 			wantErr: false,
 		},
@@ -313,9 +311,10 @@ func TestValidateCredential(t *testing.T) {
 						verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 					require.NoError(t, err)
 
-					cred.CustomFields["referenceNumber"] = "11223"
+					cred.SetCustomField("referenceNumber", "11223")
 
-					sdjwt, err := cred.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), cred.Issuer.ID+"#keys-1")
+					sdjwt, err := cred.MakeSDJWT(afgojwt.NewEd25519Signer(privKey),
+						cred.Contents().Issuer.ID+"#keys-1")
 					require.NoError(t, err)
 
 					return sdjwt
@@ -354,8 +353,20 @@ func TestValidateCredential(t *testing.T) {
 				t.Errorf("ValidateCredential() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
+			if err != nil {
+				return
+			}
+
 			wantVC := tt.want(t)
-			if !reflect.DeepEqual(got, wantVC) {
+
+			gotObj, err := got.ToUniversalForm()
+			require.NoError(t, err)
+
+			wantVCObj, err := wantVC.ToUniversalForm()
+			require.NoError(t, err)
+
+			if !reflect.DeepEqual(gotObj, wantVCObj) {
 				t.Errorf("ValidateCredential() got = %v, want %v", got, wantVC)
 			}
 		})
@@ -398,7 +409,7 @@ func Test_validateSDJWTCredential(t *testing.T) {
 						verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 					require.NoError(t, err)
 
-					cred.CustomFields["referenceNumber"] = "11223"
+					cred.SetCustomField("referenceNumber", "11223")
 
 					return cred
 				},
@@ -416,7 +427,7 @@ func Test_validateSDJWTCredential(t *testing.T) {
 						verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 					require.NoError(t, err)
 
-					cred.JWT = "abc"
+					cred.JWTEnvelope.JWT = "abc"
 
 					return cred
 				},
@@ -431,7 +442,7 @@ func Test_validateSDJWTCredential(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			credential := tt.args.getCredential()
 			documentLoader := testutil.DocumentLoader(t)
-			got, err := validateSDJWTCredential(context.TODO(), tt.args.getCredential(), documentLoader)
+			got, err := validateSDJWTCredential(tt.args.getCredential(), documentLoader)
 			if (err != nil) != tt.wantErr {
 				t.Errorf(fmt.Sprintf("validateSDJWTCredential(%v, %v) err %s", credential, documentLoader, err.Error()))
 			}

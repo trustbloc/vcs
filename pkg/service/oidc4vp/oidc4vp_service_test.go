@@ -8,6 +8,7 @@ package oidc4vp_test
 
 import (
 	"context"
+	"crypto"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -703,10 +705,10 @@ func TestService_RetrieveClaims(t *testing.T) {
 			}}})
 
 		require.NotNil(t, claims)
-		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]verifiable.Subject)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
 
 		require.True(t, ok)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0]["id"])
 
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
@@ -726,10 +728,10 @@ func TestService_RetrieveClaims(t *testing.T) {
 			}}})
 
 		require.NotNil(t, claims)
-		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]verifiable.Subject)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
 
 		require.True(t, ok)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0]["id"])
 
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
@@ -737,9 +739,13 @@ func TestService_RetrieveClaims(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
-		credential := &verifiable.Credential{
-			JWT:          "abc",
-			SDJWTHashAlg: "sha-256",
+		credential, err := verifiable.CreateCredential(verifiable.CredentialContents{
+			SDJWTHashAlg: lo.ToPtr(crypto.SHA384),
+		}, nil)
+		require.NoError(t, err)
+
+		credential.JWTEnvelope = &verifiable.JWTEnvelope{
+			JWT: "abc",
 		}
 
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
@@ -802,8 +808,8 @@ func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Cry
 
 	customType := "CustomType"
 
-	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, []string{uri}, "", "")
-	expected.Types = append(expected.Types, customType)
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, []string{uri},
+		"", "", []string{customType})
 
 	defs := &presexch.PresentationDefinition{
 		InputDescriptors: []*presexch.InputDescriptor{{
@@ -828,7 +834,8 @@ func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Cry
 func newVPWithPS(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto,
 	ps *presexch.PresentationSubmission, value string) (
 	*verifiable.Presentation, string, vdrapi.Registry) {
-	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, nil, "degree", value)
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, nil,
+		"degree", value, []string{})
 
 	return newVP(t, ps,
 		expected,
@@ -852,18 +859,18 @@ func newVP(t *testing.T, submission *presexch.PresentationSubmission,
 	return vp
 }
 
-func newVC(issuer string, ctx []string) *verifiable.Credential {
-	cred := &verifiable.Credential{
+func newVC(issuer string, ctx []string, customTypes []string) verifiable.CredentialContents {
+	cred := verifiable.CredentialContents{
 		Context: []string{verifiable.ContextURI},
-		Types:   []string{verifiable.VCType},
+		Types:   append([]string{verifiable.VCType}, customTypes...),
 		ID:      "http://test.credential.com/123",
-		Issuer:  verifiable.Issuer{ID: issuer},
+		Issuer:  &verifiable.Issuer{ID: issuer},
 		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
-		Subject: map[string]interface{}{
-			"id": issuer,
-		},
+		Subject: []verifiable.Subject{{
+			ID: issuer,
+		}},
 	}
 
 	if ctx != nil {
@@ -873,22 +880,23 @@ func newVC(issuer string, ctx []string) *verifiable.Credential {
 	return cred
 }
 
-func newDegreeVC(issuer string, degreeType string, ctx []string) *verifiable.Credential {
-	cred := &verifiable.Credential{
+func newDegreeVC(issuer string, degreeType string, ctx []string, customTypes []string) verifiable.CredentialContents {
+	cred := verifiable.CredentialContents{
 		Context: []string{verifiable.ContextURI},
-		Types:   []string{verifiable.VCType},
+		Types:   append([]string{verifiable.VCType}, customTypes...),
 		ID:      uuid.New().String(),
-		Issuer:  verifiable.Issuer{ID: issuer},
+		Issuer:  &verifiable.Issuer{ID: issuer},
 		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
-		Subject: map[string]interface{}{
-			"id": issuer,
-			"degree": map[string]interface{}{
-				"type":   degreeType,
-				"degree": "MIT",
-			},
-		},
+		Subject: []verifiable.Subject{{
+			ID: issuer,
+			CustomFields: map[string]interface{}{
+				"degree": map[string]interface{}{
+					"type":   degreeType,
+					"degree": "MIT",
+				},
+			}}},
 	}
 
 	if ctx != nil {
@@ -900,13 +908,13 @@ func newDegreeVC(issuer string, degreeType string, ctx []string) *verifiable.Cre
 
 func newSignedJWTVC(t *testing.T,
 	keyManager kms.KeyManager, crypto ariescrypto.Crypto, ctx []string,
-	vcType string, value string) (*verifiable.Credential, string, vdrapi.Registry) {
+	vcType string, value string, customTypes []string) (*verifiable.Credential, string, vdrapi.Registry) {
 	t.Helper()
 
 	keyID, kh, err := keyManager.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	signer := suite.NewCryptoSigner(crypto, kh)
+	signer := suite.NewCryptoSigner(crypto, kh) //nolint:staticcheck
 
 	pubKey, kt, err := keyManager.ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
@@ -925,27 +933,23 @@ func newSignedJWTVC(t *testing.T,
 			return makeMockDIDResolution(issuer, verificationMethod, did.Authentication), nil
 		}}
 
-	var vc *verifiable.Credential
+	var vcc verifiable.CredentialContents
 
 	switch vcType {
 	case "degree":
-		vc = newDegreeVC(issuer, value, ctx)
+		vcc = newDegreeVC(issuer, value, ctx, customTypes)
 	default:
-		vc = newVC(issuer, ctx)
+		vcc = newVC(issuer, ctx, customTypes)
 	}
 
-	vc.Issuer = verifiable.Issuer{ID: issuer}
-
-	claims, err := vc.JWTClaims(false)
+	vc, err := verifiable.CreateCredential(vcc, nil)
 	require.NoError(t, err)
 
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
 	require.NoError(t, err)
 
-	jws, err := claims.MarshalJWS(jwsAlgo, signer, verMethod)
+	vc, err = vc.CreateSignedJWTVC(false, jwsAlgo, signer, verMethod)
 	require.NoError(t, err)
-
-	vc.JWT = jws
 
 	return vc, issuer, didResolver
 }

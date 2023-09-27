@@ -292,17 +292,12 @@ func (c *Crypto) getJWTSignedCredential(
 	signer vc.SignerAlgorithm,
 	jwsAlgo verifiable.JWSAlgorithm,
 	signingKeyID string) (*verifiable.Credential, error) {
-	claims, err := credential.JWTClaims(false)
-	if err != nil {
-		return nil, fmt.Errorf("creating JWT claims for VC: %w", err)
-	}
+	var err error
 
-	jwt, err := claims.MarshalJWS(jwsAlgo, signer, signingKeyID)
+	credential, err = credential.CreateSignedJWTVC(false, jwsAlgo, signer, signingKeyID)
 	if err != nil {
 		return nil, fmt.Errorf("MarshalJWS error: %w", err)
 	}
-
-	credential.JWT = jwt
 
 	return credential, nil
 }
@@ -327,9 +322,13 @@ func (c *Crypto) getSDJWTSignedCredential(
 		return nil, fmt.Errorf("make SDJWT credential error: %w", err)
 	}
 
-	credential.JWT = sdjwt
+	sdCred, err := verifiable.ParseCredential([]byte(sdjwt), verifiable.WithCredDisableValidation(),
+		verifiable.WithDisabledProofCheck())
+	if err != nil {
+		return nil, fmt.Errorf("reparse SDJWT credential error: %w", err)
+	}
 
-	return credential, nil
+	return sdCred, nil
 }
 
 // SignPresentation signs a presentation.
@@ -358,7 +357,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 
 	err = vp.AddLinkedDataProof(signingCtx, ldprocessor.WithDocumentLoader(c.documentLoader))
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign vc: %w", err)
+		return nil, fmt.Errorf("failed to sign vp: %w", err)
 	}
 
 	return vp, nil

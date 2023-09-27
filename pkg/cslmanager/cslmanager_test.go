@@ -781,12 +781,14 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
-	require.Equal(t, existingStatusListVCID, statusListVC.ID)
-	require.Equal(t, "did:test:abc", statusListVC.Issuer.ID)
-	require.Equal(t, vcutil.DefVCContext, statusListVC.Context[0])
-	require.Equal(t, statustype.StatusList2021Context, statusListVC.Context[1])
-	credSubject, ok := statusListVC.Subject.([]verifiable.Subject)
-	require.True(t, ok)
+	statusListVCC := statusListVC.Contents()
+
+	require.Equal(t, existingStatusListVCID, statusListVCC.ID)
+	require.Equal(t, "did:test:abc", statusListVCC.Issuer.ID)
+	require.Equal(t, vcutil.DefVCContext, statusListVCC.Context[0])
+	require.Equal(t, statustype.StatusList2021Context, statusListVCC.Context[1])
+	credSubject := statusListVCC.Subject
+
 	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
 	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"].(string))
 	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))

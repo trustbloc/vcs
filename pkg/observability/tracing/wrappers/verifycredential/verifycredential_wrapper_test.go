@@ -38,11 +38,11 @@ func TestWrapper_ValidateCredentialProof(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ValidateCredentialProof(gomock.Any(), []byte(""), "proofChallenge", "proofDomain", true, true).Times(1)
+	svc.EXPECT().ValidateCredentialProof(gomock.Any(), &verifiable.Credential{}, "proofChallenge", "proofDomain", true, false).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	err := w.ValidateCredentialProof(context.Background(), []byte(""), "proofChallenge", "proofDomain", true, true)
+	err := w.ValidateCredentialProof(context.Background(), &verifiable.Credential{}, "proofChallenge", "proofDomain", true, false)
 	require.NoError(t, err)
 }
 
@@ -50,11 +50,11 @@ func TestWrapper_ValidateVCStatus(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ValidateVCStatus(gomock.Any(), &verifiable.TypedID{}, "issuer").Times(1)
+	svc.EXPECT().ValidateVCStatus(gomock.Any(), &verifiable.TypedID{}, &verifiable.Issuer{ID: "issuer"}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	err := w.ValidateVCStatus(context.Background(), &verifiable.TypedID{}, "issuer")
+	err := w.ValidateVCStatus(context.Background(), &verifiable.TypedID{}, &verifiable.Issuer{ID: "issuer"})
 	require.NoError(t, err)
 }
 

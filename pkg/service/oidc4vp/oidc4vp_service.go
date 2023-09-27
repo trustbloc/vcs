@@ -413,7 +413,7 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 
 	for _, cred := range tx.ReceivedClaims.Credentials {
 		credType := vcsverifiable.Ldp
-		if cred.JWT != "" {
+		if cred.IsJWT() {
 			credType = vcsverifiable.Jwt
 		}
 
@@ -426,15 +426,29 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 			logger.Debugc(ctx, "RetrieveClaims - failed to CreateDisplayCredential", log.WithError(err))
 			continue
 		}
+		credContents := cred.Contents()
 
-		result[cred.ID] = CredentialMetadata{
+		//TODO: review this code change. This code shouldn't be dependent on how vc-go serialize
+		// issuer and subject into credential. It has complicated logic like serialize as just string if issuer
+		// have only id. Any changes or extension of how vc works will affect some internal code, that should be
+		// isolated from this kind of changes.
+		subject := lo.Map(credContents.Subject, func(subj verifiable.Subject, index int) verifiable.JSONObject {
+			return verifiable.SubjectToJSON(subj)
+		})
+
+		credMeta := CredentialMetadata{
 			Format:         credType,
-			Type:           cred.Types,
-			SubjectData:    cred.Subject,
-			Issuer:         cred.Issuer,
-			IssuanceDate:   cred.Issued,
-			ExpirationDate: cred.Expired,
+			Type:           credContents.Types,
+			SubjectData:    subject,
+			IssuanceDate:   credContents.Issued,
+			ExpirationDate: credContents.Expired,
 		}
+
+		if credContents.Issuer != nil {
+			credMeta.Issuer = verifiable.IssuerToJSON(*credContents.Issuer)
+		}
+
+		result[credContents.ID] = credMeta
 	}
 	logger.Debugc(ctx, "RetrieveClaims succeed")
 
@@ -528,15 +542,15 @@ func (s *Service) extractClaimData(
 }
 
 func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error {
-	subjectID, err := verifiable.SubjectID(cred.Subject)
+	subjectID, err := verifiable.SubjectID(cred.Contents().Subject)
 	if err != nil {
 		return fmt.Errorf("fail to parse credential as jwt: %w", err)
 	}
 
-	if cred.JWT != "" {
+	if cred.IsJWT() {
 		// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
 		_, rawClaims, credErr := jwt.Parse(
-			cred.JWT,
+			cred.JWTEnvelope.JWT,
 			jwt.WithSignatureVerifier(&noVerifier{}),
 			jwt.WithIgnoreClaimsMapDecoding(true),
 		)

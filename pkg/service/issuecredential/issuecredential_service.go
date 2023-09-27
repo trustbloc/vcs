@@ -88,23 +88,27 @@ func (s *Service) IssueCredential(
 	var statusListEntry *credentialstatus.StatusListEntry
 
 	// update credential prefix.
-	vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
+	credential = vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
+	credentialContext := credential.Contents().Context
 
 	if !profile.VCConfig.Status.Disable {
-		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(ctx, profile.ID, profile.Version, credential.ID)
+		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(
+			ctx, profile.ID, profile.Version, credential.Contents().ID)
 		if err != nil {
 			return nil, fmt.Errorf("add credential status: %w", err)
 		}
 
-		credential.Context = append(credential.Context, statusListEntry.Context)
-		credential.Status = statusListEntry.TypedID
+		credentialContext = append(credentialContext, statusListEntry.Context)
+		credential = credential.
+			WithModifiedStatus(statusListEntry.TypedID)
 	}
 
 	// update context
-	vcutil.UpdateSignatureTypeContext(credential, profile.VCConfig.SigningAlgorithm)
+	credentialContext = vcutil.AppendSignatureTypeContext(credentialContext, profile.VCConfig.SigningAlgorithm)
+	credential = credential.WithModifiedContext(credentialContext)
 
 	// update credential issuer
-	vcutil.UpdateIssuer(credential, profile.SigningDID.DID, profile.Name, true)
+	credential = credential.WithModifiedIssuer(vcutil.CreateIssuer(profile.SigningDID.DID, profile.Name))
 
 	// sign the credential
 	signedVC, err := s.crypto.SignCredential(signer, credential, issuerSigningOpts...)

@@ -40,12 +40,13 @@ type ServiceInterface interface {
 
 	ValidateCredentialProof(
 		ctx context.Context,
-		vcByte []byte,
+		credential *verifiable.Credential,
 		proofChallenge, proofDomain string,
-		vcInVPValidation, isJWT bool,
+		vcInVPValidation bool,
+		strictValidation bool,
 	) error
 
-	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
+	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
 
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }

@@ -96,7 +96,7 @@ func (s *Service) DidConfig(
 	profileID string,
 	profileVersion string,
 ) (*DidConfiguration, error) {
-	cred := s.getBaseCredentials()
+	credentialContents := s.getBaseCredentialContents()
 
 	var format vcsverifiable.Format
 	var signer *vc.Signer
@@ -118,13 +118,15 @@ func (s *Service) DidConfig(
 			format = profile.Checks.Credential.Format[0]
 		}
 
-		cred.Issuer = verifiable.Issuer{
+		credentialContents.Issuer = &verifiable.Issuer{
 			ID: profile.SigningDID.DID,
 		}
-		cred.Subject = map[string]interface{}{
-			"id":     profile.SigningDID.DID,
-			"origin": profile.URL,
-		}
+		credentialContents.Subject = []verifiable.Subject{{
+			ID: profile.SigningDID.DID,
+			CustomFields: map[string]interface{}{
+				"origin": profile.URL,
+			},
+		}}
 
 		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 
@@ -148,13 +150,15 @@ func (s *Service) DidConfig(
 		}
 
 		format = profile.VCConfig.Format
-		cred.Issuer = verifiable.Issuer{
+		credentialContents.Issuer = &verifiable.Issuer{
 			ID: profile.SigningDID.DID,
 		}
-		cred.Subject = map[string]interface{}{
-			"id":     profile.SigningDID.DID,
-			"origin": profile.URL,
-		}
+		credentialContents.Subject = []verifiable.Subject{{
+			ID: profile.SigningDID.DID,
+			CustomFields: map[string]interface{}{
+				"origin": profile.URL,
+			},
+		}}
 		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 
 		if err != nil {
@@ -176,7 +180,12 @@ func (s *Service) DidConfig(
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",
 			errors.New("profileType should be verifier or issuer"))
 	}
-	cred, err := s.vcCrypto.SignCredential(signer, cred, []crypto.SigningOpts{}...)
+	unsignedVC, err := verifiable.CreateCredential(credentialContents, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	cred, err := s.vcCrypto.SignCredential(signer, unsignedVC, []crypto.SigningOpts{}...)
 
 	if err != nil {
 		return nil, err
@@ -187,7 +196,7 @@ func (s *Service) DidConfig(
 	}
 
 	if format == vcsverifiable.Jwt {
-		resp.LinkedDiDs = append(resp.LinkedDiDs, cred.JWT)
+		resp.LinkedDiDs = append(resp.LinkedDiDs, cred.JWTEnvelope.JWT)
 	} else {
 		resp.LinkedDiDs = append(resp.LinkedDiDs, cred)
 	}
@@ -195,8 +204,8 @@ func (s *Service) DidConfig(
 	return resp, nil
 }
 
-func (s *Service) getBaseCredentials() *verifiable.Credential {
-	return &verifiable.Credential{
+func (s *Service) getBaseCredentialContents() verifiable.CredentialContents {
+	return verifiable.CredentialContents{
 		Context: []string{
 			w3CredentialsURL,
 			didConfigurationContextURL,

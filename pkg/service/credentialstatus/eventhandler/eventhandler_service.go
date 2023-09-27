@@ -102,10 +102,7 @@ func (s *Service) handleEventPayload(
 		return fmt.Errorf("get CSL VC wrapper failed: %w", err)
 	}
 
-	cs, ok := clsWrapper.VC.Subject.([]verifiable.Subject)
-	if !ok {
-		return fmt.Errorf("failed to cast VC subject")
-	}
+	cs := clsWrapper.VC.Contents().Subject
 
 	bitString, err := bitstring.DecodeBits(cs[0].CustomFields["encodedList"].(string))
 	if err != nil {
@@ -121,8 +118,7 @@ func (s *Service) handleEventPayload(
 		return fmt.Errorf("bitString.EncodeBits failed: %w", err)
 	}
 
-	// remove all proofs because we are updating VC
-	clsWrapper.VC.Proofs = nil
+	clsWrapper.VC = clsWrapper.VC.WithModifiedSubject(cs)
 
 	signedCredentialBytes, err := s.signCSL(payload.ProfileID, payload.ProfileVersion, clsWrapper.VC)
 	if err != nil {
@@ -164,7 +160,7 @@ func (s *Service) signCSL(profileID, profileVersion string, csl *verifiable.Cred
 		SDJWT:                   vc.SDJWT{Enable: false},
 	}
 
-	signOpts, err := prepareSigningOpts(signer, csl.Proofs)
+	signOpts, err := prepareSigningOpts(signer, csl.Proofs())
 	if err != nil {
 		return nil, fmt.Errorf("prepareSigningOpts failed: %w", err)
 	}

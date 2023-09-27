@@ -67,6 +67,51 @@ const (
     ]
   }
 }`
+	cslWrapperBytesInvalidEncodedList = `{
+  "vc": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://w3id.org/vc/status-list/2021/v1"
+    ],
+    "credentialSubject": {
+      "encodedList": "ddddd",
+      "id": "` + cslURL + `#list",
+      "statusPurpose": "revocation",
+      "type": "StatusList2021"
+    },
+    "id": "` + cslURL + `",
+    "issuanceDate": "2023-03-22T11:34:05.091926539Z",
+    "issuer": "did:test:abc",
+    "type": [
+      "VerifiableCredential",
+      "StatusList2021Credential"
+    ]
+  }
+}`
+	cslWrapperBytesInvalidProof = `{
+  "vc": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://w3id.org/vc/status-list/2021/v1"
+    ],
+    "credentialSubject": {
+      "encodedList": "H4sIAAAAAAAA_-zAgQAAAACAoP2pF6kAAAAAAAAAAAAAAAAAAACgOgAA__-N53xXgD4AAA",
+      "id": "` + cslURL + `#list",
+      "statusPurpose": "revocation",
+      "type": "StatusList2021"
+    },
+    "id": "` + cslURL + `",
+    "issuanceDate": "2023-03-22T11:34:05.091926539Z",
+    "issuer": "did:test:abc",
+    "type": [
+      "VerifiableCredential",
+      "StatusList2021Credential"
+    ],
+	"proof": {
+		"proofPurpose": 123
+    }
+  }
+}`
 )
 
 func TestService_HandleEvent(t *testing.T) {
@@ -88,7 +133,7 @@ func TestService_HandleEvent(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
@@ -118,7 +163,7 @@ func TestService_HandleEvent(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
@@ -149,7 +194,7 @@ func TestService_HandleEvent(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
@@ -193,7 +238,7 @@ func TestService_handleEventPayload(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -251,17 +296,15 @@ func TestService_handleEventPayload(t *testing.T) {
 		cslStore := newMockCSLVCStore()
 
 		var cslWrapper *credentialstatus.CSLVCWrapper
-		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
-		require.NoError(t, err)
-		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
-
-		cslWrapper.VC.Subject.([]verifiable.Subject)[0].CustomFields["encodedList"] = "  123"
-		cslBytes, err := cslWrapper.VC.MarshalJSON()
+		err := json.Unmarshal([]byte(cslWrapperBytesInvalidEncodedList), &cslWrapper)
 		require.NoError(t, err)
 
-		cslWrapper.VCByte = cslBytes
+		cslWrapper.VC, err = verifiable.ParseCredential(cslWrapper.VCByte,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -295,7 +338,7 @@ func TestService_handleEventPayload(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -332,7 +375,7 @@ func TestService_handleEventPayload(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -367,7 +410,7 @@ func TestService_handleEventPayload(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -416,7 +459,7 @@ func TestService_signCSL(t *testing.T) {
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
 		require.NoError(t, err)
 
 		s := New(&Config{
@@ -463,14 +506,15 @@ func TestService_signCSL(t *testing.T) {
 
 	t.Run("Error prepareSigningOpts failed", func(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
-		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		err := json.Unmarshal([]byte(cslWrapperBytesInvalidProof), &cslWrapper)
 		require.NoError(t, err)
-		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
-		cslWrapper.VC.Proofs = []verifiable.Proof{
-			{
-				"proofPurpose": 123,
-			},
-		}
+
+		cslWrapper.VC, err = verifiable.ParseCredential(cslWrapper.VCByte,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithCredDisableValidation(),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+
 		s := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
@@ -634,8 +678,7 @@ func getVerifiedCSL(
 		verifiable.WithJSONLDDocumentLoader(dl))
 	require.NoError(t, err)
 
-	credSubject, ok := csl.Subject.([]verifiable.Subject)
-	require.True(t, ok)
+	credSubject := csl.Contents().Subject
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
 	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	require.NoError(t, err)

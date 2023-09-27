@@ -67,23 +67,25 @@ func TestVCStatusStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
+		vccExpected := vcExpected.Contents()
+
 		ctx := context.Background()
 
 		// Create.
-		err = store.Put(ctx, testProfile, testProfileVersion10, vcExpected.ID, vcExpected.Status)
+		err = store.Put(ctx, testProfile, testProfileVersion10, vccExpected.ID, vccExpected.Status)
 		assert.NoError(t, err)
 
 		// Find by same profile version.
-		statusFound, err := store.Get(ctx, testProfile, testProfileVersion10, vcExpected.ID)
+		statusFound, err := store.Get(ctx, testProfile, testProfileVersion10, vccExpected.ID)
 		assert.NoError(t, err)
 
-		if !assert.Equal(t, vcExpected.Status, statusFound) {
+		if !assert.Equal(t, vccExpected.Status, statusFound) {
 			t.Errorf("VC Status got = %v, want %v",
-				vcExpected.Status, statusFound)
+				vccExpected.Status, statusFound)
 		}
 
 		// Find by different profile version.
-		statusFound, err = store.Get(ctx, testProfile, testProfileVersion11, vcExpected.ID)
+		statusFound, err = store.Get(ctx, testProfile, testProfileVersion11, vccExpected.ID)
 		assert.Error(t, err)
 		assert.Empty(t, statusFound)
 	})

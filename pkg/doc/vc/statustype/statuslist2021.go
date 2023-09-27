@@ -118,15 +118,15 @@ func (s *statusList2021Processor) GetVCContext() string {
 // CreateVC returns *verifiable.Credential appropriate for StatusList2021.
 func (s *statusList2021Processor) CreateVC(vcID string, listSize int,
 	profile *vcapi.Signer) (*verifiable.Credential, error) {
-	credential := &verifiable.Credential{}
-	credential.Context = []string{vcutil.DefVCContext, StatusList2021Context}
+	vcc := verifiable.CredentialContents{}
+	vcc.Context =
+		vcutil.AppendSignatureTypeContext(
+			[]string{vcutil.DefVCContext, StatusList2021Context}, profile.SignatureType)
 
-	vcutil.UpdateSignatureTypeContext(credential, profile.SignatureType)
-
-	credential.ID = vcID
-	credential.Types = []string{vcType, statusList2021VCType}
-	credential.Issuer = verifiable.Issuer{ID: profile.DID}
-	credential.Issued = utiltime.NewTime(time.Now().UTC())
+	vcc.ID = vcID
+	vcc.Types = []string{vcType, statusList2021VCType}
+	vcc.Issuer = &verifiable.Issuer{ID: profile.DID}
+	vcc.Issued = utiltime.NewTime(time.Now().UTC())
 
 	size := listSize
 
@@ -139,12 +139,12 @@ func (s *statusList2021Processor) CreateVC(vcID string, listSize int,
 		return nil, err
 	}
 
-	credential.Subject = &credentialSubject{
-		ID:            credential.ID + "#list",
+	vcc.Subject = toVerifiableSubject(credentialSubject{
+		ID:            vcc.ID + "#list",
 		Type:          StatusList2021VCSubjectType,
 		StatusPurpose: "revocation",
 		EncodedList:   encodeBits,
-	}
+	})
 
-	return credential, nil
+	return verifiable.CreateCredential(vcc, nil)
 }

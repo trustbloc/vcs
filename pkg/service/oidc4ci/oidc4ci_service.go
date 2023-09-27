@@ -464,33 +464,34 @@ func (s *Service) PrepareCredential(
 	}
 
 	// prepare credential for signing
-	vc := &verifiable.Credential{
-		Context:      contexts,
-		ID:           uuid.New().URN(),
-		Types:        []string{"VerifiableCredential", tx.CredentialTemplate.Type},
-		Issuer:       verifiable.Issuer{ID: tx.DID},
-		Issued:       util.NewTime(time.Now()),
-		CustomFields: map[string]interface{}{},
+	vcc := verifiable.CredentialContents{
+		Context: contexts,
+		ID:      uuid.New().URN(),
+		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
+		Issuer:  &verifiable.Issuer{ID: tx.DID},
+		Issued:  util.NewTime(time.Now()),
 	}
 
+	customFields := map[string]interface{}{}
+
 	if tx.CredentialDescription != "" {
-		vc.CustomFields["description"] = tx.CredentialDescription
+		customFields["description"] = tx.CredentialDescription
 	}
 	if tx.CredentialName != "" {
-		vc.CustomFields["name"] = tx.CredentialName
+		customFields["name"] = tx.CredentialName
 	}
 
 	if tx.CredentialExpiresAt != nil {
-		vc.Expired = util.NewTime(*tx.CredentialExpiresAt)
+		vcc.Expired = util.NewTime(*tx.CredentialExpiresAt)
 	}
 
 	if claimData != nil {
-		vc.Subject = verifiable.Subject{
+		vcc.Subject = []verifiable.Subject{{
 			ID:           req.DID,
 			CustomFields: claimData,
-		}
+		}}
 	} else {
-		vc.Subject = verifiable.Subject{ID: req.DID}
+		vcc.Subject = []verifiable.Subject{{ID: req.DID}}
 	}
 
 	tx.State = TransactionStateCredentialsIssued
@@ -504,10 +505,15 @@ func (s *Service) PrepareCredential(
 		return nil, errSendEvent
 	}
 
+	cred, err := verifiable.CreateCredential(vcc, customFields)
+	if err != nil {
+		return nil, fmt.Errorf("create cred: %w", err)
+	}
+
 	return &PrepareCredentialResult{
 		ProfileID:               tx.ProfileID,
 		ProfileVersion:          tx.ProfileVersion,
-		Credential:              vc,
+		Credential:              cred,
 		Format:                  tx.CredentialFormat,
 		OidcFormat:              tx.OIDCCredentialFormat,
 		Retry:                   false,

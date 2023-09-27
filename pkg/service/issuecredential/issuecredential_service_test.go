@@ -126,7 +126,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 						verifiableCredentials, err := service.IssueCredential(
 							ctx,
-							getVC(),
+							getVC(t),
 							nil,
 							&profileapi.Issuer{
 								VCConfig: &profileapi.VCConfig{
@@ -191,7 +191,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 				verifiableCredentials, err := service.IssueCredential(
 					ctx,
-					getVC(),
+					getVC(t),
 					nil,
 					&profileapi.Issuer{
 						VCConfig: &profileapi.VCConfig{
@@ -329,24 +329,28 @@ func TestService_IssueCredential(t *testing.T) {
 	})
 }
 
-func getVC() *verifiable.Credential {
-	return &verifiable.Credential{
+func getVC(t *testing.T) *verifiable.Credential {
+	t.Helper()
+
+	vc, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
-		Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
-		Issuer: verifiable.Issuer{
+		Issuer: &verifiable.Issuer{
 			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		},
-		CustomFields: map[string]interface{}{
-			"first_name": "First name",
-			"last_name":  "Last name",
-			"info":       "Info",
-		},
-	}
+	}, map[string]interface{}{
+		"first_name": "First name",
+		"last_name":  "Last name",
+		"info":       "Info",
+	})
+	require.NoError(t, err)
+
+	return vc
 }
 
 func validateVC(
@@ -355,34 +359,35 @@ func validateVC(
 	sigRepresentation verifiable.SignatureRepresentation,
 	vcFormat vcs.Format) {
 	t.Helper()
-
 	require.NotNil(t, vc)
-	require.NotNil(t, vc.Issuer)
-	require.Equal(t, "did:trustblock:abc", vc.Issuer.ID)
-	require.True(t, strings.HasPrefix(vc.ID, "urn:uuid:"))
+
+	vcc := vc.Contents()
+	require.NotNil(t, vcc.Issuer)
+	require.Equal(t, "did:trustblock:abc", vcc.Issuer.ID)
+	require.True(t, strings.HasPrefix(vcc.ID, "urn:uuid:"))
 
 	if vcFormat == vcs.Jwt {
-		require.NotEmpty(t, vc.JWT)
+		require.True(t, vc.IsJWT())
 		return
 	}
 
-	require.Len(t, vc.Proofs, 1)
-	verificationMethod, ok := vc.Proofs[0]["verificationMethod"]
+	require.Len(t, vc.Proofs(), 1)
+	verificationMethod, ok := vc.Proofs()[0]["verificationMethod"]
 	require.True(t, ok)
 	require.Equal(t, verificationMethod, did.VerificationMethod[0].ID)
 	switch sigRepresentation {
 	case verifiable.SignatureProofValue:
-		proofValue, ok := vc.Proofs[0]["proofValue"]
+		proofValue, ok := vc.Proofs()[0]["proofValue"]
 		require.True(t, ok)
 		require.NotEmpty(t, proofValue)
-		jws, ok := vc.Proofs[0]["jws"]
+		jws, ok := vc.Proofs()[0]["jws"]
 		require.False(t, ok)
 		require.Empty(t, jws)
 	case verifiable.SignatureJWS:
-		proofValue, ok := vc.Proofs[0]["proofValue"]
+		proofValue, ok := vc.Proofs()[0]["proofValue"]
 		require.False(t, ok)
 		require.Empty(t, proofValue)
-		jws, ok := vc.Proofs[0]["jws"]
+		jws, ok := vc.Proofs()[0]["jws"]
 		require.True(t, ok)
 		require.NotEmpty(t, jws)
 	}

@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/piprate/json-gold/ld"
@@ -20,7 +19,6 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/validator"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	jsonutil "github.com/trustbloc/vc-go/util/json"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
@@ -30,8 +28,8 @@ import (
 )
 
 type vcVerifier interface {
-	ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error //nolint:lll
-	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
+	ValidateCredentialProof(ctx context.Context, vc *verifiable.Credential, proofChallenge, proofDomain string, vcInVPValidation, strictValidation bool) error //nolint:lll
+	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
@@ -74,11 +72,9 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 	var result []PresentationVerificationCheckResult
 
-	var lazyCredentials []*LazyCredential
+	var credentials []*verifiable.Credential
 	if presentation != nil {
-		for _, c := range presentation.Credentials() {
-			lazyCredentials = append(lazyCredentials, NewLazyCredential(c))
-		}
+		credentials = presentation.Credentials()
 	}
 
 	var targetPresentation interface{}
@@ -103,7 +99,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	}
 
 	if len(profile.Checks.Credential.IssuerTrustList) > 0 {
-		err := s.checkIssuerTrustList(ctx, lazyCredentials, profile.Checks.Credential.IssuerTrustList)
+		err := s.checkIssuerTrustList(ctx, credentials, profile.Checks.Credential.IssuerTrustList)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "issuerTrustList",
@@ -112,7 +108,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		}
 	}
 	if profile.Checks.Credential.CredentialExpiry {
-		err := s.checkCredentialExpiry(ctx, lazyCredentials)
+		err := s.checkCredentialExpiry(ctx, credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialExpiry",
@@ -124,7 +120,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
-		err := s.validateCredentialsProof(ctx, presentation.JWT, lazyCredentials)
+		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -137,7 +133,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 	if profile.Checks.Credential.Status {
 		st := time.Now()
-		err := s.validateCredentialsStatus(ctx, lazyCredentials)
+		err := s.validateCredentialsStatus(ctx, credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -163,7 +159,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Strict {
 		st := time.Now()
 
-		err := s.checkCredentialStrict(ctx, lazyCredentials)
+		err := s.checkCredentialStrict(ctx, credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStrict",
@@ -176,36 +172,25 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	return result, nil
 }
 
-func (s *Service) checkCredentialStrict(ctx context.Context, lazy []*LazyCredential) error { //nolint:gocognit
-	for _, input := range lazy {
-		cred, ok := input.Raw().(*verifiable.Credential)
-		if !ok {
-			logger.Warnc(ctx, fmt.Sprintf("can not validate strict. unexpected type %v",
-				reflect.TypeOf(input).String()))
-			return nil
-		}
+func (s *Service) checkCredentialStrict(
+	ctx context.Context, credentials []*verifiable.Credential) error { //nolint:gocognit
+	for _, cred := range credentials {
+		//TODO: check how bug fixed will affects other code.
+		// previously if credential was not in format of *verifiable.Credential validations was ignored
+		// This happened for all json-ld credentials in verifiable.Presentation
+
+		credContents := cred.Contents()
 
 		var credMap map[string]interface{}
 		var err error
 
-		if cred.SDJWTHashAlg != "" {
+		if credContents.SDJWTHashAlg != nil {
 			credMap, err = cred.CreateDisplayCredentialMap(verifiable.DisplayAllDisclosures())
 			if err != nil {
 				return err
 			}
 		} else {
-			cred.JWT = ""
-			var credentialBytes []byte
-
-			credentialBytes, err = cred.MarshalJSON()
-			if err != nil {
-				return fmt.Errorf("unable to marshal credential: %w", err)
-			}
-
-			credMap, err = jsonutil.ToMap(credentialBytes)
-			if err != nil {
-				return err
-			}
+			credMap = cred.ToRawJSON()
 		}
 
 		var claimKeys []string
@@ -217,12 +202,12 @@ func (s *Service) checkCredentialStrict(ctx context.Context, lazy []*LazyCredent
 			}
 		}
 
-		s.claimKeys[cred.ID] = claimKeys
+		s.claimKeys[credContents.ID] = claimKeys
 
 		if logger.IsEnabled(log.DEBUG) {
 			logger.Debugc(ctx, "verifier strict validation check",
 				logfields.WithClaimKeys(claimKeys),
-				logfields.WithCredentialID(cred.ID),
+				logfields.WithCredentialID(credContents.ID),
 			)
 		}
 
@@ -237,15 +222,10 @@ func (s *Service) checkCredentialStrict(ctx context.Context, lazy []*LazyCredent
 	return nil
 }
 
-func (s *Service) checkCredentialExpiry(ctx context.Context, lazy []*LazyCredential) error {
-	for _, input := range lazy {
-		credential, ok := input.Raw().(*verifiable.Credential)
-		if !ok {
-			logger.Warnc(ctx, fmt.Sprintf("can not validate expiry. unexpected type %v",
-				reflect.TypeOf(input.Raw()).String()))
-			return nil
-		}
-		if credential.Expired != nil && time.Now().UTC().After(credential.Expired.Time) {
+func (s *Service) checkCredentialExpiry(_ context.Context, credentials []*verifiable.Credential) error {
+	for _, credential := range credentials {
+		vcc := credential.Contents()
+		if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
 			return errors.New("credential expired")
 		}
 	}
@@ -255,29 +235,17 @@ func (s *Service) checkCredentialExpiry(ctx context.Context, lazy []*LazyCredent
 
 func (s *Service) checkIssuerTrustList(
 	_ context.Context,
-	lazy []*LazyCredential,
+	credentials []*verifiable.Credential,
 	trustList map[string]profileapi.TrustList,
 ) error {
-	for _, input := range lazy {
+	for _, cred := range credentials {
 		var issuerID string
 		var credTypes []string
 
-		switch cred := input.Raw().(type) {
-		case *verifiable.Credential:
-			issuerID = cred.Issuer.ID
-			credTypes = cred.Types
-		case map[string]interface{}:
-			issuerID = fmt.Sprint(cred["issuer"])
-			cr, ok := cred["type"].([]interface{})
-			if ok {
-				for _, t := range cr {
-					credTypes = append(credTypes, fmt.Sprint(t))
-				}
-			}
-		default:
-			return fmt.Errorf("can not validate issuer trust list. unexpected type %v",
-				reflect.TypeOf(input.Raw()).String())
+		if cred.Contents().Issuer != nil {
+			issuerID = cred.Contents().Issuer.ID
 		}
+		credTypes = cred.Contents().Types
 
 		var finalCredType string
 		if len(credTypes) > 0 {
@@ -375,15 +343,10 @@ func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) 
 func (s *Service) validateCredentialsProof(
 	ctx context.Context,
 	vpJWT string,
-	credentials []*LazyCredential,
+	credentials []*verifiable.Credential,
 ) error {
 	for _, cred := range credentials {
-		vcBytes, err := cred.Serialized()
-		if err != nil {
-			return err
-		}
-
-		err = s.vcVerifier.ValidateCredentialProof(ctx, vcBytes, "", "", true, vpJWT != "")
+		err := s.vcVerifier.ValidateCredentialProof(ctx, cred, "", "", true, vpJWT == "")
 		if err != nil {
 			return err
 		}
@@ -394,16 +357,13 @@ func (s *Service) validateCredentialsProof(
 
 func (s *Service) validateCredentialsStatus(
 	ctx context.Context,
-	credentials []*LazyCredential,
+	credentials []*verifiable.Credential,
 ) error {
 	for _, cred := range credentials {
-		extractedType, issuer, err := s.extractCredentialStatus(cred)
-		if err != nil {
-			return err
-		}
+		extractedType, issuer := s.extractCredentialStatus(cred)
 
 		if extractedType != nil {
-			err = s.vcVerifier.ValidateVCStatus(ctx, extractedType, issuer)
+			err := s.vcVerifier.ValidateVCStatus(ctx, extractedType, issuer)
 			if err != nil {
 				return err
 			}
@@ -413,53 +373,15 @@ func (s *Service) validateCredentialsStatus(
 	return nil
 }
 
-func (s *Service) extractCredentialStatus(cred *LazyCredential) (*verifiable.TypedID, string, error) {
+func (s *Service) extractCredentialStatus(
+	cred *verifiable.Credential) (*verifiable.TypedID, *verifiable.Issuer) {
 	if cred == nil {
-		return nil, "", nil
+		return nil, nil
 	}
 
-	if v, ok := cred.Raw().(*verifiable.Credential); ok {
-		return v.Status, v.Issuer.ID, nil
-	}
+	credContents := cred.Contents()
 
-	v, ok := cred.Raw().(map[string]interface{})
-	if !ok {
-		return nil, "", fmt.Errorf("unsupported credential type %v", reflect.TypeOf(cred.Raw()).String())
-	}
-
-	var issuerID string
-	switch issuerData := v["issuer"].(type) {
-	case map[string]interface{}:
-		issuerID = fmt.Sprint(issuerData["id"])
-	case string:
-		issuerID = issuerData
-	}
-
-	status, ok := v["credentialStatus"]
-	if !ok {
-		return nil, "", nil
-	}
-
-	statusMap, ok := status.(map[string]interface{})
-	if !ok {
-		return nil, "", fmt.Errorf("unsupported status list type type %v", reflect.TypeOf(status).String())
-	}
-
-	finalObj := &verifiable.TypedID{
-		CustomFields: map[string]interface{}{},
-	}
-	for k, val := range statusMap {
-		switch k {
-		case "id":
-			finalObj.ID = fmt.Sprint(val)
-		case "type":
-			finalObj.Type = fmt.Sprint(val)
-		default:
-			finalObj.CustomFields[k] = val
-		}
-	}
-
-	return finalObj, issuerID, nil
+	return credContents.Status, credContents.Issuer
 }
 
 // GetClaimKeys returns credential claim keys.

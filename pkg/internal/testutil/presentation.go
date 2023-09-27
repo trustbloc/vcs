@@ -158,7 +158,7 @@ func signJWS(
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
 	require.NoError(t, err)
 
-	jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), keyID)
+	jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), keyID) //nolint:staticcheck
 	require.NoError(t, err)
 
 	presentation.JWT = jws
@@ -178,7 +178,7 @@ func addLDP(
 	require.NoError(t, err)
 
 	signerSuite := jsonwebsignature2020.New(
-		suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh)))
+		suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh))) //nolint:staticcheck
 
 	ctx := &verifiable.LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",

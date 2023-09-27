@@ -157,20 +157,23 @@ func TestDidConfiguration(t *testing.T) {
 					assert.Equal(t, testCase.expectedSigner.KeyType, signer.KeyType)
 					assert.NotNil(t, signer.KMS)
 
+					contents := credential.Contents()
+
 					assert.Equal(t, []string{
 						"https://www.w3.org/2018/credentials/v1",
 						"https://identity.foundation/.well-known/did-configuration/v1",
-					}, credential.Context)
+					}, contents.Context)
 
 					assert.Equal(t, []string{
 						"VerifiableCredential",
 						"DomainLinkageCredential",
-					}, credential.Types)
+					}, contents.Types)
 
-					assert.Equal(t, testCase.expectedIssuer, credential.Issuer.ID)
+					assert.NotNil(t, contents.Issuer)
+					assert.Equal(t, testCase.expectedIssuer, contents.Issuer.ID)
 
-					credential.JWT = signedJwt
-					credential.Proofs = []verifiable.Proof{{}}
+					credential.JWTEnvelope = &verifiable.JWTEnvelope{JWT: signedJwt}
+					credential.ResetProofs([]verifiable.Proof{{}})
 
 					return credential, nil
 				})
@@ -197,8 +200,9 @@ func TestDidConfiguration(t *testing.T) {
 					t.Fatal(errors.New("can not map to *verifiable.Credential"))
 				}
 
-				assert.Len(t, cred.Proofs, 1)
-				assert.Equal(t, testCase.expectedIssuer, cred.Issuer.ID)
+				assert.Len(t, cred.Proofs(), 1)
+				assert.NotNil(t, cred.Contents().Issuer)
+				assert.Equal(t, testCase.expectedIssuer, cred.Contents().Issuer.ID)
 			case vcsverifiable.Jwt:
 				jws, ok := resp.LinkedDiDs[0].(string)
 

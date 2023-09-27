@@ -52,7 +52,7 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 
 	token, err := jwt.NewSigned(claims, jose.Headers{
 		jose.HeaderKeyID: didDoc.VerificationMethod[0].ID,
-	}, verifiable.GetJWTSigner(suite.NewCryptoSigner(customCrypto, kh), algName))
+	}, verifiable.GetJWTSigner(suite.NewCryptoSigner(customCrypto, kh), algName)) //nolint:staticcheck
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)
@@ -85,7 +85,7 @@ func SignedClaimsJWTWithExistingPrivateKey(
 
 	token, err := jwt.NewSigned(claims, jose.Headers{
 		jose.HeaderKeyID: verMethodDIDKeyID,
-	}, verifiable.GetJWTSigner(suite.NewCryptoSigner(customCrypto, kh), algName))
+	}, verifiable.GetJWTSigner(suite.NewCryptoSigner(customCrypto, kh), algName)) //nolint:staticcheck
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)

@@ -580,14 +580,14 @@ func (s *Steps) checkVC(vc *verifiable.Credential) error {
 }
 
 func (s *Steps) checkJWT(vc *verifiable.Credential) error {
-	if vc.JWT == "" {
+	if !vc.IsJWT() {
 		return errors.New("JWT is empty")
 	}
 
-	if (vc.SDJWTHashAlg == "") == s.issuerProfile.VCConfig.SDJWT.Enable {
+	if (vc.Contents().SDJWTHashAlg == nil) == s.issuerProfile.VCConfig.SDJWT.Enable {
 		return errors.New("vc.SDJWTHashAlg is empty")
 	}
-	if (len(vc.SDJWTDisclosures) == 0) == s.issuerProfile.VCConfig.SDJWT.Enable {
+	if (len(vc.SDJWTDisclosures()) == 0) == s.issuerProfile.VCConfig.SDJWT.Enable {
 		return errors.New("vc.SDJWTDisclosures is empty")
 	}
 
@@ -595,18 +595,18 @@ func (s *Steps) checkJWT(vc *verifiable.Credential) error {
 }
 
 func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
-	if len(vc.Proofs) < 1 {
+	if len(vc.Proofs()) < 1 {
 		return errors.New("unexpected proofs amount")
 	}
 
 	switch s.issuerProfile.VCConfig.SignatureRepresentation {
 	case verifiable.SignatureJWS:
-		_, found := vc.Proofs[0]["jws"]
+		_, found := vc.Proofs()[0]["jws"]
 		if !found {
 			return fmt.Errorf("unable to find jws in proof")
 		}
 	case verifiable.SignatureProofValue:
-		_, found := vc.Proofs[0]["proofValue"]
+		_, found := vc.Proofs()[0]["proofValue"]
 		if !found {
 			return fmt.Errorf("unable to find proofValue in proof")
 		}
@@ -618,16 +618,16 @@ func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
 }
 
 func checkCredentialStatusType(vc *verifiable.Credential, expected string) error {
-	if vc.Status.Type != expected {
-		return bddutil.ExpectedStringError(expected, vc.Status.Type)
+	if vc.Contents().Status.Type != expected {
+		return bddutil.ExpectedStringError(expected, vc.Contents().Status.Type)
 	}
 
 	return nil
 }
 
 func checkIssuer(vc *verifiable.Credential, expected string) error {
-	if vc.Issuer.CustomFields["name"] != expected {
-		return bddutil.ExpectedStringError(expected, vc.Issuer.CustomFields["name"].(string))
+	if vc.Contents().Issuer.CustomFields["name"] != expected {
+		return bddutil.ExpectedStringError(expected, vc.Contents().Issuer.CustomFields["name"].(string))
 	}
 
 	return nil

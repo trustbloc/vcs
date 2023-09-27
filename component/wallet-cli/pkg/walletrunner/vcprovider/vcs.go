@@ -133,14 +133,12 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 		return nil, fmt.Errorf("err parsing credentials: %w", err)
 	}
 
-	cred.ID = uuid.New().URN()
-
-	subjs, ok := cred.Subject.([]verifiable.Subject)
-	if !ok {
-		return nil, fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
-	}
-
+	subjs := cred.Contents().Subject
 	subjs[0].ID = p.conf.WalletParams.DidID[0]
+
+	cred = cred.
+		WithModifiedID(uuid.New().URN()).
+		WithModifiedSubject(subjs)
 
 	reqData, err := GetIssueCredentialRequestData(cred, p.conf.VCFormat)
 	if err != nil {

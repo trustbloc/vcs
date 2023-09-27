@@ -73,16 +73,18 @@ func TestCSLStore(t *testing.T) {
 		}
 
 		// Create - Find
-		err = store.Upsert(ctx, vc.ID, wrapperCreated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err := store.Get(ctx, vc.ID)
+		wrapperFound, err := store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
 		// Update - Find
-		vc.Issuer.ID += "_123"
+		vc = vc.WithModifiedIssuer(
+			&verifiable.Issuer{ID: vc.Contents().Issuer.ID + "_123"},
+		)
 		vcUpdateBytes, err := vc.MarshalJSON()
 		assert.NoError(t, err)
 
@@ -90,10 +92,10 @@ func TestCSLStore(t *testing.T) {
 			VCByte: vcUpdateBytes,
 		}
 
-		err = store.Upsert(ctx, vc.ID, wrapperUpdated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperUpdated)
 		assert.NoError(t, err)
 
-		wrapperFound, err = store.Get(ctx, vc.ID)
+		wrapperFound, err = store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperUpdated, wrapperFound)
@@ -110,16 +112,19 @@ func TestCSLStore(t *testing.T) {
 		}
 
 		// Create - Find
-		err = store.Upsert(ctx, vc.ID, wrapperCreated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err := store.Get(ctx, vc.ID)
+		wrapperFound, err := store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
 		// Update - Find
-		vc.Issuer.ID += "_123"
+		// Update - Find
+		vc = vc.WithModifiedIssuer(
+			&verifiable.Issuer{ID: vc.Contents().Issuer.ID + "_123"},
+		)
 		claims, err := vc.JWTClaims(false)
 		assert.NoError(t, err)
 
@@ -132,10 +137,10 @@ func TestCSLStore(t *testing.T) {
 			VCByte: vcBytes,
 		}
 
-		err = store.Upsert(ctx, vc.ID, wrapperUpdated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperUpdated)
 		assert.NoError(t, err)
 
-		wrapperFound, err = store.Get(ctx, vc.ID)
+		wrapperFound, err = store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperUpdated, wrapperFound)
