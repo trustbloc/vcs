@@ -41,7 +41,7 @@ paths:
         required: true
         description: Profile Version
     get:
-      summary: Request openid-credential-issuer
+      summary: Request VCS IDP OIDC Configuration.
       responses:
         '200':
           description: OK
@@ -69,7 +69,7 @@ paths:
         required: true
         description: Profile Version
     get:
-      summary: Request openid-credential-issuer public endpoint.
+      summary: Request VCS IDP OIDC Configuration.
       responses:
         '200':
           description: OK
@@ -78,61 +78,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
       operationId: openid-credential-issuer-config-v2
-      description: Returns openid-config.
-      tags:
-        - issuer
-  '/issuer/{profileID}/{profileVersion}/.well-known/openid-configuration':
-    parameters:
-      - schema:
-          type: string
-        name: profileID
-        in: path
-        required: true
-        description: Profile Id
-      - schema:
-          type: string
-        name: profileVersion
-        in: path
-        required: true
-        description: Profile Version
-    get:
-      summary: Request openid-config
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WellKnownOpenIDConfiguration'
-      operationId: openid-config
-      description: Returns openid-config.
-      deprecated: true
-      tags:
-        - issuer
-  '/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration':
-    parameters:
-      - schema:
-          type: string
-        name: profileID
-        in: path
-        required: true
-        description: Profile Id
-      - schema:
-          type: string
-        name: profileVersion
-        in: path
-        required: true
-        description: Profile Version
-    get:
-      summary: Request openid-config public endpoint.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WellKnownOpenIDConfiguration'
-      operationId: openid-config-v2
       description: Returns openid-config.
       tags:
         - issuer
@@ -827,12 +772,11 @@ components:
       required:
         - status
       description: Response model for health check status.
-    WellKnownOpenIDConfiguration:
-      title: WellKnownOpenIDConfiguration response
+    WellKnownOpenIDIssuerConfiguration:
+      title: WellKnownOpenIDIssuerConfiguration response
       x-tags:
         - issuer
       type: object
-      description: OpenID Config response.
       properties:
         authorization_endpoint:
           type: string
@@ -864,6 +808,23 @@ components:
         wallet_initiated_auth_flow_supported:
           type: boolean
           description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
+        credential_issuer:
+          type: string
+          description: The Credential Issuer's identifier.
+        credential_endpoint:
+          type: string
+          description: URL of the Credential Issuer's Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.
+        batch_credential_endpoint:
+          type: string
+          description: URL of the Credential Issuer's Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.
+        credentials_supported:
+          type: array
+          description: A JSON array containing a list of JSON objects, each of them representing metadata about a separate credential type that the Credential Issuer can issue.
+        display:
+          type: array
+          description: An array of objects, where each object contains display properties of a Credential Issuer for a certain language.
+          items:
+            $ref: '#/components/schemas/CredentialDisplay'
       required:
         - authorization_endpoint
         - token_endpoint
@@ -872,34 +833,10 @@ components:
         - grant_types_supported
         - wallet_initiated_auth_flow_supported
         - pre-authorized_grant_anonymous_access_supported
-    WellKnownOpenIDIssuerConfiguration:
-      title: WellKnownOpenIDIssuerConfiguration response
-      x-tags:
-        - issuer
-      type: object
-      properties:
-        authorization_server:
-          type: string
-        display:
-          type: array
-          items:
-            $ref: '#/components/schemas/CredentialDisplay'
-        credentials_supported:
-          type: array
-        credential_endpoint:
-          type: string
-        batch_credential_endpoint:
-          type: string
-        credential_issuer:
-          type: string
-      required:
-        - authorization_server
-        - issuer
         - credential_issuer
-        - response_types_supported
-        - credentials_supported
         - credential_endpoint
-      description: OpenID Config response.
+        - credentials_supported
+      description: WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
     VerifyCredentialData:
       title: VerifyCredentialData
       x-tags:

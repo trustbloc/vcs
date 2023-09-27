@@ -22,6 +22,7 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// Service is responsible for fetching Issuer's IDP OIDC Configuration.
 type Service struct {
 	client httpClient
 }
@@ -32,8 +33,12 @@ func NewService(client httpClient) *Service {
 	}
 }
 
-func (s *Service) GetOIDCConfiguration(ctx context.Context, url string) (*oidc4ci.OIDCConfiguration, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// GetOIDCConfiguration returns Issuer's IDP OIDC configuration represented by oidc4ci.IssuerIDPOIDCConfiguration.
+func (s *Service) GetOIDCConfiguration(
+	ctx context.Context,
+	issuerIDPOIDCConfigURL string,
+) (*oidc4ci.IssuerIDPOIDCConfiguration, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, issuerIDPOIDCConfigURL, nil)
 
 	resp, err := s.client.Do(req)
 
@@ -56,7 +61,7 @@ func (s *Service) GetOIDCConfiguration(ctx context.Context, url string) (*oidc4c
 		return nil, err
 	}
 
-	var conf oidc4ci.OIDCConfiguration
+	var conf oidc4ci.IssuerIDPOIDCConfiguration
 
 	if err = json.Unmarshal(body, &conf); err != nil {
 		return nil, err

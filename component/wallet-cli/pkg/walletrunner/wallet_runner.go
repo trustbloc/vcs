@@ -167,7 +167,6 @@ func (s *Service) GetConfig() *vcprovider.Config {
 
 type PerfInfo struct {
 	CreateWallet                   time.Duration `json:"vci_create_wallet"`
-	GetIssuerOIDCConfig            time.Duration `json:"vci_get_issuer_oidc_config"`
 	GetIssuerCredentialsOIDCConfig time.Duration `json:"vci_get_issuer_credentials_oidc_config"`
 	GetAccessToken                 time.Duration `json:"vci_get_access_token"`
 	GetCredential                  time.Duration `json:"vci_get_credential"`

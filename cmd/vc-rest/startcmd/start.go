@@ -548,11 +548,10 @@ func buildEchoHandler(
 
 	// Issuer Profile Management API
 	issuerProfileSvc, err := profilereader.NewIssuerReader(&profilereader.Config{
-		OpenidIssuerConfigProvider: openidCredentialIssuerConfigProviderSvc,
-		TLSConfig:                  tlsConfig,
-		KMSRegistry:                kmsRegistry,
-		CMD:                        cmd,
-		HTTPClient:                 getHTTPClient(metricsProvider.ClientIssuerProfile),
+		TLSConfig:   tlsConfig,
+		KMSRegistry: kmsRegistry,
+		CMD:         cmd,
+		HTTPClient:  getHTTPClient(metricsProvider.ClientIssuerProfile),
 	})
 	if err != nil {
 		return nil, err

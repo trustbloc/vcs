@@ -101,8 +101,9 @@ type AuthorizationDetails struct {
 	Locations []string
 }
 
-// OIDCConfiguration represents an OIDC configuration from well-know endpoint (/.well-known/openid-configuration).
-type OIDCConfiguration struct {
+// IssuerIDPOIDCConfiguration represents an Issuer's IDP OIDC configuration
+// from well-know endpoint (usually: /.well-known/openid-configuration).
+type IssuerIDPOIDCConfiguration struct {
 	AuthorizationEndpoint              string   `json:"authorization_endpoint"`
 	PushedAuthorizationRequestEndpoint string   `json:"pushed_authorization_request_endpoint"`
 	TokenEndpoint                      string   `json:"token_endpoint"`

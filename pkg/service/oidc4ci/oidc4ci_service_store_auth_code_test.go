@@ -268,7 +268,7 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&oidc4ci.Transaction{}, nil)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
-			Return(&oidc4ci.OIDCConfiguration{}, nil)
+			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		store.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 

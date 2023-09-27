@@ -440,7 +440,7 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 		return "", fmt.Errorf("unmarshal credential offer: %w", err)
 	}
 
-	openIDConfig, err := s.getWellKnownOpenIDConfiguration(offer.CredentialIssuer)
+	openIDConfig, err := s.walletRunner.GetWellKnownOpenIDConfiguration(offer.CredentialIssuer)
 	if err != nil {
 		return "", fmt.Errorf("get openid well-known config: %w", err)
 	}
@@ -478,34 +478,6 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 	}
 
 	return r.ClientId, nil
-}
-
-func (s *Steps) getWellKnownOpenIDConfiguration(issuer string) (*wellKnownOpenIDConfiguration, error) {
-	wellKnownURL := issuer + "/.well-known/openid-configuration"
-
-	resp, err := bddutil.HTTPSDo(http.MethodGet, wellKnownURL, "application/json", "", nil, s.tlsConfig)
-	if err != nil {
-		return nil, fmt.Errorf("openid configuration request: %w", err)
-	}
-
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read openid configuration response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
-	}
-
-	var r *wellKnownOpenIDConfiguration
-
-	if err = json.Unmarshal(b, &r); err != nil {
-		return nil, fmt.Errorf("unmarshal openid configuration response: %w", err)
-	}
-
-	return r, nil
 }
 
 func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4CIRequest {

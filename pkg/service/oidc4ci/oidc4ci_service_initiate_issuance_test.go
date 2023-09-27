@@ -94,10 +94,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{
+					&oidc4ci.IssuerIDPOIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
@@ -151,10 +151,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{
+					&oidc4ci.IssuerIDPOIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
@@ -254,10 +254,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
 
@@ -335,10 +335,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
@@ -409,10 +409,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
@@ -480,10 +480,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
@@ -515,7 +515,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", errors.New("create error"))
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -592,7 +592,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
@@ -745,7 +745,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Times(0)
 
@@ -783,7 +783,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					nil, errors.New("invalid json"))
@@ -838,7 +838,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					nil, fmt.Errorf("store error"))
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
@@ -859,7 +859,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Unsupported grant type",
 			setup: func() {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
@@ -881,7 +881,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Unsupported scope",
 			setup: func() {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
@@ -911,7 +911,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				}
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).
-					Return(&oidc4ci.OIDCConfiguration{}, nil)
+					Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(errors.New("validation error"))
@@ -1050,10 +1050,10 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{
+					&oidc4ci.IssuerIDPOIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
@@ -1113,7 +1113,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1170,7 +1170,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{
+					&oidc4ci.IssuerIDPOIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 

@@ -8,7 +8,6 @@ package walletrunner
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,8 +27,6 @@ import (
 
 func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credential, error) {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
-
-	ctx := context.Background()
 
 	startTime := time.Now()
 	err := s.CreateWallet()
@@ -52,25 +49,13 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	s.print("Getting issuer OIDC config")
 	startTime = time.Now()
-	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
-	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
-	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
-
-	if err != nil {
-		return nil, err
-	}
-
-	startTime = time.Now()
-	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
+	oidcIssuerCredentialConfig, err := s.GetWellKnownOpenIDConfiguration(offerResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
 
 	if err != nil {
 		return nil, fmt.Errorf("get issuer OIDC issuer config: %w", err)
 	}
-
-	tokenEndpoint := oidcConfig.TokenEndpoint
-	credentialsEndpoint := oidcIssuerCredentialConfig.CredentialEndpoint
 
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
@@ -91,7 +76,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	s.print("Getting access token")
 	startTime = time.Now()
-	tokenResp, tokenErr := s.httpClient.PostForm(tokenEndpoint, tokenValues)
+	tokenResp, tokenErr := s.httpClient.PostForm(oidcIssuerCredentialConfig.TokenEndpoint, tokenValues)
 	s.perfInfo.GetAccessToken = time.Since(startTime)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime)
 	if tokenErr != nil {
@@ -113,7 +98,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	s.oauthClient = &oauth2.Config{
 		ClientID: "oidc4vc_client",
 		Endpoint: oauth2.Endpoint{
-			TokenURL: oidcConfig.TokenEndpoint,
+			TokenURL: oidcIssuerCredentialConfig.TokenEndpoint,
 		},
 	} // todo dynamic client registration
 	s.token = lo.ToPtr(oauth2.Token{AccessToken: token.AccessToken}).WithExtra(map[string]interface{}{
@@ -122,7 +107,10 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	s.print("Getting credential")
 	startTime = time.Now()
-	vc, vcsDuration, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat,
+	vc, vcsDuration, err := s.getCredential(
+		oidcIssuerCredentialConfig.CredentialEndpoint,
+		config.CredentialType,
+		config.CredentialFormat,
 		offerResponse.CredentialIssuer)
 	if err != nil {
 		return nil, fmt.Errorf("get credential: %w", err)
