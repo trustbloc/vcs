@@ -62,6 +62,8 @@ func NewService(config *Config) *Service {
 
 // GetOpenIDCredentialIssuerConfig returns issuer.WellKnownOpenIDIssuerConfiguration object, and
 // it's JWT signed representation, if this feature is enabled for specific profile.
+//
+// Used for creating GET .well-known/openid-credential-issuer VCS IDP response.
 func (s *Service) GetOpenIDCredentialIssuerConfig(
 	issuerProfile *profileapi.Issuer) (*issuer.WellKnownOpenIDIssuerConfiguration, string, error) {
 	var (
@@ -132,12 +134,29 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 	issuerURL, _ := url.JoinPath(s.externalHostURL, "issuer", issuerProfile.ID, issuerProfile.Version)
 
 	final := &issuer.WellKnownOpenIDIssuerConfiguration{
-		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host),
+		AuthorizationEndpoint:   fmt.Sprintf("%soidc/authorize", host),
 		BatchCredentialEndpoint: nil, // no support for now
 		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
-		CredentialsSupported:    finalCredentials,
 		CredentialIssuer:        issuerURL,
+		CredentialsSupported:    finalCredentials,
 		Display:                 lo.ToPtr(display),
+		ResponseTypesSupported: []string{
+			"code",
+		},
+		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
+	}
+
+	if issuerProfile.OIDCConfig != nil {
+		final.GrantTypesSupported = issuerProfile.OIDCConfig.GrantTypesSupported
+		final.ScopesSupported = issuerProfile.OIDCConfig.ScopesSupported
+		final.PreAuthorizedGrantAnonymousAccessSupported = issuerProfile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
+		final.WalletInitiatedAuthFlowSupported = issuerProfile.OIDCConfig.WalletInitiatedAuthFlowSupported
+
+		if issuerProfile.OIDCConfig.EnableDynamicClientRegistration {
+			regURL, _ := url.JoinPath(host, "oidc", issuerProfile.ID, issuerProfile.Version, "register")
+
+			final.RegistrationEndpoint = lo.ToPtr(regURL)
+		}
 	}
 
 	return final

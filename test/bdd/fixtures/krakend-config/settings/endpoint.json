@@ -49,30 +49,6 @@
       }
     },
     {
-      "endpoint": "/issuer/{profileID}/{profileVersion}/.well-known/openid-configuration",
-      "method": "GET",
-      "input_query_strings": [
-        "*"
-      ],
-      "backend_extra_config": {
-        "plugin/http-client": {
-          "name": "http-client-no-redirect"
-        }
-      }
-    },
-    {
-      "endpoint": "/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration",
-      "method": "GET",
-      "input_query_strings": [
-        "*"
-      ],
-      "backend_extra_config": {
-        "plugin/http-client": {
-          "name": "http-client-no-redirect"
-        }
-      }
-    },
-    {
       "endpoint": "/issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer",
       "method": "GET",
       "input_query_strings": [

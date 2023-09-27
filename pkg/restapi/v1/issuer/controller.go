@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -780,19 +779,7 @@ func getCredentialSubjects(subject interface{}) ([]verifiable.Subject, error) {
 	return nil, fmt.Errorf("invalid type for credential subject: %T", subject)
 }
 
-// OpenidConfig request openid configuration for issuer.
-// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration.
-func (c *Controller) OpenidConfig(ctx echo.Context, profileID, profileVersion string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID, profileVersion))
-}
-
-// OpenidConfigV2 request openid configuration for issuer.
-// GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration.
-func (c *Controller) OpenidConfigV2(ctx echo.Context, profileID, profileVersion string) error {
-	return c.OpenidConfig(ctx, profileID, profileVersion)
-}
-
-// OpenidCredentialIssuerConfig request openid credentials configuration for issuer.
+// OpenidCredentialIssuerConfig request VCS IDP OIDC Configuration.
 // GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
 func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, profileVersion string) error {
 	issuerProfile, err := c.profileSvc.GetProfile(profileID, profileVersion)
@@ -812,48 +799,8 @@ func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, p
 	return util.WriteOutput(ctx)(config, nil)
 }
 
-// OpenidCredentialIssuerConfigV2 request openid credentials configuration for issuer.
+// OpenidCredentialIssuerConfigV2 request VCS IDP OIDC Configuration.
 // GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
 func (c *Controller) OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID, profileVersion string) error {
 	return c.OpenidCredentialIssuerConfig(ctx, profileID, profileVersion)
-}
-
-func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDConfiguration, error) {
-	host := c.externalHostURL
-	if !strings.HasSuffix(host, "/") {
-		host += "/"
-	}
-
-	config := &WellKnownOpenIDConfiguration{
-		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
-	}
-
-	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if profile.OIDCConfig != nil {
-		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
-		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
-		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
-		config.WalletInitiatedAuthFlowSupported = profile.OIDCConfig.WalletInitiatedAuthFlowSupported
-
-		if profile.OIDCConfig.EnableDynamicClientRegistration {
-			var regURL string
-
-			regURL, err = url.JoinPath(host, "oidc", profileID, profileVersion, "register")
-			if err != nil {
-				return nil, fmt.Errorf("build registration endpoint: %w", err)
-			}
-
-			config.RegistrationEndpoint = lo.ToPtr(regURL)
-		}
-	}
-
-	return config, nil
 }

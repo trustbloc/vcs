@@ -25,18 +25,15 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/did-go/method/jwk"
 	didkey "github.com/trustbloc/did-go/method/key"
-	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
-	"github.com/valyala/fastjson"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -92,12 +89,8 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 	}
 
 	s.print("Getting issuer OIDC config")
-	oidcConfig, err := s.getIssuerOIDCConfig(ctx, offerResponse.CredentialIssuer)
-	if err != nil {
-		return fmt.Errorf("get issuer OIDC config: %w", err)
-	}
 
-	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
+	oidcIssuerCredentialConfig, err := s.GetWellKnownOpenIDConfiguration(
 		offerResponse.CredentialIssuer,
 	)
 	if err != nil {
@@ -129,8 +122,8 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 		RedirectURL: redirectURL.String(),
 		Scopes:      config.Scope,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   oidcConfig.AuthorizationEndpoint,
-			TokenURL:  oidcConfig.TokenEndpoint,
+			AuthURL:   oidcIssuerCredentialConfig.AuthorizationEndpoint,
+			TokenURL:  oidcIssuerCredentialConfig.TokenEndpoint,
 			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
@@ -262,16 +255,11 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		return fmt.Errorf("create wallet: %w", err)
 	}
 
-	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(
+	oidcIssuerCredentialConfig, err := s.GetWellKnownOpenIDConfiguration(
 		issuerUrl,
 	)
 	if err != nil {
 		return fmt.Errorf("get issuer OIDC issuer config: %w", err)
-	}
-
-	oidcConfig, err := s.getIssuerOIDCConfig(ctx, issuerUrl)
-	if err != nil {
-		return fmt.Errorf("get issuer OIDC config: %w", err)
 	}
 
 	redirectURL, err := url.Parse(config.RedirectURI)
@@ -299,8 +287,8 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 		RedirectURL: redirectURL.String(),
 		Scopes:      config.Scope,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   oidcConfig.AuthorizationEndpoint,
-			TokenURL:  oidcConfig.TokenEndpoint,
+			AuthURL:   oidcIssuerCredentialConfig.AuthorizationEndpoint,
+			TokenURL:  oidcIssuerCredentialConfig.TokenEndpoint,
 			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
@@ -406,100 +394,6 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 	}
 
 	return nil
-}
-
-func (s *Service) getIssuerOIDCConfig(
-	ctx context.Context,
-	issuerURL string,
-) (*issuerv1.WellKnownOpenIDConfiguration, error) {
-	// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration
-	req, err := http.NewRequestWithContext(ctx, "GET", issuerURL+"/.well-known/openid-configuration", nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("get issuer well-known: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get issuer well-known: status code %d", resp.StatusCode)
-	}
-
-	var oidcConfig issuerv1.WellKnownOpenIDConfiguration
-
-	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
-		return nil, fmt.Errorf("decode issuer well-known: %w", err)
-	}
-
-	return &oidcConfig, nil
-}
-
-func (s *Service) getIssuerCredentialsOIDCConfig(
-	issuerURL string,
-) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
-	// GET /issuer/{profileID}/.well-known/openid-credential-issuer
-	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-credential-issuer")
-	if err != nil {
-		return nil, fmt.Errorf("get issuer well-known: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get issuer well-known: status code %d", resp.StatusCode)
-	}
-
-	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
-
-	wellKnownOpenIDIssuerConfigurationPayload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read issuer configuration payload body: %w", err)
-	}
-
-	if jwt.IsJWS(string(wellKnownOpenIDIssuerConfigurationPayload)) {
-		wellKnownOpenIDIssuerConfigurationPayload, err =
-			getWellKnownOpenIDIssuerConfigurationJWTPayload(
-				string(wellKnownOpenIDIssuerConfigurationPayload), s.ariesServices.vdrRegistry)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err = json.Unmarshal(wellKnownOpenIDIssuerConfigurationPayload, &oidcConfig); err != nil {
-		return nil, fmt.Errorf("decode issuer well-known: %w", err)
-	}
-
-	return &oidcConfig, nil
-}
-
-func getWellKnownOpenIDIssuerConfigurationJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, error) {
-	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
-		verifiable.NewVDRKeyResolver(vdrRegistry).PublicKeyFetcher()))
-
-	_, credentialOfferPayload, err := jwt.Parse(
-		rawResponse,
-		jwt.WithSignatureVerifier(jwtVerifier),
-		jwt.WithIgnoreClaimsMapDecoding(true),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("parse issuer configuration JWT: %w", err)
-	}
-
-	var fastParser fastjson.Parser
-	v, err := fastParser.ParseBytes(credentialOfferPayload)
-	if err != nil {
-		return nil, fmt.Errorf("decode claims: %w", err)
-	}
-
-	sb, err := v.Get("well_known_openid_issuer_configuration").Object()
-	if err != nil {
-		return nil, fmt.Errorf("fastjson.Parser Get well_known_openid_issuer_configuration: %w", err)
-	}
-
-	return sb.MarshalTo([]byte{}), nil
 }
 
 func (s *Service) getAuthCode(

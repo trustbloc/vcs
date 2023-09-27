@@ -762,7 +762,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
-			Return(&oidc4ci.OIDCConfiguration{}, nil)
+			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New("publish err"))
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -804,7 +804,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0").
 			Return(nil, oidc4ci.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), "https://awesome.local").
-			Return(&oidc4ci.OIDCConfiguration{}, nil)
+			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, topic string, event ...*spi.Event) error {

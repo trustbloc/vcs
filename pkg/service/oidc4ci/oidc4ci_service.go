@@ -77,7 +77,7 @@ type wellKnownService interface {
 	GetOIDCConfiguration(
 		ctx context.Context,
 		url string,
-	) (*OIDCConfiguration, error)
+	) (*IssuerIDPOIDCConfiguration, error)
 }
 
 type profileService interface {
