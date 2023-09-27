@@ -175,3 +175,31 @@ Feature: OIDC4VC REST API
       | issuerProfile                  | credentialType         | credentialTemplate               | verifierProfile      | presentationDefinitionID | fields    |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match    | schema_id |
+
+
+  Scenario Outline: OIDC credential issuance without required role
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-non-issuer-1" and password "profile-user-non-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+
+    When User initiates credential issuance flow and receives "expected status code 200 but got status code 403" error
+    Examples:
+      | issuerProfile                     | credentialType             | credentialTemplate               | verifierProfile       |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0                  | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0  |
+
+  Scenario Outline: OIDC credential verification without required role
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-non-verifier-1" and password "profile-user-non-verifier-1-pwd"
+
+
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
+    Then credential is issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "expected status code 200 but got status code 403" error
+    Examples:
+      | issuerProfile                     | credentialType             | clientRegistrationMethod | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0                  | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
+
