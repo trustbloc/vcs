@@ -613,6 +613,16 @@ func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
 	return nil
 }
 
+func (s *Steps) initiateCredentialIssuanceWithError(errorContains string) error {
+	_, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+
+	if !strings.Contains(err.Error(), errorContains) {
+		return fmt.Errorf("unexpected error on initiateCredentialIssuance: %w", err)
+	}
+
+	return nil
+}
+
 func checkCredentialStatusType(vc *verifiable.Credential, expected string) error {
 	if vc.Status.Type != expected {
 		return bddutil.ExpectedStringError(expected, vc.Status.Type)
