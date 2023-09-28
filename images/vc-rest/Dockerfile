@@ -21,7 +21,8 @@ WORKDIR src/github.com/trustbloc/vcs
 ENV EXECUTABLES go git
 
 FROM golang as vcs
-RUN make vc-rest
+ARG GO_PROXY
+RUN GOPROXY=${GO_PROXY} make vc-rest
 
 
 FROM alpine:${ALPINE_VER} as base

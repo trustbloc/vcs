@@ -17,6 +17,7 @@ MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
+GOPROXY ?= https://proxy.golang.org
 
 
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
@@ -75,6 +76,7 @@ vc-rest-docker: generate
 	@echo "Building vc rest docker image"
 	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
+	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
@@ -84,13 +86,14 @@ vcs-stress:
 	@mkdir -p ./.build/bin
 	@echo "Version is '$(VC_REST_VERSION)'"
 	@echo "${VCS_STRESS_PATH}"
-	@cd ${VCS_STRESS_PATH} && go build -o ../../../.build/bin/vcs-stress
+	@cd ${VCS_STRESS_PATH} && GOPROXY=$(GOPROXY) go build -o ../../../.build/bin/vcs-stress
 
 .PHONY: vcs-stress-docker
 vcs-stress-docker: generate
 	@echo "Building vcs-stress docker image"
 	@docker build -f ./images/vcs-stress/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VCS_STRESS_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
+	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
@@ -107,6 +110,7 @@ sample-webhook-docker:
 	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(WEBHOOK_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
+	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) \
 	--build-arg ALPINE_IMAGE=$(ALPINE_IMAGE) .
 
@@ -116,13 +120,14 @@ mock-login-consent-docker:
 	@docker build -f ./images/mocks/loginconsent/Dockerfile --no-cache -t  vcs/mock-login-consent:latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
+	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) test/bdd/loginconsent
 
 .PHONY: sample-cognito-auth
 sample-cognito-auth:
 	@echo "Building sample cognito auth server"
 	@mkdir -p ./build/bin
-	@go build -modfile test/bdd/go.mod -o ./build/bin/cognito-auth-server test/bdd/cognito-auth/main.go
+	@GOPROXY=$(GOPROXY) go build -modfile test/bdd/go.mod -o ./build/bin/cognito-auth-server test/bdd/cognito-auth/main.go
 
 .PHONY: sample-cognito-auth-docker
 sample-cognito-auth-docker:
@@ -131,12 +136,13 @@ sample-cognito-auth-docker:
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) \
+	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg ALPINE_IMAGE=$(ALPINE_IMAGE) .
 
 
 .PHONY: bdd-test
 bdd-test: clean vc-rest-docker sample-cognito-auth-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
-	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
+	@cd test/bdd && GOPROXY=$(GOPROXY) go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test
 unit-test: generate
@@ -144,7 +150,7 @@ unit-test: generate
 
 .PHONY: bdd-test-dev
 bdd-test-dev: vc-rest-docker
-	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
+	@cd test/bdd && GOPROXY=$(GOPROXY) go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 # TODO (#264): frapsoft/openssl only has an amd64 version. While this does work under amd64 and arm64 Mac OS currently,
 #               we should add an arm64 version for systems that can only run arm64 code.
@@ -187,7 +193,7 @@ stress-test:
 	CLAIM_DATA='' \
 	USERS_NUM=3 \
 	CONCURRENT_REQ=2 \
-	go test -count=1 -v -cover . -p 1 -timeout=10m -race
+	GOPROXY=$(GOPROXY) go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: clean
 clean:
@@ -201,7 +207,7 @@ update-vc:
 		dir_path=$$(dirname "$$gomod_path"); \
 		if grep -q "github.com/trustbloc/vc-go" "$$gomod_path"; then \
 			echo "Executing 'updating vc' in directory: $$dir_path"; \
-			(cd "$$dir_path" && go get github.com/trustbloc/vc-go@$(VC_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/vc-go@$(VC_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
 		fi; \
 	done
 
@@ -210,5 +216,5 @@ tidy-modules:
 	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
 		dir_path=$$(dirname "$$gomod_path"); \
 		echo "Executing 'go mod tidy' in directory: $$dir_path"; \
-		(cd "$$dir_path" && go mod tidy) || exit 1; \
+		(cd "$$dir_path" && GOPROXY=$(GOPROXY) go mod tidy) || exit 1; \
 	done

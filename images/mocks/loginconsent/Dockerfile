@@ -14,8 +14,8 @@ RUN apk update && apk add git && apk add ca-certificates
 RUN adduser -D -g '' appuser
 COPY . $GOPATH/src/github.com/trustbloc/vcs/test/bdd/loginconsent/
 WORKDIR $GOPATH/src/github.com/trustbloc/vcs/test/bdd/loginconsent/
-
-RUN CGO_ENABLED=0 go build -o /usr/bin/mock-login-consent
+ARG GO_PROXY
+RUN GOPROXY=${GO_PROXY} CGO_ENABLED=0 go build -o /usr/bin/mock-login-consent
 
 FROM scratch
 
