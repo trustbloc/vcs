@@ -237,6 +237,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
+				require.Equal(t, []string{"openid", "profile", "address"}, resp.Scope)
 			},
 		},
 		{
@@ -483,7 +484,6 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				require.ErrorContains(t, err, "store update error")
 				require.Nil(t, resp)
-				require.Equal(t, []string{"openid", "profile"}, resp.Scope)
 			},
 		},
 	}
