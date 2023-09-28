@@ -45,7 +45,6 @@ type mongoDocument struct {
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
 	AuthorizationDetails               *oidc4ci.AuthorizationDetails
-	ClientScope                        []string
 	RedirectURI                        string
 	IssuerAuthCode                     string
 	IssuerToken                        string
@@ -215,7 +214,6 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		PushedAuthorizationRequestEndpoint: data.PushedAuthorizationRequestEndpoint,
 		TokenEndpoint:                      data.TokenEndpoint,
 		AuthorizationDetails:               data.AuthorizationDetails,
-		ClientScope:                        data.ClientScope,
 		RedirectURI:                        data.RedirectURI,
 		IssuerAuthCode:                     data.IssuerAuthCode,
 		IssuerToken:                        data.IssuerToken,
@@ -248,7 +246,6 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
 			TokenEndpoint:                      doc.TokenEndpoint,
 			ClaimEndpoint:                      doc.ClaimEndpoint,
-			ClientScope:                        doc.ClientScope,
 			RedirectURI:                        doc.RedirectURI,
 			GrantType:                          doc.GrantType,
 			ResponseType:                       doc.ResponseType,

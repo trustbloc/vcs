@@ -275,7 +275,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		ProfileVersion:                     tx.ProfileVersion,
 		TxID:                               tx.ID,
 		ResponseType:                       tx.ResponseType,
-		Scope:                              tx.ClientScope,
+		Scope:                              tx.Scope,
 		AuthorizationEndpoint:              tx.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
 	}, nil

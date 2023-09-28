@@ -101,7 +101,6 @@ func TestStore(t *testing.T) {
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
 			TokenEndpoint:                      "tokenEndpoint",
 			ClaimEndpoint:                      "432",
-			ClientScope:                        []string{"openid", "profile"},
 			GrantType:                          "342",
 			ResponseType:                       "123",
 			Scope:                              []string{"213", "321"},

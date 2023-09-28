@@ -70,7 +70,6 @@ type TransactionData struct {
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
 	ClaimEndpoint                      string
-	ClientScope                        []string
 	RedirectURI                        string
 	GrantType                          string
 	ResponseType                       string
