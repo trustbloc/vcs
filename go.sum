@@ -625,12 +625,12 @@ github.com/trustbloc/bbs-signature-go v1.0.0 h1:JOKmPRTpjbbGODt71i3wJyiEBcu5XEoe
 github.com/trustbloc/bbs-signature-go v1.0.0/go.mod h1:8xptu/lbVUDACQW10yiHtqATzC2kpTKQk5mKsKTD85Y=
 github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9 h1:UA6QlD58VZnSd2EpFJCi9XctBY3naKouBOtjMss4ewc=
 github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9/go.mod h1:qqTm9zd5rGhHSOtC8jjadqM01Od9zcDbUiUYLv+M6ls=
-github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30 h1:nNmYk/CX3UrLe4a7qCaMjsc+IWcQdZlJGvY5D2gsewE=
-github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30/go.mod h1:7arOSG9GewtV1WiqYZ23dSZ6haamosSABwyG//cRaXQ=
+github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721 h1:3zVBmT6aF+ovuLNuE3BTxhw2UrfaOHHCJ+1yVEI/f8A=
+github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721/go.mod h1:7arOSG9GewtV1WiqYZ23dSZ6haamosSABwyG//cRaXQ=
 github.com/trustbloc/logutil-go v1.0.0-rc1 h1:rRJbvgQfrlUfyej+mY0nuQJymGqjRW4oZEwKi544F4c=
 github.com/trustbloc/logutil-go v1.0.0-rc1/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
-github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468 h1:GizDlcTPMuOh8HHifl8qp+ohaGMhiIT7k4+NcI/CA/I=
-github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468/go.mod h1:6I4D1Hlf5CpSXBbfOIf58ZPtheyT8ZdsorN2kef2ZxU=
+github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2 h1:CVfpNobNz9nuIZlkHQvN+VYSDvVCEjAoyOATKpu+MUU=
+github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2/go.mod h1:SnCw1mlpqWuRaKlcMGXlPqtu5Ggu7/a0WTvFXCrcJ0M=
 github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 h1:iqqHGeoI6fXZbjtjvV9OCql7XQtr8P4LQBE9d2j9Ll8=
 github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6/go.mod h1:D/dD0ld+XRAt/MjhKnrpaVbaKTe5Zq9uAXONf5c4OxU=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=

@@ -11,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9
-	github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30
+	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vcs v0.0.0
 )
@@ -115,7 +115,7 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
-	github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468 // indirect
+	github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

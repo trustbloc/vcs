@@ -11,11 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
-	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/spi/kms"
-
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )
@@ -43,7 +39,8 @@ func TestKMSSigner_Alg(t *testing.T) {
 func TestKMSSigner_Sign(t *testing.T) {
 	type fields struct {
 		keyHandle interface{}
-		getCrypto func() crypto
+		signValue []byte
+		signErr   error
 		bbs       bool
 	}
 	type args struct {
@@ -60,13 +57,9 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "BBS SignMulti OK",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto {
-					return &mockcrypto.Crypto{
-						BBSSignValue: []byte("signed"),
-						BBSSignErr:   nil,
-					}
-				},
-				bbs: true,
+				signValue: []byte("signed"),
+				signErr:   nil,
+				bbs:       true,
 			},
 			args: args{
 				data: []byte("to sign"),
@@ -78,13 +71,9 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "BBS SignMulti Error",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto {
-					return &mockcrypto.Crypto{
-						BBSSignValue: nil,
-						BBSSignErr:   errors.New("some error"),
-					}
-				},
-				bbs: true,
+				signValue: nil,
+				signErr:   errors.New("some error"),
+				bbs:       true,
 			},
 			args: args{
 				data: []byte("to sign"),
@@ -96,13 +85,9 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "Sign OK",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto {
-					return &mockcrypto.Crypto{
-						SignValue: []byte("signed"),
-						SignErr:   nil,
-					}
-				},
-				bbs: false,
+				signValue: []byte("signed"),
+				signErr:   nil,
+				bbs:       false,
 			},
 			args: args{
 				data: []byte("to sign"),
@@ -114,13 +99,9 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "Sign Error",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto {
-					return &mockcrypto.Crypto{
-						SignValue: nil,
-						SignErr:   errors.New("some error"),
-					}
-				},
-				bbs: false,
+				signValue: nil,
+				signErr:   errors.New("some error"),
+				bbs:       false,
 			},
 			args: args{
 				data: []byte("to sign"),
@@ -129,19 +110,28 @@ func TestKMSSigner_Sign(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &KMSSigner{
-				keyHandle: tt.fields.keyHandle,
-				crypto:    tt.fields.getCrypto(),
-				bbs:       tt.fields.bbs,
-				metrics:   &noopMetricsProvider.NoMetrics{},
+				bbs:     tt.fields.bbs,
+				metrics: &noopMetricsProvider.NoMetrics{},
+				multiSigner: &mockwrapper.MockFixedKeyCrypto{
+					SignVal: tt.fields.signValue,
+					SignErr: tt.fields.signErr,
+				},
+				signer: &mockwrapper.MockFixedKeyCrypto{
+					SignVal: tt.fields.signValue,
+					SignErr: tt.fields.signErr,
+				},
 			}
+
 			got, err := s.Sign(tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Sign() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Sign() got = %v, want %v", got, tt.want)
 			}
@@ -205,83 +195,36 @@ func TestKMSSigner_textToLines(t *testing.T) {
 }
 
 func TestNewKMSSigner(t *testing.T) {
-	type args struct {
-		keyManager    kms.KeyManager
-		c             crypto
-		creator       string
-		signatureType vcsverifiable.SignatureType
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *KMSSigner
-		wantErr bool
-	}{
-		{
-			name: "OK",
-			args: args{
-				keyManager: &mockkms.KeyManager{
-					GetKeyValue: &keyset.Handle{},
-					GetKeyErr:   nil,
-				},
-				c:             &mockcrypto.Crypto{},
-				creator:       "example#key1",
-				signatureType: vcsverifiable.Ed25519Signature2018,
-			},
-			want: &KMSSigner{
-				keyHandle:     &keyset.Handle{},
-				crypto:        &mockcrypto.Crypto{},
-				signatureType: vcsverifiable.Ed25519Signature2018,
-				bbs:           false,
-				metrics:       &noopMetricsProvider.NoMetrics{},
-			},
-			wantErr: false,
-		},
-		{
-			name: "OK BBS",
-			args: args{
-				keyManager: &mockkms.KeyManager{
-					GetKeyValue: &keyset.Handle{},
-					GetKeyErr:   nil,
-				},
-				c:             &mockcrypto.Crypto{},
-				creator:       "example#key1",
-				signatureType: vcsverifiable.BbsBlsSignature2020,
-			},
-			want: &KMSSigner{
-				keyHandle:     &keyset.Handle{},
-				crypto:        &mockcrypto.Crypto{},
-				signatureType: vcsverifiable.BbsBlsSignature2020,
-				bbs:           true,
-				metrics:       &noopMetricsProvider.NoMetrics{},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Error key manager",
-			args: args{
-				keyManager: &mockkms.KeyManager{
-					GetKeyValue: nil,
-					GetKeyErr:   errors.New("some error"),
-				},
-				c:             &mockcrypto.Crypto{},
-				creator:       "example#key1",
-				signatureType: vcsverifiable.BbsBlsSignature2020,
-			},
-			want:    nil,
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewKMSSigner(tt.args.keyManager, tt.args.c, tt.args.creator, tt.args.signatureType, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewKMSSigner() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewKMSSigner() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	wantSigner := &mockwrapper.MockFixedKeyCrypto{}
+
+	t.Run("OK", func(t *testing.T) {
+		got := NewKMSSigner(wantSigner, vcsverifiable.Ed25519Signature2018, nil)
+
+		want := &KMSSigner{
+			signatureType: vcsverifiable.Ed25519Signature2018,
+			bbs:           false,
+			metrics:       &noopMetricsProvider.NoMetrics{},
+			signer:        wantSigner,
+		}
+
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("NewKMSSigner() got = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("OK BBS", func(t *testing.T) {
+		got := NewKMSSignerBBS(wantSigner, vcsverifiable.BbsBlsSignature2020, nil)
+
+		want := &KMSSigner{
+			signatureType: vcsverifiable.BbsBlsSignature2020,
+			bbs:           true,
+			metrics:       &noopMetricsProvider.NoMetrics{},
+			signer:        wantSigner,
+			multiSigner:   wantSigner,
+		}
+
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("NewKMSSignerBBS() got = %v, want %v", got, want)
+		}
+	})
 }

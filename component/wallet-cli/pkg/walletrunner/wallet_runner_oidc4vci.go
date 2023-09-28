@@ -484,21 +484,14 @@ func (s *Service) getCredential(
 	credentialFormat,
 	issuerURI string,
 ) (interface{}, time.Duration, error) {
-	km := s.ariesServices.KMS()
-	cr := s.ariesServices.Crypto()
-
 	didKeyID := s.vcProviderConf.WalletParams.DidKeyID[0]
 
-	kmsSigner, err := signer.NewKMSSigner(
-		km,
-		cr,
-		strings.Split(didKeyID, "#")[1],
-		s.vcProviderConf.WalletParams.SignType,
-		nil,
-	)
+	fks, err := s.ariesServices.Suite().FixedKeyMultiSigner(strings.Split(didKeyID, "#")[1])
 	if err != nil {
 		return nil, 0, fmt.Errorf("create kms signer: %w", err)
 	}
+
+	kmsSigner := signer.NewKMSSigner(fks, s.vcProviderConf.WalletParams.SignType, nil)
 
 	claims := &JWTProofClaims{
 		Issuer:   s.oauthClient.ClientID,

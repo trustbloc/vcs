@@ -11,16 +11,14 @@ import (
 
 	jsonld "github.com/piprate/json-gold/ld"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/spi/crypto"
-	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 )
 
 type ariesServices struct {
 	storageProvider   storage.Provider
 	vdrRegistry       vdrapi.Registry
-	crypto            crypto.Crypto
-	kms               kms.KeyManager
+	suite             api.Suite
 	documentLoader    jsonld.DocumentLoader
 	mediaTypeProfiles []string
 }
@@ -37,12 +35,8 @@ func (p *ariesServices) VDRegistry() vdrapi.Registry {
 	return p.vdrRegistry
 }
 
-func (p *ariesServices) Crypto() crypto.Crypto {
-	return p.crypto
-}
-
-func (p *ariesServices) KMS() kms.KeyManager {
-	return p.kms
+func (p *ariesServices) Suite() api.Suite {
+	return p.suite
 }
 
 func (p *ariesServices) JSONLDDocumentLoader() jsonld.DocumentLoader {

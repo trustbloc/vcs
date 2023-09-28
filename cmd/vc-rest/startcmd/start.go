@@ -28,6 +28,7 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
@@ -646,11 +647,14 @@ func buildEchoHandler(
 
 	var oidc4ciService oidc4ci.ServiceInterface
 
-	var dataKeyEncryptor dataprotect.Crypto
-	dataKeyEncryptor = defaultVCSKeyManager.Crypto()
+	var dataKeyEncryptor api.EncrypterDecrypter
+	dataKeyEncryptor, err = defaultVCSKeyManager.Suite().EncrypterDecrypter()
 	if conf.StartupParameters.dataEncryptionDisabled {
 		dataKeyEncryptor = dataprotect.NewNilCrypto()
+	} else if err != nil {
+		return nil, fmt.Errorf("provided crypto suite does not support encryption/decryption: %w", err)
 	}
+
 	claimsDataProtector := dataprotect.NewDataProtector(
 		dataKeyEncryptor,
 		conf.StartupParameters.dataEncryptionKeyID,

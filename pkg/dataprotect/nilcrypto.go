@@ -13,10 +13,10 @@ func NewNilCrypto() *NilCrypto {
 	return &NilCrypto{}
 }
 
-func (n *NilCrypto) Encrypt(msg, _ []byte, _ interface{}) ([]byte, []byte, error) {
+func (n *NilCrypto) Encrypt(msg, _ []byte, _ string) ([]byte, []byte, error) {
 	return msg, nil, nil
 }
 
-func (n *NilCrypto) Decrypt(_, aad, _ []byte, _ interface{}) ([]byte, error) {
+func (n *NilCrypto) Decrypt(_, aad, _ []byte, _ string) ([]byte, error) {
 	return aad, nil
 }

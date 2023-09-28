@@ -127,8 +127,11 @@ func New(
 	}
 }
 
+// TODO this API swapped cipher and aad, so dataprotect passed them in swapped
+//  I fixed that, but if any other code uses the aws wrapper's Decrypt, it would also need changing
+
 // Decrypt data.
-func (s *Service) Decrypt(_, aad, _ []byte, kh interface{}) ([]byte, error) {
+func (s *Service) Decrypt(cipher, _, _ []byte, kh interface{}) ([]byte, error) {
 	startTime := time.Now()
 
 	defer func() {
@@ -147,7 +150,7 @@ func (s *Service) Decrypt(_, aad, _ []byte, kh interface{}) ([]byte, error) {
 	}
 
 	input := &kms.DecryptInput{
-		CiphertextBlob:      aad,
+		CiphertextBlob:      cipher,
 		EncryptionAlgorithm: s.encryptionAlgo,
 		KeyId:               aws.String(keyID),
 	}

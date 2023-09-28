@@ -92,6 +92,11 @@ func (s *Service) CreateWallet() error {
 		s.vcProviderConf.WalletParams.Token = token
 	}
 
+	creator, err := s.ariesServices.suite.RawKeyCreator()
+	if err != nil {
+		return err
+	}
+
 	if shouldCreateWallet {
 		var createRes *vdrutil.CreateResult
 		for i := 0; i < s.vcProviderConf.WalletDidCount; i++ {
@@ -99,7 +104,7 @@ func (s *Service) CreateWallet() error {
 				s.vcProviderConf.DidMethod,
 				kms.KeyType(s.vcProviderConf.DidKeyType),
 				s.ariesServices.vdrRegistry,
-				s.ariesServices.kms,
+				creator,
 			)
 			if err != nil {
 				return err

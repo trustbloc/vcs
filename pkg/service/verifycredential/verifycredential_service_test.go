@@ -18,12 +18,11 @@ import (
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/util/jwkkid"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmskeytypes "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -733,15 +732,12 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	 }
 	}
 	`
-	mockKMS := createKMS(t)
+	localSuite := createKMS(t)
 
-	mockCrypto, err := tinkcrypto.New()
+	signer, err := localSuite.KMSCrypto()
 	require.NoError(t, err)
 
-	_, keyBytes, err := mockKMS.CreateAndExportPubKeyBytes(kmskeytypes.ECDSAP256IEEEP1363)
-	require.NoError(t, err)
-
-	key, err := jwkkid.BuildJWK(keyBytes, kmskeytypes.ECDSAP256IEEEP1363)
+	key, err := signer.Create(kmskeytypes.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
 	const signingDID = "did:foo:bar"
@@ -759,7 +755,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		}}
 
 	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-		SignerGetter:     ecdsa2019.WithLocalKMSSigner(mockKMS, mockCrypto), //nolint:staticcheck
+		SignerGetter:     ecdsa2019.WithKMSCryptoWrapper(signer),
 		LDDocumentLoader: docLoader,
 	})
 
@@ -828,16 +824,16 @@ func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.Verific
 	}
 }
 
-func createKMS(t *testing.T) *localkms.LocalKMS {
+func createKMS(t *testing.T) api.Suite {
 	t.Helper()
 
-	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	store, err := kms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	localSuite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", store, &noop.NoLock{})
 	require.NoError(t, err)
 
-	return k
+	return localSuite
 }
 func createVC(t *testing.T, vcc verifiable.CredentialContents) *verifiable.Credential {
 	vc, err := verifiable.CreateCredential(vcc, nil)

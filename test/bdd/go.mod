@@ -23,7 +23,7 @@ require (
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468
+	github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231003142611-b9399c5814c2
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
@@ -140,7 +140,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
-	github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30 // indirect
+	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721 // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

@@ -15,8 +15,9 @@ import (
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -27,7 +28,7 @@ import (
 type SignedPresentationResult struct {
 	Presentation      *verifiable.Presentation
 	VDR               vdrapi.Registry
-	Kh                interface{}
+	Kh                *jwk.JWK
 	VerMethodDIDKeyID string
 }
 
@@ -73,23 +74,23 @@ func proveVP(
 
 	customKMS := createKMS(t)
 
-	customCrypto, err := tinkcrypto.New()
+	kc, err := customKMS.KMSCrypto()
 	require.NoError(t, err)
 
-	keyID, kh, err := customKMS.Create(kms.ED25519Type)
+	pk, err := kc.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	pkBytes, _, err := customKMS.ExportPubKeyBytes(keyID)
+	fks, err := kc.FixedKeySigner(pk)
 	require.NoError(t, err)
 
-	didDoc := createDIDDoc(t, "did:trustblock:abc", keyID, pkBytes, kms.ED25519Type)
+	didDoc := createDIDDoc(t, "did:trustblock:abc", pk.KeyID, pk)
 
 	// Sign
 	switch format {
 	case vcs.Ldp:
-		addLDP(t, presentation, didDoc.VerificationMethod[0].ID, customCrypto, kh, opts...)
+		addLDP(t, presentation, didDoc.VerificationMethod[0].ID, fks, opts...)
 	case vcs.Jwt:
-		signJWS(t, presentation, didDoc.VerificationMethod[0].ID, customCrypto, kh)
+		signJWS(t, presentation, didDoc.VerificationMethod[0].ID, fks)
 	}
 
 	return &SignedPresentationResult{
@@ -99,7 +100,7 @@ func proveVP(
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
-		Kh:                kh,
+		Kh:                pk,
 		VerMethodDIDKeyID: didDoc.VerificationMethod[0].ID,
 	}
 }
@@ -110,13 +111,13 @@ func SignedVPWithExistingPrivateKey(
 	presentation *verifiable.Presentation,
 	format vcs.Format,
 	verMethodDIDKeyID string,
-	kh interface{},
+	signer api.FixedKeySigner,
 	opts ...LDPOpt,
 ) *verifiable.Presentation {
 	t.Helper()
 
 	return proveVPWithExistingPrivateKey(
-		t, presentation, format, verMethodDIDKeyID, kh, opts...)
+		t, presentation, format, verMethodDIDKeyID, signer, opts...)
 }
 
 func proveVPWithExistingPrivateKey(
@@ -124,20 +125,17 @@ func proveVPWithExistingPrivateKey(
 	presentation *verifiable.Presentation,
 	format vcs.Format,
 	verMethodDIDKeyID string,
-	kh interface{},
+	signer api.FixedKeySigner,
 	opts ...LDPOpt,
 ) *verifiable.Presentation {
 	t.Helper()
 
-	customCrypto, err := tinkcrypto.New()
-	require.NoError(t, err)
-
 	// Sign
 	switch format {
 	case vcs.Ldp:
-		addLDP(t, presentation, verMethodDIDKeyID, customCrypto, kh, opts...)
+		addLDP(t, presentation, verMethodDIDKeyID, signer, opts...)
 	case vcs.Jwt:
-		signJWS(t, presentation, verMethodDIDKeyID, customCrypto, kh)
+		signJWS(t, presentation, verMethodDIDKeyID, signer)
 	}
 
 	return presentation
@@ -147,8 +145,7 @@ func signJWS(
 	t *testing.T,
 	presentation *verifiable.Presentation,
 	keyID string,
-	customCrypto *tinkcrypto.Crypto,
-	kh interface{},
+	fks api.FixedKeySigner,
 ) {
 	t.Helper()
 
@@ -158,7 +155,7 @@ func signJWS(
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
 	require.NoError(t, err)
 
-	jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), keyID) //nolint:staticcheck
+	jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoWrapperSigner(fks), keyID)
 	require.NoError(t, err)
 
 	presentation.JWT = jws
@@ -168,8 +165,7 @@ func addLDP(
 	t *testing.T,
 	presentation *verifiable.Presentation,
 	keyID string,
-	customCrypto *tinkcrypto.Crypto,
-	kh interface{},
+	fks api.FixedKeySigner,
 	opts ...LDPOpt,
 ) {
 	t.Helper()
@@ -178,7 +174,7 @@ func addLDP(
 	require.NoError(t, err)
 
 	signerSuite := jsonwebsignature2020.New(
-		suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh))) //nolint:staticcheck
+		suite.WithSigner(suite.NewCryptoWrapperSigner(fks)))
 
 	ctx := &verifiable.LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",

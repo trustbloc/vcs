@@ -8,6 +8,10 @@ package aws //nolint:testpackage
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/asn1"
 	"errors"
 	"fmt"
@@ -20,7 +24,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	arieskms "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
 )
 
 func TestSign(t *testing.T) {
@@ -71,10 +77,13 @@ func TestSign(t *testing.T) {
 						},
 					}, nil)
 
-				svc := New(awsConfig, metric, "", WithAWSClient(client))
+				suite := NewSuite(awsConfig, metric, "", WithAWSClient(client))
 
-				signature, err := svc.Sign([]byte("msg"),
-					"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147")
+				suiteSigner, err := suite.KMSCryptoSigner()
+				require.NoError(t, err)
+
+				signature, err := suiteSigner.Sign([]byte("msg"), wrapKID(
+					"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"))
 				require.NoError(t, err)
 				require.Contains(t, string(signature), "data")
 			})
@@ -108,10 +117,13 @@ func TestSign(t *testing.T) {
 				},
 			}, nil)
 
-		svc := New(awsConfig, metric, "", WithAWSClient(client))
+		suite := NewSuite(awsConfig, metric, "", WithAWSClient(client))
 
-		signature, err := svc.Sign([]byte("msg"),
+		suiteSigner, err := suite.FixedKeySigner(
 			"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147")
+		require.NoError(t, err)
+
+		signature, err := suiteSigner.Sign([]byte("msg"))
 		require.NoError(t, err)
 		require.Contains(t, string(signature), "\xd41")
 	})
@@ -135,10 +147,16 @@ func TestSign(t *testing.T) {
 				},
 			}, nil)
 
-		svc := New(awsConfig, metric, "", WithAWSClient(client))
+		suite := NewSuite(awsConfig, metric, "", WithAWSClient(client))
 
-		_, err := svc.Sign([]byte("msg"),
-			"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147")
+		suiteCrypto, err := suite.KMSCryptoSigner()
+		require.NoError(t, err)
+
+		suiteSigner, err := suiteCrypto.FixedKeySigner(wrapKID(
+			"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"))
+		require.NoError(t, err)
+
+		_, err = suiteSigner.Sign([]byte("msg"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "asn1:")
 	})
@@ -378,23 +396,66 @@ func TestCreateAndPubKeyBytes(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+
+		mockPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		mockKeyBytes, err := x509.MarshalPKIXPublicKey(&mockPriv.PublicKey)
+		require.NoError(t, err)
+
 		metric := NewMockmetricsProvider(gomock.NewController(t))
 		metric.EXPECT().ExportPublicKeyCount()
 		metric.EXPECT().ExportPublicKeyTime(gomock.Any())
 		client := NewMockawsClient(gomock.NewController(t))
 		client.EXPECT().GetPublicKey(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&kms.GetPublicKeyOutput{
-				PublicKey:         []byte("publickey"),
+				PublicKey:         mockKeyBytes,
 				SigningAlgorithms: []types.SigningAlgorithmSpec{types.SigningAlgorithmSpecEcdsaSha256},
 			}, nil)
 		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil)
-		svc := New(&awsConfig, metric, "", WithAWSClient(client))
 
-		keyID, publicKey, err := svc.CreateAndExportPubKeyBytes(arieskms.ECDSAP256DER)
+		suite := NewSuite(&awsConfig, metric, "", WithAWSClient(client))
+
+		creator, err := suite.KeyCreator()
 		require.NoError(t, err)
-		require.Contains(t, string(publicKey), "publickey")
-		require.Contains(t, keyID, keyID)
+
+		pubKey, err := creator.Create(arieskms.ECDSAP256TypeDER)
+		require.NoError(t, err)
+		require.Equal(t, keyID, pubKey.KeyID)
+		require.Equal(t, &mockPriv.PublicKey, pubKey.Key)
+	})
+
+	t.Run("success, raw key", func(t *testing.T) {
+		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+
+		mockPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		mockKeyBytes, err := x509.MarshalPKIXPublicKey(&mockPriv.PublicKey)
+		require.NoError(t, err)
+
+		metric := NewMockmetricsProvider(gomock.NewController(t))
+		metric.EXPECT().ExportPublicKeyCount()
+		metric.EXPECT().ExportPublicKeyTime(gomock.Any())
+		client := NewMockawsClient(gomock.NewController(t))
+		client.EXPECT().GetPublicKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.GetPublicKeyOutput{
+				PublicKey:         mockKeyBytes,
+				SigningAlgorithms: []types.SigningAlgorithmSpec{types.SigningAlgorithmSpecEcdsaSha256},
+			}, nil)
+		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil)
+
+		suite := NewSuite(&awsConfig, metric, "", WithAWSClient(client))
+
+		creator, err := suite.RawKeyCreator()
+		require.NoError(t, err)
+
+		gotKID, gotRaw, err := creator.CreateRaw(arieskms.ECDSAP256TypeDER)
+		require.NoError(t, err)
+		require.Equal(t, keyID, gotKID)
+		require.Equal(t, &mockPriv.PublicKey, gotRaw)
 	})
 
 	t.Run("key not supported", func(t *testing.T) {
@@ -405,11 +466,22 @@ func TestCreateAndPubKeyBytes(t *testing.T) {
 		_, _, err := svc.CreateAndExportPubKeyBytes(arieskms.ED25519)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "key not supported ED25519")
+
+		suite := NewSuite(&awsConfig, metric, "", []Opts{}...)
+
+		creator, err := suite.RawKeyCreator()
+		require.NoError(t, err)
+
+		_, err = creator.Create(arieskms.ED25519Type)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not supported ED25519")
+
+		_, _, err = creator.CreateRaw(arieskms.ED25519Type)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not supported ED25519")
 	})
 
-	// TODO export error
-
-	t.Run("success", func(t *testing.T) {
+	t.Run("export error", func(t *testing.T) {
 		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
 		metric := NewMockmetricsProvider(gomock.NewController(t))
 		metric.EXPECT().ExportPublicKeyCount()
@@ -425,6 +497,40 @@ func TestCreateAndPubKeyBytes(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "expected error")
 	})
+
+	t.Run("service returns invalid key bytes", func(t *testing.T) {
+		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+
+		mockKeyBytes := []byte("invalid P256 DER key")
+
+		metric := NewMockmetricsProvider(gomock.NewController(t))
+		metric.EXPECT().ExportPublicKeyCount().AnyTimes()
+		metric.EXPECT().ExportPublicKeyTime(gomock.Any()).AnyTimes()
+		client := NewMockawsClient(gomock.NewController(t))
+		client.EXPECT().GetPublicKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.GetPublicKeyOutput{
+				PublicKey:         mockKeyBytes,
+				SigningAlgorithms: []types.SigningAlgorithmSpec{types.SigningAlgorithmSpecEcdsaSha256},
+			}, nil).AnyTimes()
+		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil).AnyTimes()
+
+		suite := NewSuite(&awsConfig, metric, "", WithAWSClient(client))
+
+		creator, err := suite.RawKeyCreator()
+		require.NoError(t, err)
+
+		pubJWK, err := creator.Create(arieskms.ECDSAP256TypeDER)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse ecdsa key")
+		require.Nil(t, pubJWK)
+
+		pubKID, pubRaw, err := creator.CreateRaw(arieskms.ECDSAP256TypeDER)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse ecdsa key")
+		require.Nil(t, pubRaw)
+		require.Empty(t, pubKID)
+	})
 }
 
 func TestSignMulti(t *testing.T) {
@@ -438,6 +544,16 @@ func TestSignMulti(t *testing.T) {
 	_, err := svc.SignMulti(nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not implemented")
+
+	suite := NewSuite(&awsConfig, nil, "")
+
+	multiSigner, err := suite.KMSCryptoMultiSigner()
+	require.ErrorIs(t, err, api.ErrNotSupported)
+	require.Nil(t, multiSigner)
+
+	fixedMultiSigner, err := suite.FixedKeyMultiSigner("foo")
+	require.ErrorIs(t, err, api.ErrNotSupported)
+	require.Nil(t, fixedMultiSigner)
 }
 
 func TestVerify(t *testing.T) {
@@ -451,6 +567,20 @@ func TestVerify(t *testing.T) {
 	err := svc.Verify(nil, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not implemented")
+
+	suite := NewSuite(&awsConfig, nil, "")
+
+	signerVerifier, err := suite.KMSCrypto()
+	require.ErrorIs(t, err, api.ErrNotSupported)
+	require.Nil(t, signerVerifier)
+
+	fixedSignerVerifier, err := suite.FixedKeyCrypto(nil)
+	require.ErrorIs(t, err, api.ErrNotSupported)
+	require.Nil(t, fixedSignerVerifier)
+
+	verifier, err := suite.KMSCryptoVerifier()
+	require.ErrorIs(t, err, api.ErrNotSupported)
+	require.Nil(t, verifier)
 }
 
 func TestImportPrivateKey(t *testing.T) {
@@ -532,7 +662,14 @@ func TestEncrypt(t *testing.T) {
 
 		client := NewMockawsClient(gomock.NewController(t))
 
-		svc := New(awsConfig, metric, "", WithAWSClient(client))
+		suiteInterface := NewSuite(awsConfig, metric, "", WithAWSClient(client))
+
+		suite, ok := suiteInterface.(*suiteImpl)
+		assert.True(t, ok)
+
+		crypter, err := suite.EncrypterDecrypter()
+		assert.NoError(t, err)
+
 		msg := generateNonce(64)
 		encrypted := generateNonce(128)
 
@@ -544,21 +681,21 @@ func TestEncrypt(t *testing.T) {
 			) (*kms.EncryptOutput, error) {
 				assert.Equal(t, "alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147", *params.KeyId)
 				assert.Equal(t, msg, params.Plaintext)
-				assert.Equal(t, svc.encryptionAlgo, params.EncryptionAlgorithm)
+				assert.Equal(t, suite.svc.encryptionAlgo, params.EncryptionAlgorithm)
 
 				return &kms.EncryptOutput{
 					CiphertextBlob: encrypted,
 				}, nil
 			})
 
-		encryptedData, nonce, err := svc.Encrypt(
+		encryptedData, nonce, err := crypter.Encrypt(
 			msg,
 			nil,
 			"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147",
 		)
 
 		assert.NoError(t, err)
-		assert.Len(t, nonce, svc.nonceLength)
+		assert.Len(t, nonce, suite.svc.nonceLength)
 		assert.Equal(t, encrypted, encryptedData)
 	})
 
@@ -617,10 +754,17 @@ func TestDecrypt(t *testing.T) {
 
 		client := NewMockawsClient(gomock.NewController(t))
 
-		svc := New(awsConfig, metric, "",
+		suiteInterface := NewSuite(awsConfig, metric, "",
 			WithAWSClient(client),
 			WithEncryptionAlgorithm("RSAES_OAEP_SHA_256"),
 		)
+
+		suite, ok := suiteInterface.(*suiteImpl)
+		assert.True(t, ok)
+
+		crypter, err := suite.EncrypterDecrypter()
+		assert.NoError(t, err)
+
 		encrypted := generateNonce(64)
 		decrypted := generateNonce(128)
 
@@ -633,16 +777,16 @@ func TestDecrypt(t *testing.T) {
 				assert.Equal(t, params.EncryptionAlgorithm, types.EncryptionAlgorithmSpec("RSAES_OAEP_SHA_256"))
 				assert.Equal(t, "alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147", *params.KeyId)
 				assert.Equal(t, encrypted, params.CiphertextBlob)
-				assert.Equal(t, svc.encryptionAlgo, params.EncryptionAlgorithm)
+				assert.Equal(t, suite.svc.encryptionAlgo, params.EncryptionAlgorithm)
 
 				return &kms.DecryptOutput{
 					Plaintext: decrypted,
 				}, nil
 			})
 
-		decryptedData, err := svc.Decrypt(
-			nil,
+		decryptedData, err := crypter.Decrypt(
 			encrypted,
+			nil,
 			nil,
 			"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147",
 		)
@@ -673,8 +817,8 @@ func TestDecrypt(t *testing.T) {
 			})
 
 		decrypted, err := svc.Decrypt(
-			msg,
 			nil,
+			msg,
 			nil,
 			"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147",
 		)
@@ -694,4 +838,11 @@ func TestDecrypt(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "extracting key id from URI failed")
 	})
+}
+
+func wrapKID(kid string) *jwk.JWK {
+	out := &jwk.JWK{}
+	out.KeyID = kid
+
+	return out
 }

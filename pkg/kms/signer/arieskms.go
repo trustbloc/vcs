@@ -1,5 +1,5 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Gen Digital Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package signer
 
 import (
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/trustbloc/kms-go/wrapper/api"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )
@@ -21,39 +23,40 @@ type metricsProvider interface {
 // KMSSigner to crypto sign a message.
 // Note: do not create an instance of KMSSigner directly. Use NewKMSSigner() instead.
 type KMSSigner struct {
-	keyHandle     interface{}
-	crypto        crypto
 	signatureType vcsverifiable.SignatureType
 	bbs           bool
 	metrics       metricsProvider
+	signer        api.FixedKeySigner
+	multiSigner   api.FixedKeyMultiSigner
 }
 
-type keyManager interface {
-	Get(keyID string) (interface{}, error)
-}
-
-type crypto interface {
-	Sign(msg []byte, kh interface{}) ([]byte, error)
-	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
-}
-
-func NewKMSSigner(keyManager keyManager, c crypto, kmsKeyID string,
-	signatureType vcsverifiable.SignatureType, metrics metricsProvider) (*KMSSigner, error) {
-	kh, err := keyManager.Get(kmsKeyID)
-	if err != nil {
-		return nil, err
-	}
-
+func NewKMSSigner(multiSigner api.FixedKeySigner,
+	signatureType vcsverifiable.SignatureType, metrics metricsProvider) *KMSSigner {
 	if metrics == nil {
 		metrics = &noopMetricsProvider.NoMetrics{}
 	}
 
 	return &KMSSigner{
-		keyHandle: kh, crypto: c,
 		signatureType: signatureType,
 		bbs:           signatureType == vcsverifiable.BbsBlsSignature2020,
 		metrics:       metrics,
-	}, nil
+		signer:        multiSigner,
+	}
+}
+
+func NewKMSSignerBBS(multiSigner api.FixedKeyMultiSigner,
+	signatureType vcsverifiable.SignatureType, metrics metricsProvider) *KMSSigner {
+	if metrics == nil {
+		metrics = &noopMetricsProvider.NoMetrics{}
+	}
+
+	return &KMSSigner{
+		signatureType: signatureType,
+		bbs:           signatureType == vcsverifiable.BbsBlsSignature2020,
+		metrics:       metrics,
+		signer:        multiSigner,
+		multiSigner:   multiSigner,
+	}
 }
 
 func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
@@ -64,10 +67,14 @@ func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
 	}()
 
 	if s.bbs {
-		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
+		if s.multiSigner == nil {
+			return nil, errors.New("signer was not initialized with BBS support")
+		}
+
+		return s.multiSigner.SignMulti(s.textToLines(string(data)))
 	}
 
-	v, err := s.crypto.Sign(data, s.keyHandle)
+	v, err := s.signer.Sign(data)
 	if err != nil {
 		return nil, err
 	}

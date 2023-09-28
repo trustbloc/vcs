@@ -16,6 +16,7 @@ import (
 	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms/key"
@@ -24,11 +25,6 @@ import (
 type CreateResult struct {
 	DidID string
 	KeyID string
-}
-
-type keyManager interface {
-	Get(keyID string) (interface{}, error)
-	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
 }
 
 var DefaultVdrUtil = &VDRUtil{} //nolint
@@ -40,22 +36,26 @@ func (v *VDRUtil) Create(
 	didMethod string,
 	keyType kms.KeyType,
 	registry vdrapi.Registry,
-	keyManager keyManager,
+	keyCreator api.RawKeyCreator,
 ) (*CreateResult, error) {
 	switch strings.ToLower(didMethod) {
 	case "ion":
-		return v.createION(keyType, registry, keyManager)
+		return v.createION(keyType, registry, keyCreator)
 	case "key":
-		return v.CreateKey(keyType, registry, keyManager)
+		return v.CreateKey(keyType, registry, keyCreator)
 	case "jwk":
-		return v.CreateJWK(keyType, registry, keyManager)
+		return v.CreateJWK(keyType, registry, keyCreator)
 	default:
 		return nil, fmt.Errorf("did method [%v] is not supported", didMethod)
 	}
 }
 
-func (v *VDRUtil) CreateKey(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
-	verMethod, err := v.newVerMethods(1, keyManager, keyType)
+func (v *VDRUtil) CreateKey(
+	keyType kms.KeyType,
+	registry vdrapi.Registry,
+	keyCreator api.KeyCreator,
+) (*CreateResult, error) {
+	verMethod, err := v.newVerMethods(1, keyCreator, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
 	}
@@ -77,8 +77,12 @@ func (v *VDRUtil) CreateKey(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	}, nil
 }
 
-func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
-	verMethod, err := v.newVerMethods(1, keyManager, keyType)
+func (v *VDRUtil) CreateJWK(
+	keyType kms.KeyType,
+	registry vdrapi.Registry,
+	keyCreator api.KeyCreator,
+) (*CreateResult, error) {
+	verMethod, err := v.newVerMethods(1, keyCreator, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
 	}
@@ -100,8 +104,12 @@ func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	}, nil
 }
 
-func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyManager keyManager) (*CreateResult, error) {
-	verMethod, err := v.newVerMethods(1, keyManager, keyType)
+func (v *VDRUtil) createION(
+	keyType kms.KeyType,
+	registry vdrapi.Registry,
+	keyCreator api.RawKeyCreator,
+) (*CreateResult, error) {
+	verMethod, err := v.newVerMethods(1, keyCreator, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)
 	}
@@ -126,7 +134,7 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	types := [2]string{"update", "recovery"}
 
 	for i := 0; i < 2; i++ {
-		keyURLs[i], keys[i], err = key.CryptoKeyCreator(keyType)(keyManager)
+		keyURLs[i], keys[i], err = key.CryptoKeyCreator(keyCreator)(keyType)
 		if err != nil {
 			return nil, fmt.Errorf("did:ion: failed to create %s key: %w", types[i], err)
 		}
@@ -152,12 +160,12 @@ func (v *VDRUtil) createION(keyType kms.KeyType, registry vdrapi.Registry, keyMa
 	}, nil
 }
 
-func (v *VDRUtil) newVerMethods(count int, km keyManager,
-	keyType kms.KeyType) ([]*did.VerificationMethod, error) {
+func (v *VDRUtil) newVerMethods(count int, keyCreator api.KeyCreator, keyType kms.KeyType,
+) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 
 	for i := 0; i < count; i++ {
-		keyID, j, err := key.JWKKeyCreator(keyType)(km)
+		keyID, j, err := key.JWKKeyCreator(keyCreator)(keyType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create key: %w", err)
 		}

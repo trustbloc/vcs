@@ -13,12 +13,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/kms-go/kms/localkms"
+	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	arieskms "github.com/trustbloc/kms-go/kms"
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	"github.com/trustbloc/kms-go/secretlock/noop"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
-	"github.com/trustbloc/did-go/legacy/mem"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vcs/pkg/kms/key"
@@ -33,42 +36,25 @@ func TestJWKKeyCreator(t *testing.T) {
 			kms.ECDSAP521TypeIEEEP1363: "P-521",
 			kms.BLS12381G2Type:         "BLS12381_G2",
 		}
-		k := newKMS(t)
+		keyCreator, get := newKMS(t)
 
 		for kmsType, name := range curves {
-			keyID, jwk, err := key.JWKKeyCreator(kmsType)(k)
+			keyID, jwk, err := key.JWKKeyCreator(keyCreator)(kmsType)
 			require.NoError(t, err)
-			_, err = k.Get(keyID)
-			require.NoError(t, err)
+			require.NoError(t, get(keyID))
 			require.NotNil(t, jwk)
 			require.Equal(t, name, jwk.Crv)
 		}
 	})
 
-	t.Run("error if kms cannot create key", func(t *testing.T) {
+	t.Run("error in key creator", func(t *testing.T) {
 		expected := errors.New("test")
-		k := &mockkms.KeyManager{
-			CrAndExportPubKeyErr: expected,
+		kc := &mockwrapper.MockKMSCrypto{
+			CreateErr: expected,
 		}
-		_, _, err := key.JWKKeyCreator(kms.ED25519Type)(k)
+		_, _, err := key.JWKKeyCreator(kc)(kms.ED25519Type)
 		require.ErrorIs(t, err, expected)
-	})
-
-	t.Run("error building JWK", func(t *testing.T) {
-		k := &mockkms.KeyManager{}
-		_, _, err := key.JWKKeyCreator(kms.ECDSAP256TypeIEEEP1363)(k)
-		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to convert key to JWK")
-	})
-	t.Run("error parse BLS12381_G2", func(t *testing.T) {
-		k := &mockkms.KeyManager{}
-		_, _, err := key.JWKKeyCreator(kms.BLS12381G2Type)(k)
-		require.Error(t, err)
-	})
-	t.Run("error parse p256k1", func(t *testing.T) {
-		_, _, err := key.JWKKeyCreator(kms.ECDSASecp256k1DER)(&kmsMock{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "asn1: syntax error")
 	})
 }
 
@@ -84,67 +70,56 @@ func TestCryptoKeyCreator(t *testing.T) {
 			kms.ECDSAP521TypeDER:       &ecdsa.PublicKey{},
 			kms.BLS12381G2Type:         &bbs12381g2pub.PublicKey{},
 		}
-		k := newKMS(t)
+		keyCreator, get := newKMS(t)
 
 		for kmsType, cryptoType := range curves {
-			keyID, pubKey, err := key.CryptoKeyCreator(kmsType)(k)
+			keyID, pubKey, err := key.CryptoKeyCreator(keyCreator)(kmsType)
 			require.NoError(t, err)
-			_, err = k.Get(keyID)
-			require.NoError(t, err)
+			require.NoError(t, get(keyID), kmsType)
 			require.NotNil(t, pubKey)
 			require.IsType(t, cryptoType, pubKey)
 		}
 	})
 
-	t.Run("error if kms cannot create the key", func(t *testing.T) {
+	t.Run("error in key creator", func(t *testing.T) {
 		expected := errors.New("test")
-		k := &mockkms.KeyManager{
-			CrAndExportPubKeyErr: expected,
+		kc := &mockwrapper.MockKMSCrypto{
+			CreateErr: expected,
 		}
-		_, _, err := key.CryptoKeyCreator(kms.ED25519Type)(k)
+		_, _, err := key.CryptoKeyCreator(kc)(kms.ED25519Type)
 		require.ErrorIs(t, err, expected)
 	})
-
-	t.Run("error on invalid key DER format", func(t *testing.T) {
-		k := &mockkms.KeyManager{}
-		_, _, err := key.CryptoKeyCreator(kms.ECDSAP256TypeDER)(k)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse ecdsa key in DER format")
-	})
-
-	t.Run("error on unsupported key type", func(t *testing.T) {
-		_, _, err := key.CryptoKeyCreator(kms.NISTP256ECDHKW)(newKMS(t))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unsupported key type")
-	})
-	t.Run("error parse p256k1", func(t *testing.T) {
-		_, _, err := key.CryptoKeyCreator(kms.ECDSASecp256k1DER)(&kmsMock{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "asn1: syntax error")
-	})
-
-	t.Run("error parse BLS12381G2", func(t *testing.T) {
-		_, _, err := key.CryptoKeyCreator(kms.BLS12381G2Type)(&kmsMock{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid size of public key")
-	})
 }
 
-func newKMS(t *testing.T) kms.KeyManager {
+func newKMS(t *testing.T) (api.RawKeyCreator, func(kid string) error) {
 	t.Helper()
 
-	p, err := mockkms.NewProviderForKMS(mem.NewProvider(), &noop.NoLock{})
+	p, err := arieskms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
-	keyManager, err := localkms.New("local-lock://custom/master/key/", p)
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", p, &noop.NoLock{})
 	require.NoError(t, err)
 
-	return keyManager
-}
+	kc, err := suite.RawKeyCreator()
+	require.NoError(t, err)
 
-type kmsMock struct {
-}
+	signer, err := suite.KMSCryptoMultiSigner()
+	require.NoError(t, err)
 
-func (m *kmsMock) CreateAndExportPubKeyBytes(_ kms.KeyType, _ ...kms.KeyOpts) (string, []byte, error) {
-	return "k1", []byte{}, nil
+	return kc, func(kid string) error {
+		j := &jwk.JWK{}
+		j.KeyID = kid
+
+		msg := []byte("message")
+		msgs := [][]byte{msg}
+
+		// some primitives can only Sign, some can only SignMulti
+		_, e := signer.Sign(msg, j)
+		_, e2 := signer.SignMulti(msgs, j)
+		if e != nil && e2 != nil {
+			return e
+		}
+
+		return nil
+	}
 }

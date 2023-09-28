@@ -433,12 +433,12 @@ github.com/trustbloc/cmdutil-go v1.0.0 h1:QCe7wVEIASWmy9ZDD0l0tsQCEsX6fx+kBFX5Uq
 github.com/trustbloc/cmdutil-go v1.0.0/go.mod h1:o/v7C1z6d/5UrjaC6GAUc1hk0XVuE3M4tpyvsMMUw5k=
 github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9 h1:UA6QlD58VZnSd2EpFJCi9XctBY3naKouBOtjMss4ewc=
 github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9/go.mod h1:qqTm9zd5rGhHSOtC8jjadqM01Od9zcDbUiUYLv+M6ls=
-github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30 h1:nNmYk/CX3UrLe4a7qCaMjsc+IWcQdZlJGvY5D2gsewE=
-github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30/go.mod h1:7arOSG9GewtV1WiqYZ23dSZ6haamosSABwyG//cRaXQ=
+github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721 h1:3zVBmT6aF+ovuLNuE3BTxhw2UrfaOHHCJ+1yVEI/f8A=
+github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721/go.mod h1:7arOSG9GewtV1WiqYZ23dSZ6haamosSABwyG//cRaXQ=
 github.com/trustbloc/logutil-go v1.0.0 h1:KzNs9TRbnmn+M3oYw9UkrtOjNd3ZGO8aLgfYttMypcE=
 github.com/trustbloc/logutil-go v1.0.0/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
-github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468 h1:GizDlcTPMuOh8HHifl8qp+ohaGMhiIT7k4+NcI/CA/I=
-github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468/go.mod h1:6I4D1Hlf5CpSXBbfOIf58ZPtheyT8ZdsorN2kef2ZxU=
+github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2 h1:CVfpNobNz9nuIZlkHQvN+VYSDvVCEjAoyOATKpu+MUU=
+github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2/go.mod h1:SnCw1mlpqWuRaKlcMGXlPqtu5Ggu7/a0WTvFXCrcJ0M=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.2.1 h1:TVEnxayobAdVkhQfrfes2IzOB6o+z4roRkPF52WA1u4=

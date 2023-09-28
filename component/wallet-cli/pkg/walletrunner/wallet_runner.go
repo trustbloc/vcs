@@ -30,13 +30,12 @@ import (
 	"github.com/trustbloc/did-go/method/web"
 	"github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/kms"
-	"github.com/trustbloc/kms-go/kms/localkms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/spi/secretlock"
 	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
@@ -215,28 +214,15 @@ func (s *Service) createAgentServices(vcProviderConf *vcprovider.Config) (*aries
 
 	provider.documentLoader = loader
 
-	cryptoImpl, err := tinkcrypto.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create local DataProtector: %w", err)
-	}
-
-	provider.crypto = cryptoImpl
-
 	kmsStore, err := kms.NewAriesProviderWrapper(provider.storageProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aries KMS store wrapper")
 	}
 
-	kmsProv := kmsProvider{
-		store:             kmsStore,
-		secretLockService: &noop.NoLock{},
-	}
-
-	localKMS, err := localkms.New("local-lock://agentSDK", &kmsProv)
+	provider.suite, err = localsuite.NewLocalCryptoSuite("local-lock://agentSDK", kmsStore, &noop.NoLock{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create local KMS: %w", err)
+		return nil, fmt.Errorf("failed to create local crypto suite: %w", err)
 	}
-	provider.kms = localKMS
 
 	vrd, err := createVDR(vcProviderConf)
 	if err != nil {
