@@ -157,7 +157,7 @@ func (e *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
 			return err
 		}
 
-		issuedVCID[issuedVC.ID] = struct{}{}
+		issuedVCID[issuedVC.Contents().ID] = struct{}{}
 	}
 
 	for retrievedVCID := range claims {

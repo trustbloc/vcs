@@ -69,25 +69,25 @@ func TestWrapperStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLIndexWrapper{
-			CSLURL:      vc.ID,
+			CSLURL:      vc.Contents().ID,
 			UsedIndexes: []int{1},
 		}
 
 		// Create - Find
-		err = store.Upsert(ctx, vc.ID, wrapperCreated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err := store.Get(ctx, vc.ID)
+		wrapperFound, err := store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
 		// Update - Find
 		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 
-		err = store.Upsert(ctx, vc.ID, wrapperCreated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err = store.Get(ctx, vc.ID)
+		wrapperFound, err = store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperCreated, wrapperFound)
@@ -100,25 +100,25 @@ func TestWrapperStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLIndexWrapper{
-			CSLURL:      vc.ID,
+			CSLURL:      vc.Contents().ID,
 			UsedIndexes: []int{1},
 		}
 
 		// Create - Find
-		err = store.Upsert(ctx, vc.ID, wrapperCreated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err := store.Get(ctx, vc.ID)
+		wrapperFound, err := store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
 		// Update - Find
 		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 
-		err = store.Upsert(ctx, vc.ID, wrapperCreated)
+		err = store.Upsert(ctx, vc.Contents().ID, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err = store.Get(ctx, vc.ID)
+		wrapperFound, err = store.Get(ctx, vc.Contents().ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperCreated, wrapperFound)

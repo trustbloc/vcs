@@ -784,14 +784,11 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			var lazy []*LazyCredential
-			for _, c := range tt.args.getVp().Credentials() {
-				lazy = append(lazy, NewLazyCredential(c))
-			}
+
 			if err := s.validateCredentialsProof(
 				context.Background(),
 				tt.args.getVp().JWT,
-				lazy,
+				tt.args.getVp().Credentials(),
 			); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -868,11 +865,8 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			var lazy []*LazyCredential
-			for _, c := range tt.args.getVp().Credentials() {
-				lazy = append(lazy, NewLazyCredential(c))
-			}
-			if err := s.validateCredentialsStatus(context.Background(), lazy); (err != nil) != tt.wantErr {
+			if err := s.validateCredentialsStatus(context.Background(),
+				tt.args.getVp().Credentials()); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -883,38 +877,14 @@ func TestExtractCredentialStatus(t *testing.T) {
 	s := &Service{}
 
 	t.Run("nil", func(t *testing.T) {
-		v, issuer, err := s.extractCredentialStatus(nil)
+		v, issuer := s.extractCredentialStatus(nil)
 		assert.Nil(t, v)
-		assert.NoError(t, err)
-		assert.Empty(t, issuer)
-	})
-
-	t.Run("invalid type", func(t *testing.T) {
-		v, issuer, err := s.extractCredentialStatus(NewLazyCredential(555))
-		assert.Nil(t, v)
-		assert.ErrorContains(t, err, "unsupported credential type int")
-		assert.Empty(t, issuer)
-	})
-
-	t.Run("no status list", func(t *testing.T) {
-		v, issuer, err := s.extractCredentialStatus(NewLazyCredential(map[string]interface{}{}))
-		assert.Nil(t, v)
-		assert.NoError(t, err)
-		assert.Empty(t, issuer)
-	})
-
-	t.Run("wrong type of status list", func(t *testing.T) {
-		v, issuer, err := s.extractCredentialStatus(NewLazyCredential(map[string]interface{}{
-			"credentialStatus": "aaabcd",
-		}))
-		assert.Nil(t, v)
-		assert.ErrorContains(t, err, "unsupported status list type type string")
 		assert.Empty(t, issuer)
 	})
 }
 
 func TestCredentialStrict(t *testing.T) {
-	l := NewLazyCredential(&verifiable.Credential{
+	l, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID: "credentialID",
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
@@ -926,11 +896,15 @@ func TestCredentialStrict(t *testing.T) {
 		Subject: []verifiable.Subject{
 			{
 				CustomFields: map[string]interface{}{
-					"type":   []string{"VerifiedEmployee"},
+					"type":   []interface{}{"VerifiedEmployee"},
 					"degree": "abcd",
 				},
 			},
 		},
+	}, nil)
+	assert.NoError(t, err)
+
+	l.JWTEnvelope = &verifiable.JWTEnvelope{
 		SDJWTDisclosures: []*common.DisclosureClaim{
 			{
 				Name:  "_sd",
@@ -940,13 +914,12 @@ func TestCredentialStrict(t *testing.T) {
 				Name:  "degreeType",
 				Value: "random",
 			},
-		},
-	})
+		}}
 
 	s := New(&Config{
 		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
 	})
-	assert.NoError(t, s.checkCredentialStrict(context.TODO(), []*LazyCredential{l}))
+	assert.NoError(t, s.checkCredentialStrict(context.TODO(), []*verifiable.Credential{l}))
 	assert.ElementsMatch(t, []string{"type", "degree"}, s.GetClaimKeys()["credentialID"])
 }
 
@@ -954,38 +927,26 @@ func TestCheckTrustList(t *testing.T) {
 	s := New(&Config{})
 
 	t.Run("from credentials v1 trust list", func(t *testing.T) {
-		cred := &verifiable.Credential{
+		credContent := verifiable.CredentialContents{
 			Types: []string{
 				"VerifiableCredential",
 				"UniversityDegreeCredential",
 			},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "123432123",
 			}}
 
-		err := s.checkIssuerTrustList(
+		cred, err := verifiable.CreateCredential(credContent, nil)
+		assert.NoError(t, err)
+
+		err = s.checkIssuerTrustList(
 			context.TODO(),
-			[]*LazyCredential{NewLazyCredential(cred)},
+			[]*verifiable.Credential{cred},
 			map[string]profileapi.TrustList{
 				"a": {},
 			},
 		)
 
 		assert.ErrorContains(t, err, "issuer with id: 123432123 is not a member of trustlist")
-	})
-
-	t.Run("invalid type", func(t *testing.T) {
-		cred := &verifiable.Presentation{}
-
-		err := s.checkIssuerTrustList(
-			context.TODO(),
-			[]*LazyCredential{NewLazyCredential(cred)},
-			map[string]profileapi.TrustList{
-				"a": {},
-			},
-		)
-
-		assert.ErrorContains(t, err,
-			"can not validate issuer trust list. unexpected type *verifiable.Presentation")
 	})
 }

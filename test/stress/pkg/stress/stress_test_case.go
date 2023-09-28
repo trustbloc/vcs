@@ -219,7 +219,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 
 	credID := ""
 	if credentials != nil {
-		credID = credentials.ID
+		credID = credentials.Contents().ID
 	}
 	if err != nil {
 		return credID, nil, fmt.Errorf("CredId [%v]. run pre-auth issuance: %w", credID, err)
@@ -255,7 +255,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 		return credID, nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
 	}
 
-	if !c.disableRevokeTestCase && credentials.Status != nil && credentials.Status.Type != "" {
+	if !c.disableRevokeTestCase && credentials.Contents().Status != nil && credentials.Contents().Status.Type != "" {
 		st := time.Now()
 		if err = c.revokeVC(credentials); err != nil {
 			return credID, nil, fmt.Errorf("CredId [%v]. can not revokeVc; %w", credID, err)
@@ -269,10 +269,10 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 
 func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
 	req := &model.UpdateCredentialStatusRequest{
-		CredentialID: cred.ID,
+		CredentialID: cred.Contents().ID,
 		CredentialStatus: model.CredentialStatus{
 			Status: "true",
-			Type:   cred.Status.Type,
+			Type:   cred.Contents().Status.Type,
 		},
 	}
 

@@ -36,10 +36,11 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
-	github.com/trustbloc/did-go v1.0.0
-	github.com/trustbloc/kms-go v1.0.0
+	github.com/trustbloc/bbs-signature-go v1.0.0
+	github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9
+	github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269
+	github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6
 	github.com/valyala/fastjson v1.6.3
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -114,7 +115,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
-	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

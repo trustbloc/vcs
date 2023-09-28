@@ -1321,7 +1321,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
-					resp.Credential.Expired.Time.Truncate(time.Hour*24))
+					resp.Credential.Contents().Expired.Time.Truncate(time.Hour*24))
 
 				require.NoError(t, err)
 				require.NotNil(t, resp)
@@ -1379,11 +1379,11 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
-					resp.Credential.Expired.Time.Truncate(time.Hour*24))
+					resp.Credential.Contents().Expired.Time.Truncate(time.Hour*24))
 
-				require.Equal(t, resp.Credential.CustomFields["description"],
+				require.Equal(t, resp.Credential.CustomField("description"),
 					"awesome-description")
-				require.Equal(t, resp.Credential.CustomFields["name"],
+				require.Equal(t, resp.Credential.CustomField("name"),
 					"awesome-credential")
 				require.NoError(t, err)
 				require.NotNil(t, resp)

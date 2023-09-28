@@ -12,7 +12,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.1-0.20230914202013-c170833f0269
+	github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468
 	github.com/trustbloc/vcs v0.0.0
 	go.opentelemetry.io/otel/trace v1.14.0
 )
@@ -64,7 +64,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
-	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
@@ -104,8 +103,9 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/trustbloc/did-go v1.0.0 // indirect
-	github.com/trustbloc/kms-go v1.0.0 // indirect
+	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
+	github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9 // indirect
+	github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

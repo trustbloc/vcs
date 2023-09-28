@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/trustbloc/vc-go/verifiable"
+
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -52,9 +53,7 @@ func (e *Steps) issueVC(credential, profileVersionedID string) error {
 			return err
 		}
 
-		cred.JWT = ""
-
-		credBytes, err = cred.MarshalJSON()
+		credBytes, err = cred.MarshalAsJSONLD()
 		if err != nil {
 			return fmt.Errorf("cred marshal error: %w", err)
 		}
@@ -90,23 +89,20 @@ func (e *Steps) createCredential(
 		return "", err
 	}
 
-	cred.ID = uuid.New().URN()
-
-	subjs, ok := cred.Subject.([]verifiable.Subject)
-	if !ok {
-		return cred.ID, fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
-	}
+	subjs := cred.Contents().Subject
 
 	if len(e.bddContext.CredentialSubject) > didIndex && e.bddContext.CredentialSubject[didIndex] != "" {
 		subjs[0].ID = e.bddContext.CredentialSubject[didIndex]
 	}
+
+	cred = cred.WithModifiedID(uuid.New().URN()).WithModifiedSubject(subjs)
 
 	issuerVCFormat := e.bddContext.IssuerProfiles[fmt.Sprintf("%s/%s", profileID, profileVersion)].VCConfig.Format
 	oidcVCFormat := vcsFormatToOIDC4CI[issuerVCFormat]
 
 	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, oidcVCFormat)
 	if err != nil {
-		return cred.ID, fmt.Errorf("unable to get issue credential request data: %w", err)
+		return cred.Contents().ID, fmt.Errorf("unable to get issue credential request data: %w", err)
 	}
 
 	req := &model.IssueCredentialData{
@@ -115,7 +111,7 @@ func (e *Steps) createCredential(
 
 	requestBytes, err := json.Marshal(req)
 	if err != nil {
-		return cred.ID, err
+		return cred.Contents().ID, err
 	}
 
 	endpointURL := fmt.Sprintf(issueCredentialURLFormat, issueCredentialURL, profileID, profileVersion)
@@ -123,25 +119,25 @@ func (e *Steps) createCredential(
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
-		return cred.ID, err
+		return cred.Contents().ID, err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cred.ID, err
+		return cred.Contents().ID, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return cred.ID, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return cred.Contents().ID, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	e.Lock()
 	e.bddContext.CreatedCredential = respBytes
 	e.Unlock()
 
-	return cred.ID, nil
+	return cred.Contents().ID, nil
 }
 
 func (e *Steps) verifyVC(profileVersionedID string) error {
@@ -231,7 +227,7 @@ func (e *Steps) revokeVC(profileVersionedID string) error {
 	req := &model.UpdateCredentialStatusRequest{
 		ProfileID:      profileID,
 		ProfileVersion: profileVersion,
-		CredentialID:   cred.ID,
+		CredentialID:   cred.Contents().ID,
 		CredentialStatus: model.CredentialStatus{
 			Status: "true",
 			Type:   string(e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type),

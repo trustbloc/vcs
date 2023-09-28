@@ -114,23 +114,26 @@ func Test_statusList2021Processor_CreateVC(t *testing.T) {
 		DID:           "did:example:123",
 		SignatureType: vcsverifiable.JSONWebSignature2020,
 	})
+	vcc := vc.Contents()
 
 	require.NoError(t, err)
-	require.Equal(t, "vcID1", vc.ID)
+	require.Equal(t, "vcID1", vcc.ID)
 	require.Equal(t, []string{
 		vcutil.DefVCContext,
 		StatusList2021Context,
-		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"}, vc.Context)
-	require.Equal(t, []string{vcType, statusList2021VCType}, vc.Types)
-	require.Equal(t, verifiable.Issuer{ID: "did:example:123"}, vc.Issuer)
+		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"}, vcc.Context)
+	require.Equal(t, []string{vcType, statusList2021VCType}, vcc.Types)
+	require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
 	encodeBits, err := bitstring.NewBitString(bitStringSize).EncodeBits()
 	require.NoError(t, err)
-	require.Equal(t, &credentialSubject{
-		ID:            "vcID1#list",
-		Type:          "StatusList2021",
-		StatusPurpose: "revocation",
-		EncodedList:   encodeBits,
-	}, vc.Subject)
+	require.Equal(t, []verifiable.Subject{{
+		ID: "vcID1#list",
+		CustomFields: map[string]interface{}{
+			"type":          "StatusList2021",
+			"statusPurpose": "revocation",
+			"encodedList":   encodeBits,
+		},
+	}}, vcc.Subject)
 }
 
 func Test_statusList2021Processor_CreateVCStatus(t *testing.T) {

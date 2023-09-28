@@ -10,7 +10,6 @@ package verifycredential
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -82,12 +81,7 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 		}
 	}
 	if checks.Proof {
-		vcBytes, err := json.Marshal(credential)
-		if err != nil {
-			return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
-		}
-
-		err = s.ValidateCredentialProof(ctx, vcBytes, opts.Challenge, opts.Domain, false, credential.JWT != "")
+		err := s.ValidateCredentialProof(ctx, credential, opts.Challenge, opts.Domain, false, !credential.IsJWT())
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "proof",
@@ -96,11 +90,13 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 		}
 	}
 	if checks.Status {
-		if credential.Status == nil {
+		credentialContents := credential.Contents()
+
+		if credentialContents.Status == nil {
 			return nil, fmt.Errorf("vc missing status list field")
 		}
 
-		err := s.ValidateVCStatus(ctx, credential.Status, credential.Issuer.ID)
+		err := s.ValidateVCStatus(ctx, credentialContents.Status, credentialContents.Issuer)
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "credentialStatus",
@@ -112,10 +108,10 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 	return result, nil
 }
 
-func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Credential, error) {
+func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) error {
 	diVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
-		return nil, fmt.Errorf("get data integrity verifier: %w", err)
+		return fmt.Errorf("get data integrity verifier: %w", err)
 	}
 
 	opts := []verifiable.CredentialOpt{
@@ -130,36 +126,41 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Cred
 		verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
 	}
 
-	if !isJWT {
+	if strictValidation {
 		opts = append(opts, verifiable.WithStrictValidation())
 	}
 
-	cred, err := verifiable.ParseCredential(vcBytes, opts...)
+	err = vc.ValidateCredential(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("verifiable credential proof validation error : %w", err)
+		return fmt.Errorf("verifiable credential validation error : %w", err)
 	}
 
-	return cred, nil
+	err = vc.CheckProof(opts...)
+	if err != nil {
+		return fmt.Errorf("verifiable credential proof check error : %w", err)
+	}
+
+	return nil
 }
 
 // ValidateCredentialProof validate credential proof.
-func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proofChallenge, proofDomain string,
-	vcInVPValidation, isJWT bool) error { // nolint: lll,gocyclo
-	credential, err := s.parseAndVerifyVC(vcByte, isJWT)
+func (s *Service) ValidateCredentialProof(_ context.Context, credential *verifiable.Credential, proofChallenge,
+	proofDomain string, vcInVPValidation, strictValidation bool) error { // nolint: lll,gocyclo
+	err := s.verifyVC(credential, strictValidation)
 	if err != nil {
 		return err
 	}
 
-	if len(credential.JWT) > 0 {
+	if credential.IsJWT() {
 		return nil
 	}
 
-	if len(credential.Proofs) == 0 {
+	if len(credential.Proofs()) == 0 {
 		return errors.New("verifiable credential doesn't contains proof")
 	}
 
 	// TODO https://github.com/trustbloc/vcs/issues/412 figure out the process when vc has more than one proof
-	proof := credential.Proofs[0]
+	proof := credential.Proofs()[0]
 
 	if !vcInVPValidation {
 		// validate challenge
@@ -185,8 +186,9 @@ func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proo
 		return err
 	}
 
+	credentialContents := credential.Contents()
 	// validate if issuer matches the controller of verification method
-	if credential.Issuer.ID != didDoc.ID {
+	if credentialContents.Issuer == nil || credentialContents.Issuer.ID != didDoc.ID {
 		return fmt.Errorf("controller of verification method doesn't match the issuer")
 	}
 
@@ -198,7 +200,8 @@ func (s *Service) ValidateCredentialProof(_ context.Context, vcByte []byte, proo
 	return nil
 }
 
-func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error {
+func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID,
+	issuer *verifiable.Issuer) error {
 	vcStatusProcessor, err := s.vcStatusProcessorGetter(vc.StatusType(vcStatus.Type))
 	if err != nil {
 		return err
@@ -223,12 +226,16 @@ func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 		return err
 	}
 
-	if statusListVC.Issuer.ID != issuer {
+	statusListVCC := statusListVC.Contents()
+
+	// TODO: check this on review. Previously we compared only issuer ids. So in case if both have empty issuers
+	// it still consider this as valid situation. Should we keep same behavior?
+	if statusListVCC.Issuer != nil && issuer != nil && statusListVCC.Issuer.ID != issuer.ID {
 		return fmt.Errorf("issuer of the credential do not match status list vc issuer")
 	}
 
-	credSubject, ok := statusListVC.Subject.([]verifiable.Subject)
-	if !ok {
+	credSubject := statusListVCC.Subject
+	if len(credSubject) == 0 {
 		return fmt.Errorf("invalid subject field structure")
 	}
 

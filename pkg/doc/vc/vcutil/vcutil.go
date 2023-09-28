@@ -92,33 +92,36 @@ func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedI
 	return nil, err
 }
 
-// UpdateIssuer overrides credential issuer for profile if profile.OverwriteIssuer=true or credential issuer is missing.
+// CreateIssuer creates credential issuer for profile if profile.OverwriteIssuer=true or credential issuer is missing.
 // Credential issuer will always be DID.
-func UpdateIssuer(credential *verifiable.Credential, issuerDID, issuerName string, overwriteIssuer bool) {
-	if overwriteIssuer || credential.Issuer.ID == "" {
-		credential.Issuer = verifiable.Issuer{
-			ID:           issuerDID,
-			CustomFields: verifiable.CustomFields{"name": issuerName},
-		}
+func CreateIssuer(issuerDID, issuerName string) *verifiable.Issuer {
+	return &verifiable.Issuer{
+		ID:           issuerDID,
+		CustomFields: verifiable.CustomFields{"name": issuerName},
 	}
 }
 
-// UpdateSignatureTypeContext updates context for JSONWebSignature2020 and BbsBlsSignature2020.
-func UpdateSignatureTypeContext(credential *verifiable.Credential, signatureType vcsverifiable.SignatureType) {
+// AppendSignatureTypeContext appends context for JSONWebSignature2020 and BbsBlsSignature2020.
+func AppendSignatureTypeContext(context []string, signatureType vcsverifiable.SignatureType,
+) []string {
 	if signatureType == vcsverifiable.JSONWebSignature2020 {
-		credential.Context = append(credential.Context, jsonWebSignature2020Context)
+		return append(context, jsonWebSignature2020Context)
 	}
 
 	if signatureType == vcsverifiable.BbsBlsSignature2020 {
-		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
+		return append(context, bbsBlsSignature2020Context)
 	}
+
+	return context
 }
 
 // PrependCredentialPrefix prepends prefix to credential.ID.
-func PrependCredentialPrefix(credential *verifiable.Credential, prefix string) {
-	if strings.HasPrefix(credential.ID, prefix) {
-		return
+func PrependCredentialPrefix(credential *verifiable.Credential, prefix string) *verifiable.Credential {
+	contents := credential.Contents()
+
+	if strings.HasPrefix(contents.ID, prefix) {
+		return credential
 	}
 
-	credential.ID = fmt.Sprintf("%s%s", prefix, credential.ID)
+	return credential.WithModifiedID(fmt.Sprintf("%s%s", prefix, contents.ID))
 }

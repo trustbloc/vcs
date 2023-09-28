@@ -139,7 +139,8 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 		return nil, fmt.Errorf("parse vc: %w", err)
 	}
 
-	log.Printf("Credential with ID [%s] and type [%v] added successfully", vcParsed.ID, config.CredentialType)
+	log.Printf("Credential with ID [%s] and type [%v] added successfully",
+		vcParsed.Contents().ID, config.CredentialType)
 
 	if !s.keepWalletOpen {
 		s.wallet.Close()

@@ -128,13 +128,14 @@ func TestWrapperStore(t *testing.T) {
 				VCByte: vcBytes,
 				VC:     vc,
 			}
+			vcc := vc.Contents()
 
 			// Create - Find
-			err = store.Upsert(ctx, vc.ID, wrapperCreated)
+			err = store.Upsert(ctx, vcc.ID, wrapperCreated)
 			assert.NoError(t, err)
 
 			var wrapperFound *credentialstatus.CSLVCWrapper
-			wrapperFound, err = store.Get(ctx, vc.ID)
+			wrapperFound, err = store.Get(ctx, vcc.ID)
 			assert.NoError(t, err)
 			compareWrappers(t, wrapperCreated, wrapperFound)
 
@@ -143,10 +144,10 @@ func TestWrapperStore(t *testing.T) {
 				VCByte: vcBytes,
 			}
 
-			err = store.Upsert(ctx, vc.ID, wrapperUpdated)
+			err = store.Upsert(ctx, vcc.ID, wrapperUpdated)
 			assert.NoError(t, err)
 
-			wrapperFound, err = store.Get(ctx, vc.ID)
+			wrapperFound, err = store.Get(ctx, vcc.ID)
 			assert.NoError(t, err)
 
 			compareWrappers(t, wrapperUpdated, wrapperFound)
@@ -155,10 +156,14 @@ func TestWrapperStore(t *testing.T) {
 
 	t.Run("Unexpected error from s3 client on upsert CSL", func(t *testing.T) {
 		errClient := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, putErr: errors.New("some error")}
+
+		vc, err := verifiable.CreateCredential(verifiable.CredentialContents{ID: ""}, nil)
+		require.NoError(t, err)
+
 		wrapperCreated := &credentialstatus.CSLVCWrapper{
-			VC: &verifiable.Credential{ID: ""},
+			VC: vc,
 		}
-		err := NewStore(errClient, bucket, region, hostName).
+		err = NewStore(errClient, bucket, region, hostName).
 			Upsert(context.Background(), "", wrapperCreated)
 
 		assert.Error(t, err)

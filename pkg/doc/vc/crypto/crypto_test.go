@@ -56,9 +56,9 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		)
 
 		signedVC, err := c.signCredentialLDP(
-			getTestLDPSigner(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			getTestLDPSigner(), createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
+		require.Equal(t, 1, len(signedVC.Proofs()))
 	})
 
 	t.Run("test successful sign credential using opts", func(t *testing.T) {
@@ -173,7 +173,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 				}
 
 				signedVC, err := c.signCredentialLDP(
-					vcSigner, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+					vcSigner, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}),
 					tc.signingOpts...)
 
 				if tc.err != "" {
@@ -183,20 +183,20 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 				}
 
 				require.NoError(t, err)
-				require.Equal(t, 1, len(signedVC.Proofs))
-				require.Equal(t, tc.responsePurpose, signedVC.Proofs[0]["proofPurpose"])
-				require.Equal(t, tc.responseVerMethod, signedVC.Proofs[0]["verificationMethod"])
-				require.NotEmpty(t, signedVC.Proofs[0]["created"])
+				require.Equal(t, 1, len(signedVC.Proofs()))
+				require.Equal(t, tc.responsePurpose, signedVC.Proofs()[0]["proofPurpose"])
+				require.Equal(t, tc.responseVerMethod, signedVC.Proofs()[0]["verificationMethod"])
+				require.NotEmpty(t, signedVC.Proofs()[0]["created"])
 
-				if signedVC.Proofs[0]["challenge"] != nil {
-					require.Equal(t, tc.responseChallenge, signedVC.Proofs[0]["challenge"].(string))
+				if signedVC.Proofs()[0]["challenge"] != nil {
+					require.Equal(t, tc.responseChallenge, signedVC.Proofs()[0]["challenge"].(string))
 				}
 
-				if signedVC.Proofs[0]["domain"] != nil {
-					require.Equal(t, tc.responseDomain, signedVC.Proofs[0]["domain"].(string))
+				if signedVC.Proofs()[0]["domain"] != nil {
+					require.Equal(t, tc.responseDomain, signedVC.Proofs()[0]["domain"].(string))
 				}
 
-				created, err := time.Parse(time.RFC3339, signedVC.Proofs[0]["created"].(string))
+				created, err := time.Parse(time.RFC3339, signedVC.Proofs()[0]["created"].(string))
 				require.NoError(t, err)
 
 				responseTime := time.Now()
@@ -219,7 +219,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		p := getTestLDPSigner()
 		p.Creator = "wrongValue"
 		signedVC, err := c.signCredentialLDP(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			p, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verificationMethod value wrongValue should be in did#keyID format")
 		require.Nil(t, signedVC)
@@ -240,7 +240,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					kms:    &mockkms.KeyManager{},
 					crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}},
 			},
-			&verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 		require.Nil(t, signedVC)
@@ -253,7 +253,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		p := getTestLDPSigner()
 
 		signedVC, err := c.signCredentialLDP(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			p, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}),
 			WithPurpose("invalid"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof purpose invalid not supported")
@@ -267,7 +267,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		p := getTestLDPSigner()
 
 		signedVC, err := c.signCredentialLDP(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			p, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}),
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
@@ -280,7 +280,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		p := getTestLDPSigner()
 
 		signedVC, err := c.signCredentialLDP(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			p, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}),
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
@@ -288,11 +288,11 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 }
 
 func TestCrypto_SignCredentialJWT(t *testing.T) {
-	unsignedVc := verifiable.Credential{
+	unsignedVc, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
-		Subject: verifiable.Subject{
+		Subject: []verifiable.Subject{{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			CustomFields: map[string]interface{}{
 				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -302,19 +302,36 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 					"degree": "MIT",
 				},
 			},
-		},
+		}},
 		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
 		},
-		Issuer: verifiable.Issuer{
+		Issuer: &verifiable.Issuer{
 			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		},
-		CustomFields: map[string]interface{}{
-			"first_name": "First name",
-			"last_name":  "Last name",
-			"info":       "Info",
+	}, map[string]interface{}{
+		"first_name": "First name",
+		"last_name":  "Last name",
+		"info":       "Info",
+	})
+	require.NoError(t, err)
+
+	unsignedVcNoSub, err := verifiable.CreateCredential(verifiable.CredentialContents{
+		ID:      "http://example.edu/credentials/1872",
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		Issued: &utiltime.TimeWrapper{
+			Time: time.Now(),
 		},
-	}
+		Issuer: &verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+	}, map[string]interface{}{
+		"first_name": "First name",
+		"last_name":  "Last name",
+		"info":       "Info",
+	})
+	require.NoError(t, err)
 
 	customKMS := createKMS(t)
 
@@ -352,7 +369,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: nil,
 			},
@@ -368,7 +385,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{
 					WithSignatureType("JsonWebSignature2020"),
@@ -388,7 +405,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getSDJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{
 					WithSignatureType("JsonWebSignature2020"),
@@ -409,7 +426,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				signerData: getSDJWTSigner(
 					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{},
 			},
@@ -425,7 +442,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{},
 			},
@@ -441,7 +458,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{
 					WithPurpose("keyAgreement"),
@@ -461,7 +478,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{},
 			},
@@ -477,9 +494,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			args: args{
 				signerData: getJWTSigner(customCrypto, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					cred := unsignedVc
-					cred.Subject = nil
-					return &cred
+					return unsignedVcNoSub
 				},
 				opts: []SigningOpts{},
 			},
@@ -506,7 +521,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 					KeyType: "unsupported",
 				},
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{},
 			},
@@ -523,7 +538,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				signerData: getJWTSigner(
 					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}, customKMS, keyID),
 				getVC: func() *verifiable.Credential {
-					return &unsignedVc
+					return unsignedVc
 				},
 				opts: []SigningOpts{},
 			},
@@ -544,10 +559,10 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			if err != nil {
 				return
 			}
-			if got.JWT == "" {
+			if !got.IsJWT() {
 				t.Errorf("JWT field empty")
 			}
-			if len(got.Proofs) > 0 {
+			if len(got.Proofs()) > 0 {
 				t.Errorf("Proof field is not empty")
 			}
 		})
@@ -571,9 +586,9 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 					crypto: &cryptomock.Crypto{},
 					kms:    &mockkms.KeyManager{},
 				},
-			}, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			}, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
+		require.Equal(t, 1, len(signedVC.Proofs()))
 	})
 }
 
@@ -643,14 +658,14 @@ func TestSignCredential(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		unsignedVC := &verifiable.Credential{
+		unsignedVC := createVC(t, verifiable.CredentialContents{
 			ID: "http://example.edu/credentials/1872",
-		}
+		})
 
 		signedVC, err := c.SignCredential(getTestLDPSigner(), unsignedVC)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
-		require.Empty(t, signedVC.JWT)
+		require.Equal(t, 1, len(signedVC.Proofs()))
+		require.False(t, signedVC.IsJWT())
 	})
 	t.Run("sign credential LDP Data Integrity - success", func(t *testing.T) {
 		customKMS := createKMS(t)
@@ -676,11 +691,11 @@ func TestSignCredential(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		unsignedVc := verifiable.Credential{
+		unsignedVC := createVCWithCF(t, verifiable.CredentialContents{
 			ID:      "http://example.edu/credentials/1872",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Subject: verifiable.Subject{
+			Subject: []verifiable.Subject{{
 				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				CustomFields: map[string]interface{}{
 					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -690,24 +705,23 @@ func TestSignCredential(t *testing.T) {
 						"degree": "MIT",
 					},
 				},
-			},
+			}},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Now(),
 			},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
-			CustomFields: map[string]interface{}{
-				"first_name": "First name",
-				"last_name":  "Last name",
-				"info":       "Info",
-			},
-		}
+		}, map[string]interface{}{
+			"first_name": "First name",
+			"last_name":  "Last name",
+			"info":       "Info",
+		})
 
-		signedVC, err := c.SignCredential(getTestLDPDataIntegritySigner(), &unsignedVc)
+		signedVC, err := c.SignCredential(getTestLDPDataIntegritySigner(), unsignedVC)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
-		require.Empty(t, signedVC.JWT)
+		require.Equal(t, 1, len(signedVC.Proofs()))
+		require.False(t, signedVC.IsJWT())
 	})
 	t.Run("sign credential LDP - error", func(t *testing.T) {
 		c := New(
@@ -715,9 +729,9 @@ func TestSignCredential(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		unsignedVC := &verifiable.Credential{
+		unsignedVC := createVC(t, verifiable.CredentialContents{
 			ID: "http://example.edu/credentials/1872",
-		}
+		})
 
 		signedVC, err := c.SignCredential(getTestLDPSigner(), unsignedVC)
 		require.Error(t, err)
@@ -729,9 +743,9 @@ func TestSignCredential(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		unsignedVC := &verifiable.Credential{
+		unsignedVC := createVC(t, verifiable.CredentialContents{
 			ID: "http://example.edu/credentials/1872",
-		}
+		})
 
 		signedVC, err := c.SignCredential(&vc.Signer{
 			DID:           "did:trustbloc:abc",
@@ -753,16 +767,16 @@ func TestSignCredential(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		unsignedVC := &verifiable.Credential{
+		unsignedVC := createVC(t, verifiable.CredentialContents{
 			ID:      "http://example.edu/credentials/1872",
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Now(),
 			},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
-		}
+		})
 
 		signedVC, err := c.SignCredential(&vc.Signer{
 			DID:           "did:trustbloc:abc",
@@ -778,8 +792,8 @@ func TestSignCredential(t *testing.T) {
 		}, unsignedVC)
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
-		require.NotEmpty(t, signedVC.JWT)
-		require.False(t, strings.Contains(signedVC.JWT, common.CombinedFormatSeparator))
+		require.True(t, signedVC.IsJWT())
+		require.False(t, strings.Contains(signedVC.JWTEnvelope.JWT, common.CombinedFormatSeparator))
 	})
 	t.Run("sign credential JWT - error", func(t *testing.T) {
 		c := New(
@@ -787,16 +801,16 @@ func TestSignCredential(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		unsignedVC := &verifiable.Credential{
+		unsignedVC := createVC(t, verifiable.CredentialContents{
 			ID:      "http://example.edu/credentials/1872",
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Issuer: verifiable.Issuer{
+			Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Now(),
 			},
-		}
+		})
 
 		signedVC, err := c.SignCredential(&vc.Signer{
 			DID:           "did:trustbloc:abc",
@@ -1055,4 +1069,19 @@ func TestCrypto_NewJWTSigned(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createVC(t *testing.T, vcc verifiable.CredentialContents) *verifiable.Credential {
+	vc, err := verifiable.CreateCredential(vcc, nil)
+	require.NoError(t, err)
+
+	return vc
+}
+
+func createVCWithCF(t *testing.T, vcc verifiable.CredentialContents,
+	cf verifiable.CustomFields) *verifiable.Credential {
+	vc, err := verifiable.CreateCredential(vcc, cf)
+	require.NoError(t, err)
+
+	return vc
 }

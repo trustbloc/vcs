@@ -195,7 +195,7 @@ func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
 			return fmt.Errorf("parse credential from wallet: %w", err)
 		}
 
-		issuedVCID[vcParsed.ID] = struct{}{}
+		issuedVCID[vcParsed.Contents().ID] = struct{}{}
 	}
 
 	for retrievedVCID := range claims {

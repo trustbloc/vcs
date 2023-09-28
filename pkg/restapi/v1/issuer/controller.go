@@ -173,7 +173,10 @@ func (c *Controller) issueCredential(
 
 		enforceStrictValidation = credentialTemplate.Checks.Strict
 
-		finalCredentials = c.buildCredentialsFromTemplate(credentialTemplate, profile, body)
+		finalCredentials, err = c.buildCredentialsFromTemplate(credentialTemplate, profile, body)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	credentialParsed, err := c.parseCredential(ctx, finalCredentials, enforceStrictValidation, profile.VCConfig.Format)
@@ -228,30 +231,31 @@ func (c *Controller) buildCredentialsFromTemplate(
 	credentialTemplate *profileapi.CredentialTemplate,
 	profile *profileapi.Issuer,
 	body *IssueCredentialData,
-) *verifiable.Credential {
+) (*verifiable.Credential, error) {
 	contexts := credentialTemplate.Contexts
 	if len(contexts) == 0 {
 		contexts = []string{defaultCtx}
 	}
 
-	vcc := &verifiable.Credential{
+	vcc := verifiable.CredentialContents{
 		Context: contexts,
 		ID:      uuid.New().URN(),
 		Types:   []string{"VerifiableCredential", credentialTemplate.Type},
-		Issuer:  verifiable.Issuer{ID: profile.SigningDID.DID},
-		Subject: verifiable.Subject{
+		Issuer:  &verifiable.Issuer{ID: profile.SigningDID.DID},
+		Subject: []verifiable.Subject{{
 			ID:           profile.SigningDID.DID,
 			CustomFields: *body.Claims,
-		},
-		Issued:       utiltime.NewTime(time.Now()),
-		CustomFields: map[string]interface{}{},
+		}},
+		Issued: utiltime.NewTime(time.Now()),
 	}
 
+	customFields := map[string]interface{}{}
+
 	if lo.FromPtr(body.CredentialDescription) != "" {
-		vcc.CustomFields["description"] = *body.CredentialDescription
+		customFields["description"] = *body.CredentialDescription
 	}
 	if lo.FromPtr(body.CredentialName) != "" {
-		vcc.CustomFields["name"] = *body.CredentialName
+		customFields["name"] = *body.CredentialName
 	}
 
 	if credentialTemplate.CredentialDefaultExpirationDuration != nil {
@@ -260,7 +264,7 @@ func (c *Controller) buildCredentialsFromTemplate(
 		vcc.Expired = utiltime.NewTime(time.Now().Add(365 * 24 * time.Hour))
 	}
 
-	return vcc
+	return verifiable.CreateCredential(vcc, customFields)
 }
 
 func (c *Controller) parseCredential(
@@ -680,7 +684,7 @@ func (c *Controller) validateClaims( //nolint:gocognit
 	credentialTemplate *profileapi.CredentialTemplate,
 	validateJSONLD bool,
 ) error {
-	subjects, err := getCredentialSubjects(cred.Subject)
+	subjects, err := getCredentialSubjects(cred.Contents().Subject)
 	if err != nil {
 		return err
 	}
@@ -707,12 +711,12 @@ func (c *Controller) validateJSONLD(
 	sub verifiable.Subject,
 ) error {
 	var ctx []interface{}
-	for _, ct := range cred.Context {
+	for _, ct := range cred.Contents().Context {
 		ctx = append(ctx, ct)
 	}
 
 	var types []interface{}
-	for _, t := range cred.Types {
+	for _, t := range cred.Contents().Types {
 		types = append(types, t)
 	}
 
@@ -754,7 +758,7 @@ func (c *Controller) validateJSONSchema(
 	sub verifiable.Subject,
 ) error {
 	logger.Debug("Validating credential against JSON schema",
-		logfields.WithCredentialID(cred.ID),
+		logfields.WithCredentialID(cred.Contents().ID),
 		logfields.WithCredentialTemplateID(credentialTemplate.ID),
 		logfields.WithJSONSchemaID(credentialTemplate.JSONSchemaID),
 	)

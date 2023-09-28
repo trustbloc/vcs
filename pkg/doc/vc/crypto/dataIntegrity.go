@@ -67,8 +67,8 @@ func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
 	}
 
 	// Update VC context for Data Integrity.
-	if !lo.Contains(vc.Context, dataIntegrityProofContext) {
-		vc.Context = append(vc.Context, dataIntegrityProofContext)
+	if !lo.Contains(vc.Contents().Context, dataIntegrityProofContext) {
+		vc = vc.WithModifiedContext(append(vc.Contents().Context, dataIntegrityProofContext))
 	}
 
 	err = vc.AddDataIntegrityProof(signingCtx, diSigner)

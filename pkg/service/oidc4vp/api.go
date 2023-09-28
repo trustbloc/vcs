@@ -34,7 +34,7 @@ type CredentialMetadata struct {
 	Format         vcsverifiable.Format `json:"format"`
 	Type           []string             `json:"type"`
 	SubjectData    interface{}          `json:"subjectData"`
-	Issuer         verifiable.Issuer    `json:"issuer"`
+	Issuer         interface{}          `json:"issuer"`
 	IssuanceDate   *util.TimeWrapper    `json:"issuanceDate,omitempty"`
 	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
 }

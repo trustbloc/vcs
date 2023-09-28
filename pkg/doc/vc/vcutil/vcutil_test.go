@@ -171,45 +171,24 @@ func TestDecodeTypedIDFromJSONRaw(t *testing.T) {
 	})
 }
 
-func TestUpdateIssuer(t *testing.T) {
+func TestCreateIssuer(t *testing.T) {
 	issuerDID := "did:example"
 	issuerName := "sample-profile"
 
-	// no issuer in credential
-	vc := &verifiable.Credential{}
-
-	UpdateIssuer(vc, issuerDID, issuerName, false)
-	require.NotEmpty(t, vc.Issuer)
-	require.Equal(t, vc.Issuer.ID, issuerDID)
-	require.Equal(t, vc.Issuer.CustomFields["name"], issuerName)
-
-	// issuer in credential
-	vc = &verifiable.Credential{Issuer: verifiable.Issuer{
-		ID: "sample-issuer-id",
-	}}
-
-	UpdateIssuer(vc, issuerDID, issuerName, false)
-	require.NotEmpty(t, vc.Issuer)
-	require.Equal(t, vc.Issuer.ID, "sample-issuer-id")
-	require.Empty(t, vc.Issuer.CustomFields)
-
-	// issuer in credential + profile overwrites issuer
-	UpdateIssuer(vc, issuerDID, issuerName, true)
-	require.NotEmpty(t, vc.Issuer)
-	require.Equal(t, vc.Issuer.ID, issuerDID)
-	require.Equal(t, vc.Issuer.CustomFields["name"], issuerName)
+	issuer := CreateIssuer(issuerDID, issuerName)
+	require.NotEmpty(t, issuer)
+	require.Equal(t, issuer.ID, issuerDID)
+	require.Equal(t, issuer.CustomFields["name"], issuerName)
 }
 
-func TestUpdateSignatureTypeContext(t *testing.T) {
-	vc := &verifiable.Credential{Context: []string{DefVCContext}}
+func TestAppendSignatureTypeContext(t *testing.T) {
+	context := []string{DefVCContext}
 
-	require.Len(t, vc.Context, 1)
+	context = AppendSignatureTypeContext(context, vcsverifiable.JSONWebSignature2020)
+	require.Len(t, context, 2)
 
-	UpdateSignatureTypeContext(vc, vcsverifiable.JSONWebSignature2020)
-	require.Len(t, vc.Context, 2)
-
-	UpdateSignatureTypeContext(vc, vcsverifiable.BbsBlsSignature2020)
-	require.Len(t, vc.Context, 3)
+	context = AppendSignatureTypeContext(context, vcsverifiable.BbsBlsSignature2020)
+	require.Len(t, context, 3)
 }
 
 func stringToRaw(s string) json.RawMessage {
@@ -217,10 +196,13 @@ func stringToRaw(s string) json.RawMessage {
 }
 
 func TestPrependCredentialPrefix(t *testing.T) {
-	credential := &verifiable.Credential{ID: "did:example:ebfeb1f712ebc6f1c276e12ec21"}
+	credential, err := verifiable.CreateCredential(
+		verifiable.CredentialContents{ID: "did:example:ebfeb1f712ebc6f1c276e12ec21"},
+		nil)
+	require.NoError(t, err)
 
-	PrependCredentialPrefix(credential, "prefix_")
-	PrependCredentialPrefix(credential, "prefix_")
+	credential = PrependCredentialPrefix(credential, "prefix_")
+	credential = PrependCredentialPrefix(credential, "prefix_")
 
-	require.Equal(t, "prefix_did:example:ebfeb1f712ebc6f1c276e12ec21", credential.ID)
+	require.Equal(t, "prefix_did:example:ebfeb1f712ebc6f1c276e12ec21", credential.Contents().ID)
 }

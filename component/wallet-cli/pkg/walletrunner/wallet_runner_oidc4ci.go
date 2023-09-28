@@ -228,7 +228,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig, hooks *Hooks) error {
 
 	log.Printf(
 		"Credential with ID [%s] and type [%v] added successfully",
-		vcParsed.ID,
+		vcParsed.Contents().ID,
 		config.CredentialType,
 	)
 
@@ -385,7 +385,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4CIConfig, hooks *Hooks)
 
 	log.Printf(
 		"Credential with ID [%s] and type [%v] added successfully",
-		vcParsed.ID,
+		vcParsed.Contents().ID,
 		config.CredentialType,
 	)
 

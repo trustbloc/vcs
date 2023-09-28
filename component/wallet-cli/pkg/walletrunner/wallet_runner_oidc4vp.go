@@ -330,10 +330,7 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletMultiVP() error {
 		return fmt.Errorf("query credentials from wallet: %w", err)
 	}
 
-	credentials, err := e.getCredentials(legacyVP[0].Credentials())
-	if err != nil {
-		return fmt.Errorf("failed to parse credentials from vp: %w", err)
-	}
+	credentials := legacyVP[0].Credentials()
 
 	// Create a list of verifiable presentations, with one presentation for each provided credential.
 	vps, ps, err := e.requestObject.Claims.VPToken.PresentationDefinition.CreateVPArray(credentials, e.ariesServices.documentLoader, verifiable.WithJSONLDDocumentLoader(e.ariesServices.documentLoader))
@@ -566,33 +563,22 @@ func (e *VPFlowExecutor) getDIDIndex(did string) int {
 	return -1
 }
 
-func (e *VPFlowExecutor) GetSubjectID(creds []interface{}) (string, error) {
+func (e *VPFlowExecutor) GetSubjectID(creds []*verifiable.Credential) (string, error) {
 	subjectIDMap := make(map[string]bool)
 
 	var subjectID string
+	var err error
 
-	for _, cred := range creds {
-		vcBytes, err := json.Marshal(cred)
-		if err != nil {
-			return "", err
-		}
-
-		vc, err := verifiable.ParseCredential(vcBytes,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(e.ariesServices.documentLoader))
-		if err != nil {
-			return "", fmt.Errorf("fail to parse credential: %w", err)
-		}
-
-		subjectID, err = verifiable.SubjectID(vc.Subject)
+	for _, vc := range creds {
+		subjectID, err = verifiable.SubjectID(vc.Contents().Subject)
 		if err != nil {
 			return "", fmt.Errorf("failed to get subject ID: %w", err)
 		}
 
-		if vc.JWT != "" {
+		if vc.IsJWT() {
 			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
 			_, rawClaims, credErr := jwt.Parse(
-				vc.JWT,
+				vc.JWTEnvelope.JWT,
 				jwt.WithSignatureVerifier(&noVerifier{}),
 				jwt.WithIgnoreClaimsMapDecoding(true),
 			)

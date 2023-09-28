@@ -98,23 +98,24 @@ func Test_revocationList2021Processor_CreateVC(t *testing.T) {
 		DID:           "did:example:123",
 		SignatureType: vcsverifiable.JSONWebSignature2020,
 	})
-
 	require.NoError(t, err)
-	require.Equal(t, "vcID1", vc.ID)
+
+	vcc := vc.Contents()
+	require.Equal(t, "vcID1", vcc.ID)
 	require.Equal(t, []string{
 		vcutil.DefVCContext,
 		"https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
 		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
-	}, vc.Context)
-	require.Equal(t, []string{vcType, statusList2021VCType}, vc.Types)
-	require.Equal(t, verifiable.Issuer{ID: "did:example:123"}, vc.Issuer)
+	}, vcc.Context)
+	require.Equal(t, []string{vcType, statusList2021VCType}, vcc.Types)
+	require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
 	encodeBits, err := bitstring.NewBitString(bitStringSize).EncodeBits()
 	require.NoError(t, err)
-	require.Equal(t, &credentialSubject{
+	require.Equal(t, toVerifiableSubject(credentialSubject{
 		ID:          "vcID1#list",
 		Type:        "RevocationList2021",
 		EncodedList: encodeBits,
-	}, vc.Subject)
+	}), vcc.Subject)
 }
 
 func Test_revocationList2021Processor_CreateVCStatus(t *testing.T) {

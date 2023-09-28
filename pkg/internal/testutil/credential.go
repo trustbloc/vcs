@@ -86,8 +86,9 @@ func proveVC(
 	// Sign
 	switch sf {
 	case vcsverifiable.Ldp:
+		//nolint:staticcheck //on next kms-go update will be changed to other func
 		signerSuite := jsonwebsignature2020.New(
-			suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh)))
+			suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh))) //nolint:staticcheck
 		err = credential.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "JsonWebSignature2020",
 			Suite:                   signerSuite,
@@ -100,34 +101,32 @@ func proveVC(
 		}, jsonld.WithDocumentLoader(loader))
 		require.NoError(t, err)
 	case vcsverifiable.Jwt:
-		claims, err := credential.JWTClaims(false)
-		require.NoError(t, err)
-
-		jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kt)
-		require.NoError(t, err)
+		jwsAlgo, jwtErr := verifiable.KeyTypeToJWSAlgo(kt)
+		require.NoError(t, jwtErr)
 
 		if isSDJWT {
-			jwsAlgName, err := jwsAlgo.Name()
-			require.NoError(t, err)
+			jwsAlgName, sdErr := jwsAlgo.Name()
+			require.NoError(t, sdErr)
 
-			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName, suite.NewCryptoSigner(customCrypto, kh))
+			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName,
+				suite.NewCryptoSigner(customCrypto, kh)) //nolint:staticcheck
 
-			sdjwtCredential, err := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID,
+			sdjwtCredential, sdErr := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID,
 				verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"id", "type", "@type"}),
 			)
-			require.NoError(t, err)
+			require.NoError(t, sdErr)
 
-			vcParsed, err := verifiable.ParseCredential([]byte(sdjwtCredential),
+			vcParsed, sdErr := verifiable.ParseCredential([]byte(sdjwtCredential),
 				verifiable.WithDisabledProofCheck(),
 				verifiable.WithJSONLDDocumentLoader(loader))
-			require.NoError(t, err)
+			require.NoError(t, sdErr)
 
 			credential = vcParsed
 		} else {
-			jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), didDoc.VerificationMethod[0].ID)
-			require.NoError(t, err)
-
-			credential.JWT = jws
+			credential, jwtErr = credential.CreateSignedJWTVC(
+				false, jwsAlgo,
+				suite.NewCryptoSigner(customCrypto, kh), didDoc.VerificationMethod[0].ID) //nolint:staticcheck
+			require.NoError(t, jwtErr)
 		}
 	}
 
