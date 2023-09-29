@@ -58,6 +58,8 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 		return nil, err
 	}
 
+	profile.Version = flowData.ProfileVersion // wallet flow aud check should match
+
 	tx, err := s.InitiateIssuance(ctx, &InitiateIssuanceRequest{
 		CredentialTemplateID:      flowData.CredentialTemplateId,
 		ClientInitiateIssuanceURL: "",
