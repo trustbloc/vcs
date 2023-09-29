@@ -23,8 +23,8 @@ ENV EXECUTABLES go git
 
 FROM golang as vcs
 ARG GO_TAGS
-ARG GOPROXY
-RUN GO_TAGS=${GO_TAGS} GOPROXY=${GOPROXY} make sample-webhook
+ARG GO_PROXY
+RUN GO_TAGS=${GO_TAGS} GOPROXY=${GO_PROXY} make sample-webhook
 
 
 FROM ${ALPINE_IMAGE}:${ALPINE_VER} as base
