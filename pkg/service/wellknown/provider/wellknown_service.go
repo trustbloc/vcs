@@ -150,7 +150,6 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 		final.GrantTypesSupported = issuerProfile.OIDCConfig.GrantTypesSupported
 		final.ScopesSupported = issuerProfile.OIDCConfig.ScopesSupported
 		final.PreAuthorizedGrantAnonymousAccessSupported = issuerProfile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
-		final.WalletInitiatedAuthFlowSupported = issuerProfile.OIDCConfig.WalletInitiatedAuthFlowSupported
 
 		if issuerProfile.OIDCConfig.EnableDynamicClientRegistration {
 			regURL, _ := url.JoinPath(host, "oidc", issuerProfile.ID, issuerProfile.Version, "register")

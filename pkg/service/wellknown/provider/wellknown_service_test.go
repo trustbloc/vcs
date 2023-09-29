@@ -212,7 +212,6 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, []string{"grantType1", "grantType2"}, res.GrantTypesSupported)
 		assert.Equal(t, []string{"scope1", "scope1"}, res.ScopesSupported)
 		assert.True(t, res.PreAuthorizedGrantAnonymousAccessSupported)
-		assert.True(t, res.WalletInitiatedAuthFlowSupported)
 
 		if includedClientRegistration {
 			assert.Equal(t,
@@ -225,7 +224,6 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Nil(t, res.GrantTypesSupported)
 		assert.Nil(t, res.ScopesSupported)
 		assert.False(t, res.PreAuthorizedGrantAnonymousAccessSupported)
-		assert.False(t, res.WalletInitiatedAuthFlowSupported)
 		assert.Nil(t, res.RegistrationEndpoint)
 	}
 }
