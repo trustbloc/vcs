@@ -7,12 +7,15 @@ module github.com/trustbloc/vcs/test/bdd
 go 1.21
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.21.0
+	github.com/aws/aws-sdk-go-v2/config v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.26.1
 	github.com/cucumber/godog v0.12.5
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/greenpau/go-calculator v1.0.1
 	github.com/jedib0t/go-pretty/v6 v6.4.6
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/fosite v0.44.0
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/samber/lo v1.38.1
@@ -24,6 +27,7 @@ require (
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
+	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
 )
 
@@ -33,8 +37,6 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.21.0 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.18.4 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.4 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.20 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.41 // indirect
@@ -47,7 +49,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.6 // indirect
 	github.com/aws/smithy-go v1.14.2 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
-	github.com/btcsuite/btcd v0.22.3 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -93,7 +94,6 @@ require (
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
-	github.com/labstack/echo/v4 v4.9.0 // indirect
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -133,7 +133,7 @@ require (
 	github.com/spf13/viper v1.16.0 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	github.com/syndtr/goleveldb v1.0.0 // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -158,7 +158,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/mod v0.12.0 // indirect
