@@ -577,7 +577,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errPresentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
 		errPresentationVerifier.EXPECT().VerifyPresentation(
 			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
-			Return(nil, errors.New("verification failed"))
+			Return(nil, nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
 			EventTopic:           spi.VerifierEventTopic,
