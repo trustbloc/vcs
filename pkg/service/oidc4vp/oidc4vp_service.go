@@ -76,7 +76,10 @@ type presentationVerifier interface {
 		ctx context.Context,
 		presentation *verifiable.Presentation,
 		opts *verifypresentation.Options,
-		profile *profileapi.Verifier) ([]verifypresentation.PresentationVerificationCheckResult, error)
+		profile *profileapi.Verifier,
+	) (
+		[]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error,
+	)
 }
 
 type RequestObjectClaims struct {
@@ -296,7 +299,7 @@ func (s *Service) verifyTokens(
 				return
 			}
 
-			vr, innerErr := s.presentationVerifier.VerifyPresentation(ctx, token.Presentation, &verifypresentation.Options{
+			vr, _, innerErr := s.presentationVerifier.VerifyPresentation(ctx, token.Presentation, &verifypresentation.Options{
 				Domain:    token.ClientID,
 				Challenge: token.Nonce,
 			}, profile)
