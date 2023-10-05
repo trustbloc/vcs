@@ -43,7 +43,6 @@ type Service struct {
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
 	vcVerifier     vcVerifier
-	claimKeys      map[string][]string
 }
 
 func New(config *Config) *Service {
@@ -51,7 +50,6 @@ func New(config *Config) *Service {
 		vdr:            config.VDR,
 		documentLoader: config.DocumentLoader,
 		vcVerifier:     config.VcVerifier,
-		claimKeys:      map[string][]string{},
 	}
 }
 
@@ -62,13 +60,11 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	presentation *verifiable.Presentation,
 	opts *Options,
 	profile *profileapi.Verifier,
-) ([]PresentationVerificationCheckResult, error) {
+) ([]PresentationVerificationCheckResult, map[string][]string, error) {
 	startTime := time.Now().UTC()
 	defer func() {
 		logger.Debugc(ctx, "VerifyPresentation", log.WithDuration(time.Since(startTime)))
 	}()
-
-	s.claimKeys = map[string][]string{}
 
 	var result []PresentationVerificationCheckResult
 
@@ -156,10 +152,12 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		logger.Debugc(ctx, "Checks.Credential.LinkedDomain", log.WithDuration(time.Since(st)))
 	}
 
+	var claimsKeys map[string][]string
 	if profile.Checks.Credential.Strict {
 		st := time.Now()
 
-		err := s.checkCredentialStrict(ctx, credentials)
+		keys, err := s.checkCredentialStrict(ctx, credentials)
+		claimsKeys = keys
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStrict",
@@ -169,11 +167,15 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		logger.Debugc(ctx, "Checks.Credential.Strict", log.WithDuration(time.Since(st)))
 	}
 
-	return result, nil
+	return result, claimsKeys, nil
 }
 
 func (s *Service) checkCredentialStrict(
-	ctx context.Context, credentials []*verifiable.Credential) error { //nolint:gocognit
+	ctx context.Context,
+	credentials []*verifiable.Credential,
+) (map[string][]string, error) { //nolint:gocognit
+	claimKeysDict := map[string][]string{}
+
 	for _, cred := range credentials {
 		//TODO: check how bug fixed will affects other code.
 		// previously if credential was not in format of *verifiable.Credential validations was ignored
@@ -187,22 +189,20 @@ func (s *Service) checkCredentialStrict(
 		if credContents.SDJWTHashAlg != nil {
 			credMap, err = cred.CreateDisplayCredentialMap(verifiable.DisplayAllDisclosures())
 			if err != nil {
-				return err
+				return claimKeysDict, err
 			}
 		} else {
 			credMap = cred.ToRawJSON()
 		}
 
 		var claimKeys []string
-
 		m, ok := credMap["credentialSubject"].(map[string]interface{})
 		if ok {
 			for k := range m {
+				claimKeysDict[credContents.ID] = append(claimKeysDict[credContents.ID], k)
 				claimKeys = append(claimKeys, k)
 			}
 		}
-
-		s.claimKeys[credContents.ID] = claimKeys
 
 		if logger.IsEnabled(log.DEBUG) {
 			logger.Debugc(ctx, "verifier strict validation check",
@@ -215,11 +215,11 @@ func (s *Service) checkCredentialStrict(
 			validator.WithDocumentLoader(s.documentLoader),
 			validator.WithStrictValidation(true),
 		); err != nil {
-			return err
+			return claimKeysDict, err
 		}
 	}
 
-	return nil
+	return claimKeysDict, nil
 }
 
 func (s *Service) checkCredentialExpiry(_ context.Context, credentials []*verifiable.Credential) error {
@@ -382,9 +382,4 @@ func (s *Service) extractCredentialStatus(
 	credContents := cred.Contents()
 
 	return credContents.Status, credContents.Issuer
-}
-
-// GetClaimKeys returns credential claim keys.
-func (s *Service) GetClaimKeys() map[string][]string {
-	return s.claimKeys
 }

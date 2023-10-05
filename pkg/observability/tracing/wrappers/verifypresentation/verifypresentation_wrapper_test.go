@@ -28,6 +28,6 @@ func TestWrapper_VerifyPresentation(t *testing.T) {
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.VerifyPresentation(context.Background(), &verifiable.Presentation{}, &verifypresentation.Options{}, &profileapi.Verifier{})
+	_, _, err := w.VerifyPresentation(context.Background(), &verifiable.Presentation{}, &verifypresentation.Options{}, &profileapi.Verifier{})
 	require.NoError(t, err)
 }

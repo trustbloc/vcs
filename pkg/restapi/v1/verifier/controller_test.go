@@ -296,7 +296,7 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 	mockVerifyPresSvc.EXPECT().
 		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
-		Return([]verifypresentation.PresentationVerificationCheckResult{{}}, nil)
+		Return([]verifypresentation.PresentationVerificationCheckResult{{}}, nil, nil)
 
 	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
@@ -343,7 +343,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 	mockVerifyPresentationSvc.EXPECT().
 		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
-		Return(verificationResult, nil)
+		Return(verificationResult, nil, nil)
 
 	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
@@ -433,7 +433,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 					failedMockVerifyPresSvc.EXPECT().
 						VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						AnyTimes().
-						Return(nil, errors.New("some error"))
+						Return(nil, nil, errors.New("some error"))
 					return failedMockVerifyPresSvc
 				},
 			},
