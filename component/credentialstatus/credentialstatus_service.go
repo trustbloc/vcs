@@ -69,7 +69,10 @@ type eventPublisher interface {
 
 type cslManager interface {
 	CreateCSLEntry(
-		ctx context.Context, profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error)
+		ctx context.Context,
+		profile *profileapi.Issuer,
+		credentialMetadata *credentialstatus.CredentialMetadata,
+	) (*credentialstatus.StatusListEntry, error)
 }
 
 type Config struct {
@@ -170,18 +173,18 @@ func (s *Service) CreateStatusListEntry(
 	ctx context.Context,
 	profileID profileapi.ID,
 	profileVersion profileapi.Version,
-	credentialID string) (*credentialstatus.StatusListEntry, error) {
+	credentialMetadata *credentialstatus.CredentialMetadata) (*credentialstatus.StatusListEntry, error) {
 	logger.Debugc(ctx, "CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
 		logfields.WithProfileVersion(profileVersion),
-		logfields.WithCredentialID(credentialID))
+		logfields.WithCredentialID(credentialMetadata.CredentialID))
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
-	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialID)
+	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("create CSL entry: %w", err)
 	}

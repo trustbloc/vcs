@@ -81,6 +81,36 @@ paths:
       description: Returns openid-config.
       tags:
         - issuer
+  '/issuer/profiles/{profileID}/{profileVersion}/issued-credentials':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile ID
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Profile Version
+    get:
+      summary: Request Credential Issuance history.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                description: JSON array containing a list of credentials metadata issued by given profile.
+                items:
+                  $ref: '#/components/schemas/CredentialIssuanceHistoryData'
+      operationId: credential-issuance-history
+      description: Returns Credential Issuance history.
+      tags:
+        - issuer
   '/issuer/profiles/{profileID}/{profileVersion}/credentials/issue':
     parameters:
       - schema:
@@ -834,6 +864,37 @@ components:
         - credential_endpoint
         - credentials_supported
       description: WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
+    CredentialIssuanceHistoryData:
+      title: CredentialIssuanceHistory response
+      x-tags:
+        - issuer
+      type: object
+      properties:
+        credential_id:
+          type: string
+          description: Credential ID.
+        issuer:
+          type: string
+          description: Issuer identifier.
+        credential_types:
+          type: array
+          items:
+            type: string
+          description: JSON array of credential types.
+        transaction_id:
+          type: string
+          description: Transaction ID.
+        issuance_date:
+          type: string
+          description: Issuance Date.
+        expiration_date:
+          type: string
+          description: Expiration Date.
+      required:
+        - credential_id
+        - issuer
+        - credential_types
+      description: CredentialIssuanceHistoryData represents the credential issuance history array element.
     VerifyCredentialData:
       title: VerifyCredentialData
       x-tags:

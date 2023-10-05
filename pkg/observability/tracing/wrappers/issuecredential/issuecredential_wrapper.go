@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
@@ -36,15 +35,15 @@ func Wrap(svc Service, tracer trace.Tracer) *Wrapper {
 func (w *Wrapper) IssueCredential(
 	ctx context.Context,
 	vc *verifiable.Credential,
-	issuerSigningOpts []crypto.SigningOpts,
 	profile *profileapi.Issuer,
+	opts ...issuecredential.Opts,
 ) (*verifiable.Credential, error) {
 	ctx, span := w.tracer.Start(ctx, "issuecredential.IssueCredential")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
 
-	credential, err := w.svc.IssueCredential(ctx, vc, issuerSigningOpts, profile)
+	credential, err := w.svc.IssueCredential(ctx, vc, profile, opts...)
 	if err != nil {
 		return nil, err
 	}

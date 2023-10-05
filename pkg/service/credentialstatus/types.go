@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -75,7 +76,7 @@ type ServiceInterface interface {
 		ctx context.Context,
 		profileID profileapi.ID,
 		profileVersion profileapi.Version,
-		credentialID string) (*StatusListEntry, error)
+		credentialMetadata *CredentialMetadata) (*StatusListEntry, error)
 	GetStatusListVC(ctx context.Context, profileGroupID profileapi.ID, statusID string) (*CSL, error)
 	UpdateVCStatus(ctx context.Context, params UpdateVCStatusParams) error
 	Resolve(ctx context.Context, statusListVCURI string) (*CSL, error)
@@ -89,4 +90,14 @@ type UpdateCredentialStatusEventPayload struct {
 	ProfileVersion string `json:"profileVersion"`
 	Index          int    `json:"index"`
 	Status         bool   `json:"status"`
+}
+
+// CredentialMetadata represents the credential metadata.
+type CredentialMetadata struct {
+	CredentialID   string            `json:"credential"`
+	Issuer         string            `json:"issuer,omitempty"`
+	CredentialType []string          `json:"credentialType,omitempty"`
+	TransactionID  string            `json:"transactionId,omitempty"`
+	IssuanceDate   *time.TimeWrapper `json:"issuanceDate,omitempty"`
+	ExpirationDate *time.TimeWrapper `json:"expirationDate,omitempty"`
 }

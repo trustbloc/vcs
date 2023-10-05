@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package github.com/trustbloc/vcs/pkg/restapi/v1/issuer -package issuer -source=controller.go -mock_names profileService=MockProfileService,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,openidCredentialIssuerConfigProvider=MockOpenIDCredentialIssuerConfigProvider,eventService=MockEventService,jsonSchemaValidator=MockJSONSchemaValidator
+//go:generate mockgen -destination controller_mocks_test.go -self_package github.com/trustbloc/vcs/pkg/restapi/v1/issuer -package issuer -source=controller.go -mock_names profileService=MockProfileService,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,openidCredentialIssuerConfigProvider=MockOpenIDCredentialIssuerConfigProvider,eventService=MockEventService,jsonSchemaValidator=MockJSONSchemaValidator,credentialIssuanceHistoryStore=MockCredentialIssuanceHistoryStore
 
 package issuer
 
@@ -76,48 +76,59 @@ type openidCredentialIssuerConfigProvider interface {
 	GetOpenIDCredentialIssuerConfig(issuerProfile *profileapi.Issuer) (*WellKnownOpenIDIssuerConfiguration, string, error)
 }
 
+type credentialIssuanceHistoryStore interface {
+	GetIssuedCredentialsMetadata(
+		ctx context.Context,
+		profileID string,
+		profileVersion string,
+	) ([]*credentialstatus.CredentialMetadata, error)
+}
+
 type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
 type Config struct {
-	EventSvc                   eventService
-	ProfileSvc                 profileService
-	DocumentLoader             ld.DocumentLoader
-	IssueCredentialService     issuecredential.ServiceInterface
-	OIDC4CIService             oidc4ciService
-	VcStatusManager            vcStatusManager
-	OpenidIssuerConfigProvider openidCredentialIssuerConfigProvider
-	ExternalHostURL            string
-	Tracer                     trace.Tracer
-	JSONSchemaValidator        jsonSchemaValidator
+	EventSvc                       eventService
+	ProfileSvc                     profileService
+	DocumentLoader                 ld.DocumentLoader
+	IssueCredentialService         issuecredential.ServiceInterface
+	OIDC4CIService                 oidc4ciService
+	VcStatusManager                vcStatusManager
+	OpenidIssuerConfigProvider     openidCredentialIssuerConfigProvider
+	CredentialIssuanceHistoryStore credentialIssuanceHistoryStore
+	ExternalHostURL                string
+	Tracer                         trace.Tracer
+	JSONSchemaValidator            jsonSchemaValidator
 }
 
 // Controller for Issuer Profile Management API.
 type Controller struct {
-	profileSvc                 profileService
-	documentLoader             ld.DocumentLoader
-	issueCredentialService     issuecredential.ServiceInterface
-	oidc4ciService             oidc4ciService
-	vcStatusManager            vcStatusManager
-	openidIssuerConfigProvider openidCredentialIssuerConfigProvider
-	externalHostURL            string
-	tracer                     trace.Tracer
-	schemaValidator            jsonSchemaValidator
+	profileSvc                     profileService
+	documentLoader                 ld.DocumentLoader
+	issueCredentialService         issuecredential.ServiceInterface
+	oidc4ciService                 oidc4ciService
+	vcStatusManager                vcStatusManager
+	openidIssuerConfigProvider     openidCredentialIssuerConfigProvider
+	credentialIssuanceHistoryStore credentialIssuanceHistoryStore
+	externalHostURL                string
+	tracer                         trace.Tracer
+	schemaValidator                jsonSchemaValidator
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
 func NewController(config *Config) *Controller {
 	return &Controller{
-		profileSvc:                 config.ProfileSvc,
-		documentLoader:             config.DocumentLoader,
-		issueCredentialService:     config.IssueCredentialService,
-		oidc4ciService:             config.OIDC4CIService,
-		vcStatusManager:            config.VcStatusManager,
-		openidIssuerConfigProvider: config.OpenidIssuerConfigProvider,
-		externalHostURL:            config.ExternalHostURL,
-		tracer:                     config.Tracer,
-		schemaValidator:            config.JSONSchemaValidator,
+		profileSvc:                     config.ProfileSvc,
+		documentLoader:                 config.DocumentLoader,
+		issueCredentialService:         config.IssueCredentialService,
+		oidc4ciService:                 config.OIDC4CIService,
+		vcStatusManager:                config.VcStatusManager,
+		openidIssuerConfigProvider:     config.OpenidIssuerConfigProvider,
+		credentialIssuanceHistoryStore: config.CredentialIssuanceHistoryStore,
+		externalHostURL:                config.ExternalHostURL,
+		tracer:                         config.Tracer,
+		schemaValidator:                config.JSONSchemaValidator,
 	}
 }
 
@@ -189,7 +200,7 @@ func (c *Controller) issueCredential(
 		return nil, fmt.Errorf("validate validateIssueCredOptions failed: %w", err)
 	}
 
-	return c.signCredential(ctx, credentialParsed, credOpts, profile)
+	return c.signCredential(ctx, credentialParsed, profile, issuecredential.WithCryptoOpts(credOpts))
 }
 
 func (c *Controller) extractCredentialTemplate(
@@ -294,10 +305,10 @@ func (c *Controller) parseCredential(
 func (c *Controller) signCredential(
 	ctx context.Context,
 	credential *verifiable.Credential,
-	opts []crypto.SigningOpts,
 	profile *profileapi.Issuer,
+	opts ...issuecredential.Opts,
 ) (*verifiable.Credential, error) {
-	signedVC, err := c.issueCredentialService.IssueCredential(ctx, credential, opts, profile)
+	signedVC, err := c.issueCredentialService.IssueCredential(ctx, credential, profile, opts...)
 	if err != nil {
 		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
 	}
@@ -664,9 +675,8 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return fmt.Errorf("validate claims: %w", err)
 	}
 
-	var signOpts []crypto.SigningOpts
-
-	signedCredential, err := c.signCredential(ctx, result.Credential, signOpts, profile)
+	signedCredential, err := c.signCredential(
+		ctx, result.Credential, profile, issuecredential.WithTransactionID(body.TxId))
 	if err != nil {
 		return err
 	}
@@ -677,6 +687,38 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		OidcFormat: string(result.OidcFormat),
 		Retry:      result.Retry,
 	}, nil)
+}
+
+// CredentialIssuanceHistory returns Credential Issuance history.
+// GET /issuer/profiles/{profileID}/{profileVersion}/issued-credentials.
+func (c *Controller) CredentialIssuanceHistory(e echo.Context, profileID string, profileVersion string) error {
+	credentialMetadata, err := c.credentialIssuanceHistoryStore.
+		GetIssuedCredentialsMetadata(e.Request().Context(), profileID, profileVersion)
+	if err != nil {
+		return err
+	}
+
+	historyData := make([]CredentialIssuanceHistoryData, 0, len(credentialMetadata))
+	for _, meta := range credentialMetadata {
+		historyData = append(historyData, CredentialIssuanceHistoryData{
+			CredentialId:    meta.CredentialID,
+			CredentialTypes: meta.CredentialType,
+			Issuer:          meta.Issuer,
+			ExpirationDate:  c.parseTime(meta.ExpirationDate),
+			IssuanceDate:    c.parseTime(meta.IssuanceDate),
+			TransactionId:   lo.ToPtr(meta.TransactionID),
+		})
+	}
+
+	return util.WriteOutput(e)(historyData, nil)
+}
+
+func (c *Controller) parseTime(t *utiltime.TimeWrapper) *string {
+	if t == nil {
+		return nil
+	}
+
+	return lo.ToPtr(t.Time.Format(time.RFC3339))
 }
 
 func (c *Controller) validateClaims( //nolint:gocognit

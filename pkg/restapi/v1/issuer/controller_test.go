@@ -25,6 +25,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -1612,6 +1614,75 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			err := handlerMethod(echoCtx, profileID, profileVersion)
 			assert.Error(t, err)
 		}
+	})
+}
+
+func TestCredentialIssuanceHistory(t *testing.T) {
+	credentialIssuanceStore := NewMockCredentialIssuanceHistoryStore(gomock.NewController(t))
+
+	t.Run("Success", func(t *testing.T) {
+		txID := uuid.NewString()
+		iss := timeutil.NewTime(time.Now())
+
+		credentialMetadata := &credentialstatus.CredentialMetadata{
+			CredentialID:   "credentialID",
+			Issuer:         "testIssuer",
+			CredentialType: []string{"verifiableCredential"},
+			TransactionID:  txID,
+			IssuanceDate:   iss,
+			ExpirationDate: nil,
+		}
+
+		credentialIssuanceStore.EXPECT().
+			GetIssuedCredentialsMetadata(gomock.Any(), profileID, profileVersion).
+			Times(1).
+			Return([]*credentialstatus.CredentialMetadata{credentialMetadata}, nil)
+
+		c := &Controller{
+			credentialIssuanceHistoryStore: credentialIssuanceStore,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		echoCtx := echoContext(withRecorder(recorder))
+
+		err := c.CredentialIssuanceHistory(echoCtx, profileID, profileVersion)
+		assert.NoError(t, err)
+
+		var gotResponse []CredentialIssuanceHistoryData
+		err = json.NewDecoder(recorder.Body).Decode(&gotResponse)
+		assert.NoError(t, err)
+
+		expectedResponse := []CredentialIssuanceHistoryData{
+			{
+				CredentialId:    "credentialID",
+				CredentialTypes: []string{"verifiableCredential"},
+				ExpirationDate:  nil,
+				IssuanceDate:    lo.ToPtr(iss.Time.Format(time.RFC3339)),
+				Issuer:          "testIssuer",
+				TransactionId:   &txID,
+			},
+		}
+
+		assert.Equal(t, expectedResponse, gotResponse)
+	})
+
+	t.Run("credentialIssuanceHistoryStore error", func(t *testing.T) {
+		credentialIssuanceStore.EXPECT().
+			GetIssuedCredentialsMetadata(gomock.Any(), profileID, profileVersion).
+			Times(1).
+			Return(nil, errors.New("some error"))
+
+		c := &Controller{
+			credentialIssuanceHistoryStore: credentialIssuanceStore,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		echoCtx := echoContext(withRecorder(recorder))
+
+		err := c.CredentialIssuanceHistory(echoCtx, profileID, profileVersion)
+		assert.Error(t, err)
 	})
 }
 

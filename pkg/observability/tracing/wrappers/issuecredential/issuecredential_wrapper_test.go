@@ -16,7 +16,6 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -24,10 +23,10 @@ func TestWrapper_IssueCredential(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().IssueCredential(gomock.Any(), &verifiable.Credential{}, []crypto.SigningOpts{}, &profile.Issuer{}).Times(1)
+	svc.EXPECT().IssueCredential(gomock.Any(), &verifiable.Credential{}, &profile.Issuer{}, nil).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.IssueCredential(context.Background(), &verifiable.Credential{}, []crypto.SigningOpts{}, &profile.Issuer{})
+	_, err := w.IssueCredential(context.Background(), &verifiable.Credential{}, &profile.Issuer{}, nil)
 	require.NoError(t, err)
 }
