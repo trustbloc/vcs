@@ -290,7 +290,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	}, nil)
 
 	presentationVerifier.EXPECT().VerifyPresentation(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().Return(nil, nil)
+		AnyTimes().Return(nil, nil, nil)
 
 	t.Run("Success", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
