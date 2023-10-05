@@ -55,7 +55,6 @@ func TestNew(t *testing.T) {
 				vdr:            &mockvdr.VDRegistry{},
 				documentLoader: testutil.DocumentLoader(t),
 				vcVerifier:     NewMockVcVerifier(gomock.NewController(t)),
-				claimKeys:      map[string][]string{},
 			},
 		},
 	}
@@ -920,7 +919,6 @@ func TestCredentialStrict(t *testing.T) {
 		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
 	})
 	assert.NoError(t, s.checkCredentialStrict(context.TODO(), []*verifiable.Credential{l}))
-	assert.ElementsMatch(t, []string{"type", "degree"}, s.GetClaimKeys()["credentialID"])
 }
 
 func TestCheckTrustList(t *testing.T) {

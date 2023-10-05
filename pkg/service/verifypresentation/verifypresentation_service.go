@@ -43,7 +43,6 @@ type Service struct {
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
 	vcVerifier     vcVerifier
-	claimKeys      map[string][]string
 }
 
 func New(config *Config) *Service {
@@ -51,7 +50,6 @@ func New(config *Config) *Service {
 		vdr:            config.VDR,
 		documentLoader: config.DocumentLoader,
 		vcVerifier:     config.VcVerifier,
-		claimKeys:      map[string][]string{},
 	}
 }
 
@@ -67,8 +65,6 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	defer func() {
 		logger.Debugc(ctx, "VerifyPresentation", log.WithDuration(time.Since(startTime)))
 	}()
-
-	s.claimKeys = map[string][]string{}
 
 	var result []PresentationVerificationCheckResult
 
@@ -173,7 +169,9 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 }
 
 func (s *Service) checkCredentialStrict(
-	ctx context.Context, credentials []*verifiable.Credential) error { //nolint:gocognit
+	ctx context.Context,
+	credentials []*verifiable.Credential,
+) error { //nolint:gocognit
 	for _, cred := range credentials {
 		//TODO: check how bug fixed will affects other code.
 		// previously if credential was not in format of *verifiable.Credential validations was ignored
@@ -201,8 +199,6 @@ func (s *Service) checkCredentialStrict(
 				claimKeys = append(claimKeys, k)
 			}
 		}
-
-		s.claimKeys[credContents.ID] = claimKeys
 
 		if logger.IsEnabled(log.DEBUG) {
 			logger.Debugc(ctx, "verifier strict validation check",
@@ -382,9 +378,4 @@ func (s *Service) extractCredentialStatus(
 	credContents := cred.Contents()
 
 	return credContents.Status, credContents.Issuer
-}
-
-// GetClaimKeys returns credential claim keys.
-func (s *Service) GetClaimKeys() map[string][]string {
-	return s.claimKeys
 }
