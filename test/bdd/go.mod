@@ -25,7 +25,7 @@ require (
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
-	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230710195911-02aad4f0fcec
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231003142611-b9399c5814c2
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
