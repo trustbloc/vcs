@@ -55,7 +55,6 @@ func TestNew(t *testing.T) {
 				vdr:            &mockvdr.VDRegistry{},
 				documentLoader: testutil.DocumentLoader(t),
 				vcVerifier:     NewMockVcVerifier(gomock.NewController(t)),
-				claimKeys:      map[string][]string{},
 			},
 		},
 	}
@@ -386,7 +385,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
 
-			got, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(), tt.args.opts, tt.args.profile)
+			got, _, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(), tt.args.opts, tt.args.profile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -919,8 +918,9 @@ func TestCredentialStrict(t *testing.T) {
 	s := New(&Config{
 		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
 	})
-	assert.NoError(t, s.checkCredentialStrict(context.TODO(), []*verifiable.Credential{l}))
-	assert.ElementsMatch(t, []string{"type", "degree"}, s.GetClaimKeys()["credentialID"])
+	claimKeys, err := s.checkCredentialStrict(context.TODO(), []*verifiable.Credential{l})
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"type", "degree"}, claimKeys["credentialID"])
 }
 
 func TestCheckTrustList(t *testing.T) {

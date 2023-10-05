@@ -31,5 +31,5 @@ type ServiceInterface interface {
 		presentation *verifiable.Presentation,
 		opts *Options,
 		profile *profileapi.Verifier,
-	) ([]PresentationVerificationCheckResult, error)
+	) ([]PresentationVerificationCheckResult, map[string][]string, error)
 }

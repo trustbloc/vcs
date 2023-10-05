@@ -39,7 +39,7 @@ func (w *Wrapper) VerifyPresentation(
 	presentation *verifiable.Presentation,
 	opts *verifypresentation.Options,
 	profile *profileapi.Verifier,
-) ([]verifypresentation.PresentationVerificationCheckResult, error) {
+) ([]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error) {
 	ctx, span := w.tracer.Start(ctx, "verifypresentation.VerifyPresentation")
 	defer span.End()
 
@@ -49,23 +49,21 @@ func (w *Wrapper) VerifyPresentation(
 		span.SetAttributes(attributeutil.JSON("opts", opts))
 	}
 
-	res, err := w.svc.VerifyPresentation(ctx, presentation, opts, profile)
+	res, claimKeys, err := w.svc.VerifyPresentation(ctx, presentation, opts, profile)
+	w.setClaimKeys(span, claimKeys)
+
 	if err != nil {
-		w.setClaimKeys(span)
-		return nil, err
+		return nil, claimKeys, err
 	}
 
-	w.setClaimKeys(span)
-	return res, nil
+	return res, claimKeys, nil
 }
 
-func (w *Wrapper) setClaimKeys(span trace.Span) {
-	svc, ok := w.svc.(*verifypresentation.Service)
-	if !ok {
-		return
-	}
-
-	for id, claimKeys := range svc.GetClaimKeys() {
-		span.SetAttributes(attribute.StringSlice(fmt.Sprintf("claim_keys_%s", id), claimKeys))
+func (w *Wrapper) setClaimKeys(
+	span trace.Span,
+	claimKeys map[string][]string,
+) {
+	for id, key := range claimKeys {
+		span.SetAttributes(attribute.StringSlice(fmt.Sprintf("claim_keys_%s", id), key))
 	}
 }

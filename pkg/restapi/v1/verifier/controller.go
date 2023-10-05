@@ -285,7 +285,7 @@ func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresent
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation", err)
 	}
 
-	verRes, err := c.verifyPresentationSvc.VerifyPresentation(ctx, presentation,
+	verRes, _, err := c.verifyPresentationSvc.VerifyPresentation(ctx, presentation,
 		getVerifyPresentationOptions(body.Options), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
