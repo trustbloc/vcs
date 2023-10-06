@@ -50,9 +50,9 @@ type cslVCStore interface {
 type vcStatusStore interface {
 	Put(
 		ctx context.Context,
-		profileID string,
-		profileVersion string,
-		metadata *credentialstatus.CredentialMetadata,
+		profileID profileapi.ID,
+		profileVersion profileapi.Version,
+		credentialID string,
 		typedID *verifiable.TypedID,
 	) error
 }
@@ -95,7 +95,7 @@ func New(config *Config) (*Manager, error) {
 func (s *Manager) CreateCSLEntry(
 	ctx context.Context,
 	profile *profileapi.Issuer,
-	credentialMetadata *credentialstatus.CredentialMetadata,
+	credentialID string,
 ) (*credentialstatus.StatusListEntry, error) {
 	logger.Debugc(ctx, "CSL Manager - CreateCSLEntry",
 		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
@@ -116,7 +116,7 @@ func (s *Manager) CreateCSLEntry(
 	}
 
 	// Store VC status to DB
-	err = s.vcStatusStore.Put(ctx, profile.ID, profile.Version, credentialMetadata, statusListEntry.TypedID)
+	err = s.vcStatusStore.Put(ctx, profile.ID, profile.Version, credentialID, statusListEntry.TypedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store credential status: %w", err)
 	}

@@ -38,16 +38,16 @@ func (w *Wrapper) CreateStatusListEntry(
 	ctx context.Context,
 	profileID profileapi.ID,
 	profileVersion profileapi.Version,
-	credentialMetadata *credentialstatus.CredentialMetadata,
+	credentialID string,
 ) (*credentialstatus.StatusListEntry, error) {
 	ctx, span := w.tracer.Start(ctx, "credentialstatus.CreateStatusListEntry")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profileID))
 	span.SetAttributes(attribute.String("profile_version", profileVersion))
-	span.SetAttributes(attribute.String("credential_id", credentialMetadata.CredentialID))
+	span.SetAttributes(attribute.String("credential_id", credentialID))
 
-	entry, err := w.svc.CreateStatusListEntry(ctx, profileID, profileVersion, credentialMetadata)
+	entry, err := w.svc.CreateStatusListEntry(ctx, profileID, profileVersion, credentialID)
 	if err != nil {
 		return nil, err
 	}

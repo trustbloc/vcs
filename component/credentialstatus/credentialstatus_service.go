@@ -71,7 +71,7 @@ type cslManager interface {
 	CreateCSLEntry(
 		ctx context.Context,
 		profile *profileapi.Issuer,
-		credentialMetadata *credentialstatus.CredentialMetadata,
+		credentialID string,
 	) (*credentialstatus.StatusListEntry, error)
 }
 
@@ -173,18 +173,19 @@ func (s *Service) CreateStatusListEntry(
 	ctx context.Context,
 	profileID profileapi.ID,
 	profileVersion profileapi.Version,
-	credentialMetadata *credentialstatus.CredentialMetadata) (*credentialstatus.StatusListEntry, error) {
+	credentialID string,
+) (*credentialstatus.StatusListEntry, error) {
 	logger.Debugc(ctx, "CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
 		logfields.WithProfileVersion(profileVersion),
-		logfields.WithCredentialID(credentialMetadata.CredentialID))
+		logfields.WithCredentialID(credentialID))
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
-	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialMetadata)
+	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialID)
 	if err != nil {
 		return nil, fmt.Errorf("create CSL entry: %w", err)
 	}

@@ -104,6 +104,7 @@ import (
 	oidc4vpnoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpnoncestore"
 	oidc4vptxstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcissuancehistorystore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
@@ -599,12 +600,15 @@ func buildEchoHandler(
 		statusListVCSvc = credentialstatustracing.Wrap(statusListVCSvc, conf.Tracer)
 	}
 
+	vcIssuanceHistoryStore := vcissuancehistorystore.NewStore(mongodbClient)
+
 	var issueCredentialSvc issuecredential.ServiceInterface
 
 	issueCredentialSvc = issuecredential.New(&issuecredential.Config{
-		VCStatusManager: statusListVCSvc,
-		Crypto:          vcCrypto,
-		KMSRegistry:     kmsRegistry,
+		VCStatusManager:                statusListVCSvc,
+		Crypto:                         vcCrypto,
+		KMSRegistry:                    kmsRegistry,
+		CredentialIssuanceHistoryStore: vcIssuanceHistoryStore,
 	})
 
 	if conf.IsTraceEnabled {
@@ -773,7 +777,7 @@ func buildEchoHandler(
 		IssueCredentialService:         issueCredentialSvc,
 		VcStatusManager:                statusListVCSvc,
 		OIDC4CIService:                 oidc4ciService,
-		CredentialIssuanceHistoryStore: vcStatusStore,
+		CredentialIssuanceHistoryStore: vcIssuanceHistoryStore,
 		ExternalHostURL:                conf.StartupParameters.apiGatewayURL,
 		Tracer:                         conf.Tracer,
 		OpenidIssuerConfigProvider:     openidCredentialIssuerConfigProviderSvc,

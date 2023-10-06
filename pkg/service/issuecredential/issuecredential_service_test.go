@@ -58,7 +58,10 @@ func TestService_IssueCredential(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+	ctr := gomock.NewController(t)
+
+	mockVCStatusManager := NewMockVCStatusManager(ctr)
+	mockCredentialIssuanceHistoryStore := NewMockCredentialIssuanceHistoryStore(ctr)
 
 	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
@@ -120,17 +123,10 @@ func TestService_IssueCredential(t *testing.T) {
 						crypto := vccrypto.New(
 							&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
-						expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
-							CredentialID:   "urn:uuid:" + credential.Contents().ID,
-							Issuer:         didDoc.ID,
-							CredentialType: credential.Contents().Types,
-							TransactionID:  transactionID,
-							IssuanceDate:   credential.Contents().Issued,
-							ExpirationDate: credential.Contents().Expired,
-						}
-
 						mockVCStatusManager.EXPECT().
-							CreateStatusListEntry(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(
+							CreateStatusListEntry(
+								ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID).
+							Times(1).Return(
 							&credentialstatus.StatusListEntry{
 								Context: "https://w3id.org/vc-revocation-list-2020/v1",
 								TypedID: &verifiable.TypedID{
@@ -139,10 +135,23 @@ func TestService_IssueCredential(t *testing.T) {
 								},
 							}, nil)
 
+						expectedCredentialMetadata := &vc.CredentialMetadata{
+							CredentialID:   "urn:uuid:" + credential.Contents().ID,
+							Issuer:         didDoc.ID,
+							CredentialType: credential.Contents().Types,
+							TransactionID:  transactionID,
+							IssuanceDate:   credential.Contents().Issued,
+							ExpirationDate: credential.Contents().Expired,
+						}
+
+						mockCredentialIssuanceHistoryStore.EXPECT().
+							Put(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(nil)
+
 						service := issuecredential.New(&issuecredential.Config{
-							VCStatusManager: mockVCStatusManager,
-							Crypto:          crypto,
-							KMSRegistry:     kmsRegistry,
+							VCStatusManager:                mockVCStatusManager,
+							Crypto:                         crypto,
+							KMSRegistry:                    kmsRegistry,
+							CredentialIssuanceHistoryStore: mockCredentialIssuanceHistoryStore,
 						})
 
 						verifiableCredentials, err := service.IssueCredential(
@@ -161,7 +170,6 @@ func TestService_IssueCredential(t *testing.T) {
 									Creator:  didDoc.VerificationMethod[0].ID,
 									KMSKeyID: keyID,
 								}},
-
 							issuecredential.WithTransactionID(transactionID),
 						)
 						require.NoError(t, err)
@@ -207,17 +215,10 @@ func TestService_IssueCredential(t *testing.T) {
 				crypto := vccrypto.New(
 					&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
-				expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
-					CredentialID:   "urn:uuid:" + credential.Contents().ID,
-					Issuer:         didDoc.ID,
-					CredentialType: credential.Contents().Types,
-					TransactionID:  transactionID,
-					IssuanceDate:   credential.Contents().Issued,
-					ExpirationDate: credential.Contents().Expired,
-				}
-
 				mockVCStatusManager.EXPECT().
-					CreateStatusListEntry(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(
+					CreateStatusListEntry(
+						ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID).
+					Times(1).Return(
 					&credentialstatus.StatusListEntry{
 						Context: "https://w3id.org/vc-revocation-list-2020/v1",
 						TypedID: &verifiable.TypedID{
@@ -226,10 +227,23 @@ func TestService_IssueCredential(t *testing.T) {
 						},
 					}, nil)
 
+				expectedCredentialMetadata := &vc.CredentialMetadata{
+					CredentialID:   "urn:uuid:" + credential.Contents().ID,
+					Issuer:         didDoc.ID,
+					CredentialType: credential.Contents().Types,
+					TransactionID:  transactionID,
+					IssuanceDate:   credential.Contents().Issued,
+					ExpirationDate: credential.Contents().Expired,
+				}
+
+				mockCredentialIssuanceHistoryStore.EXPECT().
+					Put(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(nil)
+
 				service := issuecredential.New(&issuecredential.Config{
-					VCStatusManager: mockVCStatusManager,
-					Crypto:          crypto,
-					KMSRegistry:     kmsRegistry,
+					VCStatusManager:                mockVCStatusManager,
+					Crypto:                         crypto,
+					KMSRegistry:                    kmsRegistry,
+					CredentialIssuanceHistoryStore: mockCredentialIssuanceHistoryStore,
 				})
 
 				verifiableCredentials, err := service.IssueCredential(
@@ -295,7 +309,7 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
-	t.Run("Error DataProtector", func(t *testing.T) {
+	t.Run("Error SignCredential", func(t *testing.T) {
 		kmRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
@@ -366,6 +380,46 @@ func TestService_IssueCredential(t *testing.T) {
 				}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unknown signature format")
+		require.Nil(t, verifiableCredentials)
+	})
+
+	t.Run("Error CredentialIssuanceHistoryStore", func(t *testing.T) {
+		kmRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
+
+		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(
+			&credentialstatus.StatusListEntry{
+				Context: vcutil.DefVCContext,
+				TypedID: &verifiable.TypedID{
+					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+					Type: "JsonSchemaValidator2018",
+				},
+			}, nil)
+
+		cr := NewMockvcCrypto(gomock.NewController(t))
+		cr.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			nil, nil)
+
+		mockCredentialIssuanceHistoryStore.EXPECT().
+			Put(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.New("some error"))
+
+		service := issuecredential.New(&issuecredential.Config{
+			KMSRegistry:                    kmRegistry,
+			VCStatusManager:                vcStatusManager,
+			Crypto:                         cr,
+			CredentialIssuanceHistoryStore: mockCredentialIssuanceHistoryStore,
+		})
+
+		verifiableCredentials, err := service.IssueCredential(
+			ctx,
+			&verifiable.Credential{},
+			&profileapi.Issuer{
+				SigningDID: &profileapi.SigningDID{},
+				VCConfig: &profileapi.VCConfig{
+					Format: vcs.Ldp,
+				}})
+		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
 }
