@@ -25,7 +25,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 )
 
-func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credential, error) {
+func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig) (*verifiable.Credential, error) {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	startTime := time.Now()
@@ -35,21 +35,21 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	}
 	s.perfInfo.CreateWallet = time.Since(startTime)
 
-	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(
-		&credentialoffer.Params{
-			InitiateIssuanceURL: config.InitiateIssuanceURL,
-			Client:              s.httpClient,
-			VDRRegistry:         s.ariesServices.vdrRegistry,
-		},
-	)
+	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.CredentialOfferURI)
+
+	parser := &credentialoffer.Parser{
+		HTTPClient:  s.httpClient,
+		VDRRegistry: s.ariesServices.vdrRegistry,
+	}
+
+	credentialOfferResponse, err := parser.Parse(config.CredentialOfferURI)
 	if err != nil {
-		return nil, fmt.Errorf("parse initiate issuance url: %w", err)
+		return nil, fmt.Errorf("parse credential offer uri: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")
 	startTime = time.Now()
-	oidcIssuerCredentialConfig, err := s.GetWellKnownOpenIDConfiguration(offerResponse.CredentialIssuer)
+	oidcIssuerCredentialConfig, err := s.GetWellKnownOpenIDConfiguration(credentialOfferResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
 
@@ -59,11 +59,11 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-		"pre-authorized_code": []string{offerResponse.Grants.PreAuthorizationGrant.PreAuthorizedCode},
+		"pre-authorized_code": []string{credentialOfferResponse.Grants.PreAuthorizationGrant.PreAuthorizedCode},
 		"client_id":           []string{config.ClientID},
 	}
 
-	if offerResponse.Grants.PreAuthorizationGrant.UserPinRequired {
+	if credentialOfferResponse.Grants.PreAuthorizationGrant.UserPinRequired {
 		if len(config.Pin) == 0 {
 			log.Println("Enter PIN:")
 			scanner := bufio.NewScanner(os.Stdin)
@@ -111,7 +111,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
-		offerResponse.CredentialIssuer)
+		credentialOfferResponse.CredentialIssuer)
 	if err != nil {
 		return nil, fmt.Errorf("get credential: %w", err)
 	}
@@ -122,8 +122,6 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	if err != nil {
 		return nil, fmt.Errorf("marshal vc: %w", err)
 	}
-
-	log.Printf(string(b))
 
 	s.print("Adding credential to wallet")
 

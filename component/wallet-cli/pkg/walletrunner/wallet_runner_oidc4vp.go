@@ -318,9 +318,8 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletSingleVP() error {
 
 func (e *VPFlowExecutor) QueryCredentialFromWalletMultiVP() error {
 	pdBytes, err := json.Marshal(e.requestObject.Claims.VPToken.PresentationDefinition)
-
 	if err != nil {
-		return fmt.Errorf("presentation definition marshal: %w", err)
+		return fmt.Errorf("marshal presentation definition: %w", err)
 	}
 
 	// This query will always return one VP - so far no plans to change this

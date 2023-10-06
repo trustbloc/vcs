@@ -1,3 +1,9 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package credentialoffer
 
 import (
@@ -15,45 +21,45 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
-type Params struct {
-	InitiateIssuanceURL string
-	Client              *http.Client
-	VDRRegistry         vdrapi.Registry
+// Parser parses credential offer.
+type Parser struct {
+	HTTPClient  *http.Client
+	VDRRegistry vdrapi.Registry
 }
 
-func ParseInitiateIssuanceUrl(params *Params) (*oidc4ci.CredentialOfferResponse, error) {
-	initiateIssuanceURLParsed, err := url.Parse(params.InitiateIssuanceURL)
+func (p *Parser) Parse(credentialOfferURI string) (*oidc4ci.CredentialOfferResponse, error) {
+	u, err := url.Parse(credentialOfferURI)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse url %w", err)
+		return nil, fmt.Errorf("invalid credential offer uri: %w", err)
 	}
 
 	var offerResponse oidc4ci.CredentialOfferResponse
 	var credentialOfferPayload []byte
 
-	if credentialOfferQueryParam := initiateIssuanceURLParsed.Query().Get("credential_offer"); len(credentialOfferQueryParam) > 0 {
+	if credentialOfferQueryParam := u.Query().Get("credential_offer"); len(credentialOfferQueryParam) > 0 {
 		credentialOfferPayload = []byte(credentialOfferQueryParam)
-		// Depends on Issuer configuration, credentialOfferURL might be either JWT signed CredentialOfferResponse,
-		// or encoded oidc4ci.CredentialOfferResponse itself.
+		// depending on issuer configuration, credentialOfferURL might be either JWT-signed CredentialOfferResponse,
+		// or encoded CredentialOfferResponse itself.
 		if jwt.IsJWS(credentialOfferQueryParam) {
-			credentialOfferPayload, err = getCredentialOfferJWTPayload(credentialOfferQueryParam, params.VDRRegistry)
+			credentialOfferPayload, err = getCredentialOfferJWTPayload(credentialOfferQueryParam, p.VDRRegistry)
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		if err = json.Unmarshal(credentialOfferPayload, &offerResponse); err != nil {
-			return nil, fmt.Errorf("can not parse credential offer. %w", err)
+			return nil, fmt.Errorf("unmarshal credential offer payload: %w", err)
 		}
 
 		return &offerResponse, nil
 	}
 
-	remoteURI := initiateIssuanceURLParsed.Query().Get("credential_offer_uri")
+	remoteURI := u.Query().Get("credential_offer_uri")
 	if remoteURI == "" {
-		return nil, fmt.Errorf("credential_offer and credential_offer_uri are both empty")
+		return nil, fmt.Errorf("both credential_offer and credential_offer_uri are empty")
 	}
 
-	resp, err := params.Client.Get(remoteURI)
+	resp, err := p.HTTPClient.Get(remoteURI)
 	if err != nil {
 		return nil, err
 	}
@@ -62,13 +68,11 @@ func ParseInitiateIssuanceUrl(params *Params) (*oidc4ci.CredentialOfferResponse,
 
 	credentialOfferPayload, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read credential_offer_uriresponse body: %w", err)
+		return nil, fmt.Errorf("read credential_offer_uri response body: %w", err)
 	}
 
-	// Depends on Issuer configuration, rspBody might be either JWT signed CredentialOfferResponse,
-	// or encoded oidc4ci.CredentialOfferResponse itself.
 	if jwt.IsJWS(string(credentialOfferPayload)) {
-		credentialOfferPayload, err = getCredentialOfferJWTPayload(string(credentialOfferPayload), params.VDRRegistry)
+		credentialOfferPayload, err = getCredentialOfferJWTPayload(string(credentialOfferPayload), p.VDRRegistry)
 		if err != nil {
 			return nil, err
 		}
@@ -94,15 +98,16 @@ func getCredentialOfferJWTPayload(rawResponse string, vdrRegistry vdrapi.Registr
 		return nil, fmt.Errorf("parse credential offer JWT: %w", err)
 	}
 
-	var fastParser fastjson.Parser
-	v, err := fastParser.ParseBytes(credentialOfferPayload)
+	var parser fastjson.Parser
+
+	v, err := parser.ParseBytes(credentialOfferPayload)
 	if err != nil {
-		return nil, fmt.Errorf("decode claims: %w", err)
+		return nil, fmt.Errorf("decode credential offer payload: %w", err)
 	}
 
 	sb, err := v.Get("credential_offer").Object()
 	if err != nil {
-		return nil, fmt.Errorf("fastjson.Parser Get credential_offer: %w", err)
+		return nil, fmt.Errorf("gGet credential_offer from payload: %w", err)
 	}
 
 	return sb.MarshalTo([]byte{}), nil

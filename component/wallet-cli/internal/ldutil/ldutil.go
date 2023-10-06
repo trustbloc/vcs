@@ -7,13 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package ldutil
 
 import (
+	"crypto/tls"
 	_ "embed"
 	"fmt"
+	"net/http"
 
+	jsonld "github.com/piprate/json-gold/ld"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	"github.com/trustbloc/did-go/doc/ld/context/remote"
 	ld "github.com/trustbloc/did-go/doc/ld/documentloader"
 	ldstore "github.com/trustbloc/did-go/doc/ld/store"
-	"github.com/trustbloc/did-go/legacy/mem"
+	"github.com/trustbloc/kms-go/spi/storage"
 )
 
 // nolint:gochecknoglobals //embedded test contexts
@@ -32,6 +36,8 @@ var (
 	odrl []byte
 	//go:embed contexts/revocation-list-2021.jsonld
 	revocationList2021 []byte
+	//go:embed contexts/data-integrity-v1.jsonld
+	dataIntegrityV1 []byte
 )
 
 var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
@@ -65,16 +71,21 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		DocumentURL: "https://raw.githubusercontent.com/w3c-ccg/vc-status-list-2021/343b8b59cddba4525e1ef355356ae760fc75904e/contexts/v1.jsonld",
 		Content:     revocationList2021,
 	},
+	{
+		URL:         "https://w3id.org/security/data-integrity/v1",
+		DocumentURL: "https://w3c.github.io/vc-data-integrity/contexts/data-integrity/v1.jsonld",
+		Content:     dataIntegrityV1,
+	},
 }
 
 // DocumentLoader returns a JSON-LD document loader with preloaded test contexts.
-func DocumentLoader() (*ld.DocumentLoader, error) {
-	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
+func DocumentLoader(storageProvider storage.Provider, opts ...Opt) (*ld.DocumentLoader, error) {
+	contextStore, err := ldstore.NewContextStore(storageProvider)
 	if err != nil {
 		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
 	}
 
-	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mem.NewProvider())
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(storageProvider)
 	if err != nil {
 		return nil, fmt.Errorf("create remote provider store: %w", err)
 	}
@@ -84,7 +95,40 @@ func DocumentLoader() (*ld.DocumentLoader, error) {
 		RemoteProviderStore: remoteProviderStore,
 	}
 
-	loader, err := ld.NewDocumentLoader(ldStore, ld.WithExtraContexts(extraContexts...))
+	o := &options{
+		tlsConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	for _, f := range opts {
+		f(o)
+	}
+
+	loaderOpts := []ld.Opts{ld.WithExtraContexts(extraContexts...)}
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: o.tlsConfig,
+		},
+	}
+
+	for _, url := range o.providerURLs {
+		if url == "" {
+			continue
+		}
+
+		loaderOpts = append(loaderOpts,
+			ld.WithRemoteProvider(
+				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
+			),
+		)
+	}
+
+	if o.contextEnableRemote {
+		loaderOpts = append(loaderOpts,
+			ld.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
@@ -103,4 +147,30 @@ func (p *ldStoreProvider) JSONLDContextStore() ldstore.ContextStore {
 
 func (p *ldStoreProvider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
 	return p.RemoteProviderStore
+}
+
+type options struct {
+	tlsConfig           *tls.Config
+	providerURLs        []string
+	contextEnableRemote bool
+}
+
+type Opt func(opts *options)
+
+func WithTLSConfig(config *tls.Config) Opt {
+	return func(opts *options) {
+		opts.tlsConfig = config
+	}
+}
+
+func WithRemoteProviderURL(url string) Opt {
+	return func(opts *options) {
+		opts.providerURLs = append(opts.providerURLs, url)
+	}
+}
+
+func WithContextEnableRemote() Opt {
+	return func(opts *options) {
+		opts.contextEnableRemote = true
+	}
 }

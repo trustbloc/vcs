@@ -210,11 +210,11 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	}
 
 	// run pre-auth flow and save credential in the wallet
-	credentials, err := c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: credentialOfferURL,
-		CredentialType:      c.credentialType,
-		CredentialFormat:    c.credentialFormat,
-		Pin:                 pin,
+	credentials, err := c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: credentialOfferURL,
+		CredentialType:     c.credentialType,
+		CredentialFormat:   c.credentialFormat,
+		Pin:                pin,
 	})
 
 	credID := ""

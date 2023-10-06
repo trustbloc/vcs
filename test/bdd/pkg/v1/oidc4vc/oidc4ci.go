@@ -123,11 +123,11 @@ func (s *Steps) runOIDC4CIPreAuth(initiateOIDC4CIRequest initiateOIDC4CIRequest)
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
 
-	_, err = s.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Pin:                 *initiateOIDC4CIResponseData.UserPin,
+	_, err = s.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+		CredentialType:     s.issuedCredentialType,
+		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Pin:                *initiateOIDC4CIResponseData.UserPin,
 	})
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
@@ -256,15 +256,15 @@ func (s *Steps) runOIDC4CIAuthWithError(updatedClientID, errorContains string) e
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:            "oidc4vc_client",
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:           "oidc4vc_client",
+		Scopes:             []string{"openid", "profile"},
+		RedirectURI:        "http://127.0.0.1/callback",
+		CredentialType:     s.issuedCredentialType,
+		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:              "bdd-test",
+		Password:           "bdd-test-pass",
 	}, &walletrunner.Hooks{
 		BeforeTokenRequest: []walletrunner.OauthClientOpt{
 			walletrunner.WithClientID(updatedClientID),
@@ -307,27 +307,27 @@ func (s *Steps) runOIDC4CIAuth() error {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:            "oidc4vc_client",
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:           "oidc4vc_client",
+		Scopes:             []string{"openid", "profile"},
+		RedirectURI:        "http://127.0.0.1/callback",
+		CredentialType:     s.issuedCredentialType,
+		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:              "bdd-test",
+		Password:           "bdd-test-pass",
 	}, nil)
 	if err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4CI: %w", err)
+		return fmt.Errorf("s.walletRunner.RunOIDC4VCI: %w", err)
 	}
 
 	return nil
 }
 
 func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
-	err := s.walletRunner.RunOIDC4CIWalletInitiated(&walletrunner.OIDC4CIConfig{
+	err := s.walletRunner.RunOIDC4CIWalletInitiated(&walletrunner.OIDC4VCIConfig{
 		ClientID:         "oidc4vc_client",
-		Scope:            []string{"openid", "profile"},
+		Scopes:           []string{"openid", "profile"},
 		RedirectURI:      "http://127.0.0.1/callback",
 		CredentialType:   s.issuedCredentialType,
 		CredentialFormat: s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
@@ -366,15 +366,15 @@ func (s *Steps) runOIDC4CIAuthWithInvalidClaims() error {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4CI(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:            "oidc4vc_client",
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:           "oidc4vc_client",
+		Scopes:             []string{"openid", "profile"},
+		RedirectURI:        "http://127.0.0.1/callback",
+		CredentialType:     s.issuedCredentialType,
+		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:              "bdd-test",
+		Password:           "bdd-test-pass",
 	}, nil)
 	if err == nil {
 		return fmt.Errorf("error expected, got nil")
@@ -392,14 +392,14 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 	if err != nil {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
-	config := &walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateOIDC4CIResponseData.OfferCredentialURL,
-		Scope:               []string{"openid", "profile"},
-		RedirectURI:         "http://127.0.0.1/callback",
-		CredentialType:      s.issuedCredentialType,
-		CredentialFormat:    s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:               "bdd-test",
-		Password:            "bdd-test-pass",
+	config := &walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+		Scopes:             []string{"openid", "profile"},
+		RedirectURI:        "http://127.0.0.1/callback",
+		CredentialType:     s.issuedCredentialType,
+		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:              "bdd-test",
+		Password:           "bdd-test-pass",
 	}
 
 	switch method {
@@ -414,13 +414,13 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 		config.ClientID = clientID
 	case "discoverable":
 		config.ClientID = "https://file-server.trustbloc.local:10096"
-		config.DiscoverableClientID = true
+		config.EnableDiscoverableClientID = true
 	default:
 		return fmt.Errorf("unsupported client registration method: %s", method)
 	}
 
-	if err = s.walletRunner.RunOIDC4CI(config, nil); err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4CI: %w", err)
+	if err = s.walletRunner.RunOIDC4VCI(config, nil); err != nil {
+		return fmt.Errorf("s.walletRunner.RunOIDC4VCI: %w", err)
 	}
 
 	return nil
