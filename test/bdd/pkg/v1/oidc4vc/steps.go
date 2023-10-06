@@ -117,6 +117,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
 	sc.Step(`^credential is issued$`, s.checkIssuedCredential)
+	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// CI.
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow$`, s.runOIDC4CIAuth)

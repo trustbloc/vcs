@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/did-go/doc/did"
@@ -44,6 +45,11 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
+const (
+	testProfileID      = "testtestProfile"
+	testProfileVersion = "v1.0"
+)
+
 func TestService_IssueCredential(t *testing.T) {
 	t.Parallel()
 
@@ -52,21 +58,17 @@ func TestService_IssueCredential(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
+	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+
 	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
 		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
 	ctx := context.Background()
 
-	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(
-		&credentialstatus.StatusListEntry{
-			Context: "https://w3id.org/vc-revocation-list-2020/v1",
-			TypedID: &verifiable.TypedID{
-				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
-				Type: string(vc.RevocationList2020VCStatus),
-			},
-		}, nil)
+	credential := createCredential(t)
+
+	transactionID := uuid.NewString()
 
 	t.Run("Success LDP", func(t *testing.T) {
 		t.Parallel()
@@ -118,6 +120,25 @@ func TestService_IssueCredential(t *testing.T) {
 						crypto := vccrypto.New(
 							&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
+						expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
+							CredentialID:   "urn:uuid:" + credential.Contents().ID,
+							Issuer:         didDoc.ID,
+							CredentialType: credential.Contents().Types,
+							TransactionID:  transactionID,
+							IssuanceDate:   credential.Contents().Issued,
+							ExpirationDate: credential.Contents().Expired,
+						}
+
+						mockVCStatusManager.EXPECT().
+							CreateStatusListEntry(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(
+							&credentialstatus.StatusListEntry{
+								Context: "https://w3id.org/vc-revocation-list-2020/v1",
+								TypedID: &verifiable.TypedID{
+									ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+									Type: string(vc.RevocationList2020VCStatus),
+								},
+							}, nil)
+
 						service := issuecredential.New(&issuecredential.Config{
 							VCStatusManager: mockVCStatusManager,
 							Crypto:          crypto,
@@ -126,9 +147,10 @@ func TestService_IssueCredential(t *testing.T) {
 
 						verifiableCredentials, err := service.IssueCredential(
 							ctx,
-							getVC(t),
-							nil,
+							credential,
 							&profileapi.Issuer{
+								ID:      testProfileID,
+								Version: testProfileVersion,
 								VCConfig: &profileapi.VCConfig{
 									SigningAlgorithm:        vcs.JSONWebSignature2020,
 									SignatureRepresentation: sigRepresentationTextCase.sr,
@@ -139,6 +161,8 @@ func TestService_IssueCredential(t *testing.T) {
 									Creator:  didDoc.VerificationMethod[0].ID,
 									KMSKeyID: keyID,
 								}},
+
+							issuecredential.WithTransactionID(transactionID),
 						)
 						require.NoError(t, err)
 						validateVC(t, verifiableCredentials, didDoc, sigRepresentationTextCase.sr, vcs.Ldp)
@@ -183,6 +207,25 @@ func TestService_IssueCredential(t *testing.T) {
 				crypto := vccrypto.New(
 					&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
+				expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
+					CredentialID:   "urn:uuid:" + credential.Contents().ID,
+					Issuer:         didDoc.ID,
+					CredentialType: credential.Contents().Types,
+					TransactionID:  transactionID,
+					IssuanceDate:   credential.Contents().Issued,
+					ExpirationDate: credential.Contents().Expired,
+				}
+
+				mockVCStatusManager.EXPECT().
+					CreateStatusListEntry(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(
+					&credentialstatus.StatusListEntry{
+						Context: "https://w3id.org/vc-revocation-list-2020/v1",
+						TypedID: &verifiable.TypedID{
+							ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+							Type: string(vc.RevocationList2020VCStatus),
+						},
+					}, nil)
+
 				service := issuecredential.New(&issuecredential.Config{
 					VCStatusManager: mockVCStatusManager,
 					Crypto:          crypto,
@@ -191,9 +234,10 @@ func TestService_IssueCredential(t *testing.T) {
 
 				verifiableCredentials, err := service.IssueCredential(
 					ctx,
-					getVC(t),
-					nil,
+					credential,
 					&profileapi.Issuer{
+						ID:      testProfileID,
+						Version: testProfileVersion,
 						VCConfig: &profileapi.VCConfig{
 							SigningAlgorithm: vcs.JSONWebSignature2020,
 							Format:           vcs.Jwt,
@@ -204,6 +248,7 @@ func TestService_IssueCredential(t *testing.T) {
 							Creator:  didDoc.VerificationMethod[0].ID,
 							KMSKeyID: keyID,
 						}},
+					issuecredential.WithTransactionID(transactionID),
 				)
 				require.NoError(t, err)
 				validateVC(t, verifiableCredentials, didDoc, 0, vcs.Jwt)
@@ -222,7 +267,6 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			ctx,
 			&verifiable.Credential{},
-			nil,
 			&profileapi.Issuer{})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
@@ -243,7 +287,6 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			ctx,
 			&verifiable.Credential{},
-			nil,
 			&profileapi.Issuer{
 				SigningDID: &profileapi.SigningDID{},
 				VCConfig: &profileapi.VCConfig{
@@ -278,7 +321,6 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			ctx,
 			&verifiable.Credential{},
-			nil,
 			&profileapi.Issuer{
 				SigningDID: &profileapi.SigningDID{},
 				VCConfig: &profileapi.VCConfig{
@@ -317,7 +359,6 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			ctx,
 			&verifiable.Credential{},
-			nil,
 			&profileapi.Issuer{
 				SigningDID: &profileapi.SigningDID{},
 				VCConfig: &profileapi.VCConfig{
@@ -329,10 +370,10 @@ func TestService_IssueCredential(t *testing.T) {
 	})
 }
 
-func getVC(t *testing.T) *verifiable.Credential {
+func createCredential(t *testing.T) *verifiable.Credential {
 	t.Helper()
 
-	vc, err := verifiable.CreateCredential(verifiable.CredentialContents{
+	vcCreated, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
@@ -350,7 +391,7 @@ func getVC(t *testing.T) *verifiable.Credential {
 	})
 	require.NoError(t, err)
 
-	return vc
+	return vcCreated
 }
 
 func validateVC(

@@ -16,7 +16,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
@@ -32,6 +34,7 @@ import (
 const (
 	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
+	issuedCredentialHistoryURL          = vcsAPIGateway + "/issuer/profiles/%s/%s/issued-credentials"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
@@ -506,8 +509,9 @@ func (s *Steps) checkIssuedCredential() error {
 		return fmt.Errorf("unexpected amount fo credentials in wallet")
 	}
 
+	var vcParsed *verifiable.Credential
+
 	for _, vcBytes := range credentialMap {
-		var vcParsed *verifiable.Credential
 		vcParsed, err = verifiable.ParseCredential(vcBytes,
 			verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(s.dl))
@@ -522,7 +526,91 @@ func (s *Steps) checkIssuedCredential() error {
 		break
 	}
 
+	return s.checkIssuedCredentialHistory(vcParsed, true)
+}
+
+func (s *Steps) checkIssuedCredentialHistory(credential *verifiable.Credential, oidcFlow bool) error {
+	// If credential status is disabled - history will not be stored.
+	if s.issuerProfile.VCConfig.Status.Disable {
+		return nil
+	}
+
+	endpointURL := fmt.Sprintf(issuedCredentialHistoryURL, s.issuerProfile.ID, s.issuerProfile.Version)
+
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.ID+"/"+s.issuerProfile.Version)]
+
+	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "application/json", token, nil, s.bddContext.TLSConfig)
+	if err != nil {
+		return fmt.Errorf("checkIssuedCredentialHistory: https do: %w", err)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("checkIssuedCredentialHistory: read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	var r []credentialIssuanceHistoryData
+	err = json.Unmarshal(b, &r)
+	if err != nil {
+		return fmt.Errorf("checkIssuedCredentialHistory: read response body: %w", err)
+	}
+
+	historyRecord, exist := lo.Find(r, func(item credentialIssuanceHistoryData) bool {
+		return item.CredentialId == credential.Contents().ID
+	})
+
+	if !exist {
+		return fmt.Errorf(
+			"credential history response does not contain record with credentialID %s", credential.Contents().ID)
+	}
+
+	if !reflect.DeepEqual(historyRecord.CredentialTypes, credential.Contents().Types) {
+		return fmt.Errorf("CredentialTypes are not equal")
+	}
+
+	if credential.Contents().Issuer.ID != historyRecord.Issuer {
+		return fmt.Errorf("issuerID is different, expected: %s, got %s", credential.Contents().Issuer.ID, historyRecord.Issuer)
+	}
+
+	if (historyRecord.TransactionId == "") == oidcFlow {
+		return fmt.Errorf("transactionId is nil, but value expected for OIDC flow")
+	}
+
+	var iss, exp string
+	if credential.Contents().Issued != nil {
+		iss = credential.Contents().Issued.Time.Format(time.RFC3339)
+	}
+
+	if credential.Contents().Expired != nil {
+		exp = credential.Contents().Expired.Time.Format(time.RFC3339)
+	}
+
+	if historyRecord.IssuanceDate != iss {
+		return fmt.Errorf("issuanceDate is different, expected: %s, got %s", iss, historyRecord.IssuanceDate)
+	}
+
+	if historyRecord.ExpirationDate != exp {
+		return fmt.Errorf("expirationDate is different, expected: %s, got %s", exp, historyRecord.ExpirationDate)
+	}
+
 	return nil
+}
+
+func (s *Steps) checkIssuedCredentialHistoryStep() error {
+	vcParsed, err := verifiable.ParseCredential(s.bddContext.CreatedCredential,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(s.dl))
+	if err != nil {
+		return fmt.Errorf("checkIssuedCredentialHistoryStep: %w", err)
+	}
+
+	return s.checkIssuedCredentialHistory(vcParsed, false)
 }
 
 func (s *Steps) checkVC(vc *verifiable.Credential) error {

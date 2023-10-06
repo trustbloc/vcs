@@ -113,6 +113,8 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		vcStatusStore := newMockVCStatusStore()
 
+		metadata := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
 		cslMgr, err := cslmanager.New(
 			&cslmanager.Config{
 				CSLVCStore:    cslVCStore,
@@ -139,11 +141,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		statusID, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, metadata)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, listID)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, metadata)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, listID)
 
@@ -152,11 +154,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, listID)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, metadata)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListID)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, metadata)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListID)
 
@@ -166,7 +168,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
 		require.NotEqual(t, listID, updatedListIDSecond)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, metadata)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListIDSecond)
 	})
@@ -180,7 +182,9 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, credID)
+		meta := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, meta)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "get profile")
@@ -281,10 +285,12 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		meta := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
+		statusListEntry, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, meta)
 		require.NoError(t, err)
 
-		err = vcStatusStore.Put(ctx, profileID, profileVersion, credID, statusListEntry.TypedID)
+		err = vcStatusStore.Put(ctx, profileID, profileVersion, meta, statusListEntry.TypedID)
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
@@ -400,8 +406,10 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		meta := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
 		err = vcStore.Put(
-			context.Background(), profileID, profileVersion, credID, &verifiable.TypedID{
+			context.Background(), profileID, profileVersion, meta, &verifiable.TypedID{
 				Type: string(vc.StatusList2021VCStatus)})
 		require.NoError(t, err)
 
@@ -436,8 +444,10 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		meta := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
 		err = vcStore.Put(
-			context.Background(), profileID, profileVersion, credID,
+			context.Background(), profileID, profileVersion, meta,
 			&verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
 		require.NoError(t, err)
 
@@ -652,7 +662,9 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, credID)
+		meta := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, meta)
 		require.NoError(t, err)
 
 		err = s.updateVCStatus(
@@ -714,7 +726,9 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profile.ID, profile.Version, credID)
+		meta := &credentialstatus.CredentialMetadata{CredentialID: credID}
+
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profile.ID, profile.Version, meta)
 		require.NoError(t, err)
 
 		require.NoError(t, s.updateVCStatus(
@@ -1014,14 +1028,19 @@ func (m *mockCSLVCStore) Get(_ context.Context, cslURL string) (*credentialstatu
 	return w, nil
 }
 
+type storeData struct {
+	typedID  *verifiable.TypedID
+	metadata *credentialstatus.CredentialMetadata
+}
+
 type mockVCStore struct {
 	putErr error
-	s      map[string]*verifiable.TypedID
+	s      map[string]storeData
 }
 
 func newMockVCStatusStore() *mockVCStore {
 	return &mockVCStore{
-		s: map[string]*verifiable.TypedID{},
+		s: map[string]storeData{},
 	}
 }
 
@@ -1031,16 +1050,24 @@ func (m *mockVCStore) Get(_ context.Context, profileID, profileVersion, vcID str
 		return nil, errors.New("data not found")
 	}
 
-	return v, nil
+	return v.typedID, nil
 }
 
 func (m *mockVCStore) Put(
-	_ context.Context, profileID, profileVersion, vcID string, typedID *verifiable.TypedID) error {
+	_ context.Context,
+	profileID, profileVersion string,
+	metadata *credentialstatus.CredentialMetadata,
+	typedID *verifiable.TypedID,
+) error {
 	if m.putErr != nil {
 		return m.putErr
 	}
 
-	m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, vcID)] = typedID
+	m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, metadata.CredentialID)] = storeData{
+		typedID:  typedID,
+		metadata: metadata,
+	}
+
 	return nil
 }
 

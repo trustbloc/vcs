@@ -15,10 +15,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/google/uuid"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -26,6 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -61,21 +64,30 @@ func TestVCStatusStore(t *testing.T) {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
-	t.Run("Put, Get typedID", func(t *testing.T) {
-		vcExpected, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		assert.NoError(t, err)
+	vcExpected, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
+		verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+		verifiable.WithDisabledProofCheck())
+	assert.NoError(t, err)
 
-		vccExpected := vcExpected.Contents()
+	vccExpected := vcExpected.Contents()
 
-		ctx := context.Background()
+	ctx := context.Background()
+	transactionID := uuid.NewString()
+	credentialMeta := &credentialstatus.CredentialMetadata{
+		CredentialID:   vccExpected.ID,
+		Issuer:         vccExpected.Issuer.ID,
+		CredentialType: vccExpected.Types,
+		TransactionID:  transactionID,
+		IssuanceDate:   timeutil.NewTime(vccExpected.Issued.Time),
+		ExpirationDate: vccExpected.Expired,
+	}
 
-		// Create.
-		err = store.Put(ctx, testProfile, testProfileVersion10, vccExpected.ID, vccExpected.Status)
-		assert.NoError(t, err)
+	// Create.
+	err = store.Put(ctx, testProfile, testProfileVersion10, credentialMeta, vccExpected.Status)
+	assert.NoError(t, err)
 
-		// Find by same profile version.
+	t.Run("Get typedID", func(t *testing.T) {
+		// Find verifiable.TypedID by same profile version.
 		statusFound, err := store.Get(ctx, testProfile, testProfileVersion10, vccExpected.ID)
 		assert.NoError(t, err)
 
@@ -84,10 +96,33 @@ func TestVCStatusStore(t *testing.T) {
 				vccExpected.Status, statusFound)
 		}
 
-		// Find by different profile version.
+		// Find verifiable.TypedID by different profile version.
 		statusFound, err = store.Get(ctx, testProfile, testProfileVersion11, vccExpected.ID)
 		assert.Error(t, err)
 		assert.Empty(t, statusFound)
+	})
+
+	t.Run("GetIssuedCredentialsMetadata", func(t *testing.T) {
+		// Get credential metadata by same profile version.
+		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile, testProfileVersion10)
+		assert.NoError(t, err)
+
+		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta}, metadataFromDB)
+
+		// Create another record.
+		err = store.Put(ctx, testProfile, testProfileVersion10, credentialMeta, vccExpected.Status)
+		assert.NoError(t, err)
+
+		// Get credential metadata by same profile version.
+		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile, testProfileVersion10)
+		assert.NoError(t, err)
+
+		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta, credentialMeta}, metadataFromDB)
+
+		// Get credential metadata by different profile version.
+		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile+"unknown", testProfileVersion10)
+		assert.NoError(t, err)
+		assert.Empty(t, metadataFromDB)
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
@@ -120,13 +155,21 @@ func TestTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Put(ctxWithTimeout, testProfile, testProfileVersion10, testVCID, &verifiable.TypedID{ID: "1"})
+		meta := &credentialstatus.CredentialMetadata{}
+		err = store.Put(ctxWithTimeout, testProfile, testProfileVersion10, meta, &verifiable.TypedID{ID: "1"})
 
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
 		resp, err := store.Get(ctxWithTimeout, testProfile, testProfileVersion10, "63451f2358bde34a13b5d95b")
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "context deadline exceeded")
+	})
+
+	t.Run("Find GetIssuedCredentialsMetadata", func(t *testing.T) {
+		resp, err := store.GetIssuedCredentialsMetadata(ctxWithTimeout, testProfile, testProfileVersion10)
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")

@@ -35,15 +35,19 @@ func Wrap(svc Service, tracer trace.Tracer) *Wrapper {
 }
 
 func (w *Wrapper) CreateStatusListEntry(
-	ctx context.Context, profileID, profileVersion, credentialID string) (*credentialstatus.StatusListEntry, error) {
+	ctx context.Context,
+	profileID profileapi.ID,
+	profileVersion profileapi.Version,
+	credentialMetadata *credentialstatus.CredentialMetadata,
+) (*credentialstatus.StatusListEntry, error) {
 	ctx, span := w.tracer.Start(ctx, "credentialstatus.CreateStatusListEntry")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profileID))
 	span.SetAttributes(attribute.String("profile_version", profileVersion))
-	span.SetAttributes(attribute.String("credential_id", credentialID))
+	span.SetAttributes(attribute.String("credential_id", credentialMetadata.CredentialID))
 
-	entry, err := w.svc.CreateStatusListEntry(ctx, profileID, profileVersion, credentialID)
+	entry, err := w.svc.CreateStatusListEntry(ctx, profileID, profileVersion, credentialMetadata)
 	if err != nil {
 		return nil, err
 	}

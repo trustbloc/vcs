@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package cslmanager
 
-//go:generate mockgen -destination cslmanager_mocks_test.go -self_package github.com/trustbloc/pkg/cslmanager -package cslmanager -source=cslmanager.go -mock_names kmsRegistry=MockKMSRegistry
+//go:generate mockgen -destination cslmanager_mocks_test.go -self_package github.com/trustbloc/pkg/cslmanager -package cslmanager -source=cslmanager.go -mock_names kmsRegistry=MockKMSRegistry,vcStatusStore=MockVCStatusStore
 
 import (
 	"context"
@@ -48,7 +48,13 @@ type cslVCStore interface {
 }
 
 type vcStatusStore interface {
-	Put(ctx context.Context, profileID, profileVersion, credentialID string, typedID *verifiable.TypedID) error
+	Put(
+		ctx context.Context,
+		profileID string,
+		profileVersion string,
+		metadata *credentialstatus.CredentialMetadata,
+		typedID *verifiable.TypedID,
+	) error
 }
 
 type Config struct {
@@ -86,8 +92,11 @@ func New(config *Config) (*Manager, error) {
 }
 
 // CreateCSLEntry creates CSL entry.
-func (s *Manager) CreateCSLEntry(ctx context.Context,
-	profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error) {
+func (s *Manager) CreateCSLEntry(
+	ctx context.Context,
+	profile *profileapi.Issuer,
+	credentialMetadata *credentialstatus.CredentialMetadata,
+) (*credentialstatus.StatusListEntry, error) {
 	logger.Debugc(ctx, "CSL Manager - CreateCSLEntry",
 		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
 
@@ -107,7 +116,7 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 	}
 
 	// Store VC status to DB
-	err = s.vcStatusStore.Put(ctx, profile.ID, profile.Version, credentialID, statusListEntry.TypedID)
+	err = s.vcStatusStore.Put(ctx, profile.ID, profile.Version, credentialMetadata, statusListEntry.TypedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store credential status: %w", err)
 	}

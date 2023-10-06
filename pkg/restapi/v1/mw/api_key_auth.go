@@ -29,6 +29,7 @@ const (
 	oidcToken                  = "/oidc/token"
 	oidcCredential             = "/oidc/credential"
 	oidcCredentialWellKnown    = "/.well-known/openid-credential-issuer"
+	issuedCredentialsHistory   = "/issued-credentials"
 	version                    = "/version"
 	versionSystem              = "/version/system"
 	profiler                   = "/debug/pprof"
@@ -75,6 +76,7 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc { //nolint:gocognit
 				strings.HasPrefix(currentPath, oidcPresent) ||
 				strings.HasPrefix(currentPath, oidcToken) ||
 				strings.HasPrefix(currentPath, oidcCredential) ||
+				strings.HasSuffix(currentPath, issuedCredentialsHistory) ||
 				strings.HasSuffix(currentPath, oidcCredentialWellKnown) ||
 				(strings.HasPrefix(currentPath, "/oidc/") && strings.HasSuffix(currentPath, "/register")) {
 				return next(c)

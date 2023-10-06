@@ -11,7 +11,6 @@ import (
 
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -19,7 +18,7 @@ type ServiceInterface interface {
 	IssueCredential(
 		ctx context.Context,
 		credential *verifiable.Credential,
-		issuerSigningOpts []crypto.SigningOpts,
 		profile *profileapi.Issuer,
+		opts ...Opts,
 	) (*verifiable.Credential, error)
 }

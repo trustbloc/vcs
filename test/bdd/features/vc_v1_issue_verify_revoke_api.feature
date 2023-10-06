@@ -12,6 +12,7 @@ Feature: Using VC REST API
   Scenario Outline: Store, retrieve, verify and revoke credential using different kind of profiles (LDP, JWT, SD-JWT).
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
+    And issued credential history is updated
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
     And V1 verifiable credential is verified under "<verifierProfile>" profile
 
@@ -30,6 +31,7 @@ Feature: Using VC REST API
   Scenario Outline: Unsuccessful attempt to revoke credential from wrong issuer (LDP, JWT, SD-JWT).
     Given   Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
+    And issued credential history is updated
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
     And   V1 verifiable credential is verified under "<verifierProfile>" profile
 
@@ -47,6 +49,7 @@ Feature: Using VC REST API
   Scenario Outline: Credential verification failed due to unsupported credential format by verifier (LDP, JWT, SD-JWT).
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
+    And issued credential history is updated
     And Profile "<wrongVerifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
     And   V1 verifiable credential with wrong format is unable to be verified under "<wrongVerifierProfile>" profile
 

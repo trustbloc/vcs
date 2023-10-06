@@ -85,3 +85,12 @@ type credentialOfferGrant struct {
 type authorizationCodeGrant struct {
 	IssuerState string `json:"issuer_state"`
 }
+
+type credentialIssuanceHistoryData struct {
+	CredentialId    string   `json:"credential_id"`
+	CredentialTypes []string `json:"credential_types"`
+	ExpirationDate  string   `json:"expiration_date,omitempty"`
+	IssuanceDate    string   `json:"issuance_date,omitempty"`
+	Issuer          string   `json:"issuer"`
+	TransactionId   string   `json:"transaction_id,omitempty"`
+}

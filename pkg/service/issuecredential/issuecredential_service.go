@@ -26,6 +26,29 @@ const (
 	defaultCredentialPrefix = "urn:uuid:" //nolint:gosec
 )
 
+// signingOpts holds options for the signing credential.
+type issueCredentialOpts struct {
+	transactionID string
+	cryptoOpts    []crypto.SigningOpts
+}
+
+// Opts is signing credential option.
+type Opts func(opts *issueCredentialOpts)
+
+// WithTransactionID is an option to pass transactionID.
+func WithTransactionID(transactionID string) Opts {
+	return func(opts *issueCredentialOpts) {
+		opts.transactionID = transactionID
+	}
+}
+
+// WithCryptoOpts is an option to pass crypto.SigningOpts.
+func WithCryptoOpts(cryptoOpts []crypto.SigningOpts) Opts {
+	return func(opts *issueCredentialOpts) {
+		opts.cryptoOpts = cryptoOpts
+	}
+}
+
 type vcCrypto interface {
 	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
 		opts ...crypto.SigningOpts) (*verifiable.Credential, error)
@@ -37,7 +60,11 @@ type kmsRegistry interface {
 
 type vcStatusManager interface {
 	CreateStatusListEntry(
-		ctx context.Context, profileID, profileVersion, credentialID string) (*credentialstatus.StatusListEntry, error)
+		ctx context.Context,
+		profileID string,
+		profileVersion string,
+		credentialMetadata *credentialstatus.CredentialMetadata,
+	) (*credentialstatus.StatusListEntry, error)
 }
 
 type Config struct {
@@ -63,9 +90,14 @@ func New(config *Config) *Service {
 func (s *Service) IssueCredential(
 	ctx context.Context,
 	credential *verifiable.Credential,
-	issuerSigningOpts []crypto.SigningOpts,
 	profile *profileapi.Issuer,
+	opts ...Opts,
 ) (*verifiable.Credential, error) {
+	options := &issueCredentialOpts{}
+	for _, f := range opts {
+		f(options)
+	}
+
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("get kms: %w", err)
@@ -90,28 +122,35 @@ func (s *Service) IssueCredential(
 	// update credential prefix.
 	credential = vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
 	credentialContext := credential.Contents().Context
+	// update credential issuer
+	credential = credential.WithModifiedIssuer(vcutil.CreateIssuer(profile.SigningDID.DID, profile.Name))
 
 	if !profile.VCConfig.Status.Disable {
+		credentialMetadata := &credentialstatus.CredentialMetadata{
+			CredentialID:   credential.Contents().ID,
+			Issuer:         credential.Contents().Issuer.ID,
+			CredentialType: credential.Contents().Types,
+			TransactionID:  options.transactionID,
+			IssuanceDate:   credential.Contents().Issued,
+			ExpirationDate: credential.Contents().Expired,
+		}
+
 		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(
-			ctx, profile.ID, profile.Version, credential.Contents().ID)
+			ctx, profile.ID, profile.Version, credentialMetadata)
 		if err != nil {
 			return nil, fmt.Errorf("add credential status: %w", err)
 		}
 
 		credentialContext = append(credentialContext, statusListEntry.Context)
-		credential = credential.
-			WithModifiedStatus(statusListEntry.TypedID)
+		credential = credential.WithModifiedStatus(statusListEntry.TypedID)
 	}
 
 	// update context
 	credentialContext = vcutil.AppendSignatureTypeContext(credentialContext, profile.VCConfig.SigningAlgorithm)
 	credential = credential.WithModifiedContext(credentialContext)
 
-	// update credential issuer
-	credential = credential.WithModifiedIssuer(vcutil.CreateIssuer(profile.SigningDID.DID, profile.Name))
-
 	// sign the credential
-	signedVC, err := s.crypto.SignCredential(signer, credential, issuerSigningOpts...)
+	signedVC, err := s.crypto.SignCredential(signer, credential, options.cryptoOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("sign credential: %w", err)
 	}

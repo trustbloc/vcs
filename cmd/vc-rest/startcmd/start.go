@@ -767,16 +767,17 @@ func buildEchoHandler(
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
-		EventSvc:                   eventSvc,
-		ProfileSvc:                 issuerProfileSvc,
-		DocumentLoader:             documentLoader,
-		IssueCredentialService:     issueCredentialSvc,
-		VcStatusManager:            statusListVCSvc,
-		OIDC4CIService:             oidc4ciService,
-		ExternalHostURL:            conf.StartupParameters.apiGatewayURL,
-		Tracer:                     conf.Tracer,
-		OpenidIssuerConfigProvider: openidCredentialIssuerConfigProviderSvc,
-		JSONSchemaValidator:        jsonSchemaValidator,
+		EventSvc:                       eventSvc,
+		ProfileSvc:                     issuerProfileSvc,
+		DocumentLoader:                 documentLoader,
+		IssueCredentialService:         issueCredentialSvc,
+		VcStatusManager:                statusListVCSvc,
+		OIDC4CIService:                 oidc4ciService,
+		CredentialIssuanceHistoryStore: vcStatusStore,
+		ExternalHostURL:                conf.StartupParameters.apiGatewayURL,
+		Tracer:                         conf.Tracer,
+		OpenidIssuerConfigProvider:     openidCredentialIssuerConfigProviderSvc,
+		JSONSchemaValidator:            jsonSchemaValidator,
 	}))
 
 	// Verifier Profile Management API
