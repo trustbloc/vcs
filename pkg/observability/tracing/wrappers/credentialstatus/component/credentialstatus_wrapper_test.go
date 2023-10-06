@@ -60,6 +60,20 @@ func TestWrapper_UpdateVCStatus(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWrapper_StoreIssuedCredentialMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	svc := NewMockService(ctrl)
+	svc.EXPECT().StoreIssuedCredentialMetadata(gomock.Any(), profileID, profileVersion, gomock.Any()).Times(1)
+
+	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+
+	meta := &credentialstatus.CredentialMetadata{CredentialID: credentialID}
+
+	err := w.StoreIssuedCredentialMetadata(context.Background(), profileID, profileVersion, meta)
+	require.NoError(t, err)
+}
+
 func TestWrapper_Resolve(t *testing.T) {
 	ctrl := gomock.NewController(t)
 

@@ -36,6 +36,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -1623,7 +1624,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 		txID := uuid.NewString()
 		iss := timeutil.NewTime(time.Now())
 
-		credentialMetadata := &vc.CredentialMetadata{
+		credentialMetadata := &credentialstatus.CredentialMetadata{
 			CredentialID:   "credentialID",
 			Issuer:         "testIssuer",
 			CredentialType: []string{"verifiableCredential"},
@@ -1635,7 +1636,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 		credentialIssuanceStore.EXPECT().
 			GetIssuedCredentialsMetadata(gomock.Any(), profileID, profileVersion).
 			Times(1).
-			Return([]*vc.CredentialMetadata{credentialMetadata}, nil)
+			Return([]*credentialstatus.CredentialMetadata{credentialMetadata}, nil)
 
 		c := &Controller{
 			credentialIssuanceHistoryStore: credentialIssuanceStore,

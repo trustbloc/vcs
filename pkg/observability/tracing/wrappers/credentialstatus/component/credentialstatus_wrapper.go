@@ -55,6 +55,23 @@ func (w *Wrapper) CreateStatusListEntry(
 	return entry, nil
 }
 
+// StoreIssuedCredentialMetadata stores credentialstatus.CredentialMetadata for each issued credential.
+func (w *Wrapper) StoreIssuedCredentialMetadata(
+	ctx context.Context,
+	profileID profileapi.ID,
+	profileVersion profileapi.Version,
+	metadata *credentialstatus.CredentialMetadata,
+) error {
+	ctx, span := w.tracer.Start(ctx, "credentialstatus.StoreIssuedCredentialMetadata")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("profile_id", profileID))
+	span.SetAttributes(attribute.String("profile_version", profileVersion))
+	span.SetAttributes(attribute.String("credential_id", metadata.CredentialID))
+
+	return w.svc.StoreIssuedCredentialMetadata(ctx, profileID, profileVersion, metadata)
+}
+
 func (w *Wrapper) GetStatusListVC(
 	ctx context.Context,
 	profileGroupID profileapi.ID,

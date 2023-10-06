@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -59,7 +59,7 @@ func TestVCStatusStore(t *testing.T) {
 
 	t.Run("Put and GetIssuedCredentialsMetadata", func(t *testing.T) {
 		transactionID := uuid.NewString()
-		credentialMeta := &vc.CredentialMetadata{
+		credentialMeta := &credentialstatus.CredentialMetadata{
 			CredentialID:   "credentialID",
 			Issuer:         "credentialIssuerID",
 			CredentialType: []string{"verifiableCredential"},
@@ -76,7 +76,7 @@ func TestVCStatusStore(t *testing.T) {
 		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile, testProfileVersion10)
 		assert.NoError(t, err)
 
-		assert.Equal(t, []*vc.CredentialMetadata{credentialMeta}, metadataFromDB)
+		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta}, metadataFromDB)
 
 		// Create another record.
 		err = store.Put(ctx, testProfile, testProfileVersion10, credentialMeta)
@@ -86,7 +86,7 @@ func TestVCStatusStore(t *testing.T) {
 		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile, testProfileVersion10)
 		assert.NoError(t, err)
 
-		assert.Equal(t, []*vc.CredentialMetadata{credentialMeta, credentialMeta}, metadataFromDB)
+		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta, credentialMeta}, metadataFromDB)
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Put(ctxWithTimeout, testProfile, testProfileVersion10, &vc.CredentialMetadata{})
+		err = store.Put(ctxWithTimeout, testProfile, testProfileVersion10, &credentialstatus.CredentialMetadata{})
 
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})

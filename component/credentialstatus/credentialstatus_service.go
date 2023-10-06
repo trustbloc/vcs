@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package github.com/trustbloc/vcs/component/credentialstatus -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,eventPublisher=MockEventPublisher
+//go:generate mockgen -destination service_mocks_test.go -self_package github.com/trustbloc/vcs/component/credentialstatus -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,eventPublisher=MockEventPublisher,credentialIssuanceHistoryStore=MockCredentialIssuanceHistoryStore
 
 package credentialstatus
 
@@ -75,57 +75,68 @@ type cslManager interface {
 	) (*credentialstatus.StatusListEntry, error)
 }
 
+type credentialIssuanceHistoryStore interface {
+	Put(
+		ctx context.Context,
+		profileID profileapi.ID,
+		profileVersion profileapi.Version,
+		metadata *credentialstatus.CredentialMetadata) error
+}
+
 type Config struct {
-	HTTPClient     httpClient
-	RequestTokens  map[string]string
-	VDR            vdrapi.Registry
-	CSLVCStore     credentialstatus.CSLVCStore
-	CSLManager     cslManager
-	VCStatusStore  vcStatusStore
-	Crypto         vcCrypto
-	ProfileService profileService
-	KMSRegistry    kmsRegistry
-	EventPublisher eventPublisher
-	EventTopic     string
-	DocumentLoader ld.DocumentLoader
-	CMD            *cobra.Command
-	ExternalURL    string
+	HTTPClient                     httpClient
+	RequestTokens                  map[string]string
+	VDR                            vdrapi.Registry
+	CSLVCStore                     credentialstatus.CSLVCStore
+	CSLManager                     cslManager
+	VCStatusStore                  vcStatusStore
+	Crypto                         vcCrypto
+	ProfileService                 profileService
+	KMSRegistry                    kmsRegistry
+	EventPublisher                 eventPublisher
+	CredentialIssuanceHistoryStore credentialIssuanceHistoryStore
+	EventTopic                     string
+	DocumentLoader                 ld.DocumentLoader
+	CMD                            *cobra.Command
+	ExternalURL                    string
 }
 
 type Service struct {
-	httpClient     httpClient
-	requestTokens  map[string]string
-	vdr            vdrapi.Registry
-	cslVCStore     credentialstatus.CSLVCStore
-	cslMgr         cslManager
-	vcStatusStore  vcStatusStore
-	crypto         vcCrypto
-	profileService profileService
-	kmsRegistry    kmsRegistry
-	eventPublisher eventPublisher
-	eventTopic     string
-	documentLoader ld.DocumentLoader
-	cmd            *cobra.Command
-	externalURL    string
+	httpClient                     httpClient
+	requestTokens                  map[string]string
+	vdr                            vdrapi.Registry
+	cslVCStore                     credentialstatus.CSLVCStore
+	cslMgr                         cslManager
+	vcStatusStore                  vcStatusStore
+	crypto                         vcCrypto
+	profileService                 profileService
+	kmsRegistry                    kmsRegistry
+	eventPublisher                 eventPublisher
+	credentialIssuanceHistoryStore credentialIssuanceHistoryStore
+	eventTopic                     string
+	documentLoader                 ld.DocumentLoader
+	cmd                            *cobra.Command
+	externalURL                    string
 }
 
 // New returns new Credential Status service.
 func New(config *Config) (*Service, error) {
 	return &Service{
-		httpClient:     config.HTTPClient,
-		requestTokens:  config.RequestTokens,
-		vdr:            config.VDR,
-		cslVCStore:     config.CSLVCStore,
-		cslMgr:         config.CSLManager,
-		vcStatusStore:  config.VCStatusStore,
-		crypto:         config.Crypto,
-		profileService: config.ProfileService,
-		kmsRegistry:    config.KMSRegistry,
-		eventPublisher: config.EventPublisher,
-		eventTopic:     config.EventTopic,
-		documentLoader: config.DocumentLoader,
-		cmd:            config.CMD,
-		externalURL:    config.ExternalURL,
+		httpClient:                     config.HTTPClient,
+		requestTokens:                  config.RequestTokens,
+		vdr:                            config.VDR,
+		cslVCStore:                     config.CSLVCStore,
+		cslMgr:                         config.CSLManager,
+		vcStatusStore:                  config.VCStatusStore,
+		crypto:                         config.Crypto,
+		profileService:                 config.ProfileService,
+		kmsRegistry:                    config.KMSRegistry,
+		eventPublisher:                 config.EventPublisher,
+		eventTopic:                     config.EventTopic,
+		credentialIssuanceHistoryStore: config.CredentialIssuanceHistoryStore,
+		documentLoader:                 config.DocumentLoader,
+		cmd:                            config.CMD,
+		externalURL:                    config.ExternalURL,
 	}, nil
 }
 
@@ -191,6 +202,28 @@ func (s *Service) CreateStatusListEntry(
 	}
 
 	return statusListEntry, nil
+}
+
+// StoreIssuedCredentialMetadata stores credentialstatus.CredentialMetadata for each issued credential.
+func (s *Service) StoreIssuedCredentialMetadata(
+	ctx context.Context,
+	profileID profileapi.ID,
+	profileVersion profileapi.Version,
+	metadata *credentialstatus.CredentialMetadata,
+) error {
+	logger.Debugc(ctx, "StoreIssuedCredentialMetadata begin",
+		logfields.WithProfileID(profileID),
+		logfields.WithProfileVersion(profileVersion),
+		logfields.WithCredentialID(metadata.CredentialID))
+
+	err := s.credentialIssuanceHistoryStore.Put(ctx, profileID, profileVersion, metadata)
+	if err != nil {
+		return fmt.Errorf("storeIssuedCredentialMetadata: %w", err)
+	}
+
+	logger.Debugc(ctx, "StoreIssuedCredentialMetadata success")
+
+	return nil
 }
 
 // GetStatusListVC returns StatusListVC (credentialstatus.CSL) from underlying cslVCStore.
