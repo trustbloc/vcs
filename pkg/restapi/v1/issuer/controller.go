@@ -81,7 +81,7 @@ type credentialIssuanceHistoryStore interface {
 		ctx context.Context,
 		profileID string,
 		profileVersion string,
-	) ([]*credentialstatus.CredentialMetadata, error)
+	) ([]*vc.CredentialMetadata, error)
 }
 
 type jsonSchemaValidator interface {

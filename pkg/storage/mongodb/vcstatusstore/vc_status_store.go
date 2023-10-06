@@ -10,13 +10,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
-	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
 
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 )
@@ -29,19 +26,10 @@ const (
 )
 
 type mongoDocument struct {
-	VcID               string              `json:"vcID"`
-	ProfileID          string              `json:"profileID"`
-	ProfileVersion     string              `json:"profileVersion"`
-	TypedID            *verifiable.TypedID `json:"typedID"`
-	CredentialMetadata credentialMetadata  `json:"credentialMetadata"`
-}
-
-type credentialMetadata struct {
-	Issuer         string     `json:"issuer"`
-	CredentialType []string   `json:"credentialType"`
-	TransactionID  string     `json:"transactionId"`
-	IssuanceDate   *time.Time `json:"issuanceDate,omitempty"`
-	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
+	VcID           string              `json:"vcID"`
+	ProfileID      string              `json:"profileID"`
+	ProfileVersion string              `json:"profileVersion"`
+	TypedID        *verifiable.TypedID `json:"typedID"`
 }
 
 type getTypedIDEntity struct {
@@ -62,9 +50,14 @@ func (p *Store) Put(
 	ctx context.Context,
 	profileID string,
 	profileVersion string,
-	metadata *credentialstatus.CredentialMetadata,
+	credentialID string,
 	typedID *verifiable.TypedID) error {
-	document := createMongoDocument(profileID, profileVersion, metadata, typedID)
+	document := mongoDocument{
+		VcID:           credentialID,
+		ProfileID:      profileID,
+		ProfileVersion: profileVersion,
+		TypedID:        typedID,
+	}
 
 	mongoDBDocument, err := internal.PrepareDataForBSONStorage(document)
 	if err != nil {
@@ -101,85 +94,4 @@ func (p *Store) Get(
 	}
 
 	return entity.TypedID, nil
-}
-
-func (p *Store) GetIssuedCredentialsMetadata(
-	ctx context.Context,
-	profileID string,
-	profileVersion string,
-) ([]*credentialstatus.CredentialMetadata, error) {
-	cursor, err := p.mongoClient.Database().Collection(vcStatusStoreName).Find(ctx, bson.D{
-		{Key: profileIDMongoDBFieldName, Value: profileID},
-		{Key: profileVersionMongoDBFieldName, Value: profileVersion},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("find credential metadata list MongoDB: %w", err)
-	}
-
-	defer func() {
-		_ = cursor.Close(ctx)
-	}()
-
-	var documentsList []mongoDocument
-
-	if err = cursor.All(ctx, &documentsList); err != nil {
-		return nil, fmt.Errorf("decode credential metadata list MongoDB: %w", err)
-	}
-
-	return parseMongoDocuments(documentsList), nil
-}
-
-func createMongoDocument(
-	profileID string,
-	profileVersion string,
-	metadata *credentialstatus.CredentialMetadata,
-	typedID *verifiable.TypedID,
-) mongoDocument {
-	return mongoDocument{
-		VcID:           metadata.CredentialID,
-		ProfileID:      profileID,
-		ProfileVersion: profileVersion,
-		TypedID:        typedID,
-		CredentialMetadata: credentialMetadata{
-			Issuer:         metadata.Issuer,
-			CredentialType: metadata.CredentialType,
-			TransactionID:  metadata.TransactionID,
-			IssuanceDate:   getTime(metadata.IssuanceDate),
-			ExpirationDate: getTime(metadata.ExpirationDate),
-		},
-	}
-}
-
-func parseMongoDocuments(
-	documentsList []mongoDocument,
-) []*credentialstatus.CredentialMetadata {
-	credentialMetadataList := make([]*credentialstatus.CredentialMetadata, 0, len(documentsList))
-	for _, document := range documentsList {
-		credentialMetadataList = append(credentialMetadataList, &credentialstatus.CredentialMetadata{
-			CredentialID:   document.VcID,
-			Issuer:         document.CredentialMetadata.Issuer,
-			CredentialType: document.CredentialMetadata.CredentialType,
-			TransactionID:  document.CredentialMetadata.TransactionID,
-			IssuanceDate:   parseTime(document.CredentialMetadata.IssuanceDate),
-			ExpirationDate: parseTime(document.CredentialMetadata.ExpirationDate),
-		})
-	}
-
-	return credentialMetadataList
-}
-
-func getTime(t *timeutil.TimeWrapper) *time.Time {
-	if t != nil && !t.IsZero() {
-		return &t.Time
-	}
-
-	return nil
-}
-
-func parseTime(t *time.Time) *timeutil.TimeWrapper {
-	if t != nil {
-		return timeutil.NewTime(*t)
-	}
-
-	return nil
 }

@@ -25,7 +25,6 @@ import (
 
 	"github.com/trustbloc/did-go/doc/did"
 	model "github.com/trustbloc/did-go/doc/did/endpoint"
-	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	cryptomock "github.com/trustbloc/kms-go/mock/crypto"
@@ -69,33 +68,10 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		cslIndexStore := newMockCSLIndexStore()
 		cslVCStore := newMockCSLVCStore()
 
-		credentialMetadata := &credentialstatus.CredentialMetadata{
-			CredentialID:   credID,
-			Issuer:         testProfileID,
-			CredentialType: []string{"verifiableCredential"},
-			TransactionID:  uuid.NewString(),
-			IssuanceDate:   timeutil.NewTime(time.Now()),
-			ExpirationDate: timeutil.NewTime(time.Now().Add(time.Hour)),
-		}
-
 		mockVCStatusStore := NewMockVCStatusStore(ctrl)
 		mockVCStatusStore.EXPECT().
-			Put(gomock.Any(), testProfileID, testProfileVersion, credentialMetadata, gomock.Any()).
-			Times(5).
-			DoAndReturn(
-				func(ctx context.Context,
-					profileID string,
-					profileVersion string,
-					metadata *credentialstatus.CredentialMetadata,
-					typedID *verifiable.TypedID,
-				) error {
-					require.True(t, strings.HasPrefix(typedID.ID, "urn:uuid:"))
-					require.Equal(t, "StatusList2021Entry", typedID.Type)
-					require.NotEmpty(t, typedID.CustomFields["statusListIndex"])
-
-					return nil
-				},
-			)
+			Put(gomock.Any(), testProfileID, testProfileVersion, credID, gomock.Any()).
+			Times(5).Return(nil)
 
 		listID, err := cslIndexStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
@@ -112,11 +88,11 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateCSLEntry(ctx, testProfile, credentialMetadata)
+		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, cslVCStore, statusID, listID)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credentialMetadata)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, cslVCStore, statusID, listID)
 
@@ -125,11 +101,11 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, listID)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credentialMetadata)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, cslVCStore, statusID, updatedListID)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credentialMetadata)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, cslVCStore, statusID, updatedListID)
 
@@ -139,7 +115,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
 		require.NotEqual(t, listID, updatedListIDSecond)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credentialMetadata)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, cslVCStore, statusID, updatedListIDSecond)
 	})
@@ -164,7 +140,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get KMS")
@@ -197,7 +173,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), profile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), profile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "unsupported VCStatusListType")
@@ -220,7 +196,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -244,7 +220,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -266,7 +242,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), profile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), profile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(),
@@ -298,7 +274,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(ctx, testProfile, nil)
+		status, err := s.CreateCSLEntry(ctx, testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get CSL Index Wrapper from store(s): failed to store VC: some error")
@@ -319,7 +295,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
@@ -368,7 +344,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
@@ -392,7 +368,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store CSL Index Wrapper: some error")
@@ -416,7 +392,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, nil)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store new list ID: some error")
@@ -427,18 +403,9 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
-		credentialMetadata := &credentialstatus.CredentialMetadata{
-			CredentialID:   credID,
-			Issuer:         testProfileID,
-			CredentialType: []string{"verifiableCredential"},
-			TransactionID:  uuid.NewString(),
-			IssuanceDate:   timeutil.NewTime(time.Now()),
-			ExpirationDate: timeutil.NewTime(time.Now().Add(time.Hour)),
-		}
-
 		mockVCStatusStore := NewMockVCStatusStore(ctrl)
 		mockVCStatusStore.EXPECT().
-			Put(gomock.Any(), testProfileID, testProfileVersion, credentialMetadata, gomock.Any()).
+			Put(gomock.Any(), testProfileID, testProfileVersion, credID, gomock.Any()).
 			Times(1).
 			Return(errors.New("some error"))
 
@@ -454,7 +421,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credentialMetadata)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store credential status")
