@@ -51,6 +51,11 @@ func NewCreateWalletCommand() *cobra.Command {
 				kms:             svc.KMS(),
 			}
 
+			slog.Info("creating wallet",
+				"did_key_type", flags.didKeyType,
+				"did_method", flags.didMethod,
+			)
+
 			w, err := wallet.New(
 				provider,
 				wallet.WithNewDID(flags.didMethod),
@@ -65,7 +70,7 @@ func NewCreateWalletCommand() *cobra.Command {
 				dids = append(dids, fmt.Sprintf("%d", i), did)
 			}
 
-			slog.Info("wallet created",
+			slog.Info("wallet created successfully",
 				"signature_type", w.SignatureType(),
 				slog.Group("did", dids...),
 			)
@@ -77,7 +82,7 @@ func NewCreateWalletCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.serviceFlags.storageType, "storage-type", "leveldb", "storage types supported: mem,leveldb,mongodb")
 	cmd.Flags().StringVar(&flags.serviceFlags.levelDBPath, "leveldb-path", "", "leveldb path")
 	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
-	cmd.Flags().StringVar(&flags.didMethod, "did-method", "ion", "wallet did methods supported: ion,jwk,key")
+	cmd.Flags().StringVar(&flags.didMethod, "did-method", "ion", "wallet did methods supported: ion,jwk")
 	cmd.Flags().StringVar(&flags.didKeyType, "did-key-type", "ED25519", "did key types supported: ED25519,ECDSAP256DER,ECDSAP384DER")
 
 	return cmd

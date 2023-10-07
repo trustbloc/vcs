@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
@@ -29,7 +30,10 @@ type Service struct {
 func (s *Service) GetWellKnownOpenIDConfiguration(
 	issuerURL string,
 ) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
-	// GET /issuer/{profileID}/.well-known/openid-credential-issuer
+	slog.Info("getting OpenID credential issuer configuration",
+		"url", issuerURL+"/.well-known/openid-credential-issuer",
+	)
+
 	resp, err := s.HTTPClient.Get(issuerURL + "/.well-known/openid-credential-issuer")
 	if err != nil {
 		return nil, fmt.Errorf("get issuer well-known: %w", err)

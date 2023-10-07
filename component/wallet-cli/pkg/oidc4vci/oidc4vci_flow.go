@@ -25,6 +25,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/method/jwk"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/crypto"
@@ -78,7 +80,7 @@ type Flow struct {
 	userPassword               string
 	issuerState                string
 	pin                        string
-	walletDID                  string
+	walletDID                  *did.DID
 	walletSignatureType        vcs.SignatureType
 	vc                         *verifiable.Credential
 }
@@ -128,6 +130,11 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("unsupported flow type: %d", o.flowType)
 	}
 
+	walletDID, err := did.Parse(o.walletDID)
+	if err != nil {
+		return nil, fmt.Errorf("parse wallet did: %w", err)
+	}
+
 	return &Flow{
 		httpClient:                 p.HTTPClient(),
 		documentLoader:             p.DocumentLoader(),
@@ -147,7 +154,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		userPassword:               o.userPassword,
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
-		walletDID:                  o.walletDID,
+		walletDID:                  walletDID,
 		walletSignatureType:        o.walletSignatureType,
 	}, nil
 }
@@ -171,7 +178,6 @@ func (f *Flow) Run(ctx context.Context) error {
 	)
 
 	if f.flowType == FlowTypeAuthorizationCode || f.flowType == FlowTypePreAuthorizedCode {
-		// 1. Parse credential offer URI
 		credentialOfferResponse, err := f.parseCredentialOfferURI(f.credentialOfferURI)
 		if err != nil {
 			return err
@@ -191,7 +197,6 @@ func (f *Flow) Run(ctx context.Context) error {
 		issuerState = f.issuerState
 	}
 
-	// 2. Get issuer OpenID configuration
 	openIDConfig, err := f.wellknownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
 	if err != nil {
 		return err
@@ -200,7 +205,6 @@ func (f *Flow) Run(ctx context.Context) error {
 	var token *oauth2.Token
 
 	if f.flowType == FlowTypeAuthorizationCode {
-		// 3.1. Get authorization code
 		oauthClient := &oauth2.Config{
 			ClientID: f.clientID,
 			Scopes:   f.scopes,
@@ -218,13 +222,18 @@ func (f *Flow) Run(ctx context.Context) error {
 			return err
 		}
 
-		// 3.2. Exchange authorization code for access token
 		token, err = f.exchangeAuthorizationCodeForAccessToken(ctx, oauthClient, authCode)
 		if err != nil {
 			return err
 		}
 	} else if f.flowType == FlowTypePreAuthorizedCode {
-		// 3. Get access token
+		slog.Info("getting access token",
+			"grant_type", preAuthorizedCodeGrantType,
+			"client_id", f.clientID,
+			"pre-authorized_code", preAuthorizationGrant.PreAuthorizedCode,
+			"token_endpoint", openIDConfig.TokenEndpoint,
+		)
+
 		tokenValues := url.Values{
 			"grant_type":          []string{preAuthorizedCodeGrantType},
 			"pre-authorized_code": []string{preAuthorizationGrant.PreAuthorizedCode},
@@ -281,7 +290,6 @@ func (f *Flow) Run(ctx context.Context) error {
 		)
 	}
 
-	// 5. Get VC
 	vc, err := f.getVC(token, openIDConfig.CredentialEndpoint, credentialIssuer)
 	if err != nil {
 		return err
@@ -293,6 +301,10 @@ func (f *Flow) Run(ctx context.Context) error {
 }
 
 func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResponse, error) {
+	slog.Info("parsing credential offer URI",
+		"uri", uri,
+	)
+
 	parser := &credentialoffer.Parser{
 		HTTPClient:  f.httpClient,
 		VDRRegistry: f.vdrRegistry,
@@ -312,6 +324,13 @@ func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResp
 }
 
 func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState string) (string, error) {
+	slog.Info("getting authorization code",
+		"client_id", oauthClient.ClientID,
+		"scopes", oauthClient.Scopes,
+		"redirect_uri", oauthClient.RedirectURL,
+		"authorization_endpoint", oauthClient.Endpoint.AuthURL,
+	)
+
 	var (
 		listener net.Listener
 		err      error
@@ -469,6 +488,13 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 	oauthClient *oauth2.Config,
 	authCode string,
 ) (*oauth2.Token, error) {
+	slog.Info("exchanging authorization code for access token",
+		"grant_type", "authorization_code",
+		"client_id", oauthClient.ClientID,
+		"auth_code", authCode,
+		"token_endpoint", oauthClient.Endpoint.TokenURL,
+	)
+
 	token, err := oauthClient.Exchange(ctx, authCode,
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
 	)
@@ -484,13 +510,26 @@ func (f *Flow) getVC(
 	credentialEndpoint,
 	credentialIssuer string,
 ) (*verifiable.Credential, error) {
-	docResolution, err := f.vdrRegistry.Resolve(f.walletDID)
+	slog.Info("getting credential",
+		"credential_endpoint", credentialEndpoint,
+		"credential_issuer", credentialIssuer,
+	)
+
+	docResolution, err := f.vdrRegistry.Resolve(f.walletDID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	signerKeyID := docResolution.DIDDocument.VerificationMethod[0].ID
-	kmsKeyID := strings.Split(signerKeyID, "#")[1]
+	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
+
+	var kmsKeyID string
+
+	switch f.walletDID.Method {
+	case jwk.DIDMethod:
+		kmsKeyID = verificationMethod.JSONWebKey().KeyID
+	default:
+		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
+	}
 
 	kmsSigner, err := kmssigner.NewKMSSigner(
 		f.keyManager,
@@ -517,7 +556,7 @@ func (f *Flow) getVC(
 	signedJWT, err := jwt.NewSigned(
 		claims,
 		headers,
-		jwssigner.NewJWSSigner(signerKeyID, string(f.walletSignatureType), kmsSigner),
+		jwssigner.NewJWSSigner(verificationMethod.ID, string(f.walletSignatureType), kmsSigner),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create signed jwt: %w", err)
