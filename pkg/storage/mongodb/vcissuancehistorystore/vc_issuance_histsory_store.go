@@ -14,7 +14,7 @@ import (
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"go.mongodb.org/mongo-driver/bson"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 )
@@ -54,7 +54,7 @@ func (p *Store) Put(
 	ctx context.Context,
 	profileID string,
 	profileVersion string,
-	metadata *vc.CredentialMetadata) error {
+	metadata *credentialstatus.CredentialMetadata) error {
 	document := createMongoDocument(profileID, profileVersion, metadata)
 
 	mongoDBDocument, err := internal.PrepareDataForBSONStorage(document)
@@ -74,7 +74,7 @@ func (p *Store) GetIssuedCredentialsMetadata(
 	ctx context.Context,
 	profileID string,
 	profileVersion string,
-) ([]*vc.CredentialMetadata, error) {
+) ([]*credentialstatus.CredentialMetadata, error) {
 	cursor, err := p.mongoClient.Database().Collection(vcStatusStoreName).Find(ctx, bson.D{
 		{Key: profileIDMongoDBFieldName, Value: profileID},
 		{Key: profileVersionMongoDBFieldName, Value: profileVersion},
@@ -99,7 +99,7 @@ func (p *Store) GetIssuedCredentialsMetadata(
 func createMongoDocument(
 	profileID string,
 	profileVersion string,
-	metadata *vc.CredentialMetadata,
+	metadata *credentialstatus.CredentialMetadata,
 ) mongoDocument {
 	return mongoDocument{
 		ProfileID:      profileID,
@@ -117,10 +117,10 @@ func createMongoDocument(
 
 func parseMongoDocuments(
 	documentsList []mongoDocument,
-) []*vc.CredentialMetadata {
-	credentialMetadataList := make([]*vc.CredentialMetadata, 0, len(documentsList))
+) []*credentialstatus.CredentialMetadata {
+	credentialMetadataList := make([]*credentialstatus.CredentialMetadata, 0, len(documentsList))
 	for _, document := range documentsList {
-		credentialMetadataList = append(credentialMetadataList, &vc.CredentialMetadata{
+		credentialMetadataList = append(credentialMetadataList, &credentialstatus.CredentialMetadata{
 			CredentialID:   document.CredentialMetadata.VcID,
 			Issuer:         document.CredentialMetadata.Issuer,
 			CredentialType: document.CredentialMetadata.CredentialType,

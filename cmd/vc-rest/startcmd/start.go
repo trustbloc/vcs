@@ -574,23 +574,26 @@ func buildEchoHandler(
 		return nil, err
 	}
 
+	vcIssuanceHistoryStore := vcissuancehistorystore.NewStore(mongodbClient)
+
 	var statusListVCSvc credentialstatustypes.ServiceInterface
 
 	statusListVCSvc, err = credentialstatus.New(&credentialstatus.Config{
-		VDR:            conf.VDR,
-		HTTPClient:     getHTTPClient(metricsProvider.ClientCredentialStatus),
-		RequestTokens:  conf.StartupParameters.requestTokens,
-		DocumentLoader: documentLoader,
-		CSLVCStore:     cslVCStore,
-		CSLManager:     cslManager,
-		VCStatusStore:  vcStatusStore,
-		ProfileService: issuerProfileSvc,
-		KMSRegistry:    kmsRegistry,
-		Crypto:         vcCrypto,
-		CMD:            cmd,
-		ExternalURL:    conf.StartupParameters.hostURLExternal,
-		EventPublisher: eventSvc,
-		EventTopic:     conf.StartupParameters.credentialStatusEventTopic,
+		VDR:                            conf.VDR,
+		HTTPClient:                     getHTTPClient(metricsProvider.ClientCredentialStatus),
+		RequestTokens:                  conf.StartupParameters.requestTokens,
+		DocumentLoader:                 documentLoader,
+		CSLVCStore:                     cslVCStore,
+		CSLManager:                     cslManager,
+		VCStatusStore:                  vcStatusStore,
+		ProfileService:                 issuerProfileSvc,
+		KMSRegistry:                    kmsRegistry,
+		Crypto:                         vcCrypto,
+		CMD:                            cmd,
+		CredentialIssuanceHistoryStore: vcIssuanceHistoryStore,
+		ExternalURL:                    conf.StartupParameters.hostURLExternal,
+		EventPublisher:                 eventSvc,
+		EventTopic:                     conf.StartupParameters.credentialStatusEventTopic,
 	})
 	if err != nil {
 		return nil, err
@@ -600,15 +603,12 @@ func buildEchoHandler(
 		statusListVCSvc = credentialstatustracing.Wrap(statusListVCSvc, conf.Tracer)
 	}
 
-	vcIssuanceHistoryStore := vcissuancehistorystore.NewStore(mongodbClient)
-
 	var issueCredentialSvc issuecredential.ServiceInterface
 
 	issueCredentialSvc = issuecredential.New(&issuecredential.Config{
-		VCStatusManager:                statusListVCSvc,
-		Crypto:                         vcCrypto,
-		KMSRegistry:                    kmsRegistry,
-		CredentialIssuanceHistoryStore: vcIssuanceHistoryStore,
+		VCStatusManager: statusListVCSvc,
+		Crypto:          vcCrypto,
+		KMSRegistry:     kmsRegistry,
 	})
 
 	if conf.IsTraceEnabled {

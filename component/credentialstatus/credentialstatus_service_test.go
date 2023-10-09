@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 
+	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	vdr2 "github.com/trustbloc/did-go/vdr"
 	vdr "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
@@ -1070,4 +1072,37 @@ func (m *mockKMS) CreateJWKKey(_ kmsapi.KeyType) (string, *jwk.JWK, error) {
 
 func (m *mockKMS) CreateCryptoKey(_ kmsapi.KeyType) (string, interface{}, error) {
 	return "", nil, nil
+}
+
+func TestService_StoreIssuedCredentialMetadata(t *testing.T) {
+	mockStore := NewMockCredentialIssuanceHistoryStore(gomock.NewController(t))
+	txID := uuid.NewString()
+	ctx := context.Background()
+	expectedMetadata := &credentialstatus.CredentialMetadata{
+		CredentialID:   "credentialID",
+		Issuer:         "testIssuer",
+		CredentialType: []string{"verifiableCredential"},
+		TransactionID:  txID,
+		IssuanceDate:   timeutil.NewTime(time.Now()),
+		ExpirationDate: nil,
+	}
+
+	t.Run("Success", func(t *testing.T) {
+		mockStore.EXPECT().Put(ctx, profileID, profileVersion, expectedMetadata).Times(1).Return(nil)
+
+		s := &Service{credentialIssuanceHistoryStore: mockStore}
+
+		err := s.StoreIssuedCredentialMetadata(ctx, profileID, profileVersion, expectedMetadata)
+		require.NoError(t, err)
+	})
+
+	t.Run("Error credentialIssuanceHistoryStore", func(t *testing.T) {
+		mockStore.EXPECT().Put(ctx, profileID, profileVersion, expectedMetadata).
+			Times(1).Return(errors.New("some error"))
+
+		s := &Service{credentialIssuanceHistoryStore: mockStore}
+
+		err := s.StoreIssuedCredentialMetadata(ctx, profileID, profileVersion, expectedMetadata)
+		require.Error(t, err)
+	})
 }

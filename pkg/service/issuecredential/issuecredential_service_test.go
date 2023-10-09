@@ -61,7 +61,6 @@ func TestService_IssueCredential(t *testing.T) {
 	ctr := gomock.NewController(t)
 
 	mockVCStatusManager := NewMockVCStatusManager(ctr)
-	mockCredentialIssuanceHistoryStore := NewMockCredentialIssuanceHistoryStore(ctr)
 
 	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
@@ -135,7 +134,7 @@ func TestService_IssueCredential(t *testing.T) {
 								},
 							}, nil)
 
-						expectedCredentialMetadata := &vc.CredentialMetadata{
+						expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
 							CredentialID:   "urn:uuid:" + credential.Contents().ID,
 							Issuer:         didDoc.ID,
 							CredentialType: credential.Contents().Types,
@@ -144,14 +143,15 @@ func TestService_IssueCredential(t *testing.T) {
 							ExpirationDate: credential.Contents().Expired,
 						}
 
-						mockCredentialIssuanceHistoryStore.EXPECT().
-							Put(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(nil)
+						mockVCStatusManager.EXPECT().
+							StoreIssuedCredentialMetadata(
+								ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).
+							Times(1).Return(nil)
 
 						service := issuecredential.New(&issuecredential.Config{
-							VCStatusManager:                mockVCStatusManager,
-							Crypto:                         crypto,
-							KMSRegistry:                    kmsRegistry,
-							CredentialIssuanceHistoryStore: mockCredentialIssuanceHistoryStore,
+							VCStatusManager: mockVCStatusManager,
+							Crypto:          crypto,
+							KMSRegistry:     kmsRegistry,
 						})
 
 						verifiableCredentials, err := service.IssueCredential(
@@ -227,7 +227,7 @@ func TestService_IssueCredential(t *testing.T) {
 						},
 					}, nil)
 
-				expectedCredentialMetadata := &vc.CredentialMetadata{
+				expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
 					CredentialID:   "urn:uuid:" + credential.Contents().ID,
 					Issuer:         didDoc.ID,
 					CredentialType: credential.Contents().Types,
@@ -236,14 +236,14 @@ func TestService_IssueCredential(t *testing.T) {
 					ExpirationDate: credential.Contents().Expired,
 				}
 
-				mockCredentialIssuanceHistoryStore.EXPECT().
-					Put(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).Times(1).Return(nil)
+				mockVCStatusManager.EXPECT().
+					StoreIssuedCredentialMetadata(ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).
+					Times(1).Return(nil)
 
 				service := issuecredential.New(&issuecredential.Config{
-					VCStatusManager:                mockVCStatusManager,
-					Crypto:                         crypto,
-					KMSRegistry:                    kmsRegistry,
-					CredentialIssuanceHistoryStore: mockCredentialIssuanceHistoryStore,
+					VCStatusManager: mockVCStatusManager,
+					Crypto:          crypto,
+					KMSRegistry:     kmsRegistry,
 				})
 
 				verifiableCredentials, err := service.IssueCredential(
@@ -401,14 +401,14 @@ func TestService_IssueCredential(t *testing.T) {
 		cr.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, nil)
 
-		mockCredentialIssuanceHistoryStore.EXPECT().
-			Put(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.New("some error"))
+		vcStatusManager.EXPECT().
+			StoreIssuedCredentialMetadata(ctx, gomock.Any(), gomock.Any(), gomock.Any()).
+			Times(1).Return(errors.New("some error"))
 
 		service := issuecredential.New(&issuecredential.Config{
-			KMSRegistry:                    kmRegistry,
-			VCStatusManager:                vcStatusManager,
-			Crypto:                         cr,
-			CredentialIssuanceHistoryStore: mockCredentialIssuanceHistoryStore,
+			KMSRegistry:     kmRegistry,
+			VCStatusManager: vcStatusManager,
+			Crypto:          cr,
 		})
 
 		verifiableCredentials, err := service.IssueCredential(

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,credentialIssuanceHistoryStore=MockCredentialIssuanceHistoryStore
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager
 
 package issuecredential
 
@@ -65,36 +65,31 @@ type vcStatusManager interface {
 		profileVersion profileapi.Version,
 		credentialID string,
 	) (*credentialstatus.StatusListEntry, error)
-}
-
-type credentialIssuanceHistoryStore interface {
-	Put(
+	StoreIssuedCredentialMetadata(
 		ctx context.Context,
 		profileID profileapi.ID,
 		profileVersion profileapi.Version,
-		metadata *vc.CredentialMetadata) error
+		metadata *credentialstatus.CredentialMetadata,
+	) error
 }
 
 type Config struct {
-	VCStatusManager                vcStatusManager
-	Crypto                         vcCrypto
-	KMSRegistry                    kmsRegistry
-	CredentialIssuanceHistoryStore credentialIssuanceHistoryStore
+	VCStatusManager vcStatusManager
+	Crypto          vcCrypto
+	KMSRegistry     kmsRegistry
 }
 
 type Service struct {
-	vcStatusManager                vcStatusManager
-	crypto                         vcCrypto
-	kmsRegistry                    kmsRegistry
-	credentialIssuanceHistoryStore credentialIssuanceHistoryStore
+	vcStatusManager vcStatusManager
+	crypto          vcCrypto
+	kmsRegistry     kmsRegistry
 }
 
 func New(config *Config) *Service {
 	return &Service{
-		vcStatusManager:                config.VCStatusManager,
-		crypto:                         config.Crypto,
-		kmsRegistry:                    config.KMSRegistry,
-		credentialIssuanceHistoryStore: config.CredentialIssuanceHistoryStore,
+		vcStatusManager: config.VCStatusManager,
+		crypto:          config.Crypto,
+		kmsRegistry:     config.KMSRegistry,
 	}
 }
 
@@ -157,7 +152,7 @@ func (s *Service) IssueCredential(
 		return nil, fmt.Errorf("sign credential: %w", err)
 	}
 
-	credentialMetadata := &vc.CredentialMetadata{
+	credentialMetadata := &credentialstatus.CredentialMetadata{
 		CredentialID:   credential.Contents().ID,
 		Issuer:         credential.Contents().Issuer.ID,
 		CredentialType: credential.Contents().Types,
@@ -166,7 +161,8 @@ func (s *Service) IssueCredential(
 		ExpirationDate: credential.Contents().Expired,
 	}
 
-	if err = s.credentialIssuanceHistoryStore.Put(ctx, profile.ID, profile.Version, credentialMetadata); err != nil {
+	err = s.vcStatusManager.StoreIssuedCredentialMetadata(ctx, profile.ID, profile.Version, credentialMetadata)
+	if err != nil {
 		return nil, fmt.Errorf("store credential issuance history: %w", err)
 	}
 
