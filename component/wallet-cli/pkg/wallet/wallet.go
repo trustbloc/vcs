@@ -36,14 +36,17 @@ const (
 	didsKey          = "dids"
 )
 
-type DIDKeyID string
+type DIDInfo struct {
+	ID    string `json:"id"`
+	KeyID string `json:"key_id"`
+}
 
 type Wallet struct {
 	store          storage.Store
 	documentLoader ld.DocumentLoader
 	mu             sync.RWMutex
 	signatureType  vcs.SignatureType
-	dids           []string
+	dids           []*DIDInfo
 }
 
 type provider interface {
@@ -106,10 +109,10 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 	}
 
 	if signatureType == "" {
-		return nil, fmt.Errorf("supported signature type not set for the wallet, please run 'create' command")
+		return nil, fmt.Errorf("wallet not initialized (signature type not set), please run 'create' command")
 	}
 
-	dids := make([]string, 0)
+	dids := make([]*DIDInfo, 0)
 
 	b, err = configurationStore.Get(didsKey)
 	if err != nil {
@@ -143,7 +146,10 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 			return nil, fmt.Errorf("create did: %w", createErr)
 		}
 
-		dids = append(dids, res.DidID)
+		dids = append(dids, &DIDInfo{
+			ID:    res.DidID,
+			KeyID: strings.Split(res.KeyID, "#")[1],
+		})
 
 		updateDIDs = true
 	}
@@ -392,7 +398,7 @@ func parseCredentialContents(m map[string]json.RawMessage, loader ld.DocumentLoa
 	return credentials, nil
 }
 
-func (w *Wallet) DIDs() []string {
+func (w *Wallet) DIDs() []*DIDInfo {
 	return w.dids
 }
 

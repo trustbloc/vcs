@@ -9,6 +9,7 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 
 	"github.com/piprate/json-gold/ld"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
@@ -22,9 +23,8 @@ import (
 )
 
 type serviceFlags struct {
-	storageType             string
-	mongoDBConnectionString string
 	levelDBPath             string
+	mongoDBConnectionString string
 	contextProviderURL      string
 }
 
@@ -36,39 +36,37 @@ type services struct {
 }
 
 func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error) {
-	var storageOpts []storage.Opt
+	var (
+		storageType string
+		opts        []storage.Opt
+	)
 
-	switch flags.storageType {
-	case "mem":
-		break
-	case "leveldb":
-		if flags.levelDBPath == "" {
-			return nil, fmt.Errorf("--leveldb-path is required when storage type is leveldb")
-		}
-
-		storageOpts = append(storageOpts, storage.WithDBPath(flags.levelDBPath))
-	case "mongodb":
-		if flags.mongoDBConnectionString == "" {
-			return nil, fmt.Errorf("--mongodb-connection-string is required when storage type is mongodb")
-		}
-
-		storageOpts = append(storageOpts, storage.WithConnectionString(flags.mongoDBConnectionString))
-	default:
-		return nil, fmt.Errorf("unsupported storage type: %s", flags.storageType)
+	if flags.levelDBPath != "" {
+		storageType = "leveldb"
+		opts = append(opts, storage.WithDBPath(flags.levelDBPath))
+	} else if flags.mongoDBConnectionString != "" {
+		storageType = "mongodb"
+		opts = append(opts, storage.WithConnectionString(flags.mongoDBConnectionString))
+	} else {
+		return nil, fmt.Errorf("either --leveldb-path or --mongodb-connection-string must be specified")
 	}
 
-	storageProvider, err := storage.NewProvider(flags.storageType, storageOpts...)
+	slog.Info("initializing storage provider",
+		"storage_type", storageType,
+	)
+
+	storageProvider, err := storage.NewProvider(storageType, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	var opts []ldutil.Opt
+	var ldOpts []ldutil.Opt
 
 	if flags.contextProviderURL != "" {
-		opts = append(opts, ldutil.WithRemoteProviderURL(flags.contextProviderURL))
+		ldOpts = append(ldOpts, ldutil.WithRemoteProviderURL(flags.contextProviderURL))
 	}
 
-	documentLoader, err := ldutil.DocumentLoader(storageProvider, opts...)
+	documentLoader, err := ldutil.DocumentLoader(storageProvider, ldOpts...)
 	if err != nil {
 		return nil, err
 	}

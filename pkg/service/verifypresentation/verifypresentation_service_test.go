@@ -10,12 +10,10 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-	"net/http"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	mockvdr "github.com/trustbloc/did-go/vdr/mock"
@@ -916,7 +914,7 @@ func TestCredentialStrict(t *testing.T) {
 		}}
 
 	s := New(&Config{
-		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
+		DocumentLoader: testutil.DocumentLoader(t),
 	})
 	claimKeys, err := s.checkCredentialStrict(context.TODO(), []*verifiable.Credential{l})
 	assert.NoError(t, err)

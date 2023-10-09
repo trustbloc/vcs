@@ -26,7 +26,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	"github.com/trustbloc/did-go/doc/did"
-	"github.com/trustbloc/did-go/method/jwk"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/crypto"
@@ -67,9 +66,9 @@ type Flow struct {
 	vdrRegistry                vdrapi.Registry
 	keyManager                 kms.KeyManager
 	crypto                     crypto.Crypto
-	wellknownService           *wellknown.Service
+	wellKnownService           *wellknown.Service
 	flowType                   FlowType
-	credentialOfferURI         string
+	credentialOffer            string
 	credentialType             string
 	credentialFormat           string
 	clientID                   string
@@ -81,6 +80,7 @@ type Flow struct {
 	issuerState                string
 	pin                        string
 	walletDID                  *did.DID
+	walletKMSKeyID             string
 	walletSignatureType        vcs.SignatureType
 	vc                         *verifiable.Credential
 }
@@ -135,15 +135,19 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("parse wallet did: %w", err)
 	}
 
+	if _, err = p.KMS().Get(o.walletKMSKeyID); err != nil {
+		return nil, fmt.Errorf("get wallet kms key with id %s: %w", o.walletKMSKeyID, err)
+	}
+
 	return &Flow{
 		httpClient:                 p.HTTPClient(),
 		documentLoader:             p.DocumentLoader(),
 		vdrRegistry:                p.VDRegistry(),
 		keyManager:                 p.KMS(),
 		crypto:                     p.Crypto(),
-		wellknownService:           p.WellKnownService(),
+		wellKnownService:           p.WellKnownService(),
 		flowType:                   o.flowType,
-		credentialOfferURI:         o.credentialOfferURI,
+		credentialOffer:            o.credentialOffer,
 		credentialType:             o.credentialType,
 		credentialFormat:           o.credentialFormat,
 		clientID:                   o.clientID,
@@ -155,6 +159,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
 		walletDID:                  walletDID,
+		walletKMSKeyID:             o.walletKMSKeyID,
 		walletSignatureType:        o.walletSignatureType,
 	}, nil
 }
@@ -166,7 +171,7 @@ func (f *Flow) GetVC() *verifiable.Credential {
 func (f *Flow) Run(ctx context.Context) error {
 	slog.Info("running OIDC4VCI flow",
 		"flow_type", f.flowType,
-		"credential_offer_uri", f.credentialOfferURI,
+		"credential_offer_uri", f.credentialOffer,
 		"credential_type", f.credentialType,
 		"credential_format", f.credentialFormat,
 	)
@@ -178,7 +183,7 @@ func (f *Flow) Run(ctx context.Context) error {
 	)
 
 	if f.flowType == FlowTypeAuthorizationCode || f.flowType == FlowTypePreAuthorizedCode {
-		credentialOfferResponse, err := f.parseCredentialOfferURI(f.credentialOfferURI)
+		credentialOfferResponse, err := f.parseCredentialOfferURI(f.credentialOffer)
 		if err != nil {
 			return err
 		}
@@ -197,14 +202,14 @@ func (f *Flow) Run(ctx context.Context) error {
 		issuerState = f.issuerState
 	}
 
-	openIDConfig, err := f.wellknownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
+	openIDConfig, err := f.wellKnownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
 	if err != nil {
 		return err
 	}
 
 	var token *oauth2.Token
 
-	if f.flowType == FlowTypeAuthorizationCode {
+	if f.flowType == FlowTypeAuthorizationCode || f.flowType == FlowTypeWalletInitiated {
 		oauthClient := &oauth2.Config{
 			ClientID: f.clientID,
 			Scopes:   f.scopes,
@@ -312,13 +317,8 @@ func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResp
 
 	credentialOfferResponse, err := parser.Parse(uri)
 	if err != nil {
-		return nil, fmt.Errorf("parse credential offer uri: %w", err)
+		return nil, fmt.Errorf("parse credential offer url: %w", err)
 	}
-
-	slog.Debug("parsed credential offer",
-		"credential_issuer", credentialOfferResponse.CredentialIssuer,
-		"grants", credentialOfferResponse.Grants,
-	)
 
 	return credentialOfferResponse, nil
 }
@@ -411,7 +411,6 @@ func (f *Flow) interceptAuthCode(authCodeURL string) (string, error) {
 
 	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if strings.Contains(req.URL.String(), ".amazoncognito.com/login") {
-			slog.Debug("got cognito consent screen")
 			return consent.NewCognito(
 				httpClient,
 				httpClient.Jar.Cookies(req.URL),
@@ -436,10 +435,6 @@ func (f *Flow) interceptAuthCode(authCodeURL string) (string, error) {
 		return "", fmt.Errorf("get auth code: %w", err)
 	}
 	_ = resp.Body.Close()
-
-	slog.Debug("received auth code",
-		"code", authCode,
-	)
 
 	return authCode, nil
 }
@@ -473,9 +468,6 @@ func (f *Flow) interceptAuthCodeFromBrowser(
 				return "", fmt.Errorf("open browser: %w", err)
 			}
 		case authCode := <-server.codeChan:
-			slog.Debug("received authorization code",
-				"code", authCode,
-			)
 			return authCode, nil
 		case <-time.After(5 * time.Minute):
 			return "", fmt.Errorf("timed out")
@@ -522,19 +514,10 @@ func (f *Flow) getVC(
 
 	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
 
-	var kmsKeyID string
-
-	switch f.walletDID.Method {
-	case jwk.DIDMethod:
-		kmsKeyID = verificationMethod.JSONWebKey().KeyID
-	default:
-		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
-	}
-
 	kmsSigner, err := kmssigner.NewKMSSigner(
 		f.keyManager,
 		f.crypto,
-		kmsKeyID,
+		f.walletKMSKeyID,
 		f.walletSignatureType,
 		nil,
 	)
@@ -673,7 +656,7 @@ func (s *callbackServer) ServeHTTP(
 
 type options struct {
 	flowType                   FlowType
-	credentialOfferURI         string
+	credentialOffer            string
 	credentialType             string
 	credentialFormat           string
 	clientID                   string
@@ -685,6 +668,7 @@ type options struct {
 	issuerState                string
 	pin                        string
 	walletDID                  string
+	walletKMSKeyID             string
 	walletSignatureType        vcs.SignatureType
 }
 
@@ -696,9 +680,9 @@ func WithFlowType(flowType FlowType) Opt {
 	}
 }
 
-func WithCredentialOfferURI(credentialOfferURI string) Opt {
+func WithCredentialOffer(credentialOffer string) Opt {
 	return func(opts *options) {
-		opts.credentialOfferURI = credentialOfferURI
+		opts.credentialOffer = credentialOffer
 	}
 }
 
@@ -765,6 +749,12 @@ func WithPin(pin string) Opt {
 func WithWalletDID(walletDID string) Opt {
 	return func(opts *options) {
 		opts.walletDID = walletDID
+	}
+}
+
+func WithWalletKMSKeyID(keyID string) Opt {
+	return func(opts *options) {
+		opts.walletKMSKeyID = keyID
 	}
 }
 
