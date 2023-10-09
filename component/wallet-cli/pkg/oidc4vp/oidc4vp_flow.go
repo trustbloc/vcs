@@ -20,6 +20,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/method/jwk"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
@@ -50,8 +52,7 @@ type Flow struct {
 	keyManager               kms.KeyManager
 	crypto                   crypto.Crypto
 	wallet                   *wallet.Wallet
-	walletDID                string
-	walletDIDKeyID           string
+	walletDID                *did.DID
 	requestURI               string
 	linkedDomainVerification bool
 }
@@ -76,12 +77,10 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("invalid request uri: %w", err)
 	}
 
-	docResolution, err := p.VDRegistry().Resolve(o.walletDID)
+	walletDID, err := did.Parse(o.walletDID)
 	if err != nil {
-		return nil, fmt.Errorf("resolve wallet did: %w", err)
+		return nil, fmt.Errorf("parse wallet did: %w", err)
 	}
-
-	walletDIDKeyID := docResolution.DIDDocument.VerificationMethod[0].ID
 
 	return &Flow{
 		httpClient:               p.HTTPClient(),
@@ -90,8 +89,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		keyManager:               p.KMS(),
 		crypto:                   p.Crypto(),
 		wallet:                   p.Wallet(),
-		walletDID:                o.walletDID,
-		walletDIDKeyID:           walletDIDKeyID,
+		walletDID:                walletDID,
 		requestURI:               o.requestURI,
 		linkedDomainVerification: o.linkedDomainVerification,
 	}, nil
@@ -249,6 +247,8 @@ func getServiceType(serviceType interface{}) string {
 }
 
 func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) ([]*verifiable.Credential, error) {
+	slog.Info("querying wallet")
+
 	b, err := json.Marshal(pd)
 	if err != nil {
 		return nil, fmt.Errorf("marshal presentation definition: %w", err)
@@ -417,8 +417,16 @@ func (f *Flow) signPresentationJWT(
 		return "", fmt.Errorf("resolve signer did: %w", err)
 	}
 
-	signerKeyID := docResolution.DIDDocument.VerificationMethod[0].ID
-	kmsKeyID := strings.Split(signerKeyID, "#")[1]
+	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
+
+	var kmsKeyID string
+
+	switch f.walletDID.Method {
+	case jwk.DIDMethod:
+		kmsKeyID = verificationMethod.JSONWebKey().KeyID
+	default:
+		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
+	}
 
 	kmsSigner, err := kmssigner.NewKMSSigner(
 		f.keyManager,
@@ -446,7 +454,7 @@ func (f *Flow) signPresentationJWT(
 		claims,
 		map[string]interface{}{"typ": "JWT"},
 		jwssigner.NewJWSSigner(
-			signerKeyID,
+			verificationMethod.ID,
 			string(f.wallet.SignatureType()),
 			kmsSigner,
 		),
@@ -477,12 +485,21 @@ func (f *Flow) signPresentationLDP(
 		return "", fmt.Errorf("resolve signer did: %w", err)
 	}
 
-	signerKeyID := docResolution.DIDDocument.VerificationMethod[0].ID
+	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
+
+	var kmsKeyID string
+
+	switch f.walletDID.Method {
+	case jwk.DIDMethod:
+		kmsKeyID = verificationMethod.JSONWebKey().KeyID
+	default:
+		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
+	}
 
 	signedVP, err := cryptoSigner.SignPresentation(
 		&vc.Signer{
-			Creator:                 signerKeyID,
-			KMSKeyID:                strings.Split(signerKeyID, "#")[1],
+			Creator:                 verificationMethod.ID,
+			KMSKeyID:                kmsKeyID,
 			SignatureType:           signatureType,
 			SignatureRepresentation: verifiable.SignatureProofValue,
 			KMS: vcskms.GetAriesKeyManager(
@@ -514,6 +531,22 @@ func (f *Flow) createIDToken(
 	presentationSubmission *presexch.PresentationSubmission,
 	clientID, nonce string,
 ) (string, error) {
+	docResolution, err := f.vdrRegistry.Resolve(f.walletDID.String())
+	if err != nil {
+		return "", fmt.Errorf("resolve signer did: %w", err)
+	}
+
+	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
+
+	var kmsKeyID string
+
+	switch f.walletDID.Method {
+	case jwk.DIDMethod:
+		kmsKeyID = verificationMethod.JSONWebKey().KeyID
+	default:
+		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
+	}
+
 	idToken := &IDTokenClaims{
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: presentationSubmission,
@@ -522,7 +555,7 @@ func (f *Flow) createIDToken(
 		Exp:   time.Now().Unix() + tokenLifetimeSeconds,
 		Iss:   "https://self-issued.me/v2/openid-vc",
 		Aud:   clientID,
-		Sub:   f.walletDID,
+		Sub:   f.walletDID.String(),
 		Nbf:   time.Now().Unix(),
 		Iat:   time.Now().Unix(),
 		Jti:   uuid.NewString(),
@@ -531,7 +564,7 @@ func (f *Flow) createIDToken(
 	kmsSigner, err := kmssigner.NewKMSSigner(
 		f.keyManager,
 		f.crypto,
-		strings.Split(f.walletDIDKeyID, "#")[1], // KMS key ID is the fragment of the DID URL
+		kmsKeyID,
 		f.wallet.SignatureType(),
 		nil,
 	)
@@ -543,7 +576,7 @@ func (f *Flow) createIDToken(
 		idToken,
 		map[string]interface{}{"typ": "JWT"},
 		jwssigner.NewJWSSigner(
-			f.walletDIDKeyID,
+			verificationMethod.ID,
 			string(f.wallet.SignatureType()),
 			kmsSigner,
 		),
@@ -593,7 +626,7 @@ func (f *Flow) postAuthorizationResponse(ctx context.Context, redirectURI string
 		)
 	}
 
-	slog.Info("vc presented successfully")
+	slog.Info("credential presented successfully")
 
 	return nil
 }
