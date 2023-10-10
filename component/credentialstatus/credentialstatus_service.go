@@ -398,9 +398,15 @@ func (s *Service) createStatusUpdatedEvent(
 		return nil, fmt.Errorf("unable to marshal UpdateCredentialStatusEventPayload: %w", err)
 	}
 
-	return spi.NewEventWithPayload(
+	evt := spi.NewEventWithPayload(
 		uuid.NewString(),
 		credentialStatusEventSource,
 		spi.CredentialStatusStatusUpdated,
-		payload), nil
+		payload)
+
+	// Set the routing key to the CSL URL to give the event bus a hint
+	// on how/where to route the event.
+	evt.RoutingKey = cslURL
+
+	return evt, nil
 }
