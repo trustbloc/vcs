@@ -82,6 +82,9 @@ type Event struct {
 
 	// Tracing defines tracing information(optional).
 	Tracing string `json:"tracing,omitempty"`
+
+	// RoutingKey is an optional key that is used by the event bus to determining how/where to route the event.
+	RoutingKey string `json:"-"`
 }
 
 // Copy an event.
