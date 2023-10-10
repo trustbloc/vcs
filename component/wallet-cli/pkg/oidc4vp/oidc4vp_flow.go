@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/did"
-	"github.com/trustbloc/did-go/method/jwk"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
@@ -46,15 +45,16 @@ const (
 )
 
 type Flow struct {
-	httpClient               *http.Client
-	documentLoader           ld.DocumentLoader
-	vdrRegistry              vdrapi.Registry
-	keyManager               kms.KeyManager
-	crypto                   crypto.Crypto
-	wallet                   *wallet.Wallet
-	walletDID                *did.DID
-	requestURI               string
-	linkedDomainVerification bool
+	httpClient                     *http.Client
+	documentLoader                 ld.DocumentLoader
+	vdrRegistry                    vdrapi.Registry
+	keyManager                     kms.KeyManager
+	crypto                         crypto.Crypto
+	wallet                         *wallet.Wallet
+	walletDID                      *did.DID
+	walletKMSKeyID                 string
+	requestURI                     string
+	enableLinkedDomainVerification bool
 }
 
 type provider interface {
@@ -67,7 +67,9 @@ type provider interface {
 }
 
 func NewFlow(p provider, opts ...Opt) (*Flow, error) {
-	o := &options{}
+	o := &options{
+		walletDIDIndex: len(p.Wallet().DIDs()) - 1,
+	}
 
 	for i := range opts {
 		opts[i](o)
@@ -77,21 +79,28 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("invalid request uri: %w", err)
 	}
 
-	walletDID, err := did.Parse(o.walletDID)
+	if o.walletDIDIndex < 0 || o.walletDIDIndex >= len(p.Wallet().DIDs()) {
+		return nil, fmt.Errorf("invalid wallet did index: %d", o.walletDIDIndex)
+	}
+
+	walletDIDInfo := p.Wallet().DIDs()[o.walletDIDIndex]
+
+	walletDID, err := did.Parse(walletDIDInfo.ID)
 	if err != nil {
 		return nil, fmt.Errorf("parse wallet did: %w", err)
 	}
 
 	return &Flow{
-		httpClient:               p.HTTPClient(),
-		documentLoader:           p.DocumentLoader(),
-		vdrRegistry:              p.VDRegistry(),
-		keyManager:               p.KMS(),
-		crypto:                   p.Crypto(),
-		wallet:                   p.Wallet(),
-		walletDID:                walletDID,
-		requestURI:               o.requestURI,
-		linkedDomainVerification: o.linkedDomainVerification,
+		httpClient:                     p.HTTPClient(),
+		documentLoader:                 p.DocumentLoader(),
+		vdrRegistry:                    p.VDRegistry(),
+		keyManager:                     p.KMS(),
+		crypto:                         p.Crypto(),
+		wallet:                         p.Wallet(),
+		walletDID:                      walletDID,
+		walletKMSKeyID:                 walletDIDInfo.KeyID,
+		requestURI:                     o.requestURI,
+		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
 	}, nil
 }
 
@@ -101,7 +110,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		return err
 	}
 
-	if f.linkedDomainVerification {
+	if f.enableLinkedDomainVerification {
 		if err = f.runLinkedDomainVerification(requestObject.ClientID); err != nil {
 			return err
 		}
@@ -151,8 +160,6 @@ func (f *Flow) fetchRequestObject(ctx context.Context) (*RequestObject, error) {
 	}
 
 	_ = resp.Body.Close()
-
-	slog.Debug("fetched request object", "body", string(b))
 
 	jwtVerifier := jwt.NewVerifier(
 		jwt.KeyResolverFunc(
@@ -421,11 +428,11 @@ func (f *Flow) signPresentationJWT(
 
 	var kmsKeyID string
 
-	switch f.walletDID.Method {
-	case jwk.DIDMethod:
-		kmsKeyID = verificationMethod.JSONWebKey().KeyID
-	default:
-		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
+	for _, didInfo := range f.wallet.DIDs() {
+		if didInfo.ID == signerDID {
+			kmsKeyID = didInfo.KeyID
+			break
+		}
 	}
 
 	kmsSigner, err := kmssigner.NewKMSSigner(
@@ -489,11 +496,11 @@ func (f *Flow) signPresentationLDP(
 
 	var kmsKeyID string
 
-	switch f.walletDID.Method {
-	case jwk.DIDMethod:
-		kmsKeyID = verificationMethod.JSONWebKey().KeyID
-	default:
-		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
+	for _, didInfo := range f.wallet.DIDs() {
+		if didInfo.ID == signerDID {
+			kmsKeyID = didInfo.KeyID
+			break
+		}
 	}
 
 	signedVP, err := cryptoSigner.SignPresentation(
@@ -538,15 +545,6 @@ func (f *Flow) createIDToken(
 
 	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
 
-	var kmsKeyID string
-
-	switch f.walletDID.Method {
-	case jwk.DIDMethod:
-		kmsKeyID = verificationMethod.JSONWebKey().KeyID
-	default:
-		kmsKeyID = strings.Split(verificationMethod.ID, "#")[1]
-	}
-
 	idToken := &IDTokenClaims{
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: presentationSubmission,
@@ -564,7 +562,7 @@ func (f *Flow) createIDToken(
 	kmsSigner, err := kmssigner.NewKMSSigner(
 		f.keyManager,
 		f.crypto,
-		kmsKeyID,
+		f.walletKMSKeyID,
 		f.wallet.SignatureType(),
 		nil,
 	)
@@ -632,16 +630,16 @@ func (f *Flow) postAuthorizationResponse(ctx context.Context, redirectURI string
 }
 
 type options struct {
-	walletDID                string
-	requestURI               string
-	linkedDomainVerification bool
+	walletDIDIndex                 int
+	requestURI                     string
+	enableLinkedDomainVerification bool
 }
 
 type Opt func(opts *options)
 
-func WithWalletDID(did string) Opt {
+func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
-		opts.walletDID = did
+		opts.walletDIDIndex = idx
 	}
 }
 
@@ -653,6 +651,6 @@ func WithRequestURI(uri string) Opt {
 
 func WithLinkedDomainVerification() Opt {
 	return func(opts *options) {
-		opts.linkedDomainVerification = true
+		opts.enableLinkedDomainVerification = true
 	}
 }

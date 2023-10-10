@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/henvic/httpretty"
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
@@ -22,15 +23,17 @@ import (
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 )
 
 type oidc4vpCommandFlags struct {
-	serviceFlags             *serviceFlags
-	qrCodePath               string
-	walletDIDIndex           int
-	linkedDomainVerification bool
+	serviceFlags                   *serviceFlags
+	qrCodePath                     string
+	walletDIDIndex                 int
+	enableLinkedDomainVerification bool
+	enableTracing                  bool
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -90,6 +93,22 @@ func NewOIDC4VPCommand() *cobra.Command {
 				},
 			}
 
+			if flags.enableTracing {
+				httpLogger := &httpretty.Logger{
+					RequestHeader:   true,
+					RequestBody:     true,
+					ResponseHeader:  true,
+					ResponseBody:    true,
+					SkipSanitize:    true,
+					Colors:          true,
+					SkipRequestInfo: true,
+					Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}, &formatter.JWTFormatter{}},
+					MaxResponseBody: 1e+7,
+				}
+
+				httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
+			}
+
 			crypt, err := tinkcrypto.New()
 			if err != nil {
 				return err
@@ -119,12 +138,10 @@ func NewOIDC4VPCommand() *cobra.Command {
 			}
 
 			if flags.walletDIDIndex != -1 {
-				opts = append(opts, oidc4vp.WithWalletDID(w.DIDs()[flags.walletDIDIndex]))
-			} else {
-				opts = append(opts, oidc4vp.WithWalletDID(w.DIDs()[len(w.DIDs())-1]))
+				opts = append(opts, oidc4vp.WithWalletDIDIndex(flags.walletDIDIndex))
 			}
 
-			if flags.linkedDomainVerification {
+			if flags.enableLinkedDomainVerification {
 				opts = append(opts, oidc4vp.WithLinkedDomainVerification())
 			}
 
@@ -146,13 +163,14 @@ func NewOIDC4VPCommand() *cobra.Command {
 }
 
 func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
-	cmd.Flags().StringVar(&flags.serviceFlags.storageType, "storage-type", "leveldb", "storage types supported: mem,leveldb,mongodb")
-	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
 	cmd.Flags().StringVar(&flags.serviceFlags.levelDBPath, "leveldb-path", "", "leveldb path")
+	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
 
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
-	cmd.Flags().BoolVar(&flags.linkedDomainVerification, "linked-domain-verification", false, "enable linked domain verification")
+	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
+
+	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 }
 
 type oidc4vpProvider struct {

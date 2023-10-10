@@ -25,17 +25,17 @@ the Wallet. Therefore, prior to engaging in the OIDC4VCI flow, it's essential to
 
 Wallet can be created using `create` command. The following CLI arguments are supported:
 ```bash
+      --context-provider-url string        json-ld context provider url
       --did-key-type string                did key types supported: ED25519,ECDSAP256DER,ECDSAP384DER (default "ED25519")
-      --did-method string                  wallet did methods supported: ion,jwk (default "ion")
+      --did-method string                  wallet did methods supported: ion,jwk,key (default "ion")
   -h, --help                               help for create
       --leveldb-path string                leveldb path
       --mongodb-connection-string string   mongodb connection string
-      --storage-type string                storage types supported: mem,leveldb,mongodb (default "leveldb")
 ```
 
 Examples:
 
-* Create wallet with default parameters (leveldb storage, ED25519 key type, did:ion method):
+* Create wallet using leveldb storage option and default parameters (ED25519 key type, did:ion method):
 ```bash
 ./wallet-cli create --leveldb-path "/mnt/wallet.db"
 ```
@@ -59,22 +59,22 @@ used for this purpose. The following CLI arguments are supported:
 ```bash
       --client-id string                   vcs oauth2 client
       --credential-format string           supported credential formats: ldp_vc,jwt_vc_json-ld (default "ldp_vc")
-      --credential-offer-url string        credential offer url
+      --credential-offer string            openid credential offer
       --credential-type string             credential type
       --demo-issuer-url string             demo issuer url for downloading qr code automatically
-      --discoverable-client-id             enable discoverable client id scheme for dynamic client registration
+      --enable-discoverable-client-id      enables discoverable client id scheme for dynamic client registration
+      --enable-tracing                     enables http tracing
       --grant-type string                  supported grant types: authorization_code,urn:ietf:params:oauth:grant-type:pre-authorized_code (default "authorization_code")
   -h, --help                               help for oidc4vci
       --issuer-state string                issuer state in wallet-initiated flow
       --leveldb-path string                leveldb path
-      --login string                       user login on issuer IdP
       --mongodb-connection-string string   mongodb connection string
-      --password string                    user password on issuer IdP
       --pin string                         pin for pre-authorized code flow
       --qr-code-path string                path to file with qr code
       --redirect-uri string                callback where the authorization code should be sent (default "http://127.0.0.1/callback")
       --scopes strings                     vcs oauth2 scopes (default [openid])
-      --storage-type string                storage types supported: mem,leveldb,mongodb (default "leveldb")
+      --user-login string                  user login on issuer IdP
+      --user-password string               user password on issuer IdP
       --wallet-did-index int               index of wallet did, if not set the most recently created DID is used (default -1)
 ```
 
@@ -87,27 +87,27 @@ Examples:
 
 * Receive VC from the Issuer using authorization code flow:
 ```bash
-./wallet-cli oidc4vci --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --grant-type authorization_code --scopes openid --redirect-uri http://127.0.0.1/callback --client-id oidc4vc_client --credential-type PermanentResidentCard --credential-format ldp_vc
+./wallet-cli oidc4vci --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --grant-type authorization_code --client-id oidc4vc_client --credential-type PermanentResidentCard --credential-format ldp_vc
 ```
 
 ### Presenting Verifiable Credential using OIDC4VP exchange protocol
 
 Use the `oidc4vp` command to present Verifiable Credential to the Verifier:
 ```bash
-  -h, --help                               help for oidc4vp
-      --leveldb-path string                leveldb path
-      --linked-domain-verification         enable linked domain verification
-      --mongodb-connection-string string   mongodb connection string
-      --qr-code-path string                path to file with qr code
-      --storage-type string                storage types supported: mem,leveldb,mongodb (default "leveldb")
-      --wallet-did-index int               index of wallet did, if not set the most recently created DID is used (default -1)
+      --enable-linked-domain-verification   enables linked domain verification
+      --enable-tracing                      enables http tracing
+  -h, --help                                help for oidc4vp
+      --leveldb-path string                 leveldb path
+      --mongodb-connection-string string    mongodb connection string
+      --qr-code-path string                 path to file with qr code
+      --wallet-did-index int                index of wallet did, if not set the most recently created DID is used (default -1)
 ```
 
 Examples:
 
-* Present VC to the Verifier with enabled linked domain verification:
+* Present VC to the Verifier with linked domain verification:
 ```bash
-./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --linked-domain-verification
+./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --enable-linked-domain-verification
 ```
 
 ## Contributing
