@@ -19,12 +19,12 @@ import (
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmskeytypes "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -69,26 +69,27 @@ func proveVC(
 
 	customKMS := createKMS(t)
 
-	customCrypto, err := tinkcrypto.New()
-	require.NoError(t, err)
-
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
 	require.NoError(t, err)
 
-	keyID, kh, err := customKMS.Create(kt)
+	kc, err := customKMS.KMSCrypto()
 	require.NoError(t, err)
 
-	pkBytes, _, err := customKMS.ExportPubKeyBytes(keyID)
+	pk, err := kc.Create(kt)
 	require.NoError(t, err)
 
-	didDoc := createDIDDoc(t, "did:trustblock:abc", keyID, pkBytes, kt)
+	fks, err := kc.FixedKeySigner(pk)
+	require.NoError(t, err)
+
+	didDoc := createDIDDoc(t, "did:trustblock:abc", pk.KeyID, pk)
+
+	signer := suite.NewCryptoWrapperSigner(fks)
 
 	// Sign
 	switch sf {
 	case vcsverifiable.Ldp:
-		//nolint:staticcheck //on next kms-go update will be changed to other func
 		signerSuite := jsonwebsignature2020.New(
-			suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh))) //nolint:staticcheck
+			suite.WithSigner(signer))
 		err = credential.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "JsonWebSignature2020",
 			Suite:                   signerSuite,
@@ -108,8 +109,7 @@ func proveVC(
 			jwsAlgName, sdErr := jwsAlgo.Name()
 			require.NoError(t, sdErr)
 
-			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName,
-				suite.NewCryptoSigner(customCrypto, kh)) //nolint:staticcheck
+			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName, signer)
 
 			sdjwtCredential, sdErr := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID,
 				verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"id", "type", "@type"}),
@@ -124,8 +124,7 @@ func proveVC(
 			credential = vcParsed
 		} else {
 			credential, jwtErr = credential.CreateSignedJWTVC(
-				false, jwsAlgo,
-				suite.NewCryptoSigner(customCrypto, kh), didDoc.VerificationMethod[0].ID) //nolint:staticcheck
+				false, jwsAlgo, signer, didDoc.VerificationMethod[0].ID)
 			require.NoError(t, jwtErr)
 		}
 	}
@@ -137,7 +136,7 @@ func proveVC(
 	}
 }
 
-func createDIDDoc(t *testing.T, didID, keyID string, pubKeyBytes []byte, kt kmskeytypes.KeyType) *did.Doc {
+func createDIDDoc(t *testing.T, didID, keyID string, pubJWK *jwk.JWK) *did.Doc {
 	t.Helper()
 
 	const (
@@ -155,9 +154,7 @@ func createDIDDoc(t *testing.T, didID, keyID string, pubKeyBytes []byte, kt kmsk
 		Priority:        0,
 	}
 
-	j, _ := jwksupport.PubKeyBytesToJWK(pubKeyBytes, kt)
-
-	mv, _ := did.NewVerificationMethodFromJWK(creator, keyType, "", j)
+	mv, _ := did.NewVerificationMethodFromJWK(creator, keyType, "", pubJWK)
 
 	createdTime := time.Now()
 
@@ -174,14 +171,18 @@ func createDIDDoc(t *testing.T, didID, keyID string, pubKeyBytes []byte, kt kmsk
 	}
 }
 
-func createKMS(t *testing.T) *localkms.LocalKMS {
+func createKMS(t *testing.T) api.Suite {
 	t.Helper()
 
-	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	storeProv, err := kms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	cryptoSuite, err := localsuite.NewLocalCryptoSuite(
+		"local-lock://custom/primary/key/",
+		storeProv,
+		&noop.NoLock{},
+	)
 	require.NoError(t, err)
 
-	return k
+	return cryptoSuite
 }

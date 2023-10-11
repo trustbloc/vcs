@@ -22,6 +22,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	arieskms "github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/did-go/doc/did"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
@@ -30,24 +34,16 @@ import (
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/util/fingerprint"
-	"github.com/trustbloc/kms-go/doc/util/jwkkid"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
-	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
@@ -65,14 +61,17 @@ const (
 )
 
 func TestService_InitiateOidcInteraction(t *testing.T) {
-	customKMS := createKMS(t)
+	cryptoSuite := createCryptoSuite(t)
 
-	customCrypto, err := tinkcrypto.New()
+	keyCreator, err := cryptoSuite.KeyCreator()
+	require.NoError(t, err)
+
+	customSigner, err := cryptoSuite.KMSCryptoMultiSigner()
 	require.NoError(t, err)
 
 	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
-		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
+		&vcskms.MockKMS{Signer: customSigner}, nil)
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&oidc4vp.Transaction{
@@ -96,7 +95,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		TokenLifetime:            time.Second * 100,
 	})
 
-	keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	pubKey, err := keyCreator.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
 	correctProfile := &profileapi.Verifier{
@@ -123,8 +122,8 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		},
 		SigningDID: &profileapi.SigningDID{
 			DID:      "did:test:acde",
-			Creator:  "did:test:acde#" + keyID,
-			KMSKeyID: keyID,
+			Creator:  "did:test:acde#" + pubKey.KeyID,
+			KMSKeyID: pubKey.KeyID,
 		},
 	}
 
@@ -246,15 +245,15 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 }
 
 func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
-	keyManager := createKMS(t)
+	cryptoSuite := createCryptoSuite(t)
 
-	crypto, err := tinkcrypto.New()
+	w, err := cryptoSuite.KMSCrypto()
 	require.NoError(t, err)
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	vp, pd, issuer, vdr, loader := newVPWithPD(t, keyManager, crypto)
+	vp, pd, issuer, vdr, loader := newVPWithPD(t, w)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
@@ -348,8 +347,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, vdr1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
-		vp2, issuer2, vdr2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
+		vp1, issuer1, vdr1 := newVPWithPS(t, w, mergedPS, "PhDDegree")
+		vp2, issuer2, vdr2 := newVPWithPS(t, w, mergedPS, "BachelorDegree")
 
 		combinedDIDResolver := &vdrmock.VDRegistry{
 			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
@@ -435,8 +434,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, vdr1 := newVPWithPS(t, keyManager, crypto, mergedPS, "PhDDegree")
-		vp2, issuer2, vdr2 := newVPWithPS(t, keyManager, crypto, mergedPS, "BachelorDegree")
+		vp1, issuer1, vdr1 := newVPWithPS(t, w, mergedPS, "PhDDegree")
+		vp2, issuer2, vdr2 := newVPWithPS(t, w, mergedPS, "BachelorDegree")
 
 		combinedDIDResolver := &vdrmock.VDRegistry{
 			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
@@ -757,36 +756,16 @@ func TestService_RetrieveClaims(t *testing.T) {
 	})
 }
 
-func createKMS(t *testing.T) *localkms.LocalKMS {
+func createCryptoSuite(t *testing.T) api.Suite {
 	t.Helper()
 
-	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := arieskms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	cryptoSuite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", p, &noop.NoLock{})
 	require.NoError(t, err)
 
-	return k
-}
-
-type mockVCSKeyManager struct {
-	crypto ariescrypto.Crypto
-	kms    *localkms.LocalKMS
-}
-
-func (m *mockVCSKeyManager) NewVCSigner(creator string,
-	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
-	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType, nil)
-}
-
-func (m *mockVCSKeyManager) SupportedKeyTypes() []kms.KeyType {
-	return []kms.KeyType{kms.ED25519Type}
-}
-func (m *mockVCSKeyManager) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
-	return "", nil, nil
-}
-func (m *mockVCSKeyManager) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
-	return "", nil, nil
+	return cryptoSuite
 }
 
 type mockEvent struct {
@@ -801,15 +780,14 @@ func (m *mockEvent) Publish(_ context.Context, _ string, _ ...*spi.Event) error 
 	return nil
 }
 
-func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto) (
+func newVPWithPD(t *testing.T, keyCreatorSigner wrapperCreatorSigner) (
 	*verifiable.Presentation, *presexch.PresentationDefinition, string,
 	vdrapi.Registry, *lddocloader.DocumentLoader) {
 	uri := randomURI()
 
 	customType := "CustomType"
 
-	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, []string{uri},
-		"", "", []string{customType})
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyCreatorSigner, []string{uri}, "", "", []string{customType})
 
 	defs := &presexch.PresentationDefinition{
 		InputDescriptors: []*presexch.InputDescriptor{{
@@ -831,10 +809,10 @@ func newVPWithPD(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Cry
 	), defs, issuer, pubKeyFetcher, docLoader
 }
 
-func newVPWithPS(t *testing.T, keyManager kms.KeyManager, crypto ariescrypto.Crypto,
+func newVPWithPS(t *testing.T, keyCreatorSigner wrapperCreatorSigner,
 	ps *presexch.PresentationSubmission, value string) (
 	*verifiable.Presentation, string, vdrapi.Registry) {
-	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyManager, crypto, nil,
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, keyCreatorSigner, nil,
 		"degree", value, []string{})
 
 	return newVP(t, ps,
@@ -906,26 +884,28 @@ func newDegreeVC(issuer string, degreeType string, ctx []string, customTypes []s
 	return cred
 }
 
+type wrapperCreatorSigner interface {
+	api.KeyCreator
+	api.KMSCryptoSigner
+}
+
 func newSignedJWTVC(t *testing.T,
-	keyManager kms.KeyManager, crypto ariescrypto.Crypto, ctx []string,
+	keyCreatorSigner wrapperCreatorSigner, ctx []string,
 	vcType string, value string, customTypes []string) (*verifiable.Credential, string, vdrapi.Registry) {
 	t.Helper()
 
-	keyID, kh, err := keyManager.Create(kms.ED25519Type)
+	pub, err := keyCreatorSigner.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	signer := suite.NewCryptoSigner(crypto, kh) //nolint:staticcheck
-
-	pubKey, kt, err := keyManager.ExportPubKeyBytes(keyID)
-	require.NoError(t, err)
-	require.Equal(t, kms.ED25519Type, kt)
-
-	key, err := jwkkid.BuildJWK(pubKey, kms.ED25519)
+	fks, err := keyCreatorSigner.FixedKeySigner(pub)
 	require.NoError(t, err)
 
-	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+	signer := suite.NewCryptoWrapperSigner(fks)
 
-	verificationMethod, err := did.NewVerificationMethodFromJWK(verMethod, "JsonWebKey2020", issuer, key)
+	issuer, verMethod, err := fingerprint.CreateDIDKeyByJwk(pub)
+	require.NoError(t, err)
+
+	verificationMethod, err := did.NewVerificationMethodFromJWK(verMethod, "JsonWebKey2020", issuer, pub)
 	require.NoError(t, err)
 
 	didResolver := &vdrmock.VDRegistry{

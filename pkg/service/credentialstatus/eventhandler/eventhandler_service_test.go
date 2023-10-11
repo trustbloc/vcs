@@ -19,14 +19,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/did-go/doc/did"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	cryptomock "github.com/trustbloc/kms-go/mock/crypto"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
-	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -35,7 +31,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -121,7 +116,7 @@ func TestService_HandleEvent(t *testing.T) {
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
 	crypto := vccrypto.New(
 		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
@@ -226,7 +221,7 @@ func TestService_handleEventPayload(t *testing.T) {
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
 	crypto := vccrypto.New(
 		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
@@ -447,7 +442,7 @@ func TestService_signCSL(t *testing.T) {
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
 	crypto := vccrypto.New(
 		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
@@ -815,28 +810,4 @@ func createDIDDoc(didID string) *did.Doc {
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
-}
-
-type mockKMS struct {
-	crypto ariescrypto.Crypto
-}
-
-func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
-	if m.crypto == nil {
-		m.crypto = &cryptomock.Crypto{}
-	}
-
-	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType, nil)
-}
-
-func (m *mockKMS) SupportedKeyTypes() []kms.KeyType {
-	return nil
-}
-
-func (m *mockKMS) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
-	return "", nil, nil
-}
-
-func (m *mockKMS) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
-	return "", nil, nil
 }

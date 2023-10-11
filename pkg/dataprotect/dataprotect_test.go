@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 )
 
@@ -23,11 +22,16 @@ const (
 
 func TestNewDataProtectorEncrypt(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			encrypt,
+			compress,
+		)
 
 		data := []byte{0x1, 0x2, 0x66, 0x32}
 		dataCompressed := []byte{0x5, 0x6, 0x7}
@@ -52,12 +56,17 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 	})
 
 	t.Run("data encrypt err", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
 		compress.EXPECT().Compress(gomock.Any()).Return(nil, nil)
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			encrypt,
+			compress,
+		)
 		encrypt.EXPECT().Encrypt(gomock.Any()).
 			Return(nil, nil, errors.New("data encrypt err"))
 
@@ -67,12 +76,17 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 	})
 
 	t.Run("encrypt err", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 		compress.EXPECT().Compress(gomock.Any()).Return(nil, nil)
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			encrypt,
+			compress,
+		)
 		encrypt.EXPECT().Encrypt(gomock.Any()).
 			Return(nil, nil, nil)
 		keyProtector.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
@@ -84,12 +98,17 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 	})
 
 	t.Run("compress err", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 		compress.EXPECT().Compress(gomock.Any()).Return(nil, errors.New("can not compress"))
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			encrypt,
+			compress,
+		)
 
 		resp, err := p.Encrypt(context.TODO(), []byte{0x0})
 		assert.ErrorContains(t, err, "can not compress")
@@ -99,11 +118,16 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 
 func TestDecrypt(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			dataProtector,
+			compress,
+		)
 
 		data := []byte{0x1, 0x2, 0x66, 0x32}
 		dataDecompressed := []byte{0x1, 0x1, 0x2}
@@ -117,7 +141,7 @@ func TestDecrypt(t *testing.T) {
 			Return(data, nil)
 
 		keyProtector.EXPECT().
-			Decrypt(nil, encryptedKey, nonce, cryptoKeyID).
+			Decrypt(encryptedKey, nil, nonce, cryptoKeyID).
 			Return(key, nil)
 
 		dec, err := p.Decrypt(context.TODO(), &dataprotect.EncryptedData{
@@ -131,11 +155,16 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("fail decrypt key", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			dataProtector,
+			compress,
+		)
 
 		encryptedData := []byte{0x99, 0x55, 0x66}
 		encryptedKey := []byte{0x88, 0x77}
@@ -156,11 +185,16 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("fail decrypt key", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			dataProtector,
+			compress,
+		)
 
 		encryptedData := []byte{0x99, 0x55, 0x66}
 		encryptedKey := []byte{0x88, 0x77}
@@ -184,11 +218,16 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("fail decompress", func(t *testing.T) {
-		keyProtector := NewMockCrypto(gomock.NewController(t))
+		keyProtector := NewMockencDec(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
-		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector, compress)
+		p := dataprotect.NewDataProtector(
+			keyProtector,
+			cryptoKeyID,
+			dataProtector,
+			compress,
+		)
 
 		data := []byte{0x1, 0x2, 0x66, 0x32}
 		encryptedData := []byte{0x99, 0x55, 0x66}
@@ -201,7 +240,7 @@ func TestDecrypt(t *testing.T) {
 			Return(data, nil)
 
 		keyProtector.EXPECT().
-			Decrypt(nil, encryptedKey, nonce, cryptoKeyID).
+			Decrypt(encryptedKey, nil, nonce, cryptoKeyID).
 			Return(key, nil)
 
 		dec, err := p.Decrypt(context.TODO(), &dataprotect.EncryptedData{

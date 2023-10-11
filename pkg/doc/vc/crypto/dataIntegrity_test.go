@@ -11,22 +11,21 @@ import (
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/doc/util/jwkkid"
-	cryptomock "github.com/trustbloc/kms-go/mock/crypto"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
 func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
-	customKMS := createKMS(t)
+	suite := createCryptoSuite(t)
 
-	_, keyBytes, err := customKMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
+	keyCreator, err := suite.KeyCreator()
 	require.NoError(t, err)
 
-	key, err := jwkkid.BuildJWK(keyBytes, kmsapi.ECDSAP256IEEEP1363)
+	key, err := keyCreator.Create(kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
 	const signingDID = "did:foo:bar"
@@ -133,11 +132,8 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 	t.Run("Error get signer", func(t *testing.T) {
 		ariesSigner := getTestLDPDataIntegritySigner()
 
-		ariesSigner.KMS = &mockVCSKeyManager{
-			crypto: &cryptomock.Crypto{},
-			kms: &mockkms.KeyManager{
-				GetKeyErr: errors.New("some error"),
-			},
+		ariesSigner.KMS = &vcskms.MockKMS{
+			Signer: &mockwrapper.MockKMSCrypto{FixedKeyCryptoErr: errors.New("some error")},
 		}
 
 		signedVC, err := c.signCredentialLDPDataIntegrity(ariesSigner, unsignedVc)

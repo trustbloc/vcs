@@ -477,7 +477,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
@@ -522,7 +522,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				VP: &verifiable.Presentation{
 					Context: []string{
@@ -578,7 +578,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 			vcsverifiable.Ldp,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			func(ldpc *verifiable.LinkedDataProofContext) {
 				ldpc.Domain = validAud
 				ldpc.Challenge = validNonce
@@ -614,7 +614,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
@@ -660,7 +660,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: "some_invalid",
 				Aud:   validAud,
@@ -706,7 +706,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   "some_invalid",
@@ -752,7 +752,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   "some_invalid",
@@ -844,7 +844,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   "some_invalid",
@@ -936,7 +936,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
@@ -1036,7 +1036,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 			vcsverifiable.Ldp,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			func(ldpc *verifiable.LinkedDataProofContext) {
 				ldpc.Domain = validAud
 				// ldpc.Challenge = validNonce
@@ -1086,7 +1086,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 			vcsverifiable.Ldp,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Kh,
+			signedClaimsJWTResult.Signer,
 			func(ldpc *verifiable.LinkedDataProofContext) {
 				// ldpc.Domain = validAud
 				ldpc.Challenge = validNonce

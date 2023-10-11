@@ -19,7 +19,6 @@ require (
 	github.com/getkin/kin-openapi v0.94.0
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 	github.com/golang/mock v1.6.0
-	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9
@@ -38,9 +37,9 @@ require (
 	github.com/tidwall/sjson v1.2.5
 	github.com/trustbloc/bbs-signature-go v1.0.0
 	github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9
-	github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30
+	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.0.3-0.20230927100750-6e0ff8399468
+	github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6
 	github.com/valyala/fastjson v1.6.3
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -110,6 +109,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/google/tink/go v1.7.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect

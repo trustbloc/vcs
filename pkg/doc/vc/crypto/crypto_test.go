@@ -24,22 +24,20 @@ import (
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/util/jwkkid"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	cryptomock "github.com/trustbloc/kms-go/mock/crypto"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	arieskms "github.com/trustbloc/kms-go/kms"
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	"github.com/trustbloc/kms-go/secretlock/noop"
-	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/kms/signer"
 )
 
 const (
@@ -236,9 +234,8 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 				DID:           "did:trustbloc:abc",
 				SignatureType: "Ed25519Signature2018",
 				Creator:       "did:trustbloc:abc#key1",
-				KMS: &mockVCSKeyManager{
-					kms:    &mockkms.KeyManager{},
-					crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}},
+				KMS: &vcskms.MockKMS{
+					FixedSigner: &mockwrapper.MockFixedKeyCrypto{SignErr: fmt.Errorf("failed to sign")}},
 			},
 			createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}))
 		require.Error(t, err)
@@ -333,16 +330,19 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	customKMS := createKMS(t)
+	suite := createCryptoSuite(t)
 
-	customCrypto, err := tinkcrypto.New()
+	customSigner, err := suite.KMSCryptoMultiSigner()
 	require.NoError(t, err)
 
-	keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	keyCreator, err := suite.KeyCreator()
+	require.NoError(t, err)
+
+	pk, err := keyCreator.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
 	didDoc := createDIDDoc(didID, func(vm *did.VerificationMethod) {
-		vm.ID = didID + "#" + keyID
+		vm.ID = didID + "#" + pk.KeyID
 	})
 
 	type fields struct {
@@ -367,7 +367,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
@@ -383,13 +383,13 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
 				opts: []SigningOpts{
 					WithSignatureType("JsonWebSignature2020"),
-					WithVerificationMethod(didID + "#" + keyID),
+					WithVerificationMethod(didID + "#" + pk.KeyID),
 					WithPurpose(AssertionMethod),
 				},
 			},
@@ -403,13 +403,13 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getSDJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getSDJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
 				opts: []SigningOpts{
 					WithSignatureType("JsonWebSignature2020"),
-					WithVerificationMethod(didID + "#" + keyID),
+					WithVerificationMethod(didID + "#" + pk.KeyID),
 					WithPurpose(AssertionMethod),
 				},
 			},
@@ -423,8 +423,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getSDJWTSigner(
-					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}, customKMS, keyID),
+				signerData: getSDJWTSigner(&mockwrapper.MockKMSCrypto{SignErr: fmt.Errorf("failed to sign")}, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
@@ -440,7 +439,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
@@ -456,7 +455,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
@@ -476,7 +475,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
@@ -492,7 +491,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				signerData: getJWTSigner(customSigner, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVcNoSub
 				},
@@ -511,11 +510,10 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				signerData: &vc.Signer{
 					DID:           didID,
 					SignatureType: "Ed25519Signature2018",
-					Creator:       didID + "#" + keyID,
-					KMSKeyID:      keyID,
-					KMS: &mockVCSKeyManager{
-						crypto: customCrypto,
-						kms:    customKMS,
+					Creator:       didID + "#" + pk.KeyID,
+					KMSKeyID:      pk.KeyID,
+					KMS: &vcskms.MockKMS{
+						Signer: customSigner,
 					},
 					Format:  vcsverifiable.Jwt,
 					KeyType: "unsupported",
@@ -535,8 +533,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: getJWTSigner(
-					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}, customKMS, keyID),
+				signerData: getJWTSigner(&mockwrapper.MockKMSCrypto{SignErr: fmt.Errorf("failed to sign")}, pk.KeyID),
 				getVC: func() *verifiable.Credential {
 					return unsignedVc
 				},
@@ -582,9 +579,8 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 				SignatureType: "BbsBlsSignature2020",
 				Creator:       "did:trustbloc:abc#key1",
 				KMSKeyID:      "key1",
-				KMS: &mockVCSKeyManager{
-					crypto: &cryptomock.Crypto{},
-					kms:    &mockkms.KeyManager{},
+				KMS: &vcskms.MockKMS{
+					FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 				},
 			}, createVC(t, verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}))
 		require.NoError(t, err)
@@ -668,12 +664,12 @@ func TestSignCredential(t *testing.T) {
 		require.False(t, signedVC.IsJWT())
 	})
 	t.Run("sign credential LDP Data Integrity - success", func(t *testing.T) {
-		customKMS := createKMS(t)
+		suite := createCryptoSuite(t)
 
-		_, keyBytes, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDSAP256IEEEP1363)
+		keyCreator, err := suite.KeyCreator()
 		require.NoError(t, err)
 
-		key, err := jwkkid.BuildJWK(keyBytes, kms.ECDSAP256IEEEP1363)
+		key, err := keyCreator.Create(kms.ECDSAP256IEEEP1363)
 		require.NoError(t, err)
 
 		const signingDID = "did:foo:bar"
@@ -752,9 +748,8 @@ func TestSignCredential(t *testing.T) {
 			SignatureType: "Ed25519Signature2018",
 			Creator:       "did:trustbloc:abc#key1",
 			KMSKeyID:      "key1",
-			KMS: &mockVCSKeyManager{
-				crypto: &cryptomock.Crypto{},
-				kms:    &mockkms.KeyManager{},
+			KMS: &vcskms.MockKMS{
+				FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 			},
 		}, unsignedVC)
 		require.Error(t, err)
@@ -784,9 +779,8 @@ func TestSignCredential(t *testing.T) {
 			Creator:       "did:trustbloc:abc#key1",
 			KMSKeyID:      "key1",
 			KeyType:       kms.ED25519Type,
-			KMS: &mockVCSKeyManager{
-				crypto: &cryptomock.Crypto{},
-				kms:    &mockkms.KeyManager{},
+			KMS: &vcskms.MockKMS{
+				FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 			},
 			Format: vcsverifiable.Jwt,
 		}, unsignedVC)
@@ -817,9 +811,8 @@ func TestSignCredential(t *testing.T) {
 			SignatureType: "Ed25519Signature2018",
 			Creator:       "did:trustbloc:abc#key1",
 			KMSKeyID:      "key1",
-			KMS: &mockVCSKeyManager{
-				crypto: &cryptomock.Crypto{},
-				kms:    &mockkms.KeyManager{},
+			KMS: &vcskms.MockKMS{
+				FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 			},
 			Format: vcsverifiable.Jwt,
 		}, unsignedVC)
@@ -835,9 +828,8 @@ func getTestLDPSigner() *vc.Signer {
 		Creator:       "did:trustbloc:abc#key1",
 		KMSKeyID:      "key1",
 		KeyType:       kms.ED25519,
-		KMS: &mockVCSKeyManager{
-			crypto: &cryptomock.Crypto{},
-			kms:    &mockkms.KeyManager{},
+		KMS: &vcskms.MockKMS{
+			FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 		},
 		Format: vcsverifiable.Ldp,
 		DataIntegrityProof: vc.DataIntegrityProofConfig{
@@ -857,17 +849,15 @@ func getTestLDPDataIntegritySigner() *vc.Signer {
 }
 
 func getJWTSigner(
-	customCrypto ariescrypto.Crypto,
-	customKMS kms.KeyManager,
+	customSigner api.KMSCryptoMultiSigner,
 	kid string) *vc.Signer {
 	return &vc.Signer{
 		DID:           didID,
 		SignatureType: "Ed25519Signature2018",
 		Creator:       didID + "#" + kid,
 		KMSKeyID:      kid,
-		KMS: &mockVCSKeyManager{
-			crypto: customCrypto,
-			kms:    customKMS,
+		KMS: &vcskms.MockKMS{
+			Signer: customSigner,
 		},
 		Format:  vcsverifiable.Jwt,
 		KeyType: kms.ED25519Type,
@@ -875,40 +865,24 @@ func getJWTSigner(
 }
 
 func getSDJWTSigner(
-	customCrypto ariescrypto.Crypto,
-	customKMS kms.KeyManager,
+	customSigner api.KMSCryptoMultiSigner,
 	kid string) *vc.Signer {
-	s := getJWTSigner(customCrypto, customKMS, kid)
+	s := getJWTSigner(customSigner, kid)
 	s.SDJWT = vc.SDJWT{Enable: true, HashAlg: crypto.SHA384}
 
 	return s
 }
 
-func createKMS(t *testing.T) *localkms.LocalKMS {
+func createCryptoSuite(t *testing.T) api.Suite {
 	t.Helper()
 
-	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := arieskms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", p, &noop.NoLock{})
 	require.NoError(t, err)
 
-	return k
-}
-
-type mockVCSKeyManager struct {
-	err    error
-	crypto ariescrypto.Crypto
-	kms    kms.KeyManager
-}
-
-func (m *mockVCSKeyManager) NewVCSigner(creator string,
-	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-
-	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType, nil)
+	return suite
 }
 
 type opt func(vm *did.VerificationMethod)
@@ -1027,8 +1001,8 @@ func TestCrypto_NewJWTSigned(t *testing.T) {
 				},
 				getSignerData: func() *vc.Signer {
 					s := getTestLDPSigner()
-					s.KMS = &mockVCSKeyManager{
-						err: errors.New("some error"),
+					s.KMS = &vcskms.MockKMS{
+						VCSignerErr: errors.New("some error"),
 					}
 
 					return s

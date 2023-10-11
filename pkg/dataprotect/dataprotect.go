@@ -8,13 +8,15 @@ package dataprotect
 
 import (
 	"context"
+
+	"github.com/trustbloc/kms-go/wrapper/api"
 )
 
 //go:generate mockgen -source dataprotect.go -destination dataprotect_mocks_test.go -package dataprotect_test
 
-type Crypto interface {
-	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
-	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
+type encDec interface {
+	Encrypt(msg []byte, aad []byte, kid string) (cipher []byte, nonce []byte, err error)
+	Decrypt(cipher []byte, aad []byte, nonce []byte, kid string) (msg []byte, err error)
 }
 
 type dataEncryptor interface {
@@ -28,23 +30,23 @@ type DataCompressor interface {
 }
 
 type DataProtector struct {
-	keyProtector   Crypto
 	cryptoKeyID    string
 	dataProtector  dataEncryptor
 	dataCompressor DataCompressor
+	encDec         api.EncrypterDecrypter
 }
 
 func NewDataProtector(
-	crypto Crypto,
+	keyEncryptor encDec,
 	cryptoKeyID string,
 	dataEncryptor dataEncryptor,
 	dataCompressor DataCompressor,
 ) *DataProtector {
 	return &DataProtector{
-		keyProtector:   crypto,
 		cryptoKeyID:    cryptoKeyID,
 		dataProtector:  dataEncryptor,
 		dataCompressor: dataCompressor,
+		encDec:         keyEncryptor,
 	}
 }
 
@@ -65,7 +67,7 @@ func (d *DataProtector) Encrypt(_ context.Context, msg []byte) (*EncryptedData, 
 		return nil, err
 	}
 
-	encryptedKey, nonce, err := d.keyProtector.Encrypt(key, nil, d.cryptoKeyID)
+	encryptedKey, nonce, err := d.encDec.Encrypt(key, nil, d.cryptoKeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +80,7 @@ func (d *DataProtector) Encrypt(_ context.Context, msg []byte) (*EncryptedData, 
 }
 
 func (d *DataProtector) Decrypt(_ context.Context, data *EncryptedData) ([]byte, error) {
-	decryptedKey, err := d.keyProtector.Decrypt(nil, data.EncryptedKey, data.EncryptedNonce, d.cryptoKeyID)
+	decryptedKey, err := d.encDec.Decrypt(data.EncryptedKey, nil, data.EncryptedNonce, d.cryptoKeyID)
 	if err != nil {
 		return nil, err
 	}

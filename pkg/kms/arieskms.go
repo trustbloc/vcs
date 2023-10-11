@@ -16,15 +16,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/trustbloc/did-go/legacy/mem"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	webcrypto "github.com/trustbloc/kms-go/crypto/webkms"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	arieskms "github.com/trustbloc/kms-go/kms"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	"github.com/trustbloc/kms-go/kms/webkms"
 	"github.com/trustbloc/kms-go/secretlock/local"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/spi/secretlock"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/kms-go/wrapper/websuite"
 	awssvc "github.com/trustbloc/vcs/pkg/kms/aws"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/arieskmsstore"
@@ -59,58 +58,42 @@ const (
 	storageTypeMongoDBOption   = "mongodb"
 )
 
-type keyManager interface {
-	Get(keyID string) (interface{}, error)
-	CreateAndExportPubKeyBytes(kt kmsapi.KeyType, opts ...kmsapi.KeyOpts) (string, []byte, error)
-}
-
-type Crypto interface {
-	Sign(msg []byte, kh interface{}) ([]byte, error)
-	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
-	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
-	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
-}
-
 type metricsProvider interface {
 	SignTime(value time.Duration)
 }
 
 type KeyManager struct {
-	keyManager keyManager
-	crypto     Crypto
-	kmsType    Type
-	metrics    metricsProvider
+	kmsType Type
+	metrics metricsProvider
+	suite   api.Suite
 }
 
-func GetAriesKeyManager(keyManager keyManager, crypto Crypto, kmsType Type, metrics metricsProvider) *KeyManager {
+func GetAriesKeyManager(suite api.Suite, kmsType Type, metrics metricsProvider) *KeyManager {
 	return &KeyManager{
-		keyManager: keyManager,
-		crypto:     crypto,
-		kmsType:    kmsType,
-		metrics:    metrics,
+		suite:   suite,
+		kmsType: kmsType,
+		metrics: metrics,
 	}
 }
 
 func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, error) {
 	switch cfg.KMSType {
 	case Local:
-		km, cr, err := createLocalKMS(cfg)
+		suite, err := createLocalKMS(cfg)
 		if err != nil {
 			return nil, err
 		}
 
 		return &KeyManager{
-			kmsType:    cfg.KMSType,
-			keyManager: km,
-			crypto:     cr,
-			metrics:    metrics,
+			kmsType: cfg.KMSType,
+			metrics: metrics,
+			suite:   suite,
 		}, nil
 	case Web:
 		return &KeyManager{
-			kmsType:    cfg.KMSType,
-			keyManager: webkms.New(cfg.Endpoint, cfg.HTTPClient),
-			crypto:     webcrypto.New(cfg.Endpoint, cfg.HTTPClient),
-			metrics:    metrics,
+			kmsType: cfg.KMSType,
+			metrics: metrics,
+			suite:   websuite.NewWebCryptoSuite(cfg.Endpoint, cfg.HTTPClient),
 		}, nil
 	case AWS:
 		awsConfig, err := config.LoadDefaultConfig(
@@ -121,13 +104,12 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			return nil, err
 		}
 
-		awsSvc := awssvc.New(&awsConfig, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
+		awsSuite := awssvc.NewSuite(&awsConfig, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
 
 		return &KeyManager{
-			kmsType:    cfg.KMSType,
-			keyManager: awsSvc,
-			crypto:     awsSvc,
-			metrics:    metrics,
+			kmsType: cfg.KMSType,
+			metrics: metrics,
+			suite:   awsSuite,
 		}, nil
 	}
 
@@ -146,33 +128,18 @@ func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOption
 	}
 }
 
-func createLocalKMS(cfg *Config) (keyManager, Crypto, error) {
+func createLocalKMS(cfg *Config) (api.Suite, error) {
 	secretLockService, err := createLocalSecretLock(cfg.SecretLockKeyPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	kmsStore, err := createStore(cfg.DBType, cfg.DBURL, cfg.DBPrefix)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	kmsProv := kmsProvider{
-		storageProvider:   kmsStore,
-		secretLockService: secretLockService,
-	}
-
-	localKms, err := localkms.New(keystoreLocalPrimaryKeyURI, kmsProv)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	crypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return localKms, crypto, nil
+	return localsuite.NewLocalCryptoSuite(keystoreLocalPrimaryKeyURI, kmsStore, secretLockService)
 }
 
 func (km *KeyManager) SupportedKeyTypes() []kmsapi.KeyType {
@@ -183,21 +150,45 @@ func (km *KeyManager) SupportedKeyTypes() []kmsapi.KeyType {
 	return ariesSupportedKeyTypes
 }
 
-func (km *KeyManager) Crypto() Crypto {
-	return km.crypto
+func (km *KeyManager) Suite() api.Suite {
+	return km.suite
 }
 
 func (km *KeyManager) CreateJWKKey(keyType kmsapi.KeyType) (string, *jwk.JWK, error) {
-	return key.JWKKeyCreator(keyType)(km.keyManager)
+	creator, err := km.Suite().KeyCreator()
+	if err != nil {
+		return "", nil, err
+	}
+
+	return key.JWKKeyCreator(creator)(keyType)
 }
 
 func (km *KeyManager) CreateCryptoKey(keyType kmsapi.KeyType) (string, interface{}, error) {
-	return key.CryptoKeyCreator(keyType)(km.keyManager)
+	creator, err := km.Suite().RawKeyCreator()
+	if err != nil {
+		return "", nil, err
+	}
+
+	return key.CryptoKeyCreator(creator)(keyType)
 }
 
 func (km *KeyManager) NewVCSigner(
 	creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
-	return signer.NewKMSSigner(km.keyManager, km.crypto, creator, signatureType, km.metrics)
+	if signatureType == vcsverifiable.BbsBlsSignature2020 {
+		fks, err := km.Suite().FixedKeyMultiSigner(creator)
+		if err != nil {
+			return nil, err
+		}
+
+		return signer.NewKMSSignerBBS(fks, signatureType, km.metrics), nil
+	}
+
+	fks, err := km.Suite().FixedKeySigner(creator)
+	if err != nil {
+		return nil, err
+	}
+
+	return signer.NewKMSSigner(fks, signatureType, km.metrics), nil
 }
 
 func createLocalSecretLock(keyPath string) (secretlock.Service, error) {
@@ -232,17 +223,4 @@ func createStore(typ, url, prefix string) (kmsapi.Store, error) {
 	default:
 		return nil, fmt.Errorf("not supported database type: %s", typ)
 	}
-}
-
-type kmsProvider struct {
-	storageProvider   kmsapi.Store
-	secretLockService secretlock.Service
-}
-
-func (k kmsProvider) StorageProvider() kmsapi.Store {
-	return k.storageProvider
-}
-
-func (k kmsProvider) SecretLock() secretlock.Service {
-	return k.secretLockService
 }

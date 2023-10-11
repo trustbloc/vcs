@@ -21,12 +21,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/valyala/fastjson"
 
 	didkey "github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/kms-go/doc/jose"
-	"github.com/trustbloc/kms-go/spi/crypto"
-	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -360,7 +359,7 @@ func (e *VPFlowExecutor) getIDTokenClaims(requestPresentationSubmission *presexc
 }
 
 func (e *VPFlowExecutor) signIDTokenJWT(idToken *IDTokenClaims, signatureType vcs.SignatureType) (string, error) {
-	idTokenJWS, err := signTokenJWT(idToken, e.walletDidKeyID[0], e.ariesServices.crypto, e.ariesServices.kms, signatureType)
+	idTokenJWS, err := signTokenJWT(idToken, e.walletDidKeyID[0], e.ariesServices.suite, signatureType)
 	if err != nil {
 		return "", fmt.Errorf("sign id_token: %w", err)
 	}
@@ -479,8 +478,7 @@ func (e *VPFlowExecutor) signPresentationLDP(vp *verifiable.Presentation, signat
 			KMSKeyID:                strings.Split(didKeyID, "#")[1],
 			SignatureType:           signatureType,
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			KMS: vcskms.GetAriesKeyManager(
-				e.ariesServices.kms, e.ariesServices.crypto, vcskms.Local, noop.GetMetrics()),
+			KMS:                     vcskms.GetAriesKeyManager(e.ariesServices.suite, vcskms.Local, noop.GetMetrics()),
 		},
 		vp,
 		vccrypto.WithChallenge(e.requestObject.Nonce),
@@ -507,7 +505,7 @@ func (e *VPFlowExecutor) signPresentationJWT(vp *verifiable.Presentation, signat
 
 	vpTokenJWS := strings.ReplaceAll(string(vpTokenBytes), `"type":"VerifiablePresentation"`, `"type":["VerifiablePresentation"]`)
 
-	vpTokenJWS, err = signTokenJWT(vpTokenJWS, didKeyID, e.ariesServices.crypto, e.ariesServices.kms, signatureType)
+	vpTokenJWS, err = signTokenJWT(vpTokenJWS, didKeyID, e.ariesServices.suite, signatureType)
 	if err != nil {
 		return "", fmt.Errorf("sign vp_token: %w", err)
 	}
@@ -598,13 +596,14 @@ func (e *VPFlowExecutor) GetSubjectID(creds []*verifiable.Credential) (string, e
 	return subjectID, nil
 }
 
-func signTokenJWT(claims interface{}, didKeyID string, crpt crypto.Crypto,
-	km kms.KeyManager, signType vcs.SignatureType) (string, error) {
-
-	kmsSigner, err := signer.NewKMSSigner(km, crpt, strings.Split(didKeyID, "#")[1], signType, nil)
+func signTokenJWT(claims interface{}, didKeyID string, suite api.Suite, signType vcs.SignatureType,
+) (string, error) {
+	fks, err := suite.FixedKeyMultiSigner(strings.Split(didKeyID, "#")[1])
 	if err != nil {
 		return "", fmt.Errorf("create kms signer: %w", err)
 	}
+
+	kmsSigner := signer.NewKMSSigner(fks, signType, nil)
 
 	signerKeyID := didKeyID
 

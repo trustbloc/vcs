@@ -19,18 +19,17 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	arieskms "github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/doc/did/endpoint"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
-	ariescrypto "github.com/trustbloc/kms-go/spi/crypto"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -39,7 +38,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -53,9 +51,12 @@ const (
 func TestService_IssueCredential(t *testing.T) {
 	t.Parallel()
 
-	customKMS := createKMS(t)
+	cryptoSuite := createCryptoSuite(t)
 
-	customCrypto, err := tinkcrypto.New()
+	keyCreator, err := cryptoSuite.KeyCreator()
+	require.NoError(t, err)
+
+	customSigner, err := cryptoSuite.KMSCryptoMultiSigner()
 	require.NoError(t, err)
 
 	ctr := gomock.NewController(t)
@@ -64,7 +65,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
-		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
+		&vcskms.MockKMS{Signer: customSigner}, nil)
 
 	ctx := context.Background()
 
@@ -115,10 +116,10 @@ func TestService_IssueCredential(t *testing.T) {
 				}
 				for _, sigRepresentationTextCase := range tests {
 					t.Run(sigRepresentationTextCase.name, func(t *testing.T) {
-						keyID, _, err := customKMS.CreateAndExportPubKeyBytes(ktTestCase.kt)
+						pubKey, err := keyCreator.Create(ktTestCase.kt)
 						require.NoError(t, err)
 
-						didDoc := createDIDDoc("did:trustblock:abc", keyID)
+						didDoc := createDIDDoc("did:trustblock:abc", pubKey.KeyID)
 						crypto := vccrypto.New(
 							&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
@@ -168,7 +169,7 @@ func TestService_IssueCredential(t *testing.T) {
 								SigningDID: &profileapi.SigningDID{
 									DID:      didDoc.ID,
 									Creator:  didDoc.VerificationMethod[0].ID,
-									KMSKeyID: keyID,
+									KMSKeyID: pubKey.KeyID,
 								}},
 							issuecredential.WithTransactionID(transactionID),
 						)
@@ -208,10 +209,10 @@ func TestService_IssueCredential(t *testing.T) {
 
 		for _, ktTestCase := range tests {
 			t.Run(ktTestCase.name, func(t *testing.T) {
-				keyID, _, err := customKMS.CreateAndExportPubKeyBytes(ktTestCase.kt)
+				pubKey, err := keyCreator.Create(ktTestCase.kt)
 				require.NoError(t, err)
 
-				didDoc := createDIDDoc("did:trustblock:abc", keyID)
+				didDoc := createDIDDoc("did:trustblock:abc", pubKey.KeyID)
 				crypto := vccrypto.New(
 					&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
@@ -260,7 +261,7 @@ func TestService_IssueCredential(t *testing.T) {
 						SigningDID: &profileapi.SigningDID{
 							DID:      didDoc.ID,
 							Creator:  didDoc.VerificationMethod[0].ID,
-							KMSKeyID: keyID,
+							KMSKeyID: pubKey.KeyID,
 						}},
 					issuecredential.WithTransactionID(transactionID),
 				)
@@ -357,10 +358,10 @@ func TestService_IssueCredential(t *testing.T) {
 				},
 			}, nil)
 
-		keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		pubKey, err := keyCreator.Create(kms.ED25519Type)
 		require.NoError(t, err)
 
-		didDoc := createDIDDoc("did:trustblock:abc", keyID)
+		didDoc := createDIDDoc("did:trustblock:abc", pubKey.KeyID)
 		crypto := vccrypto.New(
 			&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
@@ -531,33 +532,14 @@ func createDIDDoc(didID, keyID string) *did.Doc { //nolint:unparam
 	}
 }
 
-func createKMS(t *testing.T) *localkms.LocalKMS {
+func createCryptoSuite(t *testing.T) api.Suite {
 	t.Helper()
 
-	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := arieskms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", p, &noop.NoLock{})
 	require.NoError(t, err)
 
-	return k
-}
-
-type mockVCSKeyManager struct {
-	crypto ariescrypto.Crypto
-	kms    *localkms.LocalKMS
-}
-
-func (m *mockVCSKeyManager) NewVCSigner(creator string, signatureType vcs.SignatureType) (vc.SignerAlgorithm, error) {
-	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType, nil)
-}
-
-func (m *mockVCSKeyManager) SupportedKeyTypes() []kms.KeyType {
-	return nil
-}
-func (m *mockVCSKeyManager) CreateJWKKey(_ kms.KeyType) (string, *jwk.JWK, error) {
-	return "", nil, nil
-}
-func (m *mockVCSKeyManager) CreateCryptoKey(_ kms.KeyType) (string, interface{}, error) {
-	return "", nil, nil
+	return suite
 }

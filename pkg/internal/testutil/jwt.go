@@ -13,9 +13,9 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -24,7 +24,7 @@ import (
 type SignedClaimsJWTResult struct {
 	JWT               string
 	VDR               vdrapi.Registry
-	Kh                interface{}
+	Signer            api.FixedKeySigner
 	VerMethodDIDKeyID string
 }
 
@@ -33,16 +33,16 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 
 	customKMS := createKMS(t)
 
-	customCrypto, err := tinkcrypto.New()
+	kc, err := customKMS.KMSCrypto()
 	require.NoError(t, err)
 
-	keyID, kh, err := customKMS.Create(kms.ED25519Type)
+	pk, err := kc.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	pkBytes, _, err := customKMS.ExportPubKeyBytes(keyID)
+	fks, err := kc.FixedKeySigner(pk)
 	require.NoError(t, err)
 
-	didDoc := createDIDDoc(t, "did:trustblock:abc", keyID, pkBytes, kms.ED25519Type)
+	didDoc := createDIDDoc(t, "did:trustblock:abc", pk.KeyID, pk)
 
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 
 	token, err := jwt.NewSigned(claims, jose.Headers{
 		jose.HeaderKeyID: didDoc.VerificationMethod[0].ID,
-	}, verifiable.GetJWTSigner(suite.NewCryptoSigner(customCrypto, kh), algName)) //nolint:staticcheck
+	}, verifiable.GetJWTSigner(suite.NewCryptoWrapperSigner(fks), algName))
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)
@@ -65,17 +65,14 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
-		Kh:                kh,
+		Signer:            fks,
 		VerMethodDIDKeyID: didDoc.VerificationMethod[0].ID,
 	}
 }
 
 func SignedClaimsJWTWithExistingPrivateKey(
-	t *testing.T, verMethodDIDKeyID string, kh interface{}, claims interface{}) string {
+	t *testing.T, verMethodDIDKeyID string, signer api.FixedKeySigner, claims interface{}) string {
 	t.Helper()
-
-	customCrypto, err := tinkcrypto.New()
-	require.NoError(t, err)
 
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
 	require.NoError(t, err)
@@ -85,7 +82,7 @@ func SignedClaimsJWTWithExistingPrivateKey(
 
 	token, err := jwt.NewSigned(claims, jose.Headers{
 		jose.HeaderKeyID: verMethodDIDKeyID,
-	}, verifiable.GetJWTSigner(suite.NewCryptoSigner(customCrypto, kh), algName)) //nolint:staticcheck
+	}, verifiable.GetJWTSigner(suite.NewCryptoWrapperSigner(signer), algName))
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)
