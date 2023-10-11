@@ -139,6 +139,7 @@ To enable HTTP tracing between `wallet-cli` and `vcs`, append the `--enable-trac
 Use the `oidc4vp` command to present Verifiable Credential to the Verifier:
 ```bash
       --enable-linked-domain-verification   enables linked domain verification
+      --enable-send-all-credentials         enables send all credentials in wallet
       --enable-tracing                      enables http tracing
   -h, --help                                help for oidc4vp
       --leveldb-path string                 leveldb path
@@ -152,6 +153,11 @@ Examples:
 * Present VC to the Verifier with linked domain verification:
 ```bash
 ./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "qr.png" --enable-linked-domain-verification
+```
+
+* Present All VC from wallet to the Verifier:
+```bash
+./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "qr.png" --enable-send-all-credentials
 ```
 
 ## Contributing

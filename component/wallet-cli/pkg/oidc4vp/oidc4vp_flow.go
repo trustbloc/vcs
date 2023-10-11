@@ -55,6 +55,7 @@ type Flow struct {
 	walletKMSKeyID                 string
 	requestURI                     string
 	enableLinkedDomainVerification bool
+	sendAllCredInWallet            bool
 }
 
 type provider interface {
@@ -101,6 +102,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		walletKMSKeyID:                 walletDIDInfo.KeyID,
 		requestURI:                     o.requestURI,
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
+		sendAllCredInWallet:            o.sendAllCredInWallet,
 	}, nil
 }
 
@@ -289,7 +291,7 @@ func (f *Flow) sendAuthorizationResponse(
 		presentationSubmission *presexch.PresentationSubmission
 	)
 
-	if len(credentials) == 1 {
+	if len(credentials) > 1 && !f.sendAllCredInWallet {
 		credential := credentials[0]
 
 		presentation, err := presentationDefinition.CreateVP(
@@ -321,7 +323,7 @@ func (f *Flow) sendAuthorizationResponse(
 		if err != nil {
 			return fmt.Errorf("create vp token: %w", err)
 		}
-	} else if len(credentials) > 1 {
+	} else if len(credentials) > 1 && f.sendAllCredInWallet {
 		var (
 			vpTokens      []string
 			presentations []*verifiable.Presentation
@@ -633,6 +635,7 @@ type options struct {
 	walletDIDIndex                 int
 	requestURI                     string
 	enableLinkedDomainVerification bool
+	sendAllCredInWallet            bool
 }
 
 type Opt func(opts *options)
@@ -652,5 +655,11 @@ func WithRequestURI(uri string) Opt {
 func WithLinkedDomainVerification() Opt {
 	return func(opts *options) {
 		opts.enableLinkedDomainVerification = true
+	}
+}
+
+func WithSendAllCredInWallet() Opt {
+	return func(opts *options) {
+		opts.sendAllCredInWallet = true
 	}
 }

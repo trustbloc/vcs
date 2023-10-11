@@ -33,6 +33,7 @@ type oidc4vpCommandFlags struct {
 	qrCodePath                     string
 	walletDIDIndex                 int
 	enableLinkedDomainVerification bool
+	enableSendAllCredInWallet      bool
 	enableTracing                  bool
 }
 
@@ -145,6 +146,10 @@ func NewOIDC4VPCommand() *cobra.Command {
 				opts = append(opts, oidc4vp.WithLinkedDomainVerification())
 			}
 
+			if flags.enableSendAllCredInWallet {
+				opts = append(opts, oidc4vp.WithSendAllCredInWallet())
+			}
+
 			if flow, err = oidc4vp.NewFlow(provider, opts...); err != nil {
 				return err
 			}
@@ -168,6 +173,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
+	cmd.Flags().BoolVar(&flags.enableSendAllCredInWallet, "enable-send-all-credentials", false, "enables send all credentials in wallet")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
