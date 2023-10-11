@@ -87,13 +87,12 @@ func (p *Store) GetIssuedCredentialsMetadata(
 		_ = cursor.Close(ctx)
 	}()
 
-	var documentsList []mongoDocument
-
-	if err = cursor.All(ctx, &documentsList); err != nil {
+	var docs []map[string]interface{}
+	if err = cursor.All(ctx, &docs); err != nil {
 		return nil, fmt.Errorf("decode credential metadata list MongoDB: %w", err)
 	}
 
-	return parseMongoDocuments(documentsList), nil
+	return parseMongoDocuments(docs)
 }
 
 func createMongoDocument(
@@ -116,21 +115,26 @@ func createMongoDocument(
 }
 
 func parseMongoDocuments(
-	documentsList []mongoDocument,
-) []*credentialstatus.CredentialMetadata {
-	credentialMetadataList := make([]*credentialstatus.CredentialMetadata, 0, len(documentsList))
-	for _, document := range documentsList {
-		credentialMetadataList = append(credentialMetadataList, &credentialstatus.CredentialMetadata{
-			CredentialID:   document.CredentialMetadata.VcID,
-			Issuer:         document.CredentialMetadata.Issuer,
-			CredentialType: document.CredentialMetadata.CredentialType,
-			TransactionID:  document.CredentialMetadata.TransactionID,
-			IssuanceDate:   parseTime(document.CredentialMetadata.IssuanceDate),
-			ExpirationDate: parseTime(document.CredentialMetadata.ExpirationDate),
-		})
+	docs []map[string]interface{},
+) ([]*credentialstatus.CredentialMetadata, error) {
+	credentialMetadataList := make([]*credentialstatus.CredentialMetadata, len(docs))
+	for i, doc := range docs {
+		index := &mongoDocument{}
+		if err := mongodb.MapToStructure(doc, index); err != nil {
+			return nil, fmt.Errorf("failed to decode to mongoDocument: %w", err)
+		}
+
+		credentialMetadataList[i] = &credentialstatus.CredentialMetadata{
+			CredentialID:   index.CredentialMetadata.VcID,
+			Issuer:         index.CredentialMetadata.Issuer,
+			CredentialType: index.CredentialMetadata.CredentialType,
+			TransactionID:  index.CredentialMetadata.TransactionID,
+			IssuanceDate:   parseTime(index.CredentialMetadata.IssuanceDate),
+			ExpirationDate: parseTime(index.CredentialMetadata.ExpirationDate),
+		}
 	}
 
-	return credentialMetadataList
+	return credentialMetadataList, nil
 }
 
 func getTime(t *timeutil.TimeWrapper) *time.Time {

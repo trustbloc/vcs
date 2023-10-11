@@ -35,10 +35,9 @@ const (
 	dockerMongoDBTag     = "4.0.0"
 	testProfile          = "test_profile"
 	testProfileVersion10 = "v1.0"
-	testVCID             = "test_vc_id"
 )
 
-func TestVCStatusStore(t *testing.T) {
+func TestVCIssuanceHistoryStore(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
 	defer func() {
