@@ -30,7 +30,7 @@ func NewProvider(storageType string, opts ...Opt) (storage.Provider, error) {
 			return nil, fmt.Errorf("mongodb connection string is empty")
 		}
 
-		p, err := mongodb.NewProvider(options.connectionString, nil)
+		p, err := mongodb.NewProvider(options.connectionString)
 		if err != nil {
 			return nil, err
 		}

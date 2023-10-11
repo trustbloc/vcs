@@ -10,7 +10,7 @@ It emulates the Wallet behavior against VC services.
 
 ## Build
 
-Run the following commands from the root of the repository to build the wallet-cli:
+Run the following commands from the root of the repository to build the `wallet-cli` executable:
 ```bash
 $ cd component/wallet-cli
 $ go build .
@@ -35,7 +35,7 @@ Wallet can be created using `create` command. The following CLI arguments are su
 
 Examples:
 
-* Create wallet using leveldb storage option and default parameters (ED25519 key type, did:ion method):
+* Create wallet using `leveldb` storage and default parameters (`ED25519` key type, `did:ion` method):
 ```bash
 ./wallet-cli create --leveldb-path "/mnt/wallet.db"
 ```
@@ -51,6 +51,11 @@ the most recently created DID is used. To select a specific DID, set its index w
 
 Note: adding `--did-key-type ECDSAP256DER` to the command above will result in error as the Wallet already initialized
 with the key type ED25519 (EdDSA signature type).
+
+* Create wallet using `mongodb` storage, `did:ion` method and `ECDSAP384DER` key type: 
+```bash
+./wallet-cli create --mongodb-connection-string "mongodb://localhost:27017" --did-method ion --did-key-type ECDSAP384DER
+```
 
 ### Receiving Verifiable Credential using OIDC4VCI exchange protocol
 
@@ -80,15 +85,54 @@ used for this purpose. The following CLI arguments are supported:
 
 Examples:
 
-* Receive VC from the Issuer using pre-authorized code flow:
+* Receive VC from the Issuer using `pre-authorized_code` flow:
 ```bash
-./wallet-cli oidc4vci --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code --credential-type VerifiedEmployee --credential-format jwt_vc_json-ld
+./wallet-cli oidc4vci \
+--leveldb-path "/mnt/wallet.db" \
+--qr-code-path "qr.png" \
+--grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code \
+--credential-type VerifiedEmployee \
+--credential-format jwt_vc_json-ld
 ```
 
-* Receive VC from the Issuer using authorization code flow:
+* Receive VC from the Issuer using `authorization_code` flow:
 ```bash
-./wallet-cli oidc4vci --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --grant-type authorization_code --client-id oidc4vc_client --credential-type PermanentResidentCard --credential-format ldp_vc
+./wallet-cli oidc4vci \
+--leveldb-path "/mnt/wallet.db" \
+--qr-code-path "qr.png" \
+--grant-type authorization_code \
+--client-id oidc4vc_client \
+--credential-type VerifiedEmployee \
+--credential-format ldp_vc
 ```
+
+For the `wallet-initiated` flow, you must include the `--issuer-state` argument. It has the following format: 
+https://<gateway>/vcs/oidc/idp/<profile_id>/<profile_version>
+```bash
+./wallet-cli oidc4vci \
+--leveldb-path "/mnt/wallet.db" \
+--grant-type authorization_code \
+--client-id oidc4vc_client \
+--credential-type VerifiedEmployee \
+--issuer-state https://<gateway>/vcs/oidc/idp/<profile_id>/<profile_version>
+```
+
+For other flows one of `--qr-code-path`, `--credential-offer` or `--demo-issuer-url` is required.
+
+Use `--user-login` and `--user-password` arguments to provide user credentials for the Issuer IdP and skip the login
+page in `authorization_code` flow:
+```bash
+./wallet-cli oidc4vci \
+--leveldb-path "/mnt/wallet.db" \
+--credential-offer "openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fgateway%2Ffdd4f13f-d701-42d4-ad79-898915c25c85.jwt" \
+--grant-type authorization_code \
+--client-id oidc4vc_client \
+--credential-type VerifiedEmployee \
+--user-login "<login>" \
+--user-password "<password>"
+```
+
+To enable HTTP tracing between `wallet-cli` and `vcs`, append the `--enable-tracing` flag to your argument list.
 
 ### Presenting Verifiable Credential using OIDC4VP exchange protocol
 
@@ -107,11 +151,10 @@ Examples:
 
 * Present VC to the Verifier with linked domain verification:
 ```bash
-./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "/mnt/qr.png" --enable-linked-domain-verification
+./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "qr.png" --enable-linked-domain-verification
 ```
 
 ## Contributing
-
 We appreciate your help! For contributors, please follow our [community contribution guidelines](https://github.com/trustbloc/community/blob/main/CONTRIBUTING.md)
 to understand our code of conduct and the process for submitting pull requests.
 
