@@ -13,10 +13,12 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/internal/kmsutil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/ldutil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
@@ -32,7 +34,7 @@ type services struct {
 	storageProvider storageapi.Provider
 	documentLoader  ld.DocumentLoader
 	vdrRegistry     vdrapi.Registry
-	kms             kmsapi.KeyManager
+	cryptoSuite     api.Suite
 }
 
 func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error) {
@@ -76,7 +78,12 @@ func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error)
 		return nil, err
 	}
 
-	localKMS, err := kmsutil.NewLocalKMS(storageProvider)
+	kmsStore, err := kms.NewAriesProviderWrapper(storageProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://wallet-cli", kmsStore, &noop.NoLock{})
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +92,7 @@ func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error)
 		storageProvider: storageProvider,
 		documentLoader:  documentLoader,
 		vdrRegistry:     vdr,
-		kms:             localKMS,
+		cryptoSuite:     suite,
 	}, nil
 }
 
@@ -101,6 +108,6 @@ func (p *services) VDR() vdrapi.Registry {
 	return p.vdrRegistry
 }
 
-func (p *services) KMS() kmsapi.KeyManager {
-	return p.kms
+func (p *services) CryptoSuite() api.Suite {
+	return p.cryptoSuite
 }

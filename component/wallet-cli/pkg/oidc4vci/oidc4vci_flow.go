@@ -28,8 +28,7 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
-	"github.com/trustbloc/kms-go/spi/crypto"
-	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
@@ -64,8 +63,7 @@ type Flow struct {
 	httpClient                 *http.Client
 	documentLoader             ld.DocumentLoader
 	vdrRegistry                vdrapi.Registry
-	keyManager                 kms.KeyManager
-	crypto                     crypto.Crypto
+	signer                     jose.Signer
 	wellKnownService           *wellknown.Service
 	flowType                   FlowType
 	credentialOffer            string
@@ -79,9 +77,6 @@ type Flow struct {
 	userPassword               string
 	issuerState                string
 	pin                        string
-	walletDID                  *did.DID
-	walletKMSKeyID             string
-	walletSignatureType        vcs.SignatureType
 	vc                         *verifiable.Credential
 }
 
@@ -89,8 +84,7 @@ type provider interface {
 	HTTPClient() *http.Client
 	DocumentLoader() ld.DocumentLoader
 	VDRegistry() vdrapi.Registry
-	KMS() kms.KeyManager
-	Crypto() crypto.Crypto
+	CryptoSuite() api.Suite
 	WellKnownService() *wellknown.Service
 }
 
@@ -135,16 +129,27 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("parse wallet did: %w", err)
 	}
 
-	if _, err = p.KMS().Get(o.walletKMSKeyID); err != nil {
-		return nil, fmt.Errorf("get wallet kms key with id %s: %w", o.walletKMSKeyID, err)
+	docResolution, err := p.VDRegistry().Resolve(walletDID.String())
+	if err != nil {
+		return nil, fmt.Errorf("resolve wallet did: %w", err)
 	}
+
+	signer, err := p.CryptoSuite().FixedKeyMultiSigner(o.walletKMSKeyID)
+	if err != nil {
+		return nil, fmt.Errorf("get signer for key %s: %w", o.walletKMSKeyID, err)
+	}
+
+	jwsSigner := jwssigner.NewJWSSigner(
+		docResolution.DIDDocument.VerificationMethod[0].ID,
+		string(o.walletSignatureType),
+		kmssigner.NewKMSSigner(signer, o.walletSignatureType, nil),
+	)
 
 	return &Flow{
 		httpClient:                 p.HTTPClient(),
 		documentLoader:             p.DocumentLoader(),
 		vdrRegistry:                p.VDRegistry(),
-		keyManager:                 p.KMS(),
-		crypto:                     p.Crypto(),
+		signer:                     jwsSigner,
 		wellKnownService:           p.WellKnownService(),
 		flowType:                   o.flowType,
 		credentialOffer:            o.credentialOffer,
@@ -158,9 +163,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		userPassword:               o.userPassword,
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
-		walletDID:                  walletDID,
-		walletKMSKeyID:             o.walletKMSKeyID,
-		walletSignatureType:        o.walletSignatureType,
 	}, nil
 }
 
@@ -507,24 +509,6 @@ func (f *Flow) getVC(
 		"credential_issuer", credentialIssuer,
 	)
 
-	docResolution, err := f.vdrRegistry.Resolve(f.walletDID.String())
-	if err != nil {
-		return nil, err
-	}
-
-	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
-
-	kmsSigner, err := kmssigner.NewKMSSigner(
-		f.keyManager,
-		f.crypto,
-		f.walletKMSKeyID,
-		f.walletSignatureType,
-		nil,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create kms signer: %w", err)
-	}
-
 	claims := &JWTProofClaims{
 		Issuer:   f.clientID,
 		IssuedAt: time.Now().Unix(),
@@ -536,11 +520,7 @@ func (f *Flow) getVC(
 		jose.HeaderType: jwtProofTypeHeader,
 	}
 
-	signedJWT, err := jwt.NewSigned(
-		claims,
-		headers,
-		jwssigner.NewJWSSigner(verificationMethod.ID, string(f.walletSignatureType), kmsSigner),
-	)
+	signedJWT, err := jwt.NewSigned(claims, headers, f.signer)
 	if err != nil {
 		return nil, fmt.Errorf("create signed jwt: %w", err)
 	}

@@ -18,10 +18,8 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/spi/crypto"
-	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
@@ -33,6 +31,7 @@ type oidc4vpCommandFlags struct {
 	qrCodePath                     string
 	walletDIDIndex                 int
 	enableLinkedDomainVerification bool
+	enableDomainMatching           bool
 	enableTracing                  bool
 }
 
@@ -50,9 +49,14 @@ func NewOIDC4VPCommand() *cobra.Command {
 				InsecureSkipVerify: true,
 			}
 
-			svc, initErr := initServices(flags.serviceFlags, tlsConfig)
-			if initErr != nil {
-				return initErr
+			svc, err := initServices(flags.serviceFlags, tlsConfig)
+			if err != nil {
+				return err
+			}
+
+			keyCreator, err := svc.CryptoSuite().RawKeyCreator()
+			if err != nil {
+				return err
 			}
 
 			w, err := wallet.New(
@@ -60,7 +64,7 @@ func NewOIDC4VPCommand() *cobra.Command {
 					storageProvider: svc.StorageProvider(),
 					documentLoader:  svc.DocumentLoader(),
 					vdrRegistry:     svc.VDR(),
-					kms:             svc.KMS(),
+					keyCreator:      keyCreator,
 				},
 			)
 			if err != nil {
@@ -109,18 +113,12 @@ func NewOIDC4VPCommand() *cobra.Command {
 				httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
 			}
 
-			crypt, err := tinkcrypto.New()
-			if err != nil {
-				return err
-			}
-
 			provider := &oidc4vpProvider{
 				storageProvider: svc.StorageProvider(),
 				httpClient:      httpClient,
 				documentLoader:  svc.DocumentLoader(),
 				vdrRegistry:     svc.VDR(),
-				kms:             svc.KMS(),
-				crypt:           crypt,
+				cryptoSuite:     svc.CryptoSuite(),
 				wallet:          w,
 			}
 
@@ -143,6 +141,10 @@ func NewOIDC4VPCommand() *cobra.Command {
 
 			if flags.enableLinkedDomainVerification {
 				opts = append(opts, oidc4vp.WithLinkedDomainVerification())
+			}
+
+			if flags.enableDomainMatching {
+				opts = append(opts, oidc4vp.WithDomainMatching())
 			}
 
 			if flow, err = oidc4vp.NewFlow(provider, opts...); err != nil {
@@ -168,6 +170,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
+	cmd.Flags().BoolVar(&flags.enableDomainMatching, "enable-domain-matching", true, "enables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
@@ -178,8 +181,7 @@ type oidc4vpProvider struct {
 	httpClient      *http.Client
 	documentLoader  ld.DocumentLoader
 	vdrRegistry     vdrapi.Registry
-	kms             kmsapi.KeyManager
-	crypt           crypto.Crypto
+	cryptoSuite     api.Suite
 	wallet          *wallet.Wallet
 }
 
@@ -199,12 +201,8 @@ func (p *oidc4vpProvider) VDRegistry() vdrapi.Registry {
 	return p.vdrRegistry
 }
 
-func (p *oidc4vpProvider) KMS() kmsapi.KeyManager {
-	return p.kms
-}
-
-func (p *oidc4vpProvider) Crypto() crypto.Crypto {
-	return p.crypt
+func (p *oidc4vpProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
 }
 
 func (p *oidc4vpProvider) Wallet() *wallet.Wallet {

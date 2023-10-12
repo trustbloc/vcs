@@ -20,6 +20,7 @@ import (
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -53,7 +54,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	DocumentLoader() ld.DocumentLoader
 	VDRegistry() vdrapi.Registry
-	KMS() kmsapi.KeyManager
+	KeyCreator() api.RawKeyCreator
 }
 
 type options struct {
@@ -140,7 +141,7 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 			method,
 			keyType,
 			p.VDRegistry(),
-			p.KMS(),
+			p.KeyCreator(),
 		)
 		if createErr != nil {
 			return nil, fmt.Errorf("create did: %w", createErr)
@@ -371,7 +372,7 @@ func (w *Wallet) Query(pdBytes []byte) ([]*verifiable.Presentation, error) {
 	)
 	if err != nil {
 		if errors.Is(err, presexch.ErrNoCredentials) {
-			return nil, fmt.Errorf("no credentials found for vp")
+			return nil, fmt.Errorf("no matching credentials found")
 		}
 
 		return nil, err

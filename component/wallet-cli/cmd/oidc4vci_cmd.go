@@ -21,10 +21,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/spi/crypto"
-	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
@@ -71,9 +69,14 @@ func NewOIDC4VCICommand() *cobra.Command {
 				InsecureSkipVerify: true,
 			}
 
-			svc, initErr := initServices(flags.serviceFlags, tlsConfig)
-			if initErr != nil {
-				return initErr
+			svc, err := initServices(flags.serviceFlags, tlsConfig)
+			if err != nil {
+				return err
+			}
+
+			keyCreator, err := svc.CryptoSuite().RawKeyCreator()
+			if err != nil {
+				return err
 			}
 
 			w, err := wallet.New(
@@ -81,7 +84,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 					storageProvider: svc.StorageProvider(),
 					documentLoader:  svc.DocumentLoader(),
 					vdrRegistry:     svc.VDR(),
-					kms:             svc.KMS(),
+					keyCreator:      keyCreator,
 				},
 			)
 			if err != nil {
@@ -180,11 +183,6 @@ func NewOIDC4VCICommand() *cobra.Command {
 				}
 			}
 
-			crypt, err := tinkcrypto.New()
-			if err != nil {
-				return err
-			}
-
 			wellKnownService := &wellknown.Service{
 				HTTPClient:  httpClient,
 				VDRRegistry: svc.VDR(),
@@ -195,8 +193,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 				httpClient:       httpClient,
 				documentLoader:   svc.DocumentLoader(),
 				vdrRegistry:      svc.VDR(),
-				kms:              svc.KMS(),
-				crypt:            crypt,
+				cryptoSuite:      svc.CryptoSuite(),
 				wellKnownService: wellKnownService,
 			}
 
@@ -334,8 +331,7 @@ type oidc4vciProvider struct {
 	httpClient       *http.Client
 	documentLoader   ld.DocumentLoader
 	vdrRegistry      vdrapi.Registry
-	kms              kmsapi.KeyManager
-	crypt            crypto.Crypto
+	cryptoSuite      api.Suite
 	wellKnownService *wellknown.Service
 }
 
@@ -355,12 +351,8 @@ func (p *oidc4vciProvider) VDRegistry() vdrapi.Registry {
 	return p.vdrRegistry
 }
 
-func (p *oidc4vciProvider) KMS() kmsapi.KeyManager {
-	return p.kms
-}
-
-func (p *oidc4vciProvider) Crypto() crypto.Crypto {
-	return p.crypt
+func (p *oidc4vciProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
 }
 
 func (p *oidc4vciProvider) WellKnownService() *wellknown.Service {

@@ -22,8 +22,8 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/spi/crypto"
-	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	didconfigclient "github.com/trustbloc/vc-go/didconfig/client"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
@@ -48,21 +48,20 @@ type Flow struct {
 	httpClient                     *http.Client
 	documentLoader                 ld.DocumentLoader
 	vdrRegistry                    vdrapi.Registry
-	keyManager                     kms.KeyManager
-	crypto                         crypto.Crypto
+	cryptoSuite                    api.Suite
+	signer                         jose.Signer
 	wallet                         *wallet.Wallet
 	walletDID                      *did.DID
-	walletKMSKeyID                 string
 	requestURI                     string
 	enableLinkedDomainVerification bool
+	enableDomainMatching           bool
 }
 
 type provider interface {
 	HTTPClient() *http.Client
 	DocumentLoader() ld.DocumentLoader
 	VDRegistry() vdrapi.Registry
-	KMS() kms.KeyManager
-	Crypto() crypto.Crypto
+	CryptoSuite() api.Suite
 	Wallet() *wallet.Wallet
 }
 
@@ -90,17 +89,35 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("parse wallet did: %w", err)
 	}
 
+	docResolution, err := p.VDRegistry().Resolve(walletDID.String())
+	if err != nil {
+		return nil, fmt.Errorf("resolve wallet did: %w", err)
+	}
+
+	signer, err := p.CryptoSuite().FixedKeyMultiSigner(walletDIDInfo.KeyID)
+	if err != nil {
+		return nil, fmt.Errorf("create signer for key %s: %w", walletDIDInfo.KeyID, err)
+	}
+
+	signatureType := p.Wallet().SignatureType()
+
+	jwsSigner := jwssigner.NewJWSSigner(
+		docResolution.DIDDocument.VerificationMethod[0].ID,
+		string(signatureType),
+		kmssigner.NewKMSSigner(signer, signatureType, nil),
+	)
+
 	return &Flow{
 		httpClient:                     p.HTTPClient(),
 		documentLoader:                 p.DocumentLoader(),
 		vdrRegistry:                    p.VDRegistry(),
-		keyManager:                     p.KMS(),
-		crypto:                         p.Crypto(),
+		cryptoSuite:                    p.CryptoSuite(),
+		signer:                         jwsSigner,
 		wallet:                         p.Wallet(),
 		walletDID:                      walletDID,
-		walletKMSKeyID:                 walletDIDInfo.KeyID,
 		requestURI:                     o.requestURI,
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
+		enableDomainMatching:           o.enableDomainMatching,
 	}, nil
 }
 
@@ -119,6 +136,15 @@ func (f *Flow) Run(ctx context.Context) error {
 	credentials, err := f.queryWallet(requestObject.Claims.VPToken.PresentationDefinition)
 	if err != nil {
 		return fmt.Errorf("query wallet: %w", err)
+	}
+
+	if f.enableDomainMatching {
+		for i := len(credentials) - 1; i >= 0; i-- {
+			credential := credentials[i]
+			if !sameDIDWebDomain(credential.Contents().Issuer.ID, requestObject.ClientID) {
+				credentials = append(credentials[:i], credentials[i+1:]...)
+			}
+		}
 	}
 
 	if err = f.sendAuthorizationResponse(ctx, requestObject, credentials); err != nil {
@@ -273,6 +299,18 @@ func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) ([]*verifiable.C
 	return presentations[0].Credentials(), nil
 }
 
+func sameDIDWebDomain(did1, did2 string) bool {
+	if strings.HasPrefix(did1, "did:web:") && strings.HasPrefix(did2, "did:web:") {
+		if i := strings.Index(did1, "."); i != -1 {
+			if j := strings.Index(did2, "."); j != -1 {
+				return strings.EqualFold(did1[:i], did2[:j])
+			}
+		}
+	}
+
+	return false
+}
+
 func (f *Flow) sendAuthorizationResponse(
 	ctx context.Context,
 	requestObject *RequestObject,
@@ -364,7 +402,7 @@ func (f *Flow) sendAuthorizationResponse(
 
 		vpToken = string(b)
 	} else {
-		return fmt.Errorf("no credentials found")
+		return fmt.Errorf("no matching credentials found")
 	}
 
 	idToken, err := f.createIDToken(presentationSubmission, requestObject.ClientID, requestObject.Nonce)
@@ -435,16 +473,12 @@ func (f *Flow) signPresentationJWT(
 		}
 	}
 
-	kmsSigner, err := kmssigner.NewKMSSigner(
-		f.keyManager,
-		f.crypto,
-		kmsKeyID,
-		f.wallet.SignatureType(),
-		nil,
-	)
+	signer, err := f.cryptoSuite.FixedKeyMultiSigner(kmsKeyID)
 	if err != nil {
-		return "", fmt.Errorf("create kms signer: %w", err)
+		return "", fmt.Errorf("create signer for key %s: %w", kmsKeyID, err)
 	}
+
+	kmsSigner := kmssigner.NewKMSSigner(signer, f.wallet.SignatureType(), nil)
 
 	claims := VPTokenClaims{
 		VP:    vp,
@@ -509,12 +543,7 @@ func (f *Flow) signPresentationLDP(
 			KMSKeyID:                kmsKeyID,
 			SignatureType:           signatureType,
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			KMS: vcskms.GetAriesKeyManager(
-				f.keyManager,
-				f.crypto,
-				vcskms.Local,
-				noop.GetMetrics(),
-			),
+			KMS:                     vcskms.GetAriesKeyManager(f.cryptoSuite, vcskms.Local, noop.GetMetrics()),
 		},
 		vp,
 		vccrypto.WithChallenge(nonce),
@@ -538,13 +567,6 @@ func (f *Flow) createIDToken(
 	presentationSubmission *presexch.PresentationSubmission,
 	clientID, nonce string,
 ) (string, error) {
-	docResolution, err := f.vdrRegistry.Resolve(f.walletDID.String())
-	if err != nil {
-		return "", fmt.Errorf("resolve signer did: %w", err)
-	}
-
-	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
-
 	idToken := &IDTokenClaims{
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: presentationSubmission,
@@ -559,25 +581,10 @@ func (f *Flow) createIDToken(
 		Jti:   uuid.NewString(),
 	}
 
-	kmsSigner, err := kmssigner.NewKMSSigner(
-		f.keyManager,
-		f.crypto,
-		f.walletKMSKeyID,
-		f.wallet.SignatureType(),
-		nil,
-	)
-	if err != nil {
-		return "", fmt.Errorf("create kms signer: %w", err)
-	}
-
 	signedIDToken, err := jwt.NewSigned(
 		idToken,
 		map[string]interface{}{"typ": "JWT"},
-		jwssigner.NewJWSSigner(
-			verificationMethod.ID,
-			string(f.wallet.SignatureType()),
-			kmsSigner,
-		),
+		f.signer,
 	)
 	if err != nil {
 		return "", fmt.Errorf("create signed id token: %w", err)
@@ -633,6 +640,7 @@ type options struct {
 	walletDIDIndex                 int
 	requestURI                     string
 	enableLinkedDomainVerification bool
+	enableDomainMatching           bool
 }
 
 type Opt func(opts *options)
@@ -652,5 +660,11 @@ func WithRequestURI(uri string) Opt {
 func WithLinkedDomainVerification() Opt {
 	return func(opts *options) {
 		opts.enableLinkedDomainVerification = true
+	}
+}
+
+func WithDomainMatching() Opt {
+	return func(opts *options) {
+		opts.enableDomainMatching = true
 	}
 }
