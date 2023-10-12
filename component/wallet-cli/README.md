@@ -44,7 +44,7 @@ Running the `create` command on an existing Wallet will generate a new DID for t
 key type is set, it cannot be changed. In subsequent operations with the Wallet (e.g. `oidc4vci` and `oidc4vp` commands)
 the most recently created DID is used. To select a specific DID, set its index with `--wallet-did-index` argument.
 
-* Create a new did:jwk for existing Wallet:
+* Create a new `did:jwk` DID for existing Wallet:
 ```bash
 ./wallet-cli create --leveldb-path "/mnt/wallet.db" --did-method jwk
 ```
@@ -85,7 +85,7 @@ used for this purpose. The following CLI arguments are supported:
 
 Examples:
 
-* Receive VC from the Issuer using `pre-authorized_code` flow:
+* Receive credential from the Issuer using `pre-authorized_code` flow:
 ```bash
 ./wallet-cli oidc4vci \
 --leveldb-path "/mnt/wallet.db" \
@@ -95,7 +95,7 @@ Examples:
 --credential-format jwt_vc_json-ld
 ```
 
-* Receive VC from the Issuer using `authorization_code` flow:
+* Receive credential from the Issuer using `authorization_code` flow:
 ```bash
 ./wallet-cli oidc4vci \
 --leveldb-path "/mnt/wallet.db" \
@@ -106,7 +106,7 @@ Examples:
 --credential-format ldp_vc
 ```
 
-For the `wallet-initiated` flow, you must include the `--issuer-state` argument. It has the following format: 
+For the `wallet-initiated` flow, you must include the `--issuer-state` argument. It has the following format:
 `https://<gateway>/vcs/oidc/idp/<profile_id>/<profile_version>`
 ```bash
 ./wallet-cli oidc4vci \
@@ -132,13 +132,13 @@ page in `authorization_code` flow:
 --user-password "<password>"
 ```
 
-To trace HTTP requests and responses between `wallet-cli` and `vcs`, use the `--enable-tracing` flag.
+To trace HTTP requests between `wallet-cli` and `vcs`, use the `--enable-tracing` flag.
 
 ### Presenting Verifiable Credential using OIDC4VP exchange protocol
 
 Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
 ```bash
-      --enable-domain-matching              enables domain matching for issuer and verifier when presenting credentials (only for did:web) (default true)
+      --disable-domain-matching             disables domain matching for issuer and verifier when presenting credentials (only for did:web)
       --enable-linked-domain-verification   enables linked domain verification
       --enable-tracing                      enables http tracing
   -h, --help                                help for oidc4vp
@@ -150,14 +150,19 @@ Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
 
 Examples:
 
-* Present credentials to the Verifier with linked domain verification:
+* Present credentials to the Verifier with linked domain verification enabled:
 ```bash
 ./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "qr.png" --enable-linked-domain-verification
 ```
 
-* Present only credentials that match with the Verifier domain (when both issuer and verifier use did:web DIDs): 
+By default, `wallet-cli` will only present credentials that match with the Verifier domain (when both Issuer and Verifier use `did:web` DIDs).
+
+To change this behavior, add the `--disable-domain-matching` flag and all credentials matching to [Presentation Definition](https://identity.foundation/presentation-exchange/#presentation-definition)
+from [Authorization Request](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-authorization-request) will be sent to the Verifier.
+
+* Present all matching credentials to the Verifier with HTTP tracing enabled: 
 ```bash
-./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "qr.png" --enable-domain-matching --enable-tracing
+./wallet-cli oidc4vp --leveldb-path "/mnt/wallet.db" --qr-code-path "qr.png" --disable-domain-matching --enable-tracing
 ```
 
 ## Contributing

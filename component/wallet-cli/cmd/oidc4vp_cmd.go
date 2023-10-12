@@ -31,8 +31,8 @@ type oidc4vpCommandFlags struct {
 	qrCodePath                     string
 	walletDIDIndex                 int
 	enableLinkedDomainVerification bool
-	enableDomainMatching           bool
 	enableTracing                  bool
+	disableDomainMatching          bool
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -143,8 +143,8 @@ func NewOIDC4VPCommand() *cobra.Command {
 				opts = append(opts, oidc4vp.WithLinkedDomainVerification())
 			}
 
-			if flags.enableDomainMatching {
-				opts = append(opts, oidc4vp.WithDomainMatching())
+			if flags.disableDomainMatching {
+				opts = append(opts, oidc4vp.WithDomainMatchingDisabled())
 			}
 
 			if flow, err = oidc4vp.NewFlow(provider, opts...); err != nil {
@@ -170,7 +170,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
-	cmd.Flags().BoolVar(&flags.enableDomainMatching, "enable-domain-matching", true, "enables domain matching for issuer and verifier when presenting credentials (only for did:web)")
+	cmd.Flags().BoolVar(&flags.disableDomainMatching, "disable-domain-matching", false, "disables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
