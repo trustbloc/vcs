@@ -16,6 +16,7 @@ import (
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 )
@@ -44,11 +45,16 @@ func NewCreateWalletCommand() *cobra.Command {
 				return err
 			}
 
+			keyCreator, err := svc.CryptoSuite().RawKeyCreator()
+			if err != nil {
+				return err
+			}
+
 			provider := &walletProvider{
 				storageProvider: svc.StorageProvider(),
 				documentLoader:  svc.DocumentLoader(),
 				vdrRegistry:     svc.VDR(),
-				kms:             svc.KMS(),
+				keyCreator:      keyCreator,
 			}
 
 			slog.Info("creating wallet",
@@ -92,7 +98,7 @@ type walletProvider struct {
 	storageProvider storageapi.Provider
 	documentLoader  ld.DocumentLoader
 	vdrRegistry     vdrapi.Registry
-	kms             kmsapi.KeyManager
+	keyCreator      api.RawKeyCreator
 }
 
 func (p *walletProvider) StorageProvider() storageapi.Provider {
@@ -107,6 +113,6 @@ func (p *walletProvider) VDRegistry() vdrapi.Registry {
 	return p.vdrRegistry
 }
 
-func (p *walletProvider) KMS() kmsapi.KeyManager {
-	return p.kms
+func (p *walletProvider) KeyCreator() api.RawKeyCreator {
+	return p.keyCreator
 }
