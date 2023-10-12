@@ -54,7 +54,7 @@ type Flow struct {
 	walletDID                      *did.DID
 	requestURI                     string
 	enableLinkedDomainVerification bool
-	enableDomainMatching           bool
+	disableDomainMatching          bool
 }
 
 type provider interface {
@@ -117,7 +117,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		walletDID:                      walletDID,
 		requestURI:                     o.requestURI,
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
-		enableDomainMatching:           o.enableDomainMatching,
+		disableDomainMatching:          o.disableDomainMatching,
 	}, nil
 }
 
@@ -138,7 +138,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("query wallet: %w", err)
 	}
 
-	if f.enableDomainMatching {
+	if !f.disableDomainMatching {
 		for i := len(credentials) - 1; i >= 0; i-- {
 			credential := credentials[i]
 			if !sameDIDWebDomain(credential.Contents().Issuer.ID, requestObject.ClientID) {
@@ -640,7 +640,7 @@ type options struct {
 	walletDIDIndex                 int
 	requestURI                     string
 	enableLinkedDomainVerification bool
-	enableDomainMatching           bool
+	disableDomainMatching          bool
 }
 
 type Opt func(opts *options)
@@ -663,8 +663,8 @@ func WithLinkedDomainVerification() Opt {
 	}
 }
 
-func WithDomainMatching() Opt {
+func WithDomainMatchingDisabled() Opt {
 	return func(opts *options) {
-		opts.enableDomainMatching = true
+		opts.disableDomainMatching = true
 	}
 }
