@@ -34,7 +34,7 @@ import (
 const (
 	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
-	issuedCredentialHistoryURL          = vcsAPIGateway + "/issuer/profiles/%s/%s/issued-credentials"
+	issuedCredentialHistoryURL          = vcsAPIGateway + "/issuer/profiles/%s/issued-credentials"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
@@ -535,7 +535,7 @@ func (s *Steps) checkIssuedCredentialHistory(credential *verifiable.Credential, 
 		return nil
 	}
 
-	endpointURL := fmt.Sprintf(issuedCredentialHistoryURL, s.issuerProfile.ID, s.issuerProfile.Version)
+	endpointURL := fmt.Sprintf(issuedCredentialHistoryURL, s.issuerProfile.ID)
 
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.ID+"/"+s.issuerProfile.Version)]
 

@@ -13,6 +13,7 @@ import (
 
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -73,12 +74,11 @@ func (p *Store) Put(
 func (p *Store) GetIssuedCredentialsMetadata(
 	ctx context.Context,
 	profileID string,
-	profileVersion string,
 ) ([]*credentialstatus.CredentialMetadata, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "credentialMetadata.issuanceDate", Value: -1}})
 	cursor, err := p.mongoClient.Database().Collection(vcStatusStoreName).Find(ctx, bson.D{
 		{Key: profileIDMongoDBFieldName, Value: profileID},
-		{Key: profileVersionMongoDBFieldName, Value: profileVersion},
-	})
+	}, opts)
 	if err != nil {
 		return nil, fmt.Errorf("find credential metadata list MongoDB: %w", err)
 	}

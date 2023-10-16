@@ -49,7 +49,7 @@
       }
     },
     {
-      "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/issued-credentials",
+      "endpoint": "/issuer/profiles/{profileID}/issued-credentials",
       "method": "GET",
       "input_query_strings": [
         "*"

@@ -72,25 +72,29 @@ func TestVCIssuanceHistoryStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Get credential metadata by same profile version.
-		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile, testProfileVersion10)
+		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile)
 		assert.NoError(t, err)
 
 		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta}, metadataFromDB)
 
 		// Create another record.
-		err = store.Put(ctx, testProfile, testProfileVersion10, credentialMeta)
+		credentialMetaNew := &credentialstatus.CredentialMetadata{}
+		*credentialMetaNew = *credentialMeta
+		credentialMetaNew.CredentialID = "credentialIDNew"
+		credentialMetaNew.IssuanceDate = timeutil.NewTime(time.Now().Add(time.Hour).Round(time.Second).UTC())
+		err = store.Put(ctx, testProfile, testProfileVersion10, credentialMetaNew)
 		assert.NoError(t, err)
 
 		// Get credential metadata by same profile version.
-		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile, testProfileVersion10)
+		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile)
 		assert.NoError(t, err)
 
-		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta, credentialMeta}, metadataFromDB)
+		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMetaNew, credentialMeta}, metadataFromDB)
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
 		// Get credential metadata by different profile version.
-		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile+"unknown", testProfileVersion10)
+		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile+"unknown")
 		assert.NoError(t, err)
 		assert.Empty(t, metadataFromDB)
 	})
@@ -123,7 +127,7 @@ func TestTimeouts(t *testing.T) {
 	})
 
 	t.Run("Find GetIssuedCredentialsMetadata", func(t *testing.T) {
-		resp, err := store.GetIssuedCredentialsMetadata(ctxWithTimeout, testProfile, testProfileVersion10)
+		resp, err := store.GetIssuedCredentialsMetadata(ctxWithTimeout, testProfile)
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")
