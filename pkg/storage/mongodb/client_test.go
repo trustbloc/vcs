@@ -21,6 +21,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -42,6 +43,7 @@ func TestClient(t *testing.T) {
 
 	client, err := mongodb.New(mongoDBConnString, testDatabaseName,
 		mongodb.WithTimeout(testTimeout),
+		mongodb.WithReadPref(readpref.PrimaryPreferred()),
 		mongodb.WithTraceProvider(trace.NewNoopTracerProvider()),
 	)
 	require.NoError(t, err)

@@ -31,7 +31,8 @@ type Client struct {
 
 func New(connString string, databaseName string, opts ...ClientOpt) (*Client, error) {
 	op := &clientOpts{
-		timeout: defaultTimeout,
+		timeout:  defaultTimeout,
+		readPref: readpref.Nearest(),
 	}
 
 	for _, fn := range opts {
@@ -41,7 +42,7 @@ func New(connString string, databaseName string, opts ...ClientOpt) (*Client, er
 	mongoOpts := mongooptions.Client()
 	mongoOpts.ApplyURI(connString)
 	mongoOpts.SetWriteConcern(writeconcern.New(writeconcern.WMajority(), writeconcern.WTimeout(op.timeout)))
-	mongoOpts.ReadPreference = readpref.Nearest()
+	mongoOpts.ReadPreference = op.readPref
 
 	if op.traceProvider != nil {
 		mongoOpts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(op.traceProvider))
@@ -94,6 +95,7 @@ func (c *Client) Close() error {
 type clientOpts struct {
 	timeout       time.Duration
 	traceProvider trace.TracerProvider
+	readPref      *readpref.ReadPref
 }
 
 type ClientOpt func(opts *clientOpts)
@@ -101,6 +103,12 @@ type ClientOpt func(opts *clientOpts)
 func WithTimeout(timeout time.Duration) ClientOpt {
 	return func(opts *clientOpts) {
 		opts.timeout = timeout
+	}
+}
+
+func WithReadPref(pref *readpref.ReadPref) ClientOpt {
+	return func(opts *clientOpts) {
+		opts.readPref = pref
 	}
 }
 
