@@ -1634,7 +1634,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 		}
 
 		credentialIssuanceStore.EXPECT().
-			GetIssuedCredentialsMetadata(gomock.Any(), profileID, profileVersion).
+			GetIssuedCredentialsMetadata(gomock.Any(), profileID).
 			Times(1).
 			Return([]*credentialstatus.CredentialMetadata{credentialMetadata}, nil)
 
@@ -1646,7 +1646,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 		echoCtx := echoContext(withRecorder(recorder))
 
-		err := c.CredentialIssuanceHistory(echoCtx, profileID, profileVersion)
+		err := c.CredentialIssuanceHistory(echoCtx, profileID)
 		assert.NoError(t, err)
 
 		var gotResponse []CredentialIssuanceHistoryData
@@ -1669,7 +1669,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 	t.Run("credentialIssuanceHistoryStore error", func(t *testing.T) {
 		credentialIssuanceStore.EXPECT().
-			GetIssuedCredentialsMetadata(gomock.Any(), profileID, profileVersion).
+			GetIssuedCredentialsMetadata(gomock.Any(), profileID).
 			Times(1).
 			Return(nil, errors.New("some error"))
 
@@ -1681,7 +1681,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 		echoCtx := echoContext(withRecorder(recorder))
 
-		err := c.CredentialIssuanceHistory(echoCtx, profileID, profileVersion)
+		err := c.CredentialIssuanceHistory(echoCtx, profileID)
 		assert.Error(t, err)
 	})
 }

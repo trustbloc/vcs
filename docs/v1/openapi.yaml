@@ -81,7 +81,7 @@ paths:
       description: Returns openid-config.
       tags:
         - issuer
-  '/issuer/profiles/{profileID}/{profileVersion}/issued-credentials':
+  '/issuer/profiles/{profileID}/issued-credentials':
     parameters:
       - schema:
           type: string
@@ -89,12 +89,6 @@ paths:
         in: path
         required: true
         description: Profile ID
-      - schema:
-          type: string
-        name: profileVersion
-        in: path
-        required: true
-        description: Profile Version
     get:
       summary: Request Credential Issuance history.
       responses:
