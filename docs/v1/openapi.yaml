@@ -105,6 +105,33 @@ paths:
       description: Returns Credential Issuance history.
       tags:
         - issuer
+  '/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile Id
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Profile Version
+    get:
+      summary: Request openid-config public endpoint.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownOpenIDConfiguration'
+      operationId: openid-config-v2
+      description: Returns openid-config.
+      tags:
+        - issuer
   '/issuer/profiles/{profileID}/{profileVersion}/credentials/issue':
     parameters:
       - schema:
@@ -796,6 +823,51 @@ components:
       required:
         - status
       description: Response model for health check status.
+    WellKnownOpenIDConfiguration:
+      title: WellKnownOpenIDConfiguration response
+      x-tags:
+        - issuer
+      type: object
+      description: OpenID Config response.
+      properties:
+        authorization_endpoint:
+          type: string
+          description: URL of the OP's OAuth 2.0 Authorization Endpoint.
+        token_endpoint:
+          type: string
+          description: URL of the OP's OAuth 2.0 Token Endpoint.
+        response_types_supported:
+          type: array
+          description: JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
+          items:
+            type: string
+        registration_endpoint:
+          type: string
+          description: URL of the OP's Dynamic Client Registration Endpoint.
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: 'JSON array containing a list of the OAuth 2.0 [RFC6749] scope values that this server supports.'
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
+        pre-authorized_grant_anonymous_access_supported:
+          type: boolean
+          description: JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
+        wallet_initiated_auth_flow_supported:
+          type: boolean
+          description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
+      required:
+        - authorization_endpoint
+        - token_endpoint
+        - response_types_supported
+        - scopes_supported
+        - grant_types_supported
+        - wallet_initiated_auth_flow_supported
+        - pre-authorized_grant_anonymous_access_supported
     WellKnownOpenIDIssuerConfiguration:
       title: WellKnownOpenIDIssuerConfiguration response
       x-tags:
