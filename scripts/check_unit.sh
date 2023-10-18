@@ -29,7 +29,9 @@ amend_coverage_file
 
 # Running vcs unit tests
 echo "locker tests..."
-go test pkg/locker -count=1 -coverprofile=profile.out -covermode=atomic -timeout=10m
+PKGS=`go list github.com/trustbloc/vcs/... 2> /dev/null | \
+                                                  grep /pkg/locker`
+go test $PKGS -count=1 -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
 
 echo "... done"

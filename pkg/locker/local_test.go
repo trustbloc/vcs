@@ -15,14 +15,14 @@ func TestKeyedMutexLocker_NewMutex(t *testing.T) {
 	km := locker.NewKeyedMutex()
 
 	key := "test"
-	m1 := km.NewMutex(key).(*locker.KeyedMutex)
+	m1 := km.NewMutex(key).(*locker.KeyedMutex) //nolint
 	assert.NotNil(t, m1)
 	// Retrieving the same key should return the same mutex
-	m2 := km.NewMutex(key).(*locker.KeyedMutex)
+	m2 := km.NewMutex(key).(*locker.KeyedMutex) //nolint
 	assert.Same(t, m1.Mut, m2.Mut)
 
 	// Retrieving a different key should return a different mutex
-	m3 := km.NewMutex("test2").(*locker.KeyedMutex)
+	m3 := km.NewMutex("test2").(*locker.KeyedMutex) //nolint
 	assert.NotSame(t, m1.Mut, m3.Mut)
 }
 
