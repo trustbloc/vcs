@@ -24,7 +24,9 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 	longform "github.com/trustbloc/did-go/method/sidetreelongform"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
+	"github.com/trustbloc/vcs/pkg/locker"
 
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	vdr2 "github.com/trustbloc/did-go/vdr"
@@ -262,6 +264,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				KMSRegistry:    mockKMSRegistry,
 				Crypto:         crypto,
 				DocumentLoader: loader,
+				Locker:         locker.NewKeyedMutex(),
 			}),
 		}
 
@@ -695,6 +698,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				KMSRegistry:    mockKMSRegistry,
 				Crypto:         crypto,
 				DocumentLoader: loader,
+				Locker:         locker.NewKeyedMutex(),
 			}),
 		}
 

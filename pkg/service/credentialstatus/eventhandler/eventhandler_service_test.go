@@ -19,7 +19,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
+	"github.com/trustbloc/vcs/pkg/locker"
 
 	"github.com/trustbloc/did-go/doc/did"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
@@ -140,6 +142,7 @@ func TestService_HandleEvent(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.HandleEvent(ctx, event)
@@ -172,6 +175,7 @@ func TestService_HandleEvent(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.HandleEvent(ctx, event)
@@ -203,6 +207,7 @@ func TestService_HandleEvent(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.HandleEvent(ctx, event)
@@ -249,6 +254,7 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.handleEventPayload(ctx, eventPayload)
@@ -280,6 +286,7 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.handleEventPayload(ctx, eventPayload)
@@ -315,6 +322,7 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.handleEventPayload(ctx, eventPayload)
@@ -349,6 +357,7 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.handleEventPayload(ctx, eventPayload)
@@ -386,6 +395,7 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileService: mockProfileSrvErr,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		err = s.handleEventPayload(ctx, eventPayload)
@@ -421,6 +431,7 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		cslStore.createErr = errors.New("some error")
@@ -463,6 +474,7 @@ func TestService_signCSL(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         crypto,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)
@@ -477,6 +489,7 @@ func TestService_signCSL(t *testing.T) {
 		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s := New(&Config{
 			ProfileService: mockProfileSrvErr,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		signedCSL, err := s.signCSL(profileID, profileVersion, nil)
@@ -491,6 +504,7 @@ func TestService_signCSL(t *testing.T) {
 		s := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistryErr,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		signedCSL, err := s.signCSL(profileID, profileVersion, nil)
@@ -513,6 +527,7 @@ func TestService_signCSL(t *testing.T) {
 		s := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)
@@ -534,6 +549,7 @@ func TestService_signCSL(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			Crypto:         cryptoErr,
+			Locker:         locker.NewKeyedMutex(),
 		})
 
 		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)

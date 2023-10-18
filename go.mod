@@ -18,6 +18,7 @@ require (
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
+	github.com/go-redsync/redsync/v4 v4.10.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jinzhu/copier v0.3.5
@@ -111,7 +112,9 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-redsync/redsync/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -24,6 +25,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/locker"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -52,12 +54,23 @@ type vcCrypto interface {
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
+type Locker interface {
+	NewMutex(key string, options ...redsync.Option) locker.Lock
+}
+
+type Lock interface {
+	LockContext(ctx context.Context) error
+	UnlockContext(ctx context.Context) (bool, error)
+	Unlock() (bool, error)
+}
+
 type Config struct {
 	CSLVCStore     credentialstatus.CSLVCStore
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
 	Crypto         vcCrypto
 	DocumentLoader ld.DocumentLoader
+	Locker         Locker
 }
 
 type Service struct {
@@ -66,6 +79,7 @@ type Service struct {
 	kmsRegistry    kmsRegistry
 	crypto         vcCrypto
 	documentLoader ld.DocumentLoader
+	locker         Locker
 }
 
 func New(conf *Config) *Service {
@@ -75,6 +89,7 @@ func New(conf *Config) *Service {
 		kmsRegistry:    conf.KMSRegistry,
 		crypto:         conf.Crypto,
 		documentLoader: conf.DocumentLoader,
+		locker:         conf.Locker,
 	}
 }
 
@@ -96,7 +111,17 @@ func (s *Service) HandleEvent(ctx context.Context, event *spi.Event) error { //n
 }
 
 func (s *Service) handleEventPayload(
-	ctx context.Context, payload credentialstatus.UpdateCredentialStatusEventPayload) error {
+	ctx context.Context,
+	payload credentialstatus.UpdateCredentialStatusEventPayload,
+) error {
+	mut := s.locker.NewMutex(payload.CSLURL)
+	if err := mut.LockContext(ctx); err != nil {
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer func() {
+		_, _ = mut.Unlock()
+	}()
+
 	clsWrapper, err := s.getCSLVCWrapper(ctx, payload.CSLURL)
 	if err != nil {
 		return fmt.Errorf("get CSL VC wrapper failed: %w", err)

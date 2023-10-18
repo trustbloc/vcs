@@ -22,9 +22,16 @@ fi
 # Running vcs unit tests
 echo "vcs unit tests..."
 PKGS=`go list github.com/trustbloc/vcs/... 2> /dev/null | \
-                                                  grep -v /mocks`
+                                                  grep -v /mocks | \
+                                                  grep -v /pkg/locker`
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+
+# Running vcs unit tests
+echo "locker tests..."
+go test pkg/locker -count=1 -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+
 echo "... done"
 echo "vc-rest unit tests..."
 # Running vc-rest unit tests

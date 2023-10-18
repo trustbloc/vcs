@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/locker"
 	credentialstatustracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/credentialstatus/eventhandler"
 	credentialstatuseventhandler "github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
 )
@@ -70,6 +71,7 @@ func Initialize(cfg Config) (*Bus, error) {
 		KMSRegistry:    cfg.KMSRegistry,
 		Crypto:         cfg.Crypto,
 		DocumentLoader: cfg.DocumentLoader,
+		Locker:         locker.NewKeyedMutex(),
 	})
 
 	var credentialStatusEventHandler eventHandlerWithContext = service.HandleEvent
