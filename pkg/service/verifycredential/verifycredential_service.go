@@ -15,6 +15,8 @@ import (
 	"net/http"
 
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/vc-go/dataintegrity"
@@ -115,8 +117,8 @@ func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) err
 	}
 
 	opts := []verifiable.CredentialOpt{
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+		verifiable.WithProofChecker(
+			defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)),
 		),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 		verifiable.WithDataIntegrityVerifier(diVerifier),

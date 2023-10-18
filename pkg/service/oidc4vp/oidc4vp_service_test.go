@@ -25,6 +25,8 @@ import (
 	arieskms "github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/vc-go/proof/testsupport"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/did-go/doc/did"
@@ -38,7 +40,6 @@ import (
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
-	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -900,7 +901,7 @@ func newSignedJWTVC(t *testing.T,
 	fks, err := keyCreatorSigner.FixedKeySigner(pub)
 	require.NoError(t, err)
 
-	signer := suite.NewCryptoWrapperSigner(fks)
+	signer := testsupport.NewProofCreator(fks)
 
 	issuer, verMethod, err := fingerprint.CreateDIDKeyByJwk(pub)
 	require.NoError(t, err)

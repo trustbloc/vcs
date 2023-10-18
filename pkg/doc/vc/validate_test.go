@@ -12,7 +12,6 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -20,7 +19,8 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	afgojwt "github.com/trustbloc/vc-go/jwt"
+	vctestutil "github.com/trustbloc/vc-go/crypto-ext/testutil"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -43,8 +43,10 @@ var sampleVCJWTInvalid string //nolint:gochecknoglobals
 var sampleVCSDJWT string //nolint:gochecknoglobals
 
 func TestValidateCredential(t *testing.T) {
-	_, privKey, pkErr := ed25519.GenerateKey(rand.Reader)
+	pubKey, privKey, pkErr := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, pkErr)
+
+	proofCreator, _ := testsupport.NewEd25519Pair(pubKey, privKey, testsupport.AnyPubKeyID)
 
 	type args struct {
 		cred                    func(t *testing.T) interface{}
@@ -232,7 +234,7 @@ func TestValidateCredential(t *testing.T) {
 					require.NoError(t, err)
 
 					jwsVC, err := cred.CreateSignedJWTVC(
-						false, verifiable.EdDSA, &signer{privKey},
+						false, verifiable.EdDSA, proofCreator,
 						cred.Contents().Issuer.ID+"#keys-1")
 					require.NoError(t, err)
 
@@ -255,7 +257,7 @@ func TestValidateCredential(t *testing.T) {
 				require.NoError(t, err)
 
 				jwsCred, err := cred.CreateSignedJWTVC(false,
-					verifiable.EdDSA, &signer{privKey}, cred.Contents().Issuer.ID+"#keys-1")
+					verifiable.EdDSA, proofCreator, cred.Contents().Issuer.ID+"#keys-1")
 				require.NoError(t, err)
 
 				return jwsCred
@@ -313,7 +315,7 @@ func TestValidateCredential(t *testing.T) {
 
 					cred.SetCustomField("referenceNumber", "11223")
 
-					sdjwt, err := cred.MakeSDJWT(afgojwt.NewEd25519Signer(privKey),
+					sdjwt, err := cred.MakeSDJWT(vctestutil.NewEd25519Signer(privKey),
 						cred.Contents().Issuer.ID+"#keys-1")
 					require.NoError(t, err)
 
@@ -450,20 +452,4 @@ func Test_validateSDJWTCredential(t *testing.T) {
 			assert.Equalf(t, tt.wantCredential(), got, "validateSDJWTCredential(%v, %v)", credential, documentLoader)
 		})
 	}
-}
-
-type signer struct {
-	privateKey []byte
-}
-
-func (s *signer) Sign(doc []byte) ([]byte, error) {
-	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
-	}
-
-	return ed25519.Sign(s.privateKey, doc), nil
-}
-
-func (s *signer) Alg() string {
-	return ""
 }

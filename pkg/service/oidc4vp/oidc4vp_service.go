@@ -27,7 +27,9 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/valyala/fastjson"
 
 	"github.com/trustbloc/vcs/internal/logfields"
@@ -501,7 +503,7 @@ func (s *Service) extractClaimData(
 			verifiable.WithDataIntegrityVerifier(diVerifier),
 			verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher())),
+			verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)))),
 		presexch.WithDisableSchemaValidation(),
 	}
 
@@ -554,7 +556,7 @@ func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error 
 		// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
 		_, rawClaims, credErr := jwt.Parse(
 			cred.JWTEnvelope.JWT,
-			jwt.WithSignatureVerifier(&noVerifier{}),
+			jwt.WithProofChecker(&noVerifier{}),
 			jwt.WithIgnoreClaimsMapDecoding(true),
 		)
 		if credErr != nil {
@@ -603,7 +605,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 func singRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigner vc.SignerAlgorithm) (string, error) {
 	signer := NewJWSSigner(profile.SigningDID.Creator, vcsSigner)
 
-	token, err := jwt.NewSigned(ro, nil, signer)
+	token, err := jwt.NewJoseSigned(ro, nil, signer)
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)
 	}
@@ -730,6 +732,6 @@ func (s *JWSSigner) Headers() jose.Headers {
 // To be used with precaution.
 type noVerifier struct{}
 
-func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
 	return nil
 }

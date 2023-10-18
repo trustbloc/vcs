@@ -25,11 +25,10 @@ import (
 	kmskeytypes "github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
+	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
@@ -83,16 +82,15 @@ func proveVC(
 
 	didDoc := createDIDDoc(t, "did:trustblock:abc", pk.KeyID, pk)
 
-	signer := suite.NewCryptoWrapperSigner(fks)
+	proofCreator := testsupport.NewProofCreator(fks)
 
 	// Sign
 	switch sf {
 	case vcsverifiable.Ldp:
-		signerSuite := jsonwebsignature2020.New(
-			suite.WithSigner(signer))
 		err = credential.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "JsonWebSignature2020",
-			Suite:                   signerSuite,
+			KeyType:                 kt,
+			ProofCreator:            proofCreator,
 			SignatureRepresentation: sr,
 			Created:                 &created,
 			VerificationMethod:      didDoc.VerificationMethod[0].ID,
@@ -109,7 +107,13 @@ func proveVC(
 			jwsAlgName, sdErr := jwsAlgo.Name()
 			require.NoError(t, sdErr)
 
-			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName, signer)
+			joseSigner, sdErr := jwt.NewJOSESigner(
+				jwt.SignParameters{
+					KeyID:             didDoc.VerificationMethod[0].ID,
+					JWTAlg:            jwsAlgName,
+					AdditionalHeaders: nil,
+				}, proofCreator)
+			require.NoError(t, sdErr)
 
 			sdjwtCredential, sdErr := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID,
 				verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"id", "type", "@type"}),
@@ -124,7 +128,7 @@ func proveVC(
 			credential = vcParsed
 		} else {
 			credential, jwtErr = credential.CreateSignedJWTVC(
-				false, jwsAlgo, signer, didDoc.VerificationMethod[0].ID)
+				false, jwsAlgo, proofCreator, didDoc.VerificationMethod[0].ID)
 			require.NoError(t, jwtErr)
 		}
 	}

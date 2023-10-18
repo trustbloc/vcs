@@ -18,8 +18,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -88,7 +87,7 @@ func proveVP(
 	// Sign
 	switch format {
 	case vcs.Ldp:
-		addLDP(t, presentation, didDoc.VerificationMethod[0].ID, fks, opts...)
+		addLDP(t, presentation, didDoc.VerificationMethod[0].ID, fks, kms.ED25519Type, opts...)
 	case vcs.Jwt:
 		signJWS(t, presentation, didDoc.VerificationMethod[0].ID, fks)
 	}
@@ -111,13 +110,14 @@ func SignedVPWithExistingPrivateKey(
 	presentation *verifiable.Presentation,
 	format vcs.Format,
 	verMethodDIDKeyID string,
+	keyType kms.KeyType,
 	signer api.FixedKeySigner,
 	opts ...LDPOpt,
 ) *verifiable.Presentation {
 	t.Helper()
 
 	return proveVPWithExistingPrivateKey(
-		t, presentation, format, verMethodDIDKeyID, signer, opts...)
+		t, presentation, format, verMethodDIDKeyID, keyType, signer, opts...)
 }
 
 func proveVPWithExistingPrivateKey(
@@ -125,6 +125,7 @@ func proveVPWithExistingPrivateKey(
 	presentation *verifiable.Presentation,
 	format vcs.Format,
 	verMethodDIDKeyID string,
+	keyType kms.KeyType,
 	signer api.FixedKeySigner,
 	opts ...LDPOpt,
 ) *verifiable.Presentation {
@@ -133,7 +134,7 @@ func proveVPWithExistingPrivateKey(
 	// Sign
 	switch format {
 	case vcs.Ldp:
-		addLDP(t, presentation, verMethodDIDKeyID, signer, opts...)
+		addLDP(t, presentation, verMethodDIDKeyID, signer, keyType, opts...)
 	case vcs.Jwt:
 		signJWS(t, presentation, verMethodDIDKeyID, signer)
 	}
@@ -155,7 +156,7 @@ func signJWS(
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
 	require.NoError(t, err)
 
-	jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoWrapperSigner(fks), keyID)
+	jws, err := claims.MarshalJWS(jwsAlgo, testsupport.NewProofCreator(fks), keyID)
 	require.NoError(t, err)
 
 	presentation.JWT = jws
@@ -166,6 +167,7 @@ func addLDP(
 	presentation *verifiable.Presentation,
 	keyID string,
 	fks api.FixedKeySigner,
+	keyType kms.KeyType,
 	opts ...LDPOpt,
 ) {
 	t.Helper()
@@ -173,12 +175,10 @@ func addLDP(
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
 	require.NoError(t, err)
 
-	signerSuite := jsonwebsignature2020.New(
-		suite.WithSigner(suite.NewCryptoWrapperSigner(fks)))
-
 	ctx := &verifiable.LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
-		Suite:                   signerSuite,
+		KeyType:                 keyType,
+		ProofCreator:            testsupport.NewProofCreator(fks),
 		SignatureRepresentation: verifiable.SignatureProofValue,
 		Created:                 &created,
 		VerificationMethod:      keyID,

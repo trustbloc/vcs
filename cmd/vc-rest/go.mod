@@ -21,10 +21,10 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.0.2-0.20230922190208-b53738d979e9
+	github.com/trustbloc/did-go v1.0.2-0.20230928194341-39d5462574c0
 	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.3-0.20230928151511-79dcd24234b2
+	github.com/trustbloc/vc-go v1.0.3-0.20231019085953-561fd4e9b9f3
 	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000a
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
@@ -178,7 +178,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
-	github.com/trustbloc/sidetree-core-go v1.0.0 // indirect
+	github.com/trustbloc/sidetree-go v0.0.0-20230928172705-30e78b6b6ddd // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect

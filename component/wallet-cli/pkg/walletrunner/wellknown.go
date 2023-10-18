@@ -14,7 +14,8 @@ import (
 
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/vc-go/jwt"
-	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/valyala/fastjson"
 
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -62,12 +63,11 @@ func (s *Service) GetWellKnownOpenIDConfiguration(
 }
 
 func getWellKnownOpenIDConfigurationJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, error) {
-	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
-		verifiable.NewVDRKeyResolver(vdrRegistry).PublicKeyFetcher()))
+	jwtVerifier := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdrRegistry))
 
 	_, credentialOfferPayload, err := jwt.Parse(
 		rawResponse,
-		jwt.WithSignatureVerifier(jwtVerifier),
+		jwt.WithProofChecker(jwtVerifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {

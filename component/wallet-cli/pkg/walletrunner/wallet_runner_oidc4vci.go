@@ -522,7 +522,7 @@ func (s *Service) getCredential(
 		jose.HeaderType: jwtProofTypHeader,
 	}
 
-	signedJWT, err := jwt.NewSigned(claims, headers,
+	signedJWT, err := jwt.NewJoseSigned(claims, headers,
 		NewJWSSigner(signerKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
 	if err != nil {
 		return nil, 0, fmt.Errorf("create signed jwt: %w", err)

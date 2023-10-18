@@ -578,6 +578,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 			vcsverifiable.Ldp,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.KeyType,
 			signedClaimsJWTResult.Signer,
 			func(ldpc *verifiable.LinkedDataProofContext) {
 				ldpc.Domain = validAud
@@ -1036,6 +1037,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 			vcsverifiable.Ldp,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.KeyType,
 			signedClaimsJWTResult.Signer,
 			func(ldpc *verifiable.LinkedDataProofContext) {
 				ldpc.Domain = validAud
@@ -1086,6 +1088,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 			vcsverifiable.Ldp,
 			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.KeyType,
 			signedClaimsJWTResult.Signer,
 			func(ldpc *verifiable.LinkedDataProofContext) {
 				// ldpc.Domain = validAud

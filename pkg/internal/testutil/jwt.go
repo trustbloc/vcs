@@ -13,11 +13,11 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/jwt"
-	"github.com/trustbloc/vc-go/signature/suite"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -26,6 +26,7 @@ type SignedClaimsJWTResult struct {
 	VDR               vdrapi.Registry
 	Signer            api.FixedKeySigner
 	VerMethodDIDKeyID string
+	KeyType           kms.KeyType
 }
 
 func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
@@ -50,9 +51,10 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	token, err := jwt.NewSigned(claims, jose.Headers{
-		jose.HeaderKeyID: didDoc.VerificationMethod[0].ID,
-	}, verifiable.GetJWTSigner(suite.NewCryptoWrapperSigner(fks), algName))
+	token, err := jwt.NewSigned(claims, jwt.SignParameters{
+		KeyID:  didDoc.VerificationMethod[0].ID,
+		JWTAlg: algName,
+	}, creator.New(creator.WithJWTAlg(eddsa.New(), fks)))
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)
@@ -67,6 +69,7 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 		},
 		Signer:            fks,
 		VerMethodDIDKeyID: didDoc.VerificationMethod[0].ID,
+		KeyType:           kms.ED25519Type,
 	}
 }
 
@@ -80,9 +83,10 @@ func SignedClaimsJWTWithExistingPrivateKey(
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	token, err := jwt.NewSigned(claims, jose.Headers{
-		jose.HeaderKeyID: verMethodDIDKeyID,
-	}, verifiable.GetJWTSigner(suite.NewCryptoWrapperSigner(signer), algName))
+	token, err := jwt.NewSigned(claims, jwt.SignParameters{
+		KeyID:  verMethodDIDKeyID,
+		JWTAlg: algName,
+	}, creator.New(creator.WithJWTAlg(eddsa.New(), signer)))
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)

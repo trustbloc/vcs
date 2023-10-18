@@ -29,6 +29,8 @@ import (
 	"github.com/dgraph-io/ristretto"
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
@@ -39,8 +41,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/did-go/doc/ld/context/remote"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/trustbloc/vc-go/jwt"
-	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -762,7 +762,7 @@ func buildEchoHandler(
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
 		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		JWTVerifier:             jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
+		JWTVerifier:             defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(conf.VDR)),
 		ClientManager:           clientManager,
 		ClientIDSchemeService:   clientIDSchemeSvc,
 		Tracer:                  conf.Tracer,

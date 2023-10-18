@@ -21,7 +21,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/valyala/fastjson"
 
 	didkey "github.com/trustbloc/did-go/method/key"
@@ -149,6 +152,7 @@ type VPFlowExecutor struct {
 	walletToken                   string
 	walletDidID                   []string
 	walletDidKeyID                []string
+	walletDidKeyType              kms.KeyType
 	walletSignType                vcs.SignatureType
 	requestObject                 *RequestObject
 	requestPresentation           []*verifiable.Presentation
@@ -160,13 +164,15 @@ type VPFlowExecutor struct {
 
 func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
 	return &VPFlowExecutor{
-		tlsConfig:            s.vcProviderConf.TLS,
-		ariesServices:        s.ariesServices,
-		wallet:               s.wallet,
-		walletToken:          s.vcProviderConf.WalletParams.Token,
-		walletDidID:          s.vcProviderConf.WalletParams.DidID,
-		walletDidKeyID:       s.vcProviderConf.WalletParams.DidKeyID,
-		walletSignType:       s.vcProviderConf.WalletParams.SignType,
+		tlsConfig:        s.vcProviderConf.TLS,
+		ariesServices:    s.ariesServices,
+		wallet:           s.wallet,
+		walletToken:      s.vcProviderConf.WalletParams.Token,
+		walletDidID:      s.vcProviderConf.WalletParams.DidID,
+		walletDidKeyID:   s.vcProviderConf.WalletParams.DidKeyID,
+		walletDidKeyType: kms.KeyType(s.vcProviderConf.DidKeyType),
+		walletSignType:   s.vcProviderConf.WalletParams.SignType,
+
 		skipSchemaValidation: skipSchemaValidation,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
@@ -254,8 +260,7 @@ func (e *VPFlowExecutor) RetrieveInteractionsClaim(url, authToken string) ([]byt
 }
 
 func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObject string) error {
-	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
-		verifiable.NewVDRKeyResolver(e.ariesServices.vdrRegistry).PublicKeyFetcher()))
+	jwtVerifier := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(e.ariesServices.vdrRegistry))
 
 	rawData, err := verifyTokenSignature(rawRequestObject, jwtVerifier)
 	if err != nil {
@@ -272,10 +277,10 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 	return nil
 }
 
-func verifyTokenSignature(rawJwt string, verifier jose.SignatureVerifier) ([]byte, error) {
+func verifyTokenSignature(rawJwt string, verifier jwt.ProofChecker) ([]byte, error) {
 	_, rawData, err := jwt.Parse(
 		rawJwt,
-		jwt.WithSignatureVerifier(verifier),
+		jwt.WithProofChecker(verifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
@@ -331,7 +336,9 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletMultiVP() error {
 	credentials := legacyVP[0].Credentials()
 
 	// Create a list of verifiable presentations, with one presentation for each provided credential.
-	vps, ps, err := e.requestObject.Claims.VPToken.PresentationDefinition.CreateVPArray(credentials, e.ariesServices.documentLoader, verifiable.WithJSONLDDocumentLoader(e.ariesServices.documentLoader))
+	vps, ps, err := e.requestObject.Claims.VPToken.PresentationDefinition.CreateVPArray(
+		credentials, e.ariesServices.documentLoader,
+		presexch.WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(e.ariesServices.documentLoader)))
 	if err != nil {
 		return fmt.Errorf("failed to create VP array from selected credentials: %w", err)
 	}
@@ -400,7 +407,8 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string
 			signedVPToken, err = e.signPresentationJWT(vp, e.walletSignType, didID, didKeyID)
 		case vcs.Ldp:
 			e.requestPresentationSubmission.DescriptorMap[i].Format = "ldp_vp"
-			signedVPToken, err = e.signPresentationLDP(vp, configRP.supportedSignatureType, didKeyID)
+			signedVPToken, err = e.signPresentationLDP(vp, configRP.supportedSignatureType, didKeyID,
+				e.walletDidKeyType)
 		}
 		if err != nil {
 			return "", fmt.Errorf("format %s sign VP: %w", configRP.supportedVPFormat, err)
@@ -468,13 +476,15 @@ func (e *VPFlowExecutor) getRPConfig() (*RPConfig, error) {
 	return config, nil
 }
 
-func (e *VPFlowExecutor) signPresentationLDP(vp *verifiable.Presentation, signatureType vcs.SignatureType, didKeyID string) (string, error) {
+func (e *VPFlowExecutor) signPresentationLDP(vp *verifiable.Presentation,
+	signatureType vcs.SignatureType, didKeyID string, keyType kms.KeyType) (string, error) {
 	vcCryptoSigner := vccrypto.New(e.ariesServices.vdrRegistry, e.ariesServices.documentLoader)
 	vp.Context = append(vp.Context, "https://w3id.org/security/suites/jws-2020/v1")
 
 	signedVP, err := vcCryptoSigner.SignPresentation(
 		&vc.Signer{
 			Creator:                 didKeyID,
+			KeyType:                 keyType,
 			KMSKeyID:                strings.Split(didKeyID, "#")[1],
 			SignatureType:           signatureType,
 			SignatureRepresentation: verifiable.SignatureProofValue,
@@ -576,7 +586,7 @@ func (e *VPFlowExecutor) GetSubjectID(creds []*verifiable.Credential) (string, e
 			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
 			_, rawClaims, credErr := jwt.Parse(
 				vc.JWTEnvelope.JWT,
-				jwt.WithSignatureVerifier(&noVerifier{}),
+				jwt.WithProofChecker(&noVerifier{}),
 				jwt.WithIgnoreClaimsMapDecoding(true),
 			)
 			if credErr != nil {
@@ -623,7 +633,7 @@ func signTokenJWT(claims interface{}, didKeyID string, suite api.Suite, signType
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
 	}
 
-	token, err := jwt.NewSigned(claims, map[string]interface{}{"typ": "JWT"}, NewJWSSigner(signerKeyID,
+	token, err := jwt.NewJoseSigned(claims, map[string]interface{}{"typ": "JWT"}, NewJWSSigner(signerKeyID,
 		string(signType), kmsSigner))
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)
@@ -707,6 +717,6 @@ func (s *JWSSigner) Headers() jose.Headers {
 // To be used with precaution.
 type noVerifier struct{}
 
-func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
 	return nil
 }

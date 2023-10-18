@@ -19,6 +19,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/did-go/doc/did"
@@ -760,6 +762,7 @@ func getTestProfile() *profileapi.Issuer {
 		VCConfig: &profileapi.VCConfig{
 			Format:           vcsverifiable.Ldp,
 			SigningAlgorithm: "Ed25519Signature2018",
+			KeyType:          kms.ED25519Type,
 			Status: profileapi.StatusConfig{
 				Type: vc.StatusList2021VCStatus,
 			},

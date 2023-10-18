@@ -367,8 +367,10 @@ func (w *Wallet) Query(pdBytes []byte) ([]*verifiable.Presentation, error) {
 
 	vp, err := presDefinition.CreateVP(credentials,
 		w.documentLoader,
-		verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(w.documentLoader),
+		presexch.WithSDCredentialOptions(
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(w.documentLoader),
+		),
 	)
 	if err != nil {
 		if errors.Is(err, presexch.ErrNoCredentials) {

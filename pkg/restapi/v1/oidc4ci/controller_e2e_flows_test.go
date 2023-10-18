@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -103,20 +104,14 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	v, err := jwt.NewEd25519Verifier(pub)
-	require.NoError(t, err)
-
-	verifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
-		Alg:      "EdDSA",
-		Verifier: v,
-	})
+	proofCreator, proofChecker := testsupport.NewEd25519Pair(pub, priv, testsupport.AnyPubKeyID)
 
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cisrv.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
-		JWTVerifier:             verifier,
+		JWTVerifier:             proofChecker,
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 	})
 
@@ -177,7 +172,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	}
 
 	signedJWT, err := jwt.NewSigned(
-		claims, headers, NewJWSSigner("", "EdDSA", jwt.NewEd25519Signer(priv)))
+		claims, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any", AdditionalHeaders: headers}, proofCreator)
 	require.NoError(t, err)
 
 	jws, err := signedJWT.Serialize(false)

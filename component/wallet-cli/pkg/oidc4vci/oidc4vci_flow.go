@@ -520,7 +520,7 @@ func (f *Flow) getVC(
 		jose.HeaderType: jwtProofTypeHeader,
 	}
 
-	signedJWT, err := jwt.NewSigned(claims, headers, f.signer)
+	signedJWT, err := jwt.NewJoseSigned(claims, headers, f.signer)
 	if err != nil {
 		return nil, fmt.Errorf("create signed jwt: %w", err)
 	}

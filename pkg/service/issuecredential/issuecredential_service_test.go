@@ -22,6 +22,7 @@ import (
 	arieskms "github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/did-go/doc/did"
@@ -163,6 +164,7 @@ func TestService_IssueCredential(t *testing.T) {
 								Version: testProfileVersion,
 								VCConfig: &profileapi.VCConfig{
 									SigningAlgorithm:        vcs.JSONWebSignature2020,
+									KeyType:                 ktTestCase.kt,
 									SignatureRepresentation: sigRepresentationTextCase.sr,
 									Format:                  vcs.Ldp,
 								},
