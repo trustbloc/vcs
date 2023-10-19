@@ -27,7 +27,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/jwt"
 	"go.opentelemetry.io/otel/attribute"
@@ -109,7 +108,7 @@ type Config struct {
 	ProfileService          ProfileService
 	ClientManager           ClientManager
 	ClientIDSchemeService   ClientIDSchemeService
-	JWTVerifier             jose.SignatureVerifier
+	JWTVerifier             jwt.ProofChecker
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
 	ExternalHostURL         string
@@ -124,7 +123,7 @@ type Controller struct {
 	profileService          ProfileService
 	clientManager           ClientManager
 	clientIDSchemeService   ClientIDSchemeService
-	jwtVerifier             jose.SignatureVerifier
+	jwtVerifier             jwt.ProofChecker
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
 	internalHostURL         string
@@ -587,7 +586,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
 	jws, rawClaims, err := jwt.Parse(credentialRequest.Proof.Jwt,
-		jwt.WithSignatureVerifier(c.jwtVerifier),
+		jwt.WithProofChecker(c.jwtVerifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {

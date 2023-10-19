@@ -28,7 +28,9 @@ import (
 	"github.com/trustbloc/did-go/legacy/mem"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -124,11 +126,6 @@ func HTTPSDo(method, url, contentType, token string, body io.Reader, tlsConfig *
 	c := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
 
 	return c.Do(req)
-}
-
-// GetSigner returns private key based signer for bdd tests
-func GetSigner(privKey []byte) verifiable.Signer {
-	return &signer{privateKey: privKey}
 }
 
 type signer struct {
@@ -233,7 +230,7 @@ func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 
 	// parse vc
 	vc, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
+		verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))),
 		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return nil, err

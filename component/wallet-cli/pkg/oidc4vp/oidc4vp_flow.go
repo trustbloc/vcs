@@ -27,7 +27,9 @@ import (
 	didconfigclient "github.com/trustbloc/vc-go/didconfig/client"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
@@ -187,15 +189,13 @@ func (f *Flow) fetchRequestObject(ctx context.Context) (*RequestObject, error) {
 
 	_ = resp.Body.Close()
 
-	jwtVerifier := jwt.NewVerifier(
-		jwt.KeyResolverFunc(
-			verifiable.NewVDRKeyResolver(f.vdrRegistry).PublicKeyFetcher(),
-		),
+	jwtVerifier := defaults.NewDefaultProofChecker(
+		vermethod.NewVDRResolver(f.vdrRegistry),
 	)
 
 	_, b, err = jwt.Parse(
 		string(b),
-		jwt.WithSignatureVerifier(jwtVerifier),
+		jwt.WithProofChecker(jwtVerifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
@@ -333,8 +333,10 @@ func (f *Flow) sendAuthorizationResponse(
 		presentation, err := presentationDefinition.CreateVP(
 			[]*verifiable.Credential{credential},
 			f.documentLoader,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(f.documentLoader),
+			presexch.WithSDCredentialOptions(
+				verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(f.documentLoader),
+			),
 		)
 		if err != nil {
 			return fmt.Errorf("create vp: %w", err)
@@ -369,8 +371,10 @@ func (f *Flow) sendAuthorizationResponse(
 		presentations, presentationSubmission, err = presentationDefinition.CreateVPArray(
 			credentials,
 			f.documentLoader,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(f.documentLoader),
+			presexch.WithSDCredentialOptions(
+				verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(f.documentLoader),
+			),
 		)
 		if err != nil {
 			return fmt.Errorf("create vp array: %w", err)
@@ -491,7 +495,7 @@ func (f *Flow) signPresentationJWT(
 		Jti:   uuid.NewString(),
 	}
 
-	signedJWT, err := jwt.NewSigned(
+	signedJWT, err := jwt.NewJoseSigned(
 		claims,
 		map[string]interface{}{"typ": "JWT"},
 		jwssigner.NewJWSSigner(
@@ -581,7 +585,7 @@ func (f *Flow) createIDToken(
 		Jti:   uuid.NewString(),
 	}
 
-	signedIDToken, err := jwt.NewSigned(
+	signedIDToken, err := jwt.NewJoseSigned(
 		idToken,
 		map[string]interface{}{"typ": "JWT"},
 		f.signer,

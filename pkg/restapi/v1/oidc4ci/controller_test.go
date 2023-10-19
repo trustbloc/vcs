@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -953,10 +954,7 @@ func TestController_OidcCredential(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	jwtVerifier, err := jwt.NewEd25519Verifier(publicKey)
-	require.NoError(t, err)
-
-	jwtSigner := NewJWSSigner("", "EdDSA", jwt.NewEd25519Signer(privateKey))
+	proofCreator, proofChecker := testsupport.NewEd25519Pair(publicKey, privateKey, testsupport.AnyPubKeyID)
 
 	headers := map[string]interface{}{
 		jose.HeaderType: "openid4vci-proof+jwt",
@@ -969,7 +967,11 @@ func TestController_OidcCredential(t *testing.T) {
 		IssuedAt: &currentTime,
 		Nonce:    "c_nonce",
 		Audience: aud,
-	}, headers, jwtSigner)
+	}, jwt.SignParameters{
+		JWTAlg:            "EdDSA",
+		KeyID:             "Any",
+		AdditionalHeaders: headers,
+	}, proofCreator)
 	require.NoError(t, err)
 
 	jws, err := signedJWT.Serialize(false)
@@ -1240,7 +1242,7 @@ func TestController_OidcCredential(t *testing.T) {
 				var signedJWTInvalid *jwt.JSONWebToken
 				signedJWTInvalid, err = jwt.NewSigned(map[string]interface{}{
 					"iss": 123,
-				}, nil, jwtSigner)
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
 				require.NoError(t, err)
 
 				var jwsInvalid string
@@ -1378,7 +1380,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Issuer:   clientID,
 					Nonce:    "c_nonce",
 					Audience: aud,
-				}, nil, jwtSigner)
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
 				require.NoError(t, err)
 
 				var jwsInvalid string
@@ -1424,7 +1426,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Audience: aud,
 					IssuedAt: &currentTime,
 					Nonce:    "invalid",
-				}, nil, jwtSigner)
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
 				require.NoError(t, jwtErr)
 
 				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
@@ -1467,7 +1469,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Audience: aud,
 					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
-				}, nil, jwtSigner)
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
 				require.NoError(t, jwtErr)
 
 				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
@@ -1524,7 +1526,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Audience: aud,
 					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
-				}, invalidHeaders, jwt.NewEd25519Signer(privateKey))
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any", AdditionalHeaders: invalidHeaders}, proofCreator)
 				require.NoError(t, jwtErr)
 
 				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
@@ -1569,7 +1571,10 @@ func TestController_OidcCredential(t *testing.T) {
 					Audience: aud,
 					IssuedAt: &currentTime,
 					Nonce:    "c_nonce",
-				}, headers, jwt.NewEd25519Signer(privateKey))
+				}, jwt.SignParameters{
+					JWTAlg:            "EdDSA",
+					AdditionalHeaders: headers,
+				}, proofCreator)
 				require.NoError(t, jwtErr)
 
 				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
@@ -1583,7 +1588,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "invalid kid")
+				require.ErrorContains(t, err, "missed kid in jwt header")
 			},
 		},
 		{
@@ -1793,7 +1798,7 @@ func TestController_OidcCredential(t *testing.T) {
 			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
-				JWTVerifier:             jwtVerifier,
+				JWTVerifier:             proofChecker,
 				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 				IssuerVCSPublicHost:     aud,
 			})

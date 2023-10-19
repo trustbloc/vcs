@@ -33,6 +33,7 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -144,6 +145,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 				},
 				responsePurpose:   "authentication",
 				responseVerMethod: "did:trustbloc:abc#key1",
+				err:               "ld proof \"EcdsaSecp256k1Signature2019\" not support \"ED25519\" keys",
 			},
 			{
 				name: "failed with unsupported signature type",
@@ -151,7 +153,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSignatureType("123"),
 				},
-				err: "signature type unsupported 123",
+				err: "unsupported proof type: 123",
 			},
 		}
 
@@ -579,6 +581,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 				SignatureType: "BbsBlsSignature2020",
 				Creator:       "did:trustbloc:abc#key1",
 				KMSKeyID:      "key1",
+				KeyType:       kms.BLS12381G2Type,
 				KMS: &vcskms.MockKMS{
 					FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 				},
@@ -627,7 +630,7 @@ func TestSignPresentation(t *testing.T) {
 			WithSignatureType("invalid"),
 		)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "signature type unsupported invalid")
+		require.Contains(t, err.Error(), "unsupported proof type: invalid")
 		require.Nil(t, signedVP)
 	})
 

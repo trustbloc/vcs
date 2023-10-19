@@ -181,8 +181,9 @@ func (w *walletImpl) Query(pdBytes []byte) ([]*verifiable.Presentation, error) {
 		return nil, err
 	}
 
-	result, err := presDefinition.CreateVP(creds, w.ldLoader, verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(w.ldLoader))
+	result, err := presDefinition.CreateVP(creds, w.ldLoader, presexch.WithSDCredentialOptions(
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(w.ldLoader)))
 
 	if errors.Is(err, presexch.ErrNoCredentials) {
 		return nil, errors.New("no result found")

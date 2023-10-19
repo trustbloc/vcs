@@ -19,7 +19,9 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/validator"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -277,8 +279,8 @@ func (s *Service) validatePresentationProof(targetPresentation interface{}, opts
 	case []byte:
 		vp, err := verifiable.ParsePresentation(
 			pres,
-			verifiable.WithPresPublicKeyFetcher(
-				verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+			verifiable.WithPresProofChecker(
+				defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)),
 			),
 			verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
 		)

@@ -22,7 +22,9 @@ import (
 	"github.com/spf13/cobra"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -294,9 +296,7 @@ func (s *Service) resolveHTTPUrl(ctx context.Context, url string) ([]byte, error
 func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
 	return verifiable.ParseCredential(
 		vcBytes,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-		),
+		verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr))),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 	)
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/trustbloc/kms-go/wrapper/api"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )

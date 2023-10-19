@@ -15,7 +15,8 @@ import (
 
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/vc-go/jwt"
-	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/valyala/fastjson"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -86,12 +87,11 @@ func (p *Parser) Parse(credentialOfferURI string) (*oidc4ci.CredentialOfferRespo
 }
 
 func getCredentialOfferJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, error) {
-	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
-		verifiable.NewVDRKeyResolver(vdrRegistry).PublicKeyFetcher()))
+	jwtVerifier := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdrRegistry))
 
 	_, credentialOfferPayload, err := jwt.Parse(
 		rawResponse,
-		jwt.WithSignatureVerifier(jwtVerifier),
+		jwt.WithProofChecker(jwtVerifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {

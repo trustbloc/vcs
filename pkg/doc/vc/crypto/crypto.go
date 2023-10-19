@@ -12,19 +12,24 @@ import (
 	"time"
 
 	"github.com/piprate/json-gold/ld"
-
 	"github.com/trustbloc/did-go/doc/did"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/trustbloc/vc-go/jwt"
-	ariessigner "github.com/trustbloc/vc-go/signature/signer"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	"github.com/trustbloc/vc-go/signature/suite/ecdsasecp256k1signature2019"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2020"
-	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es256"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es256k"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es384"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es521"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/ps256"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/rs256"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/ldproofs/ecdsasecp256k1signature2019"
+	"github.com/trustbloc/vc-go/proof/ldproofs/ed25519signature2018"
+	"github.com/trustbloc/vc-go/proof/ldproofs/ed25519signature2020"
+	"github.com/trustbloc/vc-go/proof/ldproofs/jsonwebsignature2020"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -187,16 +192,32 @@ func (c *Crypto) NewJWTSigned(claims interface{}, signerData *vc.Signer) (string
 		return "", err
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderKeyID: signerData.Creator,
-	}
-
-	token, err := jwt.NewSigned(claims, headers, verifiable.GetJWTSigner(signer, jwtAlgoStr))
+	token, err := jwt.NewSigned(claims, jwt.SignParameters{
+		KeyID:  signerData.Creator,
+		JWTAlg: jwtAlgoStr,
+	}, newProofCreator(signer))
 	if err != nil {
 		return "", fmt.Errorf("newSigned: %w", err)
 	}
 
 	return token.Serialize(false)
+}
+
+func newProofCreator(signer vc.SignerAlgorithm) *creator.ProofCreator {
+	return creator.New(
+		creator.WithJWTAlg(eddsa.New(), signer),
+		creator.WithJWTAlg(es256.New(), signer),
+		creator.WithJWTAlg(es256k.New(), signer),
+		creator.WithJWTAlg(es384.New(), signer),
+		creator.WithJWTAlg(es521.New(), signer),
+		creator.WithJWTAlg(rs256.New(), signer),
+		creator.WithJWTAlg(ps256.New(), signer),
+		creator.WithLDProofType(bbsblssignature2020.New(), signer),
+		creator.WithLDProofType(ecdsasecp256k1signature2019.New(), signer),
+		creator.WithLDProofType(ed25519signature2018.New(), signer),
+		creator.WithLDProofType(ed25519signature2020.New(), signer),
+		creator.WithLDProofType(jsonwebsignature2020.New(), signer),
+	)
 }
 
 // signCredentialLDP adds verifiable.LinkedDataProofContext to the VC.
@@ -294,7 +315,7 @@ func (c *Crypto) getJWTSignedCredential(
 	signingKeyID string) (*verifiable.Credential, error) {
 	var err error
 
-	credential, err = credential.CreateSignedJWTVC(false, jwsAlgo, signer, signingKeyID)
+	credential, err = credential.CreateSignedJWTVC(false, jwsAlgo, newProofCreator(signer), signingKeyID)
 	if err != nil {
 		return nil, fmt.Errorf("MarshalJWS error: %w", err)
 	}
@@ -387,22 +408,7 @@ func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 		return nil, err
 	}
 
-	var signatureSuite ariessigner.SignatureSuite
-
-	switch signatureType { //nolint: exhaustive
-	case vcsverifiable.Ed25519Signature2018:
-		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
-	case vcsverifiable.Ed25519Signature2020:
-		signatureSuite = ed25519signature2020.New(suite.WithSigner(s))
-	case vcsverifiable.JSONWebSignature2020:
-		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
-	case vcsverifiable.BbsBlsSignature2020:
-		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
-	case vcsverifiable.EcdsaSecp256k1Signature2019:
-		signatureSuite = ecdsasecp256k1signature2019.New(suite.WithSigner(s))
-	default:
-		return nil, fmt.Errorf("signature type unsupported %s", signatureType)
-	}
+	proofCreator := newProofCreator(s)
 
 	if opts.Representation != "" {
 		signRep, err = getSignatureRepresentation(opts.Representation)
@@ -415,9 +421,10 @@ func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      vm,
+		KeyType:                 signerData.KeyType,
 		SignatureRepresentation: signRep,
 		SignatureType:           signatureType.Name(),
-		Suite:                   signatureSuite,
+		ProofCreator:            proofCreator,
 		Purpose:                 opts.Purpose,
 		Created:                 opts.Created,
 		Challenge:               opts.Challenge,

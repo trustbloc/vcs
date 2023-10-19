@@ -23,11 +23,12 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/valyala/fastjson"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -122,7 +123,7 @@ type Config struct {
 	DocumentLoader        ld.DocumentLoader
 	VDR                   vdrapi.Registry
 	OIDCVPService         oidc4VPService
-	JWTVerifier           jose.SignatureVerifier
+	ProofChecker          verifiable.CombinedProofChecker
 	Metrics               metricsProvider
 	Tracer                trace.Tracer
 }
@@ -138,18 +139,16 @@ type Controller struct {
 	profileSvc            profileService
 	kmsRegistry           kmsRegistry
 	documentLoader        ld.DocumentLoader
-	vdr                   vdrapi.Registry
 	oidc4VPService        oidc4VPService
-	jwtVerifier           jose.SignatureVerifier
+	proofChecker          verifiable.CombinedProofChecker
 	metrics               metricsProvider
 	tracer                trace.Tracer
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
 func NewController(config *Config) *Controller {
-	if config.JWTVerifier == nil {
-		config.JWTVerifier = jwt.NewVerifier(jwt.KeyResolverFunc(
-			verifiable.NewVDRKeyResolver(config.VDR).PublicKeyFetcher()))
+	if config.ProofChecker == nil {
+		config.ProofChecker = defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(config.VDR))
 	}
 
 	metrics := config.Metrics
@@ -164,9 +163,8 @@ func NewController(config *Config) *Controller {
 		profileSvc:            config.ProfileSvc,
 		kmsRegistry:           config.KMSRegistry,
 		documentLoader:        config.DocumentLoader,
-		vdr:                   config.VDR,
 		oidc4VPService:        config.OIDCVPService,
-		jwtVerifier:           config.JWTVerifier,
+		proofChecker:          config.ProofChecker,
 		metrics:               metrics,
 		tracer:                config.Tracer,
 	}
@@ -276,9 +274,7 @@ func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresent
 	}
 
 	presentation, err := vp.ValidatePresentation(body.Presentation, profile.Checks.Presentation.Format,
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
-		),
+		verifiable.WithPresProofChecker(c.proofChecker),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader))
 
 	if err != nil {
@@ -549,7 +545,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 		logger.Debugc(ctx, "validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
 	}()
 
-	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
+	idTokenClaims, err := validateIDToken(authResp.IDToken, c.proofChecker)
 	if err != nil {
 		return nil, err
 	}
@@ -601,9 +597,9 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 	return processedVPTokens, nil
 }
 
-func validateIDToken(idToken string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
+func validateIDToken(idToken string, verifier jwt.ProofChecker) (*IDTokenClaims, error) {
 	_, rawClaims, err := jwt.Parse(idToken,
-		jwt.WithSignatureVerifier(verifier),
+		jwt.WithProofChecker(verifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
@@ -657,7 +653,7 @@ func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, error) 
 
 func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) {
 	jsonWebToken, rawClaims, err := jwt.Parse(vpToken,
-		jwt.WithSignatureVerifier(c.jwtVerifier),
+		jwt.WithProofChecker(c.proofChecker),
 		jwt.WithIgnoreClaimsMapDecoding(true))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
@@ -677,9 +673,7 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 
 	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
-		))
+		verifiable.WithPresProofChecker(c.proofChecker))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
@@ -699,9 +693,8 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 func (c *Controller) validateVPTokenLDP(vpToken string) (*VPTokenClaims, error) {
 	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
-		))
+		verifiable.WithPresProofChecker(c.proofChecker),
+	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
