@@ -154,14 +154,6 @@ type RequestObjectRegistration struct {
 	LogoURI                     string           `json:"logo_uri"`
 }
 
-type eventPayload struct {
-	WebHook        string `json:"webHook,omitempty"`
-	ProfileID      string `json:"profileID,omitempty"`
-	ProfileVersion string `json:"profileVersion,omitempty"`
-	OrgID          string `json:"orgID,omitempty"`
-	Error          string `json:"error,omitempty"`
-}
-
 func NewService(cfg *Config) *Service {
 	metrics := cfg.Metrics
 
@@ -185,38 +177,13 @@ func NewService(cfg *Config) *Service {
 	}
 }
 
-func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
-	eventType spi.EventType, e error) (*spi.Event, error) {
-	ep := eventPayload{
-		WebHook:        profile.WebHook,
-		ProfileID:      profile.ID,
-		ProfileVersion: profile.Version,
-		OrgID:          profile.OrganizationID,
-	}
-
-	if e != nil {
-		ep.Error = e.Error()
-	}
-
-	payload, err := json.Marshal(ep)
-	if err != nil {
-		return nil, err
-	}
-
-	event := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/verifier", eventType, payload)
-	event.TransactionID = string(tx.ID)
-
-	return event, nil
-}
-
-func (s *Service) sendEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier,
-	eventType spi.EventType) error {
-	return s.sendEventWithError(ctx, tx, profile, eventType, nil)
-}
-
-func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, profile *profileapi.Verifier,
-	eventType spi.EventType, e error) error {
-	event, err := s.createEvent(tx, profile, eventType, e)
+func (s *Service) sendTxEvent(
+	ctx context.Context,
+	eventType spi.EventType,
+	tx *Transaction,
+	profile *profileapi.Verifier,
+) error {
+	event, err := CreateEvent(eventType, tx.ID, createTxEventPayload(tx, profile))
 	if err != nil {
 		return err
 	}
@@ -224,9 +191,40 @@ func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, profi
 	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier, err error) {
-	e := s.sendEventWithError(ctx, tx, profile, spi.VerifierOIDCInteractionFailed, err)
-	logger.Debugc(ctx, "sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
+func (s *Service) sendOIDCInteractionInitiatedEvent(
+	ctx context.Context,
+	tx *Transaction,
+	profile *profileapi.Verifier,
+	authorizationRequest string,
+) error {
+	ep := createTxEventPayload(tx, profile)
+	ep.AuthorizationRequest = authorizationRequest
+
+	event, err := CreateEvent(spi.VerifierOIDCInteractionInitiated, tx.ID, ep)
+	if err != nil {
+		return err
+	}
+
+	return s.eventSvc.Publish(ctx, s.eventTopic, event)
+}
+
+func (s *Service) sendFailedTransactionEvent(
+	ctx context.Context,
+	tx *Transaction,
+	profile *profileapi.Verifier,
+	e error,
+) {
+	ep := createTxEventPayload(tx, profile)
+	ep.Error = e.Error()
+
+	event, e := CreateEvent(spi.VerifierOIDCInteractionFailed, tx.ID, ep)
+	if e != nil {
+		logger.Warnc(ctx, "Failed to send OIDC verifier event. Ignoring..", log.WithError(e))
+	}
+
+	if e := s.eventSvc.Publish(ctx, s.eventTopic, event); e != nil {
+		logger.Warnc(ctx, "Failed to send OIDC verifier event. Ignoring..", log.WithError(e))
+	}
 }
 
 func (s *Service) InitiateOidcInteraction(
@@ -248,12 +246,10 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
-	if errSendEvent := s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
-		return nil, errSendEvent
-	}
-
 	token, err := s.createRequestObjectJWT(presentationDefinition, tx, nonce, purpose, profile)
 	if err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, profile, err)
+
 		return nil, err
 	}
 
@@ -261,15 +257,25 @@ func (s *Service) InitiateOidcInteraction(
 
 	requestURI, err := s.requestObjectPublicStore.Publish(ctx, token)
 	if err != nil {
-		return nil, fmt.Errorf("fail publish request object: %w", err)
+		e := fmt.Errorf("failed to publish request object: %w", err)
+
+		s.sendFailedTransactionEvent(ctx, tx, profile, e)
+
+		return nil, e
 	}
 
 	logger.Debugc(ctx, "InitiateOidcInteraction request object published")
 
+	authorizationRequest := "openid-vc://?request_uri=" + requestURI
+
+	if errSendEvent := s.sendOIDCInteractionInitiatedEvent(ctx, tx, profile, authorizationRequest); errSendEvent != nil {
+		return nil, errSendEvent
+	}
+
 	logger.Debugc(ctx, "InitiateOidcInteraction succeed")
 
 	return &InteractionInfo{
-		AuthorizationRequest: "openid-vc://?request_uri=" + requestURI,
+		AuthorizationRequest: authorizationRequest,
 		TxID:                 tx.ID,
 	}, nil
 }
@@ -293,7 +299,6 @@ func (s *Service) verifyTokens(
 			defer wg.Done()
 			if !lo.Contains(profile.Checks.Presentation.Format, token.VpTokenFormat) {
 				e := fmt.Errorf("profile does not support %s vp_token format", token.VpTokenFormat)
-				s.sendFailedEvent(ctx, tx, profile, e)
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)
@@ -307,7 +312,6 @@ func (s *Service) verifyTokens(
 			}, profile)
 			if innerErr != nil {
 				e := fmt.Errorf("presentation verification failed: %w", innerErr)
-				s.sendFailedEvent(ctx, tx, profile, e)
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)
@@ -317,7 +321,6 @@ func (s *Service) verifyTokens(
 
 			if len(vr) > 0 {
 				e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
-				s.sendFailedEvent(ctx, tx, profile, e)
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)
@@ -331,7 +334,6 @@ func (s *Service) verifyTokens(
 				verifiedPresentations[token.Presentation.ID] = token
 			} else {
 				e := fmt.Errorf("duplicate presentation ID: %s", token.Presentation.ID)
-				s.sendFailedEvent(ctx, tx, profile, e)
 
 				validationErrors = append(validationErrors, e)
 				return
@@ -342,7 +344,11 @@ func (s *Service) verifyTokens(
 	wg.Wait()
 
 	if len(validationErrors) > 0 {
-		return nil, validationErrors[0]
+		err := validationErrors[0]
+
+		s.sendFailedTransactionEvent(ctx, tx, profile, err)
+
+		return nil, err
 	}
 
 	return verifiedPresentations, nil
@@ -378,7 +384,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}
 
-	if errSendEvent := s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionQRScanned); errSendEvent != nil {
+	if errSendEvent := s.sendTxEvent(ctx, spi.VerifierOIDCInteractionQRScanned, tx, profile); errSendEvent != nil {
 		return errSendEvent
 	}
 
@@ -393,14 +399,14 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 
 	err = s.extractClaimData(ctx, tx, tokens, profile, verifiedPresentations)
 	if err != nil {
-		s.sendFailedEvent(ctx, tx, profile, err)
+		s.sendFailedTransactionEvent(ctx, tx, profile, err)
 
 		return err
 	}
 
 	logger.Debugc(ctx, "extractClaimData claims stored")
 
-	if err = s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
+	if err = s.sendTxEvent(ctx, spi.VerifierOIDCInteractionSucceeded, tx, profile); err != nil {
 		return err
 	}
 
@@ -412,7 +418,11 @@ func (s *Service) GetTx(_ context.Context, id TxID) (*Transaction, error) {
 	return s.transactionManager.Get(id)
 }
 
-func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[string]CredentialMetadata {
+func (s *Service) RetrieveClaims(
+	ctx context.Context,
+	tx *Transaction,
+	profile *profileapi.Verifier,
+) map[string]CredentialMetadata {
 	logger.Debugc(ctx, "RetrieveClaims begin")
 	result := map[string]CredentialMetadata{}
 
@@ -433,7 +443,7 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 		}
 		credContents := cred.Contents()
 
-		//TODO: review this code change. This code shouldn't be dependent on how vc-go serialize
+		// TODO: review this code change. This code shouldn't be dependent on how vc-go serialize
 		// issuer and subject into credential. It has complicated logic like serialize as just string if issuer
 		// have only id. Any changes or extension of how vc works will affect some internal code, that should be
 		// isolated from this kind of changes.
@@ -456,6 +466,10 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 		result[credContents.ID] = credMeta
 	}
 	logger.Debugc(ctx, "RetrieveClaims succeed")
+
+	if err := s.sendTxEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile); err != nil {
+		logger.Warnc(ctx, "Failed to send event", log.WithError(err))
+	}
 
 	return result
 }
@@ -599,10 +613,10 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 		return "", fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err)
 	}
 
-	return singRequestObject(ro, profile, vcsSigner)
+	return signRequestObject(ro, profile, vcsSigner)
 }
 
-func singRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigner vc.SignerAlgorithm) (string, error) {
+func signRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigner vc.SignerAlgorithm) (string, error) {
 	signer := NewJWSSigner(profile.SigningDID.Creator, vcsSigner)
 
 	token, err := jwt.NewJoseSigned(ro, nil, signer)
@@ -734,4 +748,65 @@ type noVerifier struct{}
 
 func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
 	return nil
+}
+
+func CreateEvent(
+	eventType spi.EventType,
+	transactionID TxID,
+	ep *EventPayload,
+) (*spi.Event, error) {
+	payload, err := json.Marshal(ep)
+	if err != nil {
+		return nil, err
+	}
+
+	event := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/verifier", eventType, payload)
+	event.TransactionID = string(transactionID)
+
+	return event, nil
+}
+
+func createTxEventPayload(tx *Transaction, profile *profileapi.Verifier) *EventPayload {
+	fieldsMap := make(map[string]struct{})
+
+	var presentationDefID string
+
+	if tx.PresentationDefinition != nil {
+		presentationDefID = tx.PresentationDefinition.ID
+
+		for _, desc := range tx.PresentationDefinition.InputDescriptors {
+			if desc.Constraints != nil {
+				for _, f := range desc.Constraints.Fields {
+					fieldsMap[f.ID] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return &EventPayload{
+		WebHook:                  profile.WebHook,
+		ProfileID:                profile.ID,
+		ProfileVersion:           profile.Version,
+		OrgID:                    profile.OrganizationID,
+		PresentationDefinitionID: presentationDefID,
+		Filter:                   &Filter{Fields: getConstraintFields(tx.PresentationDefinition)},
+	}
+}
+
+func getConstraintFields(def *presexch.PresentationDefinition) []string {
+	if def == nil {
+		return nil
+	}
+
+	fieldsMap := make(map[string]struct{})
+
+	for _, desc := range def.InputDescriptors {
+		if desc.Constraints != nil {
+			for _, f := range desc.Constraints.Fields {
+				fieldsMap[f.ID] = struct{}{}
+			}
+		}
+	}
+
+	return lo.Keys(fieldsMap)
 }

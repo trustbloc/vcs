@@ -189,13 +189,19 @@ type AuthorizeState struct {
 	WalletInitiatedFlow *common.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
-type eventPayload struct {
-	WebHook             string `json:"webHook,omitempty"`
-	ProfileID           string `json:"profileID,omitempty"`
-	ProfileVersion      string `json:"profileVersion,omitempty"`
-	OrgID               string `json:"orgID,omitempty"`
-	WalletInitiatedFlow bool   `json:"walletInitiatedFlow,omitempty"`
-	Error               string `json:"error,omitempty"`
+type EventPayload struct {
+	WebHook               string `json:"webHook,omitempty"`
+	ProfileID             string `json:"profileID,omitempty"`
+	ProfileVersion        string `json:"profileVersion,omitempty"`
+	CredentialTemplateID  string `json:"credentialTemplateID,omitempty"`
+	OrgID                 string `json:"orgID,omitempty"`
+	WalletInitiatedFlow   bool   `json:"walletInitiatedFlow"`
+	PinRequired           bool   `json:"pinRequired"`
+	PreAuthFlow           bool   `json:"preAuthFlow"`
+	Format                string `json:"format,omitempty"`
+	InitiateIssuanceURL   string `json:"initiateIssuanceURL,omitempty"`
+	AuthorizationEndpoint string `json:"authorizationEndpoint,omitempty"`
+	Error                 string `json:"error,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {

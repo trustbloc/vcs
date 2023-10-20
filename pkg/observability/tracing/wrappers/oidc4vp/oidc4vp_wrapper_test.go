@@ -60,11 +60,11 @@ func TestWrapper_RetrieveClaims(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().RetrieveClaims(gomock.Any(), &oidc4vp.Transaction{}).Times(1)
+	svc.EXPECT().RetrieveClaims(gomock.Any(), &oidc4vp.Transaction{}, &profileapi.Verifier{}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_ = w.RetrieveClaims(context.Background(), &oidc4vp.Transaction{})
+	_ = w.RetrieveClaims(context.Background(), &oidc4vp.Transaction{}, &profileapi.Verifier{})
 }
 
 func TestWrapper_DeleteClaims(t *testing.T) {

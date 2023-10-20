@@ -48,8 +48,23 @@ type ServiceInterface interface {
 	) (*InteractionInfo, error)
 	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, token []*ProcessedVPToken) error
 	GetTx(ctx context.Context, id TxID) (*Transaction, error)
-	RetrieveClaims(ctx context.Context, tx *Transaction) map[string]CredentialMetadata
+	RetrieveClaims(ctx context.Context, tx *Transaction, profile *profileapi.Verifier) map[string]CredentialMetadata
 	DeleteClaims(ctx context.Context, receivedClaimsID string) error
+}
+
+type EventPayload struct {
+	WebHook                  string  `json:"webHook,omitempty"`
+	ProfileID                string  `json:"profileID,omitempty"`
+	ProfileVersion           string  `json:"profileVersion,omitempty"`
+	OrgID                    string  `json:"orgID,omitempty"`
+	PresentationDefinitionID string  `json:"presentationDefinitionID,omitempty"`
+	Filter                   *Filter `json:"filter,omitempty"`
+	AuthorizationRequest     string  `json:"authorizationRequest,omitempty"`
+	Error                    string  `json:"error,omitempty"`
+}
+
+type Filter struct {
+	Fields []string `json:"fields"`
 }
 
 type TxNonceStore txNonceStore

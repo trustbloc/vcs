@@ -31,6 +31,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -758,16 +759,20 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 	var (
 		mockProfileSvc = NewMockProfileService(gomock.NewController(t))
 		mockOIDC4CISvc = NewMockOIDC4CIService(gomock.NewController(t))
+		mockEventSvc   = NewMockEventService(gomock.NewController(t))
 		c              echo.Context
 	)
 
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(resp, nil)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
 
 		controller := NewController(&Config{
 			ProfileSvc:     mockProfileSvc,
 			OIDC4CIService: mockOIDC4CISvc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.IssuerEventTopic,
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
@@ -788,6 +793,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(0)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withTenantID(""))
 				},
 				check: func(t *testing.T, err error) {
@@ -799,6 +805,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 					c = echoContext(withRequestBody(req), withTenantID("invalid"))
 				},
 				check: func(t *testing.T, err error) {
@@ -811,6 +818,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("not found"))
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -823,6 +831,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("get profile error"))
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -835,6 +844,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -847,6 +857,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateIDRequired) //nolint:lll
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
 					require.NoError(t, marshalErr)
@@ -863,6 +874,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateNotFound) //nolint:lll
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
 					require.NoError(t, marshalErr)
@@ -879,6 +891,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("service error")) //nolint:lll
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -895,6 +908,8 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 					ProfileSvc:     mockProfileSvc,
 					OIDC4CIService: mockOIDC4CISvc,
 					Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+					EventSvc:       mockEventSvc,
+					EventTopic:     spi.IssuerEventTopic,
 				})
 
 				err = controller.InitiateCredentialIssuance(c, profileID, profileVersion)
@@ -1709,6 +1724,31 @@ func Test_getCredentialSubjects(t *testing.T) {
 		subjects, err := getCredentialSubjects(nil)
 		require.NoError(t, err)
 		require.Len(t, subjects, 0)
+	})
+}
+
+func Test_sendFailedEvent(t *testing.T) {
+	t.Run("marshal error", func(t *testing.T) {
+		c := NewController(&Config{})
+
+		c.marshal = func(any) ([]byte, error) {
+			return nil, errors.New("injected marshal error")
+		}
+
+		require.NotPanics(t, func() {
+			c.sendFailedEvent(context.Background(), "", "", "", errors.New("some error"))
+		})
+	})
+
+	t.Run("publish error", func(t *testing.T) {
+		evtSvc := NewMockEventService(gomock.NewController(t))
+		evtSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("publish error"))
+
+		c := NewController(&Config{EventSvc: evtSvc})
+
+		require.NotPanics(t, func() {
+			c.sendFailedEvent(context.Background(), "", "", "", errors.New("some error"))
+		})
 	})
 }
 

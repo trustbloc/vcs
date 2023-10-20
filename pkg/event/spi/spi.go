@@ -32,7 +32,8 @@ const (
 	// VerifierOIDCInteractionSucceeded verifier oidc event.
 	VerifierOIDCInteractionSucceeded = "verifier.oidc-interaction-succeeded.v1"
 	// VerifierOIDCInteractionFailed verifier oidc event.
-	VerifierOIDCInteractionFailed = "verifier.oidc-interaction-failed.v1"
+	VerifierOIDCInteractionFailed          = "verifier.oidc-interaction-failed.v1"
+	VerifierOIDCInteractionClaimsRetrieved = "verifier.oidc-interaction-claims-retrieved.v1"
 
 	// IssuerOIDCInteractionInitiated Issuer oidc event.
 	IssuerOIDCInteractionInitiated = EventType("issuer.oidc-interaction-initiated.v1")

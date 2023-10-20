@@ -776,6 +776,7 @@ func buildEchoHandler(
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:                       eventSvc,
+		EventTopic:                     conf.StartupParameters.issuerEventTopic,
 		ProfileSvc:                     issuerProfileSvc,
 		DocumentLoader:                 documentLoader,
 		IssueCredentialService:         issueCredentialSvc,
@@ -908,6 +909,8 @@ func buildEchoHandler(
 		OIDCVPService:       oidc4vpService,
 		Metrics:             metrics,
 		Tracer:              conf.Tracer,
+		EventSvc:            eventSvc,
+		EventTopic:          conf.StartupParameters.verifierEventTopic,
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)

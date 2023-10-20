@@ -8,6 +8,7 @@
 @oidc4vc_rest
 Feature: OIDC4VC REST API
 
+  @oidc4vc_rest_auth_flow
   Scenario Outline: OIDC credential issuance and verification Auth flow
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
@@ -34,6 +35,7 @@ Feature: OIDC4VC REST API
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0    | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
+  @oidc4vc_rest_pre_auth_flow
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
@@ -58,6 +60,7 @@ Feature: OIDC4VC REST API
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
+  @oidc4vc_rest_pre_auth_flow_trustlist_success
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow with trustlist (Success)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
@@ -76,6 +79,7 @@ Feature: OIDC4VC REST API
 
 # Error cases
 
+  @oidc4vc_rest_pre_auth_flow_trustlist_fail
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow with trustlist (Fail)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
@@ -123,6 +127,7 @@ Feature: OIDC4VC REST API
     And   User holds credential "VerifiedEmployee" with templateID "templateID"
     Then User interacts with Wallet to initiate credential issuance using pre authorization code flow and receives "invalid_client" error
 
+  @oidc4vc_rest_wallet_initiated
   Scenario Outline: OIDC credential issuance and verification Auth flow (Claims Expiry)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
