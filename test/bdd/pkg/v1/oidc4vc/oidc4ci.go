@@ -128,7 +128,7 @@ func (s *Steps) runOIDC4CIPreAuth(initiateOIDC4CIRequest initiateOIDC4CIRequest)
 		CredentialType:     s.issuedCredentialType,
 		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
 		Pin:                *initiateOIDC4CIResponseData.UserPin,
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
 	}
@@ -250,7 +250,7 @@ func (s *Steps) credentialTypeTemplateID(issuedCredentialType, issuedCredentialT
 	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithError(updatedClientID, errorContains string) error {
+func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorContains string) error {
 	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
@@ -295,6 +295,63 @@ func (s *Steps) runOIDC4CIAuthWithError(updatedClientID, errorContains string) e
 		}
 
 	default:
+		return fmt.Errorf("unexpected err: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4CIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
+	return s.runOIDC4CIAuthWithErrorInvalidSignature(
+		[]walletrunner.CredentialRequestOpt{
+			walletrunner.WithSignerKeyID("didID#keyID"),
+		},
+		errorContains,
+	)
+}
+
+func (s *Steps) runOIDC4CIAuthWithErrorInvalidSignatureValue(errorContains string) error {
+	return s.runOIDC4CIAuthWithErrorInvalidSignature(
+		[]walletrunner.CredentialRequestOpt{
+			walletrunner.WithSignatureValue(uuid.NewString()),
+		},
+		errorContains,
+	)
+}
+
+func (s *Steps) runOIDC4CIAuthWithErrorInvalidNonce(errorContains string) error {
+	return s.runOIDC4CIAuthWithErrorInvalidSignature(
+		[]walletrunner.CredentialRequestOpt{
+			walletrunner.WithNonce(uuid.NewString()),
+		},
+		errorContains,
+	)
+}
+
+func (s *Steps) runOIDC4CIAuthWithErrorInvalidSignature(beforeCredentialRequestOpts []walletrunner.CredentialRequestOpt, errorContains string) error {
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	if err != nil {
+		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+	}
+
+	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
+		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+		ClientID:           "oidc4vc_client",
+		Scopes:             []string{"openid", "profile"},
+		RedirectURI:        "http://127.0.0.1/callback",
+		CredentialType:     s.issuedCredentialType,
+		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+		Login:              "bdd-test",
+		Password:           "bdd-test-pass",
+	}, &walletrunner.Hooks{
+		BeforeCredentialRequest: beforeCredentialRequestOpts,
+	})
+
+	if err == nil {
+		return fmt.Errorf("error expected, got nil")
+	}
+
+	if !strings.Contains(err.Error(), errorContains) {
 		return fmt.Errorf("unexpected err: %w", err)
 	}
 

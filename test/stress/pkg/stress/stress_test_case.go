@@ -215,7 +215,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 		CredentialType:     c.credentialType,
 		CredentialFormat:   c.credentialFormat,
 		Pin:                pin,
-	})
+	}, nil)
 
 	credID := ""
 	if credentials != nil {
