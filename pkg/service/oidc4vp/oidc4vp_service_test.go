@@ -689,10 +689,14 @@ func TestService_DeleteClaims(t *testing.T) {
 }
 
 func TestService_RetrieveClaims(t *testing.T) {
-	svc := oidc4vp.NewService(&oidc4vp.Config{})
 	loader := testutil.DocumentLoader(t)
 
 	t.Run("Success JWT", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
+
 		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
 			verifiable.WithJSONLDDocumentLoader(loader),
 			verifiable.WithDisabledProofCheck())
@@ -702,7 +706,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
 				"id": jwtvc,
-			}}})
+			}}}, &profileapi.Verifier{})
 
 		require.NotNil(t, claims)
 		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
@@ -716,6 +720,10 @@ func TestService_RetrieveClaims(t *testing.T) {
 	})
 
 	t.Run("Success JsonLD", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
 		ldvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
 			verifiable.WithJSONLDDocumentLoader(loader),
 			verifiable.WithDisabledProofCheck())
@@ -725,7 +733,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
 				"id": ldvc,
-			}}})
+			}}}, &profileapi.Verifier{})
 
 		require.NotNil(t, claims)
 		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
@@ -739,6 +747,10 @@ func TestService_RetrieveClaims(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
 		credential, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			SDJWTHashAlg: lo.ToPtr(crypto.SHA384),
 		}, nil)
@@ -751,7 +763,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
 				"id": credential,
-			}}})
+			}}}, &profileapi.Verifier{})
 
 		require.Empty(t, claims)
 	})

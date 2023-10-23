@@ -265,8 +265,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		return nil, err
 	}
 
-	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
+	if err = s.sendIssuanceAuthRequestPreparedTxEvent(ctx, tx); err != nil {
 		return nil, err
 	}
 
@@ -314,17 +313,12 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 		return nil, fmt.Errorf("wallet initiated flow get oidc config: %w", err)
 	}
 
-	event := eventPayload{
-		WebHook:             profile.WebHook,
-		ProfileID:           profileID,
-		ProfileVersion:      profileVersion,
-		OrgID:               profile.OrganizationID,
-		WalletInitiatedFlow: true,
-	}
+	credentialTemplateID := profile.CredentialTemplates[0].ID
 
-	if err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared, "", event); err != nil {
-		event.Error = err.Error()
-		s.sendFailedEvent(ctx, "", event)
+	err = s.sendIssuanceAuthRequestPreparedEvent(
+		ctx, profile, credentialTemplateID,
+		true, oidcConfig.AuthorizationEndpoint)
+	if err != nil {
 		return nil, err
 	}
 
@@ -333,7 +327,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 			ProfileId:            profileID,
 			ProfileVersion:       profileVersion,
 			ClaimEndpoint:        profile.OIDCConfig.ClaimsEndpoint,
-			CredentialTemplateId: profile.CredentialTemplates[0].ID,
+			CredentialTemplateId: credentialTemplateID,
 			OpState:              uuid.NewString(),
 			Scopes:               &requestScopes,
 		},
@@ -501,7 +495,6 @@ func (s *Service) PrepareCredential(
 	}
 
 	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		s.sendFailedTransactionEvent(ctx, tx, errSendEvent)
 		return nil, errSendEvent
 	}
 
@@ -581,10 +574,10 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 	return m, nil
 }
 
-func (s *Service) createEvent(
+func createEvent(
 	eventType spi.EventType,
 	transactionID TxID,
-	ep eventPayload,
+	ep *EventPayload,
 ) (*spi.Event, error) {
 	payload, err := json.Marshal(ep)
 	if err != nil {
@@ -601,8 +594,8 @@ func (s *Service) sendEvent(
 	ctx context.Context,
 	eventType spi.EventType,
 	transactionID TxID,
-	ep eventPayload) error {
-	event, err := s.createEvent(eventType, transactionID, ep)
+	ep *EventPayload) error {
+	event, err := createEvent(eventType, transactionID, ep)
 	if err != nil {
 		return err
 	}
@@ -610,26 +603,12 @@ func (s *Service) sendEvent(
 	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(
-	ctx context.Context,
-	transactionID TxID,
-	ep eventPayload) {
-	e := s.sendEvent(ctx, spi.IssuerOIDCInteractionFailed, transactionID, ep)
-	logger.Debugc(ctx, "sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
-}
-
 func (s *Service) sendTransactionEvent(
 	ctx context.Context,
 	tx *Transaction,
 	eventType spi.EventType,
 ) error {
-	return s.sendEvent(ctx, eventType, tx.ID, eventPayload{
-		WebHook:             tx.WebHookURL,
-		ProfileID:           tx.ProfileID,
-		ProfileVersion:      tx.ProfileVersion,
-		OrgID:               tx.OrgID,
-		WalletInitiatedFlow: tx.WalletInitiatedIssuance,
-	})
+	return s.sendEvent(ctx, eventType, tx.ID, createTxEventPayload(tx))
 }
 
 func (s *Service) sendFailedTransactionEvent(
@@ -637,11 +616,76 @@ func (s *Service) sendFailedTransactionEvent(
 	tx *Transaction,
 	e error,
 ) {
-	s.sendFailedEvent(ctx, tx.ID, eventPayload{
+	ep := &EventPayload{
 		WebHook:        tx.WebHookURL,
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,
 		OrgID:          tx.OrgID,
 		Error:          e.Error(),
-	})
+	}
+
+	if e := s.sendEvent(ctx, spi.IssuerOIDCInteractionFailed, tx.ID, ep); e != nil {
+		logger.Warnc(ctx, "Failed to send OIDC issuer event. Ignoring..", log.WithError(e))
+	}
+}
+
+func createTxEventPayload(tx *Transaction) *EventPayload {
+	var credentialTemplateID string
+
+	if tx.CredentialTemplate != nil {
+		credentialTemplateID = tx.CredentialTemplate.ID
+	}
+
+	return &EventPayload{
+		WebHook:              tx.WebHookURL,
+		ProfileID:            tx.ProfileID,
+		ProfileVersion:       tx.ProfileVersion,
+		OrgID:                tx.OrgID,
+		WalletInitiatedFlow:  tx.WalletInitiatedIssuance,
+		CredentialTemplateID: credentialTemplateID,
+		Format:               string(tx.CredentialFormat),
+		PinRequired:          tx.UserPin != "",
+		PreAuthFlow:          tx.IsPreAuthFlow,
+	}
+}
+
+func (s *Service) sendInitiateIssuanceEvent(
+	ctx context.Context,
+	tx *Transaction,
+	initiateURL string,
+) error {
+	payload := createTxEventPayload(tx)
+	payload.InitiateIssuanceURL = initiateURL
+
+	return s.sendEvent(ctx, spi.IssuerOIDCInteractionInitiated, tx.ID, payload)
+}
+
+func (s *Service) sendIssuanceAuthRequestPreparedTxEvent(
+	ctx context.Context,
+	tx *Transaction,
+) error {
+	payload := createTxEventPayload(tx)
+	payload.AuthorizationEndpoint = tx.AuthorizationEndpoint
+
+	return s.sendEvent(ctx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared, tx.ID, payload)
+}
+
+func (s *Service) sendIssuanceAuthRequestPreparedEvent(
+	ctx context.Context,
+	profile *profileapi.Issuer,
+	credTemplateID string,
+	walletInitiatedFlow bool,
+	authorizationEndpoint string,
+) error {
+	return s.sendEvent(ctx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared,
+		"", &EventPayload{
+			WebHook:               profile.WebHook,
+			ProfileID:             profile.ID,
+			ProfileVersion:        profile.Version,
+			OrgID:                 profile.OrganizationID,
+			WalletInitiatedFlow:   walletInitiatedFlow,
+			CredentialTemplateID:  credTemplateID,
+			AuthorizationEndpoint: authorizationEndpoint,
+		},
+	)
 }

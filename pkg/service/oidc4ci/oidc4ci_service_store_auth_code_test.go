@@ -131,14 +131,6 @@ func TestStoreAuthCode(t *testing.T) {
 				return errors.New("publish error")
 			})
 
-		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-				assert.Len(t, messages, 1)
-				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
-
-				return nil
-			})
-
 		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code, nil)
 		assert.ErrorContains(t, storeErr, "publish error")
 		assert.NotEqual(t, tx.ID, resp)

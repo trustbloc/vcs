@@ -23,7 +23,6 @@ import (
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -135,13 +134,13 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, fmt.Errorf("store tx: %w", err)
 	}
 
-	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
-		return nil, errSendEvent
-	}
-
 	finalURL, contentType, err := s.buildInitiateIssuanceURL(ctx, req, template, tx, profile)
 	if err != nil {
 		return nil, err
+	}
+
+	if errSendEvent := s.sendInitiateIssuanceEvent(ctx, tx, finalURL); errSendEvent != nil {
+		return nil, errSendEvent
 	}
 
 	return &InitiateIssuanceResponse{

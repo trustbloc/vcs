@@ -38,6 +38,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/doc/vp"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/kms"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
@@ -115,6 +116,10 @@ type oidc4VPService interface {
 	oidc4vp.ServiceInterface
 }
 
+type eventService interface {
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
+}
+
 type Config struct {
 	VerifyCredentialSvc   verifyCredentialSvc
 	VerifyPresentationSvc verifyPresentationSvc
@@ -126,6 +131,8 @@ type Config struct {
 	ProofChecker          verifiable.CombinedProofChecker
 	Metrics               metricsProvider
 	Tracer                trace.Tracer
+	EventSvc              eventService
+	EventTopic            string
 }
 
 type metricsProvider interface {
@@ -143,6 +150,8 @@ type Controller struct {
 	proofChecker          verifiable.CombinedProofChecker
 	metrics               metricsProvider
 	tracer                trace.Tracer
+	eventSvc              eventService
+	eventTopic            string
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
@@ -167,6 +176,8 @@ func NewController(config *Config) *Controller {
 		proofChecker:          config.ProofChecker,
 		metrics:               metrics,
 		tracer:                config.Tracer,
+		eventSvc:              config.EventSvc,
+		eventTopic:            config.EventTopic,
 	}
 }
 
@@ -358,7 +369,7 @@ func (c *Controller) initiateOidcInteraction(
 
 	result, err := c.oidc4VPService.InitiateOidcInteraction(ctx, pd, strPtrToStr(data.Purpose), profile)
 	if err != nil {
-		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
+		return nil, resterr.NewSystemError(oidc4vpSvcComponent, "InitiateOidcInteraction", err)
 	}
 
 	logger.Debugc(ctx, "InitiateOidcInteraction success", log.WithTxID(string(result.TxID)))
@@ -461,6 +472,10 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 
 	processedTokens, err := c.verifyAuthorizationResponseTokens(ctx, authResp)
 	if err != nil {
+		if tenantID, e := util.GetTenantIDFromRequest(e); e == nil {
+			c.sendFailedEvent(ctx, authResp.State, tenantID, "", "", err)
+		}
+
 		return err
 	}
 
@@ -491,23 +506,35 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 
 	tx, err := c.accessOIDC4VPTx(ctx, txID)
 	if err != nil {
+		c.sendFailedEvent(ctx, txID, tenantID, "", "", err)
+
 		return err
 	}
 
-	_, err = c.accessProfile(tx.ProfileID, tx.ProfileVersion, tenantID)
+	profile, err := c.accessProfile(tx.ProfileID, tx.ProfileVersion, tenantID)
 	if err != nil {
+		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
+
 		return err
 	}
 
 	if tx.ReceivedClaimsID == "" {
-		return fmt.Errorf("claims were not received for transaction '%s'", txID)
+		err = fmt.Errorf("claims were not received for transaction '%s'", txID)
+
+		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
+
+		return err
 	}
 
 	if tx.ReceivedClaims == nil {
-		return fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID)
+		err = fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID)
+
+		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
+
+		return err
 	}
 
-	claims := c.oidc4VPService.RetrieveClaims(ctx, tx)
+	claims := c.oidc4VPService.RetrieveClaims(ctx, tx, profile)
 
 	err = c.oidc4VPService.DeleteClaims(ctx, tx.ReceivedClaimsID)
 	if err != nil {
@@ -824,6 +851,52 @@ func (c *Controller) accessProfile(profileID, profileVersion, tenantID string) (
 	}
 
 	return profile, nil
+}
+
+func createFailedEventPayload(orgID, profileID, profileVersion string, e error) *oidc4vp.EventPayload {
+	ep := &oidc4vp.EventPayload{
+		OrgID:          orgID,
+		ProfileID:      profileID,
+		ProfileVersion: profileVersion,
+		Error:          e.Error(),
+	}
+
+	return ep
+}
+
+func (c *Controller) sendFailedEvent(ctx context.Context, txnID, orgID, profileID, profileVersion string, e error) {
+	c.sendOIDCInteractionFailedEvent(ctx, oidc4vp.TxID(txnID), func() *oidc4vp.EventPayload {
+		return createFailedEventPayload(orgID, profileID, profileVersion, e)
+	})
+}
+
+func (c *Controller) sendFailedTxnEvent(ctx context.Context, orgID string, tx *oidc4vp.Transaction, e error) {
+	c.sendOIDCInteractionFailedEvent(ctx, tx.ID, func() *oidc4vp.EventPayload {
+		ep := createFailedEventPayload(orgID, tx.ProfileID, tx.ProfileVersion, e)
+		ep.PresentationDefinitionID = tx.PresentationDefinition.ID
+
+		return ep
+	})
+}
+
+func (c *Controller) sendOIDCInteractionFailedEvent(
+	ctx context.Context,
+	txnID oidc4vp.TxID,
+	createPayload func() *oidc4vp.EventPayload,
+) {
+	evt, err := oidc4vp.CreateEvent(spi.VerifierOIDCInteractionFailed, txnID, createPayload())
+	if err != nil {
+		logger.Errorc(ctx, "Error creating failure event", log.WithError(err))
+
+		return
+	}
+
+	err = c.eventSvc.Publish(ctx, c.eventTopic, evt)
+	if err != nil {
+		logger.Errorc(ctx, "Error publishing failure event", log.WithError(err))
+
+		return
+	}
 }
 
 func findPresentationDefinition(profile *profileapi.Verifier,

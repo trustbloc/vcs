@@ -17,15 +17,15 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -40,18 +40,21 @@ const (
 //go:embed testdata/issuer_profile.json
 var profileJSON []byte
 
+type mocks struct {
+	transactionStore    *MockTransactionStore
+	wellKnownService    *MockWellKnownService
+	claimDataStore      *MockClaimDataStore
+	eventService        *MockEventService
+	pinGenerator        *MockPinGenerator
+	crypto              *MockDataProtector
+	jsonSchemaValidator *MockJSONSchemaValidator
+}
+
 func TestService_InitiateIssuance(t *testing.T) {
 	var (
-		mockTransactionStore    = NewMockTransactionStore(gomock.NewController(t))
-		mockClaimDataStore      = NewMockClaimDataStore(gomock.NewController(t))
-		mockWellKnownService    = NewMockWellKnownService(gomock.NewController(t))
-		eventService            = NewMockEventService(gomock.NewController(t))
-		pinGenerator            = NewMockPinGenerator(gomock.NewController(t))
-		crypto                  = NewMockDataProtector(gomock.NewController(t))
-		mockJSONSchemaValidator = NewMockJSONSchemaValidator(gomock.NewController(t))
-		issuanceReq             *oidc4ci.InitiateIssuanceRequest
-		profile                 *profileapi.Issuer
-		degreeClaims            = map[string]interface{}{
+		issuanceReq  *oidc4ci.InitiateIssuanceRequest
+		profile      *profileapi.Issuer
+		degreeClaims = map[string]interface{}{
 			"name":   "John Doe",
 			"spouse": "Jane Doe",
 			"degree": map[string]interface{}{
@@ -68,13 +71,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		setup func()
+		setup func(mocks *mocks)
 		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
 	}{
 		{
 			name: "Success",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -93,15 +96,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -129,8 +132,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Success wallet flow",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -150,15 +153,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -187,7 +190,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Success Pre-Auth with PIN",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := map[string]interface{}{
@@ -205,9 +208,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -238,14 +241,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
 						assert.Equal(t, chunks, data.EncryptedData)
 
 						return "claimDataID", nil
 					})
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -253,15 +256,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return nil
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -283,13 +286,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Success Pre-Auth without PIN",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := degreeClaims
 
 				profile = &testProfile
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -321,12 +324,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
 
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -334,13 +337,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return nil
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -362,7 +365,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Success Pre-Auth without PIN and without template",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := degreeClaims
@@ -370,7 +373,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				cp := testProfile
 				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
 				profile = &cp
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -396,11 +399,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -408,13 +411,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return nil
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
@@ -432,7 +435,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Success Pre-Auth without PIN and without template and empty state",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := ""
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := degreeClaims
@@ -441,9 +444,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
 				profile = &cp
 
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -469,9 +472,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -479,13 +482,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return nil
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
@@ -505,30 +508,30 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Fail Pre-Auth with PIN because of error during saving claim data",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				claimData := degreeClaims
 
 				profile = &testProfile
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", errors.New("create error"))
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", errors.New("create error"))
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
 
 				chunks := &dataprotect.EncryptedData{
 					Encrypted:      []byte{0x1, 0x2, 0x3},
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -545,12 +548,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Error because of event publishing",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := degreeClaims
 
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
 						data *oidc4ci.TransactionData,
@@ -579,11 +582,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -591,14 +594,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return errors.New("unexpected error")
 					})
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil).AnyTimes()
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
+					ClientWellKnownURL:   issuerWellKnownURL,
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 					OpState:              initialOpState,
 					UserPinRequired:      false,
@@ -614,7 +617,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Profile is not active",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
@@ -635,7 +638,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "OIDC4CI authorized code flow not supported",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
@@ -655,7 +658,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "VC options not configured",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
@@ -675,8 +678,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Credential template not configured",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
@@ -698,8 +701,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Credential template ID is not required",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "",
@@ -717,8 +720,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Credential template not found",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID3",
@@ -736,18 +739,18 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Client initiate issuance URL takes precedence over client well-known parameter",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
 							CredentialFormat: verifiable.Jwt,
 						},
 					}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Times(0)
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
@@ -757,7 +760,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:                   "eyJhbGciOiJSU0Et",
 				}
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -774,21 +777,21 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Custom initiate issuance URL when fail to do well-known request",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 					&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
 							CredentialFormat: verifiable.Jwt,
 						},
 					}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					nil, errors.New("invalid json"))
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
@@ -812,8 +815,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Fail to get OIDC configuration",
-			setup: func() {
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+			setup: func(mocks *mocks) {
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					nil, errors.New("well known service error"))
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
@@ -833,11 +836,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Fail to store transaction",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 					nil, fmt.Errorf("store error"))
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
@@ -857,8 +860,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Unsupported grant type",
-			setup: func() {
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+			setup: func(mocks *mocks) {
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
@@ -879,8 +882,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Unsupported scope",
-			setup: func() {
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+			setup: func(mocks *mocks) {
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
@@ -902,7 +905,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		},
 		{
 			name: "Error because of claims validation error",
-			setup: func() {
+			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				claimData := map[string]interface{}{
 					"name":   1,
@@ -910,10 +913,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					"degree": "MIT",
 				}
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).
 					Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(errors.New("validation error"))
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
@@ -935,18 +938,28 @@ func TestService_InitiateIssuance(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
+			m := &mocks{
+				transactionStore:    NewMockTransactionStore(gomock.NewController(t)),
+				wellKnownService:    NewMockWellKnownService(gomock.NewController(t)),
+				claimDataStore:      NewMockClaimDataStore(gomock.NewController(t)),
+				eventService:        NewMockEventService(gomock.NewController(t)),
+				pinGenerator:        NewMockPinGenerator(gomock.NewController(t)),
+				crypto:              NewMockDataProtector(gomock.NewController(t)),
+				jsonSchemaValidator: NewMockJSONSchemaValidator(gomock.NewController(t)),
+			}
+
+			tt.setup(m)
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
-				TransactionStore:    mockTransactionStore,
-				ClaimDataStore:      mockClaimDataStore,
-				WellKnownService:    mockWellKnownService,
+				TransactionStore:    m.transactionStore,
+				ClaimDataStore:      m.claimDataStore,
+				WellKnownService:    m.wellKnownService,
 				IssuerVCSPublicHost: issuerVCSPublicHost,
-				EventService:        eventService,
+				EventService:        m.eventService,
 				EventTopic:          spi.IssuerEventTopic,
-				PinGenerator:        pinGenerator,
-				DataProtector:       crypto,
-				JSONSchemaValidator: mockJSONSchemaValidator,
+				PinGenerator:        m.pinGenerator,
+				DataProtector:       m.crypto,
+				JSONSchemaValidator: m.jsonSchemaValidator,
 			})
 			require.NoError(t, err)
 
@@ -1115,13 +1128,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
-
-						return nil
-					})
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -1264,13 +1271,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						}, nil
 					})
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
-
-						return nil
-					})
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
 
 				kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, errors.New("some error"))
 
@@ -1318,13 +1319,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						}, nil
 					})
 
-				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
-
-						return nil
-					})
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
 
 				kmsConfig := &vcskms.Config{
 					KMSType:           vcskms.AWS,

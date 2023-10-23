@@ -29,6 +29,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -500,9 +501,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -539,8 +545,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				Exp:   time.Now().Unix() + 1000,
 			})
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
@@ -588,8 +599,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		vpToken, err := vpSigned.MarshalJSON()
 		require.NoError(t, err)
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
@@ -638,10 +654,15 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
 			DocumentLoader: testutil.DocumentLoader(t),
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
@@ -684,9 +705,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -730,9 +756,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -776,9 +807,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -821,10 +857,15 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			// Using different key in controller.
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -868,9 +909,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -913,10 +959,15 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			// Using different key in controller.
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -951,9 +1002,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -1002,8 +1058,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1053,8 +1114,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1104,8 +1170,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1128,7 +1199,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
 		}, nil)
 
-		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
+		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
 		oidc4VPService.EXPECT().DeleteClaims(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1141,8 +1212,13 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 				Checks:         verificationChecks,
 			}, nil)
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1162,8 +1238,8 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
 		}, nil)
 
-		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
-		oidc4VPService.EXPECT().DeleteClaims(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("delete claims error"))         //nolint:lll
+		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
+		oidc4VPService.EXPECT().DeleteClaims(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("delete claims error"))                       //nolint:lll
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
@@ -1175,8 +1251,13 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 				Checks:         verificationChecks,
 			}, nil)
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1190,9 +1271,10 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
-			ProfileID:        "p1",
-			ProfileVersion:   "v1.0",
-			ReceivedClaimsID: "claims-id",
+			ProfileID:              "p1",
+			ProfileVersion:         "v1.0",
+			ReceivedClaimsID:       "claims-id",
+			PresentationDefinition: &presexch.PresentationDefinition{ID: "pd1"},
 		}, nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1205,8 +1287,13 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 				Checks:         verificationChecks,
 			}, nil)
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1222,8 +1309,9 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
-			ProfileID:      "p1",
-			ProfileVersion: "v1.0",
+			ProfileID:              "p1",
+			ProfileVersion:         "v1.0",
+			PresentationDefinition: &presexch.PresentationDefinition{ID: "pd1"},
 		}, nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1236,8 +1324,13 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 				Checks:         verificationChecks,
 			}, nil)
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
@@ -1255,9 +1348,14 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -1273,9 +1371,14 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -1288,8 +1391,9 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
-			ProfileID:      "p1",
-			ProfileVersion: "v1.0",
+			ProfileID:              "p1",
+			ProfileVersion:         "v1.0",
+			PresentationDefinition: &presexch.PresentationDefinition{},
 		}, nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1297,9 +1401,14 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		mockProfileSvc.EXPECT().GetProfile("p1", "v1.0").AnyTimes().
 			Return(nil, errors.New("data not found"))
 
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+
 		c := NewController(&Config{
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
@@ -2027,7 +2136,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		requireSystemError(t, "oidc4VPService", "InitiateOidcInteraction", err)
+		requireSystemError(t, "oidc4vp.Service", "InitiateOidcInteraction", err)
 	})
 }
 

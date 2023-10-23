@@ -73,14 +73,14 @@ func (w *Wrapper) GetTx(ctx context.Context, id oidc4vp.TxID) (*oidc4vp.Transact
 	return tx, nil
 }
 
-func (w *Wrapper) RetrieveClaims(ctx context.Context, tx *oidc4vp.Transaction) map[string]oidc4vp.CredentialMetadata {
+func (w *Wrapper) RetrieveClaims(ctx context.Context, tx *oidc4vp.Transaction, profile *profileapi.Verifier) map[string]oidc4vp.CredentialMetadata {
 	ctx, span := w.tracer.Start(ctx, "oidc4vp.RetrieveClaims")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(tx.ID)))
 	span.SetAttributes(attributeutil.JSON("tx", tx, attributeutil.WithRedacted("ReceivedClaims.credentials")))
 
-	cm := w.svc.RetrieveClaims(ctx, tx)
+	cm := w.svc.RetrieveClaims(ctx, tx, profile)
 
 	return cm
 }

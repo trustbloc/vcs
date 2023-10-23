@@ -183,21 +183,17 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 }
 
 func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
-	var (
-		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
-		eventMock            = NewMockEventService(gomock.NewController(t))
-		req                  *oidc4ci.PrepareClaimDataAuthorizationRequest
-	)
+	var req *oidc4ci.PrepareClaimDataAuthorizationRequest
 
 	tests := []struct {
 		name  string
-		setup func()
+		setup func(mocks *mocks)
 		check func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error)
 	}{
 		{
 			name: "Success",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -210,13 +206,13 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(2)
 
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationRequestPrepared)
@@ -242,8 +238,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "Failed sending event",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -256,26 +252,18 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(2)
 
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationRequestPrepared)
 
 						return errors.New("publish event")
-					})
-
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
-
-						return nil
 					})
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -295,8 +283,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "Response type mismatch",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						State: oidc4ci.TransactionStateIssuanceInitiated,
@@ -320,8 +308,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "Invalid scope",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -345,8 +333,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "Fail to find transaction by op state",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
 					nil, errors.New("find tx error"))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -360,8 +348,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "Fail to update transaction",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -374,7 +362,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
@@ -382,7 +370,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						return nil
 					})
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
@@ -401,8 +389,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "invalid state",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -415,7 +403,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
@@ -440,8 +428,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		},
 		{
 			name: "store update error",
-			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -454,7 +442,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
@@ -462,13 +450,13 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						return nil
 					})
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					})
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					Return(errors.New("store update error"))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -489,11 +477,16 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
+			m := &mocks{
+				transactionStore: NewMockTransactionStore(gomock.NewController(t)),
+				eventService:     NewMockEventService(gomock.NewController(t)),
+			}
+
+			tt.setup(m)
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
-				TransactionStore: mockTransactionStore,
-				EventService:     eventMock,
+				TransactionStore: m.transactionStore,
+				EventService:     m.eventService,
 				EventTopic:       spi.IssuerEventTopic,
 			})
 			require.NoError(t, err)
@@ -766,12 +759,6 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New("publish err"))
-		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, topic string, event ...*spi.Event) error {
-				assert.Equal(t, "vcs-issuer", topic)
-				assert.Equal(t, spi.IssuerOIDCInteractionFailed, event[0].Type)
-				return nil
-			})
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
 				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
@@ -1517,14 +1504,6 @@ func TestService_PrepareCredential(t *testing.T) {
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
 
 						return errors.New("publish error")
-					})
-
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
-
-						return nil
 					})
 
 				req = &oidc4ci.PrepareCredential{

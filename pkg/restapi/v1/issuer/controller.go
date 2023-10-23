@@ -11,6 +11,7 @@ package issuer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -48,7 +49,9 @@ var logger = log.New("restapi-issuer")
 
 const (
 	issuerProfileSvcComponent = "issuer.ProfileService"
-	defaultCtx                = "https://www.w3.org/2018/credentials/v1"
+	oidc4ciSvcComponent       = "OIDC4CIService"
+
+	defaultCtx = "https://www.w3.org/2018/credentials/v1"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -90,6 +93,7 @@ type jsonSchemaValidator interface {
 
 type Config struct {
 	EventSvc                       eventService
+	EventTopic                     string
 	ProfileSvc                     profileService
 	DocumentLoader                 ld.DocumentLoader
 	IssueCredentialService         issuecredential.ServiceInterface
@@ -114,6 +118,9 @@ type Controller struct {
 	externalHostURL                string
 	tracer                         trace.Tracer
 	schemaValidator                jsonSchemaValidator
+	eventSvc                       eventService
+	eventTopic                     string
+	marshal                        func(any) ([]byte, error)
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -129,6 +136,9 @@ func NewController(config *Config) *Controller {
 		externalHostURL:                config.ExternalHostURL,
 		tracer:                         config.Tracer,
 		schemaValidator:                config.JSONSchemaValidator,
+		eventSvc:                       config.EventSvc,
+		eventTopic:                     config.EventTopic,
+		marshal:                        json.Marshal,
 	}
 }
 
@@ -394,17 +404,22 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
+		// Don't send a failed event since we have no context for the event, i,e, no tenant ID, etc.
 		return err
 	}
 
 	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
+		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+
 		return err
 	}
 
 	var body InitiateOIDC4CIRequest
 
 	if err = util.ReadBody(e, &body); err != nil {
+		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+
 		return err
 	}
 
@@ -490,10 +505,18 @@ func (c *Controller) initiateIssuance(
 	if err != nil {
 		if errors.Is(err, oidc4ci.ErrCredentialTemplateNotFound) ||
 			errors.Is(err, oidc4ci.ErrCredentialTemplateIDRequired) {
-			return nil, "", resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
+			e := resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
+
+			c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, e)
+
+			return nil, "", e
 		}
 
-		return nil, "", resterr.NewSystemError("OIDC4CIService", "InitiateIssuance", err)
+		e := resterr.NewSystemError(oidc4ciSvcComponent, "InitiateIssuance", err)
+
+		c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, e)
+
+		return nil, "", e
 	}
 
 	return &InitiateOIDC4CIResponse{
@@ -526,7 +549,7 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
 		}
 
-		return resterr.NewSystemError("OIDC4CIService", "PushAuthorizationRequest", err)
+		return resterr.NewSystemError(oidc4ciSvcComponent, "PushAuthorizationRequest", err)
 	}
 
 	return ctx.NoContent(http.StatusOK)
@@ -562,12 +585,12 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		},
 	)
 	if err != nil {
-		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
+		return nil, resterr.NewSystemError(oidc4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
 	}
 
 	profile, err := c.profileSvc.GetProfile(resp.ProfileID, resp.ProfileVersion)
 	if err != nil {
-		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
+		return nil, resterr.NewSystemError(oidc4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
@@ -704,7 +727,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			return custom
 		}
 
-		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential", err)
+		return resterr.NewSystemError(oidc4ciSvcComponent, "PrepareCredential", err)
 	}
 
 	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
@@ -713,7 +736,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}
 
 	if result.Credential == nil {
-		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential",
+		return resterr.NewSystemError(oidc4ciSvcComponent, "PrepareCredential",
 			errors.New("credentials should not be nil"))
 	}
 
@@ -895,4 +918,29 @@ func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, p
 // GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
 func (c *Controller) OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID, profileVersion string) error {
 	return c.OpenidCredentialIssuerConfig(ctx, profileID, profileVersion)
+}
+
+func (c *Controller) sendFailedEvent(ctx context.Context, orgID, profileID, profileVersion string, e error) {
+	ep := oidc4ci.EventPayload{
+		OrgID:          orgID,
+		ProfileID:      profileID,
+		ProfileVersion: profileVersion,
+		Error:          e.Error(),
+	}
+
+	payload, err := c.marshal(ep)
+	if err != nil {
+		logger.Errorc(ctx, "Error sending event due to marshalling error", log.WithError(err))
+
+		return
+	}
+
+	evt := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/issuer", spi.VerifierOIDCInteractionFailed, payload)
+
+	err = c.eventSvc.Publish(ctx, c.eventTopic, evt)
+	if err != nil {
+		logger.Errorc(ctx, "Error publishing failure event", log.WithError(err))
+
+		return
+	}
 }
