@@ -1,7 +1,11 @@
 [
   {
     "client_id": "oidc4vc_client",
-    "redirect_uris": ["http://127.0.0.1/callback"],
+    "redirect_uris": [
+      "http://127.0.0.1/callback",
+      "http://localhost/callback",
+      "https://localhost/callback"
+    ],
     "grant_types": ["authorization_code"],
     "response_types": ["code"],
     "scopes": [
