@@ -25,7 +25,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 )
 
-func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig) (*verifiable.Credential, error) {
+func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig, hooks *Hooks) (*verifiable.Credential, error) {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	startTime := time.Now()
@@ -105,13 +105,21 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig) (*verifiable.Credent
 		"c_nonce": *token.CNonce,
 	})
 
+	var beforeCredentialsRequestHooks []CredentialRequestOpt
+
+	if hooks != nil {
+		beforeCredentialsRequestHooks = hooks.BeforeCredentialRequest
+	}
+
 	s.print("Getting credential")
 	startTime = time.Now()
 	vc, vcsDuration, err := s.getCredential(
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
-		credentialOfferResponse.CredentialIssuer)
+		credentialOfferResponse.CredentialIssuer,
+		beforeCredentialsRequestHooks...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get credential: %w", err)
 	}

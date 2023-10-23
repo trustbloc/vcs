@@ -139,7 +139,10 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Verifier with profile "([^"]*)" requests expired interactions claims$`, s.retrieveExpiredOrDeletedInteractionsClaim)
 	sc.Step(`^Verifier with profile "([^"]*)" waits for interaction succeeded event$`, s.waitForOIDCInteractionSucceededEvent)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and receives "([^"]*)" error$`, s.runOIDC4VPFlowWithError)
-	sc.Step(`^Malicious attacker stealing auth code from User and using "([^"]*)" ClientID makes /token request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithError)
+	sc.Step(`^Malicious attacker stealing auth code from User and using "([^"]*)" ClientID makes /token request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithErrorInvalidClient)
+	sc.Step(`^Malicious attacker changed JWT kid header and makes /credential request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithErrorInvalidSigningKeyID)
+	sc.Step(`^Malicious attacker changed signature value and makes /credential request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithErrorInvalidSignatureValue)
+	sc.Step(`^Malicious attacker changed nonce value and makes /credential request and receives "([^"]*)" error$`, s.runOIDC4CIAuthWithErrorInvalidNonce)
 
 	// Stress test.
 	sc.Step(`^number of users "([^"]*)" making "([^"]*)" concurrent requests$`, s.getUsersNum)

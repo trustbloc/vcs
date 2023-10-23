@@ -55,15 +55,45 @@ type OIDC4VCIConfig struct {
 	EnableDiscoverableClientID bool
 }
 
+type credentialRequestOpts struct {
+	signerKeyID string
+	signature   string
+	nonce       string
+}
+
 type OauthClientOpt func(config *oauth2.Config)
 
+type CredentialRequestOpt func(credentialRequestOpts *credentialRequestOpts)
+
 type Hooks struct {
-	BeforeTokenRequest []OauthClientOpt
+	BeforeTokenRequest      []OauthClientOpt
+	BeforeCredentialRequest []CredentialRequestOpt
 }
 
 func WithClientID(clientID string) OauthClientOpt {
 	return func(config *oauth2.Config) {
 		config.ClientID = clientID
+	}
+}
+
+// WithSignerKeyID overrides signerKeyID in credentials request. For testing purpose only.
+func WithSignerKeyID(keyID string) CredentialRequestOpt {
+	return func(credentialRequestOpts *credentialRequestOpts) {
+		credentialRequestOpts.signerKeyID = keyID
+	}
+}
+
+// WithSignatureValue overrides signature in credentials request. For testing purpose only.
+func WithSignatureValue(signature string) CredentialRequestOpt {
+	return func(credentialRequestOpts *credentialRequestOpts) {
+		credentialRequestOpts.signature = signature
+	}
+}
+
+// WithNonce overrides nonce in credentials request. For testing purpose only.
+func WithNonce(nonce string) CredentialRequestOpt {
+	return func(credentialRequestOpts *credentialRequestOpts) {
+		credentialRequestOpts.nonce = nonce
 	}
 }
 
@@ -178,9 +208,11 @@ func (s *Service) RunOIDC4VCI(config *OIDC4VCIConfig, hooks *Hooks) error {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
 
 	var beforeTokenRequestHooks []OauthClientOpt
+	var beforeCredentialsRequestHooks []CredentialRequestOpt
 
 	if hooks != nil {
 		beforeTokenRequestHooks = hooks.BeforeTokenRequest
+		beforeCredentialsRequestHooks = hooks.BeforeCredentialRequest
 	}
 
 	for _, f := range beforeTokenRequestHooks {
@@ -205,6 +237,7 @@ func (s *Service) RunOIDC4VCI(config *OIDC4VCIConfig, hooks *Hooks) error {
 		config.CredentialType,
 		config.CredentialFormat,
 		credentialOfferResponse.CredentialIssuer,
+		beforeCredentialsRequestHooks...,
 	)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
@@ -337,9 +370,11 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4VCIConfig, hooks *Hooks
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
 
 	var beforeTokenRequestHooks []OauthClientOpt
+	var beforeCredentialsRequestHooks []CredentialRequestOpt
 
 	if hooks != nil {
 		beforeTokenRequestHooks = hooks.BeforeTokenRequest
+		beforeCredentialsRequestHooks = hooks.BeforeCredentialRequest
 	}
 
 	for _, f := range beforeTokenRequestHooks {
@@ -362,6 +397,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4VCIConfig, hooks *Hooks
 		config.CredentialType,
 		config.CredentialFormat,
 		issuerUrl,
+		beforeCredentialsRequestHooks...,
 	)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
@@ -483,7 +519,13 @@ func (s *Service) getCredential(
 	credentialType,
 	credentialFormat,
 	issuerURI string,
+	beforeCredentialRequestOpts ...CredentialRequestOpt,
 ) (interface{}, time.Duration, error) {
+	credentialsRequestParamsOverride := &credentialRequestOpts{}
+	for _, f := range beforeCredentialRequestOpts {
+		f(credentialsRequestParamsOverride)
+	}
+
 	didKeyID := s.vcProviderConf.WalletParams.DidKeyID[0]
 
 	fks, err := s.ariesServices.Suite().FixedKeyMultiSigner(strings.Split(didKeyID, "#")[1])
@@ -493,11 +535,16 @@ func (s *Service) getCredential(
 
 	kmsSigner := signer.NewKMSSigner(fks, s.vcProviderConf.WalletParams.SignType, nil)
 
+	nonce := s.token.Extra("c_nonce").(string)
+	if credentialsRequestParamsOverride.nonce != "" {
+		nonce = credentialsRequestParamsOverride.nonce
+	}
+
 	claims := &JWTProofClaims{
 		Issuer:   s.oauthClient.ClientID,
 		IssuedAt: time.Now().Unix(),
 		Audience: issuerURI,
-		Nonce:    s.token.Extra("c_nonce").(string),
+		Nonce:    nonce,
 	}
 
 	signerKeyID := didKeyID
@@ -518,6 +565,10 @@ func (s *Service) getCredential(
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
 	}
 
+	if credentialsRequestParamsOverride.signerKeyID != "" {
+		signerKeyID = credentialsRequestParamsOverride.signerKeyID
+	}
+
 	headers := map[string]interface{}{
 		jose.HeaderType: jwtProofTypHeader,
 	}
@@ -531,6 +582,11 @@ func (s *Service) getCredential(
 	jws, err := signedJWT.Serialize(false)
 	if err != nil {
 		return nil, 0, fmt.Errorf("serialize signed jwt: %w", err)
+	}
+
+	if credentialsRequestParamsOverride.signature != "" {
+		chunks := strings.Split(jws, ".")
+		jws = strings.Join([]string{chunks[0], chunks[1], credentialsRequestParamsOverride.signature}, ".")
 	}
 
 	b, err := json.Marshal(CredentialRequest{

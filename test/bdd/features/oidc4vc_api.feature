@@ -118,6 +118,21 @@ Feature: OIDC4VC REST API
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
     Then Malicious attacker stealing auth code from User and using "malicious_attacker_id" ClientID makes /token request and receives "invalid_client" error
 
+  Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker changed signingKeyID & calling credential endpoint with it)
+    Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
+    Then Malicious attacker changed JWT kid header and makes /credential request and receives "invalid_or_missing_proof" error
+
+  Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker changed JWT signature value & calling credential endpoint with it)
+    Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
+    Then Malicious attacker changed signature value and makes /credential request and receives "invalid_or_missing_proof" error
+
+  Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker changed nonce & calling credential endpoint with it)
+    Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
+    Then Malicious attacker changed nonce value and makes /credential request and receives "invalid_or_missing_proof" error
+
   Scenario: OIDC credential issuance and verification Pre Auth flow (issuer has pre-authorized_grant_anonymous_access_supported disabled)
     Given Profile "i_disabled_preauth_without_client_id/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "VerifiedEmployee" with templateID "templateID"
