@@ -12,7 +12,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.3-0.20231019085953-561fd4e9b9f3
+	github.com/trustbloc/vc-go v1.0.3-0.20231023182535-04cf7f1c5a74
 	github.com/trustbloc/vcs v0.0.0
 	go.opentelemetry.io/otel/trace v1.14.0
 )
