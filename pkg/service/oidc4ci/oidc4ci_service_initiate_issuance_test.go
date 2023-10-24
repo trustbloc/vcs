@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -633,7 +634,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4ci.ErrProfileNotActive)
+				require.ErrorIs(t, err, resterr.ErrProfileInactive)
 			},
 		},
 		{
@@ -653,7 +654,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4ci.ErrAuthorizedCodeFlowNotSupported)
+				require.ErrorIs(t, err, resterr.ErrAuthorizedCodeFlowNotSupported)
 			},
 		},
 		{
@@ -673,7 +674,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4ci.ErrVCOptionsNotConfigured)
+				require.ErrorIs(t, err, resterr.ErrVCOptionsNotConfigured)
 			},
 		},
 		{
@@ -696,7 +697,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
+				require.ErrorIs(t, err, resterr.ErrCredentialTemplateNotConfigured)
 			},
 		},
 		{
@@ -734,7 +735,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotFound)
+				require.ErrorIs(t, err, resterr.ErrCredentialTemplateNotFound)
 			},
 		},
 		{

@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/spi/kms"
@@ -35,6 +36,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
@@ -655,7 +657,23 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				assert.Equal(t, msg.Type, spi.VerifierOIDCInteractionFailed)
+
+				ep := &oidc4ci.EventPayload{}
+				assert.NoError(t, json.Unmarshal(msg.Data, ep))
+
+				assert.Equal(t, string(resterr.InvalidValue), ep.ErrorCode)
+				assert.Empty(t, ep.ErrorComponent)
+
+				return nil
+			},
+		)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
@@ -1361,7 +1379,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		requireValidationError(t, resterr.DoesntExist, "txID", err)
+		requireCustomError(t, resterr.TransactionNotFound, err)
 	})
 
 	t.Run("Get Tx system error", func(t *testing.T) {
@@ -1384,7 +1402,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		requireSystemError(t, "oidc4vp.Service", "GetTx", err)
+		requireSystemError(t, "verifier.oidc4vp-service", "GetTx", err)
 	})
 
 	t.Run("GetProfile failed", func(t *testing.T) {
@@ -1414,7 +1432,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		requireValidationError(t, resterr.DoesntExist, "profile", err)
+		requireCustomError(t, resterr.ProfileNotFound, err)
 	})
 }
 
@@ -1777,6 +1795,15 @@ func requireSystemError(t *testing.T, component, failedOperation string, actual 
 	require.Error(t, actualErr.Err)
 }
 
+func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual error) {
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+
+	require.Equal(t, expectedCode, actualErr.Code)
+	require.Error(t, actualErr.Err)
+}
+
 func TestController_AuthFailed(t *testing.T) {
 	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
 	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
@@ -1808,7 +1835,7 @@ func TestController_AuthFailed(t *testing.T) {
 			Tracer: trace.NewNoopTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
-		requireValidationError(t, resterr.DoesntExist, "organizationID", err)
+		requireCustomError(t, resterr.ProfileNotFound, err)
 	})
 }
 
@@ -1858,7 +1885,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
-		requireValidationError(t, resterr.DoesntExist, "profile", err)
+		requireCustomError(t, resterr.ProfileNotFound, err)
 	})
 }
 
@@ -2036,7 +2063,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				SigningDID:     &profileapi.SigningDID{},
 			})
 
-		requireValidationError(t, resterr.ConditionNotMet, "profile.Active", err)
+		requireCustomError(t, resterr.ProfileInactive, err)
 	})
 
 	t.Run("Error - With Presentation Definition and PD filters", func(t *testing.T) {
@@ -2136,7 +2163,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		requireSystemError(t, "oidc4vp.Service", "InitiateOidcInteraction", err)
+		requireSystemError(t, "verifier.oidc4vp-service", "InitiateOidcInteraction", err)
 	})
 }
 

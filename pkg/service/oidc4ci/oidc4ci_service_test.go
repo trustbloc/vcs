@@ -26,6 +26,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -95,7 +96,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
+				require.ErrorIs(t, err, resterr.ErrCredentialTemplateNotConfigured)
 			},
 		},
 		{
@@ -117,7 +118,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTypeNotSupported)
+				require.ErrorIs(t, err, resterr.ErrCredentialTypeNotSupported)
 			},
 		},
 		{
@@ -139,7 +140,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
+				require.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -303,7 +304,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrResponseTypeMismatch)
+				require.ErrorIs(t, err, resterr.ErrResponseTypeMismatch)
 			},
 		},
 		{
@@ -328,7 +329,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrInvalidScope)
+				require.ErrorIs(t, err, resterr.ErrInvalidScope)
 			},
 		},
 		{
@@ -518,7 +519,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
 				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1",
@@ -552,7 +553,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			Return(nil, errors.New("not found"))
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
 				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
@@ -586,7 +587,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			Return(&profileapi.Issuer{}, nil)
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
 				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
@@ -624,7 +625,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			}, nil)
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
 				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
@@ -663,7 +664,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			}, nil)
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
 				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0",
@@ -708,7 +709,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			}, nil)
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("well-known err"))
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
@@ -754,7 +755,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			}, nil)
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v1.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
 			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -790,7 +791,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
 			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1/v111.0").
-			Return(nil, oidc4ci.ErrDataNotFound)
+			Return(nil, resterr.ErrDataNotFound)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), "https://awesome.local").
 			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
@@ -1043,7 +1044,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "123abc")
-		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin[]: server does not expect pin")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin: server does not expect pin")
 		assert.Nil(t, resp)
 	})
 
@@ -1064,7 +1065,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
-		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin[]: server expects user pin")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin: server expects user pin")
 		assert.Nil(t, resp)
 	})
 
@@ -1122,7 +1123,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "")
-		assert.ErrorContains(t, err, "oidc-pre-authorize-invalid-client-id[]: issuer does not accept "+
+		assert.ErrorContains(t, err, "oidc-pre-authorize-invalid-client-id: issuer does not accept "+
 			"Token Request with a Pre-Authorized Code but without a client_id")
 		assert.Nil(t, resp)
 	})
@@ -1144,7 +1145,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "123abc")
-		assert.ErrorContains(t, err, "oidc-tx-not-found[]: invalid pre-authorization code")
+		assert.ErrorContains(t, err, "oidc-tx-not-found: invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
 
@@ -1165,7 +1166,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "123abc")
-		assert.ErrorContains(t, err, "oidc-tx-not-found[]: invalid pre-authorization code")
+		assert.ErrorContains(t, err, "oidc-tx-not-found: invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
 
@@ -1460,7 +1461,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "get claim data")
+				require.ErrorContains(t, err, "get claims data")
 				require.Nil(t, resp)
 			},
 		},
@@ -1605,7 +1606,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err,
-					"oidc-credential-type-not-supported[]: credential template not configured")
+					"credential-template-not-configured: credential template not configured")
 				require.Nil(t, resp)
 			},
 		},

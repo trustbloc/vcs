@@ -24,6 +24,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 // InitiateIssuance creates credential issuance transaction and builds initiate issuance URL.
@@ -36,17 +37,17 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		req.OpState = uuid.NewString()
 	}
 	if !profile.Active {
-		return nil, ErrProfileNotActive
+		return nil, resterr.ErrProfileInactive
 	}
 
 	if profile.VCConfig == nil {
-		return nil, ErrVCOptionsNotConfigured
+		return nil, resterr.ErrVCOptionsNotConfigured
 	}
 
 	isPreAuthorizeFlow := len(req.ClaimData) > 0
 
 	if !isPreAuthorizeFlow && profile.OIDCConfig == nil {
-		return nil, ErrAuthorizedCodeFlowNotSupported
+		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
 
 	template, err := s.findCredentialTemplate(req.CredentialTemplateID, profile)
@@ -104,17 +105,19 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		}
 
 		if e := s.validateClaims(req.ClaimData, template); e != nil {
-			return nil, fmt.Errorf("validate claims: %w", e)
+			return nil, resterr.NewValidationError(resterr.ConditionNotMet, "claims",
+				fmt.Errorf("validate claims: %w", e))
 		}
 
 		claimData, errEncrypt := s.EncryptClaims(ctx, req.ClaimData)
 		if errEncrypt != nil {
-			return nil, fmt.Errorf("can not encrypt claim data: %w", errEncrypt)
+			return nil, errEncrypt
 		}
 
 		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, claimData)
 		if claimDataErr != nil {
-			return nil, fmt.Errorf("store claim data: %w", claimDataErr)
+			return nil, resterr.NewSystemError(resterr.ClaimDataStoreComponent, "create",
+				fmt.Errorf("store claim data: %w", claimDataErr))
 		}
 
 		data.ClaimDataID = claimDataID
@@ -131,7 +134,8 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 	tx, err := s.store.Create(ctx, data)
 	if err != nil {
-		return nil, fmt.Errorf("store tx: %w", err)
+		return nil, resterr.NewSystemError(resterr.TransactionStoreComponent, "create",
+			fmt.Errorf("store tx: %w", err))
 	}
 
 	finalURL, contentType, err := s.buildInitiateIssuanceURL(ctx, req, template, tx, profile)
@@ -160,7 +164,8 @@ func setScopes(data *TransactionData, scopesSupported []string, requestScopes []
 
 	for _, s := range requestScopes {
 		if !lo.Contains(scopesSupported, s) {
-			return fmt.Errorf("unsupported scope %s", s)
+			return resterr.NewValidationError(resterr.InvalidValue, "scope",
+				fmt.Errorf("unsupported scope %s", s))
 		}
 	}
 
@@ -176,7 +181,8 @@ func setGrantType(data *TransactionData, grantTypesSupported []string, requestGr
 	}
 
 	if !lo.Contains(grantTypesSupported, requestGrantType) {
-		return fmt.Errorf("unsupported grant type %s", requestGrantType)
+		return resterr.NewValidationError(resterr.InvalidValue, "grant-type",
+			fmt.Errorf("unsupported grant type %s", requestGrantType))
 	}
 
 	data.GrantType = requestGrantType
@@ -225,7 +231,8 @@ func (s *Service) extendTransactionWithOIDCConfig(
 
 	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
 	if err != nil {
-		return fmt.Errorf("get oidc configuration from well-known: %w", err)
+		return resterr.NewSystemError(resterr.WellKnownSvcComponent, "GetOIDCConfig",
+			fmt.Errorf("get oidc configuration from well-known: %w", err))
 	}
 
 	data.AuthorizationEndpoint = oidcConfig.AuthorizationEndpoint
@@ -246,12 +253,12 @@ func findCredentialTemplate(
 ) (*profileapi.CredentialTemplate, error) {
 	// profile should define at least one credential template
 	if len(credentialTemplates) == 0 || credentialTemplates[0].ID == "" {
-		return nil, ErrCredentialTemplateNotConfigured
+		return nil, resterr.ErrCredentialTemplateNotConfigured
 	}
 
 	// credential template ID is required if profile has more than one credential template defined
 	if len(credentialTemplates) > 1 && templateID == "" {
-		return nil, ErrCredentialTemplateIDRequired
+		return nil, resterr.ErrCredentialTemplateIDRequired
 	}
 
 	for _, t := range credentialTemplates {
@@ -260,7 +267,7 @@ func findCredentialTemplate(
 		}
 	}
 
-	return nil, ErrCredentialTemplateNotFound
+	return nil, resterr.ErrCredentialTemplateNotFound
 }
 
 func (s *Service) findCredentialTemplate(
@@ -272,7 +279,8 @@ func (s *Service) findCredentialTemplate(
 	}
 
 	if len(profile.CredentialTemplates) > 1 {
-		return nil, errors.New("credential template should be specified")
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.CredentialTemplate",
+			errors.New("credential template should be specified"))
 	}
 
 	return profile.CredentialTemplates[0], nil
@@ -380,7 +388,8 @@ func (s *Service) getSignedCredentialOfferJWT(
 
 	signedCredentialOffer, err := s.cryptoJWTSigner.NewJWTSigned(credentialOfferClaims, signerData)
 	if err != nil {
-		return "", fmt.Errorf("sign credential offer: %w", err)
+		return "", resterr.NewSystemError(resterr.CryptoJWTSignerComponent, "sign",
+			fmt.Errorf("sign credential offer: %w", err))
 	}
 
 	return signedCredentialOffer, nil
@@ -410,13 +419,13 @@ func (s *Service) buildInitiateIssuanceURL(
 
 	remoteOfferURL, err = s.storeCredentialOffer(ctx, credentialOffer, signedCredentialOfferJWT)
 	if err != nil {
-		return "", "", err
+		return "", "", resterr.NewSystemError(resterr.CredentialOfferReferenceStoreComponent, "store", err)
 	}
 
 	initiateIssuanceQueryParams, err := s.getInitiateIssuanceQueryParams(
 		remoteOfferURL, signedCredentialOfferJWT, credentialOffer)
 	if err != nil {
-		return "", "", err
+		return "", "", resterr.NewSystemError(resterr.IssuerSvcComponent, "get-query-params", err)
 	}
 
 	ct := ContentTypeApplicationJSON

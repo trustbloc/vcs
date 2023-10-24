@@ -611,7 +611,7 @@ func TestController_AuthFailed(t *testing.T) {
 		})
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
-		requireValidationError(t, resterr.DoesntExist, "profile", err)
+		requireCustomError(t, resterr.ProfileNotFound, err)
 	})
 }
 
@@ -831,7 +831,23 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("get profile error"))
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1).DoAndReturn(
+						func(ctx context.Context, topic string, messages ...*spi.Event) error {
+							assert.Len(t, messages, 1)
+
+							msg := messages[0]
+
+							assert.Equal(t, msg.Type, spi.IssuerOIDCInteractionFailed)
+
+							ep := &oidc4ci.EventPayload{}
+							assert.NoError(t, json.Unmarshal(msg.Data, ep))
+
+							assert.Equal(t, string(resterr.SystemError), ep.ErrorCode)
+							assert.Equal(t, resterr.IssuerProfileSvcComponent, ep.ErrorComponent)
+
+							return nil
+						},
+					)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -844,7 +860,23 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1).DoAndReturn(
+						func(ctx context.Context, topic string, messages ...*spi.Event) error {
+							assert.Len(t, messages, 1)
+
+							msg := messages[0]
+
+							assert.Equal(t, msg.Type, spi.IssuerOIDCInteractionFailed)
+
+							ep := &oidc4ci.EventPayload{}
+							assert.NoError(t, json.Unmarshal(msg.Data, ep))
+
+							assert.Equal(t, string(resterr.ProfileNotFound), ep.ErrorCode)
+							assert.Empty(t, ep.ErrorComponent)
+
+							return nil
+						},
+					)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -856,7 +888,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Credential template ID is required",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
-					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateIDRequired) //nolint:lll
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, resterr.ErrCredentialTemplateIDRequired) //nolint:lll
 					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
@@ -873,7 +905,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Credential template not found",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
-					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateNotFound) //nolint:lll
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, resterr.ErrCredentialTemplateNotFound) //nolint:lll
 					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
@@ -960,7 +992,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				name: "Credential type not supported",
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						oidc4ci.ErrCredentialTypeNotSupported)
+						resterr.ErrCredentialTypeNotSupported)
 
 					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential"}}`
 				},
@@ -972,7 +1004,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				name: "Credential format not supported",
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						oidc4ci.ErrCredentialFormatNotSupported)
+						resterr.ErrCredentialFormatNotSupported)
 
 					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential"}}`
 				},
@@ -1448,7 +1480,7 @@ func TestController_PrepareCredential(t *testing.T) {
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.ErrorContains(t, c.PrepareCredential(ctx), "rand-code[]: rand")
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "rand-code: rand")
 	})
 
 	t.Run("claims schema validation error", func(t *testing.T) {
@@ -1822,4 +1854,13 @@ func requireAuthError(t *testing.T, actual error) {
 	require.True(t, errors.As(actual, &actualErr))
 
 	require.Equal(t, resterr.Unauthorized, actualErr.Code)
+}
+
+func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual error) {
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+
+	require.Equal(t, expectedCode, actualErr.Code)
+	require.Error(t, actualErr.Err)
 }

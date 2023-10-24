@@ -61,6 +61,8 @@ type EventPayload struct {
 	Filter                   *Filter `json:"filter,omitempty"`
 	AuthorizationRequest     string  `json:"authorizationRequest,omitempty"`
 	Error                    string  `json:"error,omitempty"`
+	ErrorCode                string  `json:"errorCode"`
+	ErrorComponent           string  `json:"errorComponent,omitempty"`
 }
 
 type Filter struct {

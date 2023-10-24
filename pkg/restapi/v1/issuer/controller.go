@@ -48,9 +48,6 @@ import (
 var logger = log.New("restapi-issuer")
 
 const (
-	issuerProfileSvcComponent = "issuer.ProfileService"
-	oidc4ciSvcComponent       = "OIDC4CIService"
-
 	defaultCtx = "https://www.w3.org/2018/credentials/v1"
 )
 
@@ -320,7 +317,7 @@ func (c *Controller) signCredential(
 ) (*verifiable.Credential, error) {
 	signedVC, err := c.issueCredentialService.IssueCredential(ctx, credential, profile, opts...)
 	if err != nil {
-		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
+		return nil, resterr.NewSystemError(resterr.IssueCredentialSvcComponent, "IssueCredential", err)
 	}
 
 	return signedVC, nil
@@ -503,16 +500,14 @@ func (c *Controller) initiateIssuance(
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
 	if err != nil {
-		if errors.Is(err, oidc4ci.ErrCredentialTemplateNotFound) ||
-			errors.Is(err, oidc4ci.ErrCredentialTemplateIDRequired) {
-			e := resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
+		if errors.Is(err, resterr.ErrCredentialTemplateNotFound) ||
+			errors.Is(err, resterr.ErrCredentialTemplateIDRequired) {
+			c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, err)
 
-			c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, e)
-
-			return nil, "", e
+			return nil, "", err
 		}
 
-		e := resterr.NewSystemError(oidc4ciSvcComponent, "InitiateIssuance", err)
+		e := resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "InitiateIssuance", err)
 
 		c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, e)
 
@@ -541,15 +536,15 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 	}
 
 	if err = c.oidc4ciService.PushAuthorizationDetails(ctx.Request().Context(), body.OpState, ad); err != nil {
-		if errors.Is(err, oidc4ci.ErrCredentialTypeNotSupported) {
+		if errors.Is(err, resterr.ErrCredentialTypeNotSupported) {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type", err)
 		}
 
-		if errors.Is(err, oidc4ci.ErrCredentialFormatNotSupported) {
+		if errors.Is(err, resterr.ErrCredentialFormatNotSupported) {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
 		}
 
-		return resterr.NewSystemError(oidc4ciSvcComponent, "PushAuthorizationRequest", err)
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PushAuthorizationRequest", err)
 	}
 
 	return ctx.NoContent(http.StatusOK)
@@ -585,12 +580,12 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		},
 	)
 	if err != nil {
-		return nil, resterr.NewSystemError(oidc4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
+		return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
 	}
 
 	profile, err := c.profileSvc.GetProfile(resp.ProfileID, resp.ProfileVersion)
 	if err != nil {
-		return nil, resterr.NewSystemError(oidc4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
+		return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
@@ -611,15 +606,15 @@ func (c *Controller) accessProfile(profileID, profileVersion string) (*profileap
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 				fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 		}
 
-		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
+		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
 	}
 
 	if profile == nil {
-		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 	}
 
@@ -634,7 +629,7 @@ func (c *Controller) accessOIDCProfile(profileID, profileVersion, tenantID strin
 
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != tenantID {
-		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 	}
 
@@ -727,7 +722,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			return custom
 		}
 
-		return resterr.NewSystemError(oidc4ciSvcComponent, "PrepareCredential", err)
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential", err)
 	}
 
 	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
@@ -736,7 +731,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}
 
 	if result.Credential == nil {
-		return resterr.NewSystemError(oidc4ciSvcComponent, "PrepareCredential",
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
 			errors.New("credentials should not be nil"))
 	}
 
@@ -925,8 +920,9 @@ func (c *Controller) sendFailedEvent(ctx context.Context, orgID, profileID, prof
 		OrgID:          orgID,
 		ProfileID:      profileID,
 		ProfileVersion: profileVersion,
-		Error:          e.Error(),
 	}
+
+	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
 
 	payload, err := c.marshal(ep)
 	if err != nil {
@@ -935,7 +931,7 @@ func (c *Controller) sendFailedEvent(ctx context.Context, orgID, profileID, prof
 		return
 	}
 
-	evt := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/issuer", spi.VerifierOIDCInteractionFailed, payload)
+	evt := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/issuer", spi.IssuerOIDCInteractionFailed, payload)
 
 	err = c.eventSvc.Publish(ctx, c.eventTopic, evt)
 	if err != nil {

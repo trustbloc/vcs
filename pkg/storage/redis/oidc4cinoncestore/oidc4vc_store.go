@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	redisapi "github.com/redis/go-redis/v9"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -52,7 +53,7 @@ func (s *Store) Create(
 	}
 
 	if b > 0 {
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.ErrDataNotFound
 	}
 
 	insertCfg := &oidc4ci.InsertOptions{}
@@ -103,7 +104,7 @@ func (s *Store) Get(
 	intermediateKey, err := s.redisClient.API().Get(ctx, transactionIDBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, err
@@ -121,7 +122,7 @@ func (s *Store) findOne(ctx context.Context, intermediateKey string) (*oidc4ci.T
 	b, err := clientAPI.Get(ctx, intermediateKey).Bytes()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, fmt.Errorf("findOne %w", err)
@@ -133,7 +134,7 @@ func (s *Store) findOne(ctx context.Context, intermediateKey string) (*oidc4ci.T
 	}
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.ErrDataNotFound
 	}
 
 	return &oidc4ci.Transaction{
@@ -149,7 +150,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
 	intermediateKey, err := s.redisClient.API().Get(ctx, transactionIDBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return oidc4ci.ErrDataNotFound
+			return resterr.ErrDataNotFound
 		}
 
 		return err

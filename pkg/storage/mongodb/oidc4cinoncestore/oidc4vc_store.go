@@ -18,6 +18,7 @@ import (
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -125,7 +126,7 @@ func (s *Store) Create(
 	result, err := collection.InsertOne(ctx, obj)
 
 	if err != nil && mongo.IsDuplicateKeyError(err) {
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 	}
 
 	if err != nil {
@@ -163,7 +164,7 @@ func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4ci.Trans
 
 	if err := collection.FindOne(ctx, filter).Decode(&doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 		}
 
 		return nil, err
@@ -171,7 +172,7 @@ func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4ci.Trans
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 	}
 
 	return mapDocumentToTransaction(&doc), nil

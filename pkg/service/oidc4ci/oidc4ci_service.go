@@ -208,7 +208,7 @@ func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
 	}
 
 	if !isScopeValid {
-		return ErrInvalidScope
+		return resterr.ErrInvalidScope
 	}
 
 	return nil
@@ -220,14 +220,14 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	tx, err := s.store.FindByOpState(ctx, req.OpState)
 
-	if err != nil && errors.Is(err, ErrDataNotFound) {
+	if err != nil && errors.Is(err, resterr.ErrDataNotFound) {
 		// process wallet initiated flow
 		walletFlowResp, walletFlowErr := s.prepareClaimDataAuthorizationRequestWalletInitiated(
 			ctx,
 			req.Scope,
 			ExtractIssuerURL(req.OpState),
 		)
-		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet-initiated flow
+		if walletFlowErr != nil && errors.Is(walletFlowErr, resterr.ErrInvalidIssuerURL) { // not wallet-initiated flow
 			return nil, err
 		}
 
@@ -246,7 +246,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	tx.State = newState
 
 	if req.ResponseType != tx.ResponseType {
-		return nil, ErrResponseTypeMismatch
+		return nil, resterr.ErrResponseTypeMismatch
 	}
 
 	if err = s.checkScopes(req.Scope, tx.Scope); err != nil {
@@ -288,14 +288,20 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	sp := strings.Split(issuerURL, "/")
 	if len(sp) < WalletInitFlowClaimExpectedMatchCount {
 		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
-		return nil, ErrInvalidIssuerURL
+		return nil, resterr.ErrInvalidIssuerURL
 	}
 
 	profileID, profileVersion := sp[len(sp)-2], sp[len(sp)-1]
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return nil, fmt.Errorf("wallet initiated flow get profile: %w", err)
+		if strings.Contains(err.Error(), "not found") {
+			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
+				fmt.Errorf("wallet initiated flow get profile: %w", err))
+		}
+
+		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile",
+			fmt.Errorf("wallet initiated flow get profile: %w", err))
 	}
 
 	if profile.OIDCConfig == nil || !profile.OIDCConfig.WalletInitiatedAuthFlowSupported {
@@ -340,16 +346,16 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 
 func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *AuthorizationDetails, tx *Transaction) error {
 	if tx.CredentialTemplate == nil {
-		return ErrCredentialTemplateNotConfigured
+		return resterr.ErrCredentialTemplateNotConfigured
 	}
 
 	targetType := ad.Types[len(ad.Types)-1]
 	if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
-		return ErrCredentialTypeNotSupported
+		return resterr.ErrCredentialTypeNotSupported
 	}
 
 	if ad.Format != "" && ad.Format != tx.CredentialFormat {
-		return ErrCredentialFormatNotSupported
+		return resterr.ErrCredentialFormatNotSupported
 	}
 
 	tx.AuthorizationDetails = ad
@@ -387,7 +393,11 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 
 		profile, err = s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 		if err != nil {
-			return nil, err
+			if strings.Contains(err.Error(), "not found") {
+				return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
+			}
+
+			return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
 		}
 
 		// profile.OIDCConfig is not required for pre-auth flow, so no specific error for this case.
@@ -436,8 +446,9 @@ func (s *Service) PrepareCredential(
 	}
 
 	if tx.CredentialTemplate == nil {
-		s.sendFailedTransactionEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
-		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
+		s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTemplateNotConfigured)
+
+		return nil, resterr.ErrCredentialTemplateNotConfigured
 	}
 
 	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, tx.ProfileID, tx.ProfileVersion)
@@ -449,7 +460,7 @@ func (s *Service) PrepareCredential(
 
 	claimData, err := s.getClaimsData(ctx, tx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get claims data: %w", err)
 	}
 
 	contexts := tx.CredentialTemplate.Contexts
@@ -490,8 +501,11 @@ func (s *Service) PrepareCredential(
 
 	tx.State = TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, err
+		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+
+		s.sendFailedTransactionEvent(ctx, tx, e)
+
+		return nil, e
 	}
 
 	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
@@ -520,17 +534,22 @@ func (s *Service) getClaimsData(
 	tx *Transaction,
 ) (map[string]interface{}, error) {
 	if !tx.IsPreAuthFlow {
-		return s.requestClaims(ctx, tx)
+		claims, err := s.requestClaims(ctx, tx)
+		if err != nil {
+			return nil, resterr.NewSystemError(resterr.IssuerSvcComponent, "RequestClaims", err)
+		}
+
+		return claims, nil
 	}
 
 	tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID)
 	if claimDataErr != nil {
-		return nil, fmt.Errorf("get claim data: %w", claimDataErr)
+		return nil, resterr.NewSystemError(resterr.ClaimDataStoreComponent, "GetAndDelete", claimDataErr)
 	}
 
 	decryptedClaims, decryptErr := s.DecryptClaims(ctx, tempClaimData)
 	if decryptErr != nil {
-		return nil, decryptErr
+		return nil, fmt.Errorf("decrypt claims: %w", decryptErr)
 	}
 
 	return decryptedClaims, nil
@@ -621,8 +640,9 @@ func (s *Service) sendFailedTransactionEvent(
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,
 		OrgID:          tx.OrgID,
-		Error:          e.Error(),
 	}
+
+	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
 
 	if e := s.sendEvent(ctx, spi.IssuerOIDCInteractionFailed, tx.ID, ep); e != nil {
 		logger.Warnc(ctx, "Failed to send OIDC issuer event. Ignoring..", log.WithError(e))

@@ -215,7 +215,7 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 		)
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err,
-			"can not initiate issuance for wallet-initiated flow. profile not active")
+			"can not initiate issuance for wallet-initiated flow: profile-inactive")
 	})
 	t.Run("success", func(t *testing.T) {
 		store := NewMockTransactionStore(gomock.NewController(t))

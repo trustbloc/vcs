@@ -1336,7 +1336,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						fosite.AccessToken, ar, nil)
 
-				responseBody := `{"code":"invalid_or_missing_proof","incorrectValue":"badAud","message":"invalid aud"}`
+				responseBody := `{"code":"invalidor-missing-proof","incorrectValue":"badAud","message":"invalid aud"}`
 
 				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
 					Return(
@@ -1651,7 +1651,7 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err,
-					"oidc-error[]: prepare credential: status code 500, "+
+					"oidc-error: prepare credential: status code 500, "+
 						"code: oidc-credential-format-not-supported")
 			},
 		},
@@ -1719,7 +1719,7 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err,
-					"oidc-error[]: prepare credential: status code 500, "+
+					"oidc-error: prepare credential: status code 500, "+
 						"code: oidc-credential-type-not-supported")
 			},
 		},
@@ -1993,7 +1993,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err,
-					"oidc-error[]: validate pre-authorized code request: status code 400, "+
+					"oidc-error: validate pre-authorized code request: status code 400, "+
 						"code: oidc-tx-not-found")
 			},
 		},
@@ -2023,7 +2023,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err,
-					"oidc-error[]: validate pre-authorized code request: status code 400, "+
+					"oidc-error: validate pre-authorized code request: status code 400, "+
 						"code: oidc-pre-authorize-expect-pin")
 			},
 		},
@@ -2052,7 +2052,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err,
-					"oidc-error[]: validate pre-authorized code request: status code 400, "+
+					"oidc-error: validate pre-authorized code request: status code 400, "+
 						"code: oidc-pre-authorize-invalid-client-id")
 			},
 		},
@@ -2182,7 +2182,7 @@ func TestController_OidcRegisterClient(t *testing.T) {
 				assert.ErrorAs(t, err, &customErr)
 				assert.ErrorContains(t, customErr, "get profile error")
 				assert.Equal(t, resterr.SystemError, customErr.Code)
-				assert.Equal(t, "ProfileService", customErr.Component)
+				assert.Equal(t, "issuer.profile-service", customErr.Component)
 				assert.Equal(t, "GetProfile", customErr.FailedOperation)
 			},
 		},
@@ -2240,7 +2240,7 @@ func TestController_OidcRegisterClient(t *testing.T) {
 				assert.ErrorAs(t, err, &customErr)
 				assert.ErrorContains(t, customErr, "create client error")
 				assert.Equal(t, resterr.SystemError, customErr.Code)
-				assert.Equal(t, "ClientManager", customErr.Component)
+				assert.Equal(t, "client-manager", customErr.Component)
 				assert.Equal(t, "Create", customErr.FailedOperation)
 			},
 		},

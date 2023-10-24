@@ -52,10 +52,6 @@ import (
 )
 
 const (
-	verifierProfileSvcComponent  = "verifier.ProfileService"
-	verifyCredentialSvcComponent = "verifycredential.Service"
-	oidc4vpSvcComponent          = "oidc4vp.Service"
-
 	vpSubmissionProperty = "presentation_submission"
 )
 
@@ -240,7 +236,7 @@ func (c *Controller) verifyCredential(
 	verRes, err := c.verifyCredentialSvc.VerifyCredential(ctx, credential,
 		getVerifyCredentialOptions(body.Options), profile)
 	if err != nil {
-		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
+		return nil, resterr.NewSystemError(resterr.VerifierVerifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
 	logger.Debugc(ctx, "PostVerifyCredentials success")
@@ -295,7 +291,7 @@ func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresent
 	verRes, _, err := c.verifyPresentationSvc.VerifyPresentation(ctx, presentation,
 		getVerifyPresentationOptions(body.Options), profile)
 	if err != nil {
-		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
+		return nil, resterr.NewSystemError(resterr.VerifierVerifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
 	logger.Debugc(ctx, "PostVerifyPresentation success")
@@ -342,8 +338,7 @@ func (c *Controller) initiateOidcInteraction(
 	profile *profileapi.Verifier,
 ) (*InitiateOIDC4VPResponse, error) {
 	if !profile.Active {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.Active",
-			errors.New("profile should be active"))
+		return nil, resterr.ErrProfileInactive
 	}
 
 	if profile.OIDCConfig == nil {
@@ -369,7 +364,7 @@ func (c *Controller) initiateOidcInteraction(
 
 	result, err := c.oidc4VPService.InitiateOidcInteraction(ctx, pd, strPtrToStr(data.Purpose), profile)
 	if err != nil {
-		return nil, resterr.NewSystemError(oidc4vpSvcComponent, "InitiateOidcInteraction", err)
+		return nil, resterr.NewSystemError(resterr.VerifierOIDC4vpSvcComponent, "InitiateOidcInteraction", err)
 	}
 
 	logger.Debugc(ctx, "InitiateOidcInteraction success", log.WithTxID(string(result.TxID)))
@@ -519,7 +514,8 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 	}
 
 	if tx.ReceivedClaimsID == "" {
-		err = fmt.Errorf("claims were not received for transaction '%s'", txID)
+		err = resterr.NewCustomError(resterr.ClaimsNotReceived,
+			fmt.Errorf("claims were not received for transaction '%s'", txID))
 
 		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
 
@@ -527,7 +523,8 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 	}
 
 	if tx.ReceivedClaims == nil {
-		err = fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID)
+		err = resterr.NewCustomError(resterr.ClaimsNotFound,
+			fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID))
 
 		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
 
@@ -551,11 +548,11 @@ func (c *Controller) accessOIDC4VPTx(ctx context.Context, txID string) (*oidc4vp
 
 	if err != nil {
 		if errors.Is(err, oidc4vp.ErrDataNotFound) {
-			return nil, resterr.NewValidationError(resterr.DoesntExist, "txID",
+			return nil, resterr.NewCustomError(resterr.TransactionNotFound,
 				fmt.Errorf("transaction with given id %s, doesn't exist", txID))
 		}
 
-		return nil, resterr.NewSystemError(oidc4vpSvcComponent, "GetTx", err)
+		return nil, resterr.NewSystemError(resterr.VerifierOIDC4vpSvcComponent, "GetTx", err)
 	}
 
 	logger.Debugc(ctx, "RetrieveInteractionsClaim tx found", log.WithTxID(string(tx.ID)))
@@ -832,21 +829,21 @@ func (c *Controller) accessProfile(profileID, profileVersion, tenantID string) (
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "data not found") {
-			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-				fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
+				fmt.Errorf("profile with given id %q, doesn't exist", profileID))
 		}
 
-		return nil, resterr.NewSystemError(verifierProfileSvcComponent, "GetProfile", err)
+		return nil, resterr.NewSystemError(resterr.VerifierProfileSvcComponent, "GetProfile", err)
 	}
 
 	if profile == nil {
-		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
+			fmt.Errorf("profile with given id %q, doesn't exist", profileID))
 	}
 
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != tenantID {
-		return nil, resterr.NewValidationError(resterr.DoesntExist, "organizationID",
+		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 			fmt.Errorf("profile with given org id %q, doesn't exist", tenantID))
 	}
 
@@ -858,8 +855,9 @@ func createFailedEventPayload(orgID, profileID, profileVersion string, e error) 
 		OrgID:          orgID,
 		ProfileID:      profileID,
 		ProfileVersion: profileVersion,
-		Error:          e.Error(),
 	}
+
+	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
 
 	return ep
 }

@@ -202,6 +202,8 @@ type EventPayload struct {
 	InitiateIssuanceURL   string `json:"initiateIssuanceURL,omitempty"`
 	AuthorizationEndpoint string `json:"authorizationEndpoint,omitempty"`
 	Error                 string `json:"error,omitempty"`
+	ErrorCode             string `json:"errorCode,omitempty"`
+	ErrorComponent        string `json:"errorComponent,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {

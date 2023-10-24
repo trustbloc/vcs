@@ -8,6 +8,7 @@ package resterr
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -79,5 +80,39 @@ func TestNewValidationError(t *testing.T) {
 		require.Equal(t, http.StatusPreconditionFailed, httpCode)
 		requireCode(t, resp, ConditionNotMet.Name())
 		requireMessage(t, resp, "some error")
+	})
+
+	t.Run("profile not found error", func(t *testing.T) {
+		err := NewCustomError(ProfileNotFound, errors.New("some error"))
+		require.Equal(t, "profile-not-found: some error", err.Error())
+
+		httpCode, resp := err.HTTPCodeMsg()
+
+		require.Equal(t, http.StatusNotFound, httpCode)
+		requireCode(t, resp, ProfileNotFound.Name())
+		requireMessage(t, resp, "some error")
+	})
+}
+
+func TestGetErrorDetails(t *testing.T) {
+	t.Run("custom error", func(t *testing.T) {
+		e := errors.New("some error")
+
+		err := fmt.Errorf("got error: %w",
+			NewSystemError(TransactionStoreComponent, "getData", e))
+
+		errMsg, errCode, errComponent := GetErrorDetails(err)
+		require.Equal(t, e.Error(), errMsg)
+		require.Equal(t, string(SystemError), errCode)
+		require.Equal(t, TransactionStoreComponent, errComponent)
+	})
+
+	t.Run("other error", func(t *testing.T) {
+		err := errors.New("some error")
+
+		errMsg, errCode, errComponent := GetErrorDetails(err)
+		require.Equal(t, err.Error(), errMsg)
+		require.Empty(t, errCode)
+		require.Empty(t, errComponent)
 	})
 }

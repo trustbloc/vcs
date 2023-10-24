@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -90,7 +91,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.
 	err = s.mongoClient.Database().Collection(collectionName).FindOneAndDelete(ctx, bson.M{"_id": id}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 		}
 
 		return nil, fmt.Errorf("find: %w", err)
@@ -98,7 +99,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.ErrDataNotFound
 	}
 
 	claimData := doc.ClaimData

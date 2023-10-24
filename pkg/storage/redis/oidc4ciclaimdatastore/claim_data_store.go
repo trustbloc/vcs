@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	redisapi "github.com/redis/go-redis/v9"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -54,7 +55,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.
 	b, err := clientAPI.Get(ctx, claimDataID).Bytes()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 		}
 
 		return nil, fmt.Errorf("find key %w", err)
@@ -70,7 +71,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.
 	}
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 	}
 
 	claimData := doc.ClaimData
