@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -70,7 +71,7 @@ func TestStore(t *testing.T) {
 
 		resp, err := store.GetAndDelete(context.Background(), id)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err, resterr.ErrDataNotFound)
 	})
 
 	t.Run("get invalid document id", func(t *testing.T) {
@@ -95,7 +96,7 @@ func TestStore(t *testing.T) {
 
 		claimsInDB, err := storeExpired.GetAndDelete(context.Background(), id)
 		assert.Nil(t, claimsInDB)
-		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err, resterr.ErrDataNotFound)
 	})
 }
 

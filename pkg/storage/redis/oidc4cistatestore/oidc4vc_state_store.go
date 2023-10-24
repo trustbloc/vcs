@@ -15,6 +15,7 @@ import (
 
 	redisapi "github.com/redis/go-redis/v9"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -63,15 +64,15 @@ func (s *Store) SaveAuthorizeState(
 
 	b, err := clientAPI.Exists(ctx, key).Result()
 	if err != nil {
-		return fmt.Errorf("exist: %w", err)
+		return resterr.NewSystemError(resterr.RedisComponent, "Exists", fmt.Errorf("exists: %w", err))
 	}
 
 	if b > 0 {
-		return oidc4ci.ErrOpStateKeyDuplication
+		return resterr.NewCustomError(resterr.OpStateKeyDuplication, resterr.ErrOpStateKeyDuplication)
 	}
 
 	if err = clientAPI.Set(ctx, key, doc, ttl).Err(); err != nil {
-		return fmt.Errorf("saveAuthorizeState failed: %w", err)
+		return resterr.NewSystemError(resterr.RedisComponent, "Set", fmt.Errorf("saveAuthorizeState failed: %w", err))
 	}
 
 	return nil
@@ -83,7 +84,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 	b, err := s.redisClient.API().Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 		}
 
 		return nil, fmt.Errorf("find: %w", err)
@@ -95,7 +96,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 	}
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 	}
 
 	return doc.State, nil

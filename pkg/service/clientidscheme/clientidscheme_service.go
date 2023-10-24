@@ -21,6 +21,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -133,7 +134,7 @@ func (s *Service) Register(ctx context.Context, clientURI, issuerState string) e
 func (s *Service) getProfileID(ctx context.Context, issuerState string) (string, string, error) {
 	t, err := s.transactionStore.FindByOpState(ctx, issuerState)
 	if err != nil {
-		if errors.Is(err, oidc4ci.ErrDataNotFound) {
+		if errors.Is(err, resterr.ErrDataNotFound) {
 			// wallet-initiated flow
 			a := strings.Split(issuerState, "/")
 			if len(a) < issuerURIMinParts {

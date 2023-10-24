@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -96,7 +97,7 @@ func (s *Store) SaveAuthorizeState(
 
 	_, err := collection.InsertOne(ctx, obj)
 	if err != nil && strings.Contains(err.Error(), "duplicate key error collection") {
-		return oidc4ci.ErrOpStateKeyDuplication
+		return resterr.NewCustomError(resterr.OpStateKeyDuplication, resterr.ErrOpStateKeyDuplication)
 	}
 
 	return err
@@ -112,7 +113,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 	}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, oidc4ci.ErrDataNotFound
+			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 		}
 
 		return nil, err
@@ -120,7 +121,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, oidc4ci.ErrDataNotFound
+		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
 	}
 
 	return doc.State, nil

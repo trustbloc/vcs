@@ -9,10 +9,12 @@ package oidc4ci
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
@@ -54,7 +56,11 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 ) (*Transaction, error) {
 	profile, err := s.profileService.GetProfile(flowData.ProfileId, flowData.ProfileVersion)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "not found") {
+			return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
+		}
+
+		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
 	}
 
 	profile.Version = flowData.ProfileVersion // wallet flow aud check should match
@@ -76,7 +82,7 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 		WalletInitiatedIssuance:   true,
 	}, profile)
 	if err != nil {
-		return nil, fmt.Errorf("can not initiate issuance for wallet-initiated flow. %w", err)
+		return nil, fmt.Errorf("can not initiate issuance for wallet-initiated flow: %w", err)
 	}
 
 	return tx.Tx, nil

@@ -26,27 +26,27 @@ type EventType string
 
 const (
 	// VerifierOIDCInteractionInitiated verifier oidc event.
-	VerifierOIDCInteractionInitiated = "verifier.oidc-interaction-initiated.v1"
+	VerifierOIDCInteractionInitiated EventType = "verifier.oidc-interaction-initiated.v1"
 	// VerifierOIDCInteractionQRScanned verifier oidc event.
-	VerifierOIDCInteractionQRScanned = "verifier.oidc-interaction-qr-scanned.v1"
+	VerifierOIDCInteractionQRScanned EventType = "verifier.oidc-interaction-qr-scanned.v1"
 	// VerifierOIDCInteractionSucceeded verifier oidc event.
-	VerifierOIDCInteractionSucceeded = "verifier.oidc-interaction-succeeded.v1"
+	VerifierOIDCInteractionSucceeded EventType = "verifier.oidc-interaction-succeeded.v1"
 	// VerifierOIDCInteractionFailed verifier oidc event.
-	VerifierOIDCInteractionFailed          = "verifier.oidc-interaction-failed.v1"
-	VerifierOIDCInteractionClaimsRetrieved = "verifier.oidc-interaction-claims-retrieved.v1"
+	VerifierOIDCInteractionFailed          EventType = "verifier.oidc-interaction-failed.v1"
+	VerifierOIDCInteractionClaimsRetrieved EventType = "verifier.oidc-interaction-claims-retrieved.v1"
 
 	// IssuerOIDCInteractionInitiated Issuer oidc event.
-	IssuerOIDCInteractionInitiated = EventType("issuer.oidc-interaction-initiated.v1")
+	IssuerOIDCInteractionInitiated EventType = "issuer.oidc-interaction-initiated.v1"
 	// IssuerOIDCInteractionQRScanned Issuer oidc event.
-	IssuerOIDCInteractionQRScanned = EventType("issuer.oidc-interaction-qr-scanned.v1")
+	IssuerOIDCInteractionQRScanned EventType = "issuer.oidc-interaction-qr-scanned.v1"
 	// IssuerOIDCInteractionSucceeded Issuer oidc event.
-	IssuerOIDCInteractionSucceeded                    = EventType("issuer.oidc-interaction-succeeded.v1")
-	IssuerOIDCInteractionAuthorizationRequestPrepared = EventType("issuer.oidc-interaction-authorization-request-prepared.v1") //nolint
-	IssuerOIDCInteractionAuthorizationCodeStored      = EventType("issuer.oidc-interaction-authorization-code-stored.v1")      //nolint
-	IssuerOIDCInteractionAuthorizationCodeExchanged   = EventType("issuer.oidc-interaction-authorization-code-exchanged.v1")   //nolint
-	IssuerOIDCInteractionFailed                       = EventType("issuer.oidc-interaction-failed.v1")
+	IssuerOIDCInteractionSucceeded                    EventType = "issuer.oidc-interaction-succeeded.v1"
+	IssuerOIDCInteractionAuthorizationRequestPrepared EventType = "issuer.oidc-interaction-authorization-request-prepared.v1" //nolint
+	IssuerOIDCInteractionAuthorizationCodeStored      EventType = "issuer.oidc-interaction-authorization-code-stored.v1"      //nolint
+	IssuerOIDCInteractionAuthorizationCodeExchanged   EventType = "issuer.oidc-interaction-authorization-code-exchanged.v1"   //nolint
+	IssuerOIDCInteractionFailed                       EventType = "issuer.oidc-interaction-failed.v1"
 
-	CredentialStatusStatusUpdated = EventType("issuer.credential-status-updated.v1")
+	CredentialStatusStatusUpdated EventType = "issuer.credential-status-updated.v1" //nolint:gosec
 )
 
 // Payload defines payload.

@@ -9,10 +9,12 @@ package oidc4ci
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error) {
@@ -30,8 +32,17 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return "", err
+		var e error
+
+		if strings.Contains(err.Error(), "not found") {
+			e = resterr.NewCustomError(resterr.ProfileNotFound, err)
+		} else {
+			e = resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		}
+
+		s.sendFailedTransactionEvent(ctx, tx, e)
+
+		return "", e
 	}
 
 	oauth2Client := oauth2.Config{

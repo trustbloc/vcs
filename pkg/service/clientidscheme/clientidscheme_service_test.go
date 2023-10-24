@@ -20,6 +20,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -154,7 +155,7 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(nil, oidc4ci.ErrDataNotFound)
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(nil, resterr.ErrDataNotFound)
 			},
 			check: func(t *testing.T, err error) {
 				require.NoError(t, err)
@@ -198,7 +199,7 @@ func TestService_Register(t *testing.T) {
 				clientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 				profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Times(0)
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(nil, oidc4ci.ErrDataNotFound)
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(nil, resterr.ErrDataNotFound)
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "issuer state expected to be uri that ends with profile id and version")

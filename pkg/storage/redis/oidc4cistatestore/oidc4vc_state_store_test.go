@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -50,7 +51,7 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err1)
 
 		err2 := store.SaveAuthorizeState(context.Background(), id, toInsert)
-		assert.ErrorIs(t, err2, oidc4ci.ErrOpStateKeyDuplication)
+		assert.ErrorIs(t, err2, resterr.ErrOpStateKeyDuplication)
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
@@ -64,7 +65,7 @@ func TestStore(t *testing.T) {
 
 		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp2)
-		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
 	})
 
 	t.Run("test insert and find", func(t *testing.T) {
@@ -87,7 +88,7 @@ func TestStore(t *testing.T) {
 
 		resp, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
 	})
 }
 

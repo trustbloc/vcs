@@ -21,6 +21,7 @@ import (
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -55,7 +56,7 @@ func TestStore(t *testing.T) {
 		assert.NotEmpty(t, resp1)
 
 		resp2, err2 := store.Create(context.Background(), toInsert)
-		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
 		assert.Empty(t, resp2)
 	})
 
@@ -72,7 +73,7 @@ func TestStore(t *testing.T) {
 
 		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
 		assert.Nil(t, resp2)
-		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
 	})
 
 	t.Run("test insert and find", func(t *testing.T) {
@@ -170,7 +171,7 @@ func TestStore(t *testing.T) {
 
 		resp, err2 := store.FindByOpState(context.Background(), id)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
 	})
 }
 

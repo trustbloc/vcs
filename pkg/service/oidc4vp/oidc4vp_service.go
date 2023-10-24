@@ -40,6 +40,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
@@ -215,7 +216,7 @@ func (s *Service) sendFailedTransactionEvent(
 	e error,
 ) {
 	ep := createTxEventPayload(tx, profile)
-	ep.Error = e.Error()
+	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
 
 	event, e := CreateEvent(spi.VerifierOIDCInteractionFailed, tx.ID, ep)
 	if e != nil {
@@ -236,12 +237,14 @@ func (s *Service) InitiateOidcInteraction(
 	logger.Debugc(ctx, "InitiateOidcInteraction begin")
 
 	if profile.SigningDID == nil {
-		return nil, errors.New("profile signing did can't be nil")
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "profile.SigningDID",
+			errors.New("profile signing did can't be nil"))
 	}
 
 	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version)
 	if err != nil {
-		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
+		return nil, resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "create-txn",
+			fmt.Errorf("fail to create oidc tx: %w", err))
 	}
 
 	logger.Debugc(ctx, "InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
@@ -298,7 +301,8 @@ func (s *Service) verifyTokens(
 		go func() {
 			defer wg.Done()
 			if !lo.Contains(profile.Checks.Presentation.Format, token.VpTokenFormat) {
-				e := fmt.Errorf("profile does not support %s vp_token format", token.VpTokenFormat)
+				e := resterr.NewValidationError(resterr.InvalidValue, "format",
+					fmt.Errorf("profile does not support %s vp_token format", token.VpTokenFormat))
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)
@@ -311,7 +315,8 @@ func (s *Service) verifyTokens(
 				Challenge: token.Nonce,
 			}, profile)
 			if innerErr != nil {
-				e := fmt.Errorf("presentation verification failed: %w", innerErr)
+				e := resterr.NewSystemError(resterr.VerifierPresentationVerifierComponent, "verify-presentation",
+					fmt.Errorf("presentation verification failed: %w", innerErr))
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)
@@ -320,7 +325,8 @@ func (s *Service) verifyTokens(
 			}
 
 			if len(vr) > 0 {
-				e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
+				e := resterr.NewCustomError(resterr.PresentationVerificationFailed,
+					fmt.Errorf("presentation verification checks failed: %s", vr[0].Error))
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)
@@ -333,7 +339,8 @@ func (s *Service) verifyTokens(
 			if _, ok := verifiedPresentations[token.Presentation.ID]; !ok {
 				verifiedPresentations[token.Presentation.ID] = token
 			} else {
-				e := fmt.Errorf("duplicate presentation ID: %s", token.Presentation.ID)
+				e := resterr.NewCustomError(resterr.DuplicatePresentationID,
+					fmt.Errorf("duplicate presentation ID: %s", token.Presentation.ID))
 
 				validationErrors = append(validationErrors, e)
 				return
@@ -364,24 +371,28 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 
 	if len(tokens) == 0 {
 		// this should never happen
-		return fmt.Errorf("must have at least one token")
+		return resterr.NewValidationError(resterr.InvalidValue, "tokens",
+			fmt.Errorf("must have at least one token"))
 	}
 
 	// All tokens have same nonce
 	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(tokens[0].Nonce)
 	if err != nil {
-		return fmt.Errorf("get tx by nonce failed: %w", err)
+		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "get-by-one-time-token",
+			fmt.Errorf("get tx by nonce failed: %w", err))
 	}
 
 	if !validNonce || tx.ID != txID {
-		return fmt.Errorf("invalid nonce")
+		return resterr.NewValidationError(resterr.InvalidValue, "nonce",
+			fmt.Errorf("invalid nonce"))
 	}
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation nonce verified")
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
-		return fmt.Errorf("inconsistent transaction state %w", err)
+		return resterr.NewValidationError(resterr.ConditionNotMet, "profile",
+			fmt.Errorf("inconsistent transaction state %w", err))
 	}
 
 	if errSendEvent := s.sendTxEvent(ctx, spi.VerifierOIDCInteractionQRScanned, tx, profile); errSendEvent != nil {
@@ -509,7 +520,8 @@ func (s *Service) extractClaimData(
 	}
 	diVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
-		return fmt.Errorf("get data integrity verifier: %w", err)
+		return resterr.NewSystemError(resterr.VerifierDataIntegrityVerifier, "create-verifier",
+			fmt.Errorf("get data integrity verifier: %w", err))
 	}
 
 	opts := []presexch.MatchOption{
@@ -528,7 +540,8 @@ func (s *Service) extractClaimData(
 
 	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader, opts...)
 	if err != nil {
-		return fmt.Errorf("presentation definition match: %w", err)
+		return resterr.NewCustomError(resterr.PresentationDefinitionMismatch,
+			fmt.Errorf("presentation definition match: %w", err))
 	}
 
 	storeCredentials := make(map[string]*verifiable.Credential)
@@ -554,7 +567,8 @@ func (s *Service) extractClaimData(
 
 	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: storeCredentials})
 	if err != nil {
-		return fmt.Errorf("store received claims: %w", err)
+		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "store-received-claims",
+			fmt.Errorf("store received claims: %w", err))
 	}
 
 	return nil
@@ -563,7 +577,8 @@ func (s *Service) extractClaimData(
 func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error {
 	subjectID, err := verifiable.SubjectID(cred.Contents().Subject)
 	if err != nil {
-		return fmt.Errorf("fail to parse credential as jwt: %w", err)
+		return resterr.NewValidationError(resterr.InvalidValue, "subject-id",
+			fmt.Errorf("fail to parse credential as jwt: %w", err))
 	}
 
 	if cred.IsJWT() {
@@ -574,15 +589,17 @@ func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error 
 			jwt.WithIgnoreClaimsMapDecoding(true),
 		)
 		if credErr != nil {
-			return fmt.Errorf("fail to parse credential as jwt: %w", credErr)
+			return resterr.NewValidationError(resterr.InvalidValue, "jwt-envelope",
+				fmt.Errorf("fail to parse credential as jwt: %w", err))
 		}
 
 		subjectID = fastjson.GetString(rawClaims, "sub")
 	}
 
 	if token.SignerDIDID != subjectID {
-		return fmt.Errorf("vc subject(%s) does not match with vp signer(%s)",
-			subjectID, token.SignerDIDID)
+		return resterr.NewValidationError(resterr.InvalidValue, "subject-id",
+			fmt.Errorf("vc subject(%s) does not match with vp signer(%s)",
+				subjectID, token.SignerDIDID))
 	}
 
 	return nil
@@ -595,7 +612,8 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 	profile *profileapi.Verifier) (string, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
-		return "", fmt.Errorf("initiate oidc interaction: get key manager failed: %w", err)
+		return "", resterr.NewSystemError(resterr.VerifierKMSRegistryComponent, "get-key-manaer",
+			fmt.Errorf("initiate oidc interaction: get key manager failed: %w", err))
 	}
 
 	vpFormats := GetSupportedVPFormats(
@@ -605,12 +623,14 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 
 	signatureTypes := vcsverifiable.GetSignatureTypesByKeyTypeFormat(profile.OIDCConfig.KeyType, vcsverifiable.Jwt)
 	if len(signatureTypes) < 1 {
-		return "", fmt.Errorf("unsupported jwt key type %s", profile.OIDCConfig.KeyType)
+		return "", resterr.NewValidationError(resterr.InvalidValue, "JWT.KeyType",
+			fmt.Errorf("unsupported jwt key type %s", profile.OIDCConfig.KeyType))
 	}
 
 	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.KMSKeyID, signatureTypes[0])
 	if err != nil {
-		return "", fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err)
+		return "", resterr.NewSystemError(resterr.VerifierVCSignerComponent, "create-signer",
+			fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err))
 	}
 
 	return signRequestObject(ro, profile, vcsSigner)
@@ -621,12 +641,14 @@ func signRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigne
 
 	token, err := jwt.NewJoseSigned(ro, nil, signer)
 	if err != nil {
-		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)
+		return "", resterr.NewSystemError(resterr.VerifierVCSignerComponent, "sign-request",
+			fmt.Errorf("initiate oidc interaction: sign token failed: %w", err))
 	}
 
 	tokenBytes, err := token.Serialize(false)
 	if err != nil {
-		return "", fmt.Errorf("initiate oidc interaction: serialize token failed: %w", err)
+		return "", resterr.NewSystemError(resterr.VerifierVCSignerComponent, "serialize-token",
+			fmt.Errorf("initiate oidc interaction: serialize token failed: %w", err))
 	}
 
 	return tokenBytes, nil

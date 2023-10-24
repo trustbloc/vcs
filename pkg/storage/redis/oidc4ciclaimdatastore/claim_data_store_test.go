@@ -19,7 +19,9 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
@@ -60,7 +62,7 @@ func TestStore(t *testing.T) {
 		claimsInDB, err = store.GetAndDelete(context.Background(), id)
 		assert.Nil(t, claimsInDB)
 		assert.Error(t, err)
-		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err, resterr.ErrDataNotFound)
 	})
 
 	t.Run("get non existing document", func(t *testing.T) {
@@ -68,7 +70,7 @@ func TestStore(t *testing.T) {
 
 		resp, err := store.GetAndDelete(context.Background(), id)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err, resterr.ErrDataNotFound)
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
@@ -86,7 +88,7 @@ func TestStore(t *testing.T) {
 
 		claimsInDB, err := storeExpired.GetAndDelete(context.Background(), id)
 		assert.Nil(t, claimsInDB)
-		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
+		assert.ErrorIs(t, err, resterr.ErrDataNotFound)
 	})
 }
 

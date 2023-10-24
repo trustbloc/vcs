@@ -216,7 +216,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	if lo.FromPtr(params.ClientIdScheme) == discoverableClientIDScheme {
 		if err := c.clientIDSchemeService.Register(ctx, params.ClientId, lo.FromPtr(params.IssuerState)); err != nil {
 			logger.Errorc(ctx, "Failed to register client", log.WithError(err))
-			return resterr.NewSystemError("ClientIDSchemeService", "Register", err)
+			return resterr.NewSystemError(resterr.ClientIDSchemeSvcComponent, "Register", err)
 		}
 	}
 
@@ -795,7 +795,11 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 
 	profile, err := c.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return resterr.NewSystemError("ProfileService", "GetProfile", err)
+		if strings.Contains(err.Error(), "not found") {
+			return resterr.NewCustomError(resterr.ProfileNotFound, err)
+		}
+
+		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
 	}
 
 	if profile.OIDCConfig == nil || !profile.OIDCConfig.EnableDynamicClientRegistration {
@@ -831,7 +835,7 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 			}
 		}
 
-		return resterr.NewSystemError("ClientManager", "Create", err)
+		return resterr.NewSystemError(resterr.ClientManagerComponent, "Create", err)
 	}
 
 	resp := &RegisterOAuthClientResponse{
