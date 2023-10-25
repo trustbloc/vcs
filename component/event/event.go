@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/samber/lo"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
@@ -97,10 +96,6 @@ type eventPayload struct {
 func (b *Bus) handleEvent(e *spi.Event) error { //nolint:gocognit
 	logger.Info("handling event", logfields.WithEvent(e))
 
-	if !lo.Contains(b.getEventsToPublish(), e.Type) {
-		return nil
-	}
-
 	payload := eventPayload{}
 
 	if err := json.Unmarshal(e.Data, &payload); err != nil {
@@ -133,22 +128,4 @@ func (b *Bus) handleEvent(e *spi.Event) error { //nolint:gocognit
 	}
 
 	return nil
-}
-
-func (b *Bus) getEventsToPublish() []spi.EventType {
-	return []spi.EventType{
-		// oidc4vp
-		spi.VerifierOIDCInteractionInitiated,
-		spi.VerifierOIDCInteractionSucceeded,
-		spi.VerifierOIDCInteractionQRScanned,
-
-		// oidc4ci
-		spi.IssuerOIDCInteractionInitiated,
-		spi.IssuerOIDCInteractionQRScanned,
-		spi.IssuerOIDCInteractionSucceeded,
-		spi.IssuerOIDCInteractionAuthorizationRequestPrepared,
-		spi.IssuerOIDCInteractionAuthorizationCodeStored,
-		spi.IssuerOIDCInteractionAuthorizationCodeExchanged,
-		spi.IssuerOIDCInteractionFailed,
-	}
 }
