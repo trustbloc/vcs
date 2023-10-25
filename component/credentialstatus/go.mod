@@ -15,7 +15,7 @@ require (
 	github.com/trustbloc/did-go v1.0.2-0.20230928194341-39d5462574c0
 	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.3-0.20231023182535-04cf7f1c5a74
+	github.com/trustbloc/vc-go v1.0.3-0.20231025111002-29b6be3c4000
 	github.com/trustbloc/vcs v0.0.0
 )
 

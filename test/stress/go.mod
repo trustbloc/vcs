@@ -15,7 +15,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/samber/lo v1.38.1
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.0.3-0.20231023182535-04cf7f1c5a74
+	github.com/trustbloc/vc-go v1.0.3-0.20231025111002-29b6be3c4000
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231003142611-b9399c5814c2
 	github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b
 	golang.org/x/oauth2 v0.7.0
