@@ -585,7 +585,6 @@ func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error 
 		// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
 		_, rawClaims, credErr := jwt.Parse(
 			cred.JWTEnvelope.JWT,
-			jwt.WithProofChecker(&noVerifier{}),
 			jwt.WithIgnoreClaimsMapDecoding(true),
 		)
 		if credErr != nil {
@@ -762,14 +761,6 @@ func (s *JWSSigner) Headers() jose.Headers {
 		jose.HeaderKeyID:     s.keyID,
 		jose.HeaderAlgorithm: s.signer.Alg(),
 	}
-}
-
-// noVerifier is used when no JWT signature verification is needed.
-// To be used with precaution.
-type noVerifier struct{}
-
-func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
-	return nil
 }
 
 func CreateEvent(

@@ -26,6 +26,7 @@ type SignedClaimsJWTResult struct {
 	VDR               vdrapi.Registry
 	Signer            api.FixedKeySigner
 	VerMethodDIDKeyID string
+	VerMethodDID      string
 	KeyType           kms.KeyType
 }
 
@@ -69,6 +70,7 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 		},
 		Signer:            fks,
 		VerMethodDIDKeyID: didDoc.VerificationMethod[0].ID,
+		VerMethodDID:      didDoc.ID,
 		KeyType:           kms.ED25519Type,
 	}
 }

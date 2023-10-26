@@ -622,8 +622,8 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 }
 
 func validateIDToken(idToken string, verifier jwt.ProofChecker) (*IDTokenClaims, error) {
-	_, rawClaims, err := jwt.Parse(idToken,
-		jwt.WithProofChecker(verifier),
+	_, rawClaims, err := jwt.ParseAndCheckProof(idToken,
+		verifier, false,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
@@ -676,8 +676,8 @@ func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, error) 
 }
 
 func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) {
-	jsonWebToken, rawClaims, err := jwt.Parse(vpToken,
-		jwt.WithProofChecker(c.proofChecker),
+	jsonWebToken, rawClaims, err := jwt.ParseAndCheckProof(vpToken,
+		c.proofChecker, true,
 		jwt.WithIgnoreClaimsMapDecoding(true))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)

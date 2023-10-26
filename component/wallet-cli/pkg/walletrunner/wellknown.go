@@ -65,9 +65,9 @@ func (s *Service) GetWellKnownOpenIDConfiguration(
 func getWellKnownOpenIDConfigurationJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, error) {
 	jwtVerifier := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdrRegistry))
 
-	_, credentialOfferPayload, err := jwt.Parse(
+	_, credentialOfferPayload, err := jwt.ParseAndCheckProof(
 		rawResponse,
-		jwt.WithProofChecker(jwtVerifier),
+		jwtVerifier, true,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
