@@ -7,12 +7,11 @@ go 1.21
 
 require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
-	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.3-0.20231023182535-04cf7f1c5a74
+	github.com/trustbloc/vc-go v1.0.3-0.20231026085232-81b5436b43d7
 	github.com/trustbloc/vcs v0.0.0
 	go.opentelemetry.io/otel/trace v1.14.0
 )
@@ -91,6 +90,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
+	github.com/samber/lo v1.38.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect

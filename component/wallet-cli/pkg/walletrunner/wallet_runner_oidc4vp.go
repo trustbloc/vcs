@@ -278,9 +278,9 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 }
 
 func verifyTokenSignature(rawJwt string, verifier jwt.ProofChecker) ([]byte, error) {
-	_, rawData, err := jwt.Parse(
+	_, rawData, err := jwt.ParseAndCheckProof(
 		rawJwt,
-		jwt.WithProofChecker(verifier),
+		verifier, true,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
@@ -586,7 +586,6 @@ func (e *VPFlowExecutor) GetSubjectID(creds []*verifiable.Credential) (string, e
 			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
 			_, rawClaims, credErr := jwt.Parse(
 				vc.JWTEnvelope.JWT,
-				jwt.WithProofChecker(&noVerifier{}),
 				jwt.WithIgnoreClaimsMapDecoding(true),
 			)
 			if credErr != nil {

@@ -484,6 +484,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   time.Now().Unix() + 1000,
 				VP: &verifiable.Presentation{
 					Context: []string{
@@ -544,6 +545,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				},
 				Nonce: validNonce,
 				Aud:   validAud,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   time.Now().Unix() + 1000,
 			})
 
@@ -637,6 +639,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   time.Now().Unix() + 1000,
 				VP: &verifiable.Presentation{
 					Context: []string{
@@ -705,6 +708,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				Nonce: "some_invalid",
 				Aud:   validAud,
 				Exp:   time.Now().Unix() + 1000,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				VP: &verifiable.Presentation{
 					Context: []string{
 						"https://www.w3.org/2018/credentials/v1",
@@ -756,6 +760,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				Nonce: validNonce,
 				Aud:   "some_invalid",
 				Exp:   time.Now().Unix() + 1000,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				VP: &verifiable.Presentation{
 					Context: []string{
 						"https://www.w3.org/2018/credentials/v1",
@@ -806,6 +811,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   "some_invalid",
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   time.Now().Unix() + 1000,
 				VP: &verifiable.Presentation{
 					Context: []string{
@@ -857,6 +863,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				Nonce: validNonce,
 				Aud:   "some_invalid",
 				Exp:   time.Now().Unix() + 1000,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				VP: &verifiable.Presentation{
 					Context: []string{
 						"https://www.w3.org/2018/credentials/v1",
@@ -908,6 +915,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   "some_invalid",
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   0,
 				VP: &verifiable.Presentation{
 					Context: []string{
@@ -958,6 +966,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   time.Now().Unix() + 1000,
 				VP: &verifiable.Presentation{
 					Context: []string{
@@ -1010,6 +1019,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&vpTokenClaims{
 				Nonce: validNonce,
 				Aud:   validAud,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
 				Exp:   time.Now().Unix() + 1000,
 				VP:    &verifiable.Presentation{},
 			})
@@ -2359,6 +2369,7 @@ type vpTokenClaims struct {
 	VP    *verifiable.Presentation `json:"vp"`
 	Nonce string                   `json:"nonce"`
 	Aud   string                   `json:"aud"`
+	Iss   string                   `json:"iss"`
 	Exp   int64                    `json:"exp"`
 }
 

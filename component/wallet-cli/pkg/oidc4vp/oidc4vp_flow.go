@@ -193,9 +193,9 @@ func (f *Flow) fetchRequestObject(ctx context.Context) (*RequestObject, error) {
 		vermethod.NewVDRResolver(f.vdrRegistry),
 	)
 
-	_, b, err = jwt.Parse(
+	_, b, err = jwt.ParseAndCheckProof(
 		string(b),
-		jwt.WithProofChecker(jwtVerifier),
+		jwtVerifier, true,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {

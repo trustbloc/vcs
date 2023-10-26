@@ -585,8 +585,8 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	jws, rawClaims, err := jwt.Parse(credentialRequest.Proof.Jwt,
-		jwt.WithProofChecker(c.jwtVerifier),
+	jws, rawClaims, err := jwt.ParseAndCheckProof(credentialRequest.Proof.Jwt,
+		c.jwtVerifier, false,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
