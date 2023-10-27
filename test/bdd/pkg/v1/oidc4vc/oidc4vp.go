@@ -62,7 +62,13 @@ func (s *Steps) authorizeVerifierProfileUser(profileVersionedID, username, passw
 	return nil
 }
 
+type initiateOIDCVPFlowOpt func(d *initiateOIDC4VPData)
+
 func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields)
+}
+
+func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, opts ...initiateOIDCVPFlowOpt) error {
 	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
 	s.presentationDefinitionID = pdID
 
@@ -75,12 +81,18 @@ func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
 
 	fieldsArr := strings.Split(fields, ",")
 
-	reqBody, err := json.Marshal(&initiateOIDC4VPData{
+	d := &initiateOIDC4VPData{
 		PresentationDefinitionId: pdID,
 		PresentationDefinitionFilters: &presentationDefinitionFilters{
 			Fields: &fieldsArr,
 		},
-	})
+	}
+
+	for _, f := range opts {
+		f(d)
+	}
+
+	reqBody, err := json.Marshal(d)
 	if err != nil {
 		return err
 	}
@@ -107,8 +119,14 @@ func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
 	return nil
 }
 
+func (s *Steps) runOIDC4VPFlowWithCustomScope(profileVersionedID, pdID, fields, customScope string) error {
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, func(d *initiateOIDC4VPData) {
+		d.Scope = customScope
+	})
+}
+
 func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorContains string) error {
-	err := s.runOIDC4VPFlow(profileVersionedID, pdID, fields)
+	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -154,15 +172,48 @@ func (s *Steps) retrieveInteractionsClaim(profile string) error {
 		return err
 	}
 
-	return s.validateRetrievedInteractionsClaim(claims)
-}
-
-func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
-	var claims map[string]interface{}
-	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
+	var credentialClaims map[string]retrievedCredentialsClaims
+	if err = json.Unmarshal(claims, &credentialClaims); err != nil {
 		return err
 	}
 
+	return s.validateRetrievedInteractionsClaim(credentialClaims)
+}
+
+func (s *Steps) retrieveInteractionsClaimWithCustomScope(profile, customScope string) error {
+	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
+		return err
+	}
+
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
+	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
+
+	claims, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
+	if err != nil {
+		return err
+	}
+
+	var credentialClaims map[string]retrievedCredentialsClaims
+	if err = json.Unmarshal(claims, &credentialClaims); err != nil {
+		return err
+	}
+
+	customClaimsMetadata, ok := credentialClaims["_scope"]
+	if !ok {
+		return errors.New("_scope claim expected")
+	}
+
+	customScopeClaims, ok := customClaimsMetadata.CustomClaims[customScope]
+	if !ok || len(customScopeClaims) == 0 {
+		return fmt.Errorf("no additional claims supplied for custom scope %s", customScope)
+	}
+
+	delete(credentialClaims, "_scope")
+
+	return s.validateRetrievedInteractionsClaim(credentialClaims)
+}
+
+func (s *Steps) validateRetrievedInteractionsClaim(credentialClaims map[string]retrievedCredentialsClaims) error {
 	// Check amount.
 	var pd *presexch.PresentationDefinition
 	for _, verifierPD := range s.verifierProfile.PresentationDefinitions {
@@ -172,10 +223,10 @@ func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
 		}
 	}
 
-	if len(claims) != len(pd.InputDescriptors) {
+	if len(credentialClaims) != len(pd.InputDescriptors) {
 		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
 			len(pd.InputDescriptors),
-			len(claims),
+			len(credentialClaims),
 		)
 	}
 
@@ -198,7 +249,7 @@ func (s *Steps) validateRetrievedInteractionsClaim(claimsBytes []byte) error {
 		issuedVCID[vcParsed.Contents().ID] = struct{}{}
 	}
 
-	for retrievedVCID := range claims {
+	for retrievedVCID := range credentialClaims {
 		_, exist := issuedVCID[retrievedVCID]
 		if !exist {
 			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
@@ -256,6 +307,8 @@ func (s *Steps) waitForEvent(eventType string) (string, error) {
 }
 
 type initiateOIDC4VPData struct {
+	// Additional scope that defines custom claims requested from Holder to Verifier.
+	Scope                         string                         `json:"scope,omitempty"`
 	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
 	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
 }

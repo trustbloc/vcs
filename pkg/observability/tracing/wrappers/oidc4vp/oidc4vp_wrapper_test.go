@@ -24,11 +24,11 @@ func TestWrapper_InitiateOidcInteraction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().InitiateOidcInteraction(gomock.Any(), &presexch.PresentationDefinition{}, "purpose", &profileapi.Verifier{}).Times(1)
+	svc.EXPECT().InitiateOidcInteraction(gomock.Any(), &presexch.PresentationDefinition{}, "purpose", "additionalScope", &profileapi.Verifier{}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.InitiateOidcInteraction(context.Background(), &presexch.PresentationDefinition{}, "purpose", &profileapi.Verifier{})
+	_, err := w.InitiateOidcInteraction(context.Background(), &presexch.PresentationDefinition{}, "purpose", "additionalScope", &profileapi.Verifier{})
 	require.NoError(t, err)
 }
 
@@ -36,11 +36,11 @@ func TestWrapper_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().VerifyOIDCVerifiablePresentation(gomock.Any(), oidc4vp.TxID("txID"), []*oidc4vp.ProcessedVPToken{}).Times(1)
+	svc.EXPECT().VerifyOIDCVerifiablePresentation(gomock.Any(), oidc4vp.TxID("txID"), &oidc4vp.AuthorizationResponseParsed{VPTokens: []*oidc4vp.ProcessedVPToken{}}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	err := w.VerifyOIDCVerifiablePresentation(context.Background(), "txID", []*oidc4vp.ProcessedVPToken{})
+	err := w.VerifyOIDCVerifiablePresentation(context.Background(), "txID", &oidc4vp.AuthorizationResponseParsed{VPTokens: []*oidc4vp.ProcessedVPToken{}})
 	require.NoError(t, err)
 }
 

@@ -33,15 +33,21 @@ func Wrap(svc Service, tracer trace.Tracer) *Wrapper {
 	return &Wrapper{svc: svc, tracer: tracer}
 }
 
-func (w *Wrapper) InitiateOidcInteraction(ctx context.Context, presentationDefinition *presexch.PresentationDefinition, purpose string, profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error) {
+func (w *Wrapper) InitiateOidcInteraction(
+	ctx context.Context,
+	presentationDefinition *presexch.PresentationDefinition,
+	purpose string,
+	customScope string,
+	profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error) {
 	ctx, span := w.tracer.Start(ctx, "oidc4vp.InitiateOidcInteraction")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
 	span.SetAttributes(attribute.String("purpose", purpose))
+	span.SetAttributes(attribute.String("custom_cope", customScope))
 	span.SetAttributes(attributeutil.JSON("presentation_definition", presentationDefinition))
 
-	resp, err := w.svc.InitiateOidcInteraction(ctx, presentationDefinition, purpose, profile)
+	resp, err := w.svc.InitiateOidcInteraction(ctx, presentationDefinition, purpose, customScope, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -49,14 +55,14 @@ func (w *Wrapper) InitiateOidcInteraction(ctx context.Context, presentationDefin
 	return resp, nil
 }
 
-func (w *Wrapper) VerifyOIDCVerifiablePresentation(ctx context.Context, txID oidc4vp.TxID, token []*oidc4vp.ProcessedVPToken) error {
+func (w *Wrapper) VerifyOIDCVerifiablePresentation(ctx context.Context, txID oidc4vp.TxID, authResponse *oidc4vp.AuthorizationResponseParsed) error {
 	ctx, span := w.tracer.Start(ctx, "oidc4vp.VerifyOIDCVerifiablePresentation")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(txID)))
-	span.SetAttributes(attributeutil.JSON("token", token, attributeutil.WithRedacted("#.Presentation")))
+	span.SetAttributes(attributeutil.JSON("token", authResponse.VPTokens, attributeutil.WithRedacted("#.Presentation")))
 
-	return w.svc.VerifyOIDCVerifiablePresentation(ctx, txID, token)
+	return w.svc.VerifyOIDCVerifiablePresentation(ctx, txID, authResponse)
 }
 
 func (w *Wrapper) GetTx(ctx context.Context, id oidc4vp.TxID) (*oidc4vp.Transaction, error) {

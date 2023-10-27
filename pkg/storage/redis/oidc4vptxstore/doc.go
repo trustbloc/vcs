@@ -19,6 +19,7 @@ type txDocument struct {
 	ReceivedClaimsID       string                           `json:"receivedClaimsId,omitempty"`
 	PresentationDefinition *presexch.PresentationDefinition `json:"presentationDefinition"`
 	ExpireAt               time.Time                        `json:"expireAt"`
+	CustomScope            string                           `json:"customScope,omitempty"`
 }
 
 func (d *txDocument) MarshalBinary() ([]byte, error) {

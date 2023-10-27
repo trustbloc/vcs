@@ -22,6 +22,15 @@ type InteractionInfo struct {
 	TxID                 TxID
 }
 
+type Claims = map[string]interface{}
+
+type AuthorizationResponseParsed struct {
+	// CustomScopeClaims stores additional claims provided by Holder
+	// caused by custom scope as a part of Initiate Credential Presentation request.
+	CustomScopeClaims map[string]Claims
+	VPTokens          []*ProcessedVPToken
+}
+
 type ProcessedVPToken struct {
 	Nonce         string
 	ClientID      string
@@ -31,12 +40,13 @@ type ProcessedVPToken struct {
 }
 
 type CredentialMetadata struct {
-	Format         vcsverifiable.Format `json:"format"`
-	Type           []string             `json:"type"`
-	SubjectData    interface{}          `json:"subjectData"`
-	Issuer         interface{}          `json:"issuer"`
+	Format         vcsverifiable.Format `json:"format,omitempty"`
+	Type           []string             `json:"type,omitempty"`
+	SubjectData    interface{}          `json:"subjectData,omitempty"`
+	Issuer         interface{}          `json:"issuer,omitempty"`
 	IssuanceDate   *util.TimeWrapper    `json:"issuanceDate,omitempty"`
 	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
+	CustomClaims   map[string]Claims    `json:"customClaims,omitempty"`
 }
 
 type ServiceInterface interface {
@@ -44,9 +54,10 @@ type ServiceInterface interface {
 		ctx context.Context,
 		presentationDefinition *presexch.PresentationDefinition,
 		purpose string,
+		customScope string,
 		profile *profileapi.Verifier,
 	) (*InteractionInfo, error)
-	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, token []*ProcessedVPToken) error
+	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, authResponse *AuthorizationResponseParsed) error
 	GetTx(ctx context.Context, id TxID) (*Transaction, error)
 	RetrieveClaims(ctx context.Context, tx *Transaction, profile *profileapi.Verifier) map[string]CredentialMetadata
 	DeleteClaims(ctx context.Context, receivedClaimsID string) error

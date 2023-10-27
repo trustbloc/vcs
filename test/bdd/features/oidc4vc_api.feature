@@ -77,6 +77,24 @@ Feature: OIDC4VC REST API
       | bank_issuer_sdjwt_v5/v1.0 | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt_whitelist/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
       | bank_issuer/v1.0          | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt_whitelist/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id                                               |
 
+  @oidc4vc_rest_auth_flow_additional_scope
+  Scenario Outline: OIDC credential issuance and verification Auth flow including additional scope
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
+    Then credential is issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and custom scope "<customScope>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims with additional claims associated with custom scope "<customScope>"
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | credentialType             | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         | customScope |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id | timedetails |
+
 # Error cases
 
   @oidc4vc_rest_pre_auth_flow_trustlist_fail
@@ -205,9 +223,9 @@ Feature: OIDC4VC REST API
 
     When User initiates credential issuance flow and receives "expected status code 200 but got status code 403" error
     Examples:
-      | issuerProfile                     | credentialType             | credentialTemplate               | verifierProfile       |
+      | issuerProfile    | credentialType             | credentialTemplate         | verifierProfile      |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer/v1.0                  | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0  |
+      | bank_issuer/v1.0 | UniversityDegreeCredential | universityDegreeTemplateID | v_myprofile_jwt/v1.0 |
 
   Scenario Outline: OIDC credential verification without required role
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
@@ -219,7 +237,6 @@ Feature: OIDC4VC REST API
     Then credential is issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "expected status code 200 but got status code 403" error
     Examples:
-      | issuerProfile                     | credentialType             | clientRegistrationMethod | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+      | issuerProfile    | credentialType             | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer/v1.0                  | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
-
+      | bank_issuer/v1.0 | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
