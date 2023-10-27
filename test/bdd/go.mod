@@ -142,7 +142,6 @@ require (
 	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
 	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721 // indirect
 	github.com/trustbloc/sidetree-go v0.0.0-20230928172705-30e78b6b6ddd // indirect
-	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect

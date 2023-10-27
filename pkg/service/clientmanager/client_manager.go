@@ -22,10 +22,9 @@ import (
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
 
-	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
-
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 )
 
 var _ ServiceInterface = (*Manager)(nil)
@@ -309,7 +308,7 @@ func isValidRedirectURI(uri *url.URL) bool {
 func (m *Manager) Get(ctx context.Context, id string) (fosite.Client, error) {
 	c, err := m.store.GetClient(ctx, id)
 	if err != nil {
-		if errors.Is(err, dto.ErrDataNotFound) {
+		if errors.Is(err, clientmanager.ErrDataNotFound) {
 			return nil, ErrClientNotFound
 		}
 

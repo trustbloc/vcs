@@ -30,7 +30,12 @@ func TestPKCE(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	testCases := []struct {
 		name      string
@@ -55,7 +60,7 @@ func TestPKCE(t *testing.T) {
 				Audience:       nil,
 			}
 
-			_, err := s.InsertClient(context.Background(), oauth2Client)
+			_, err := clientManager.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()

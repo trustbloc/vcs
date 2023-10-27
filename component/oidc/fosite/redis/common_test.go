@@ -17,6 +17,7 @@ import (
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -30,9 +31,14 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
 
-	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
+	s := NewStore(client, clientManager)
+
+	assert.NoError(t, s.createSession(context.TODO(), dto.AuthCodeSegment, "123", &fosite.Request{
 		ID: uuid.New(),
 		Client: &oauth2client.Client{
 			ID: uuid.New(),
@@ -45,9 +51,9 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 		Session:           &fosite.DefaultSession{},
 	}, 0))
 
-	resp, err := s.getSession(context.TODO(), dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(context.TODO(), dto.AuthCodeSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
-	assert.ErrorIs(t, err, dto.ErrDataNotFound)
+	assert.ErrorIs(t, err, clientmanager.ErrDataNotFound)
 }
 
 func TestCreateSessionWithAccessRequest(t *testing.T) {
@@ -60,9 +66,14 @@ func TestCreateSessionWithAccessRequest(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
 
-	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.AccessRequest{
+	s := NewStore(client, clientManager)
+
+	assert.NoError(t, s.createSession(context.TODO(), dto.AuthCodeSegment, "123", &fosite.AccessRequest{
 		Request: fosite.Request{
 			ID: uuid.New(),
 			Client: &oauth2client.Client{
@@ -77,9 +88,9 @@ func TestCreateSessionWithAccessRequest(t *testing.T) {
 		},
 	}, 0))
 
-	resp, err := s.getSession(context.TODO(), dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(context.TODO(), dto.AuthCodeSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
-	assert.ErrorIs(t, err, dto.ErrDataNotFound)
+	assert.ErrorIs(t, err, clientmanager.ErrDataNotFound)
 }
 
 func TestCreateSessionWithoutRedisErr(t *testing.T) {
@@ -92,12 +103,17 @@ func TestCreateSessionWithoutRedisErr(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	resp, err := s.getSession(ctx, dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(ctx, dto.AuthCodeSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
 	assert.ErrorContains(t, err, "context canceled")
 }
@@ -112,16 +128,21 @@ func TestCreateExpiredSession(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	dbClient := &oauth2client.Client{
 		ID: uuid.New(),
 	}
 
-	_, err = s.InsertClient(context.Background(), dbClient)
+	_, err = clientManager.InsertClient(context.Background(), dbClient)
 	assert.NoError(t, err)
 
-	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
+	assert.NoError(t, s.createSession(context.TODO(), dto.AuthCodeSegment, "123", &fosite.Request{
 		ID: uuid.New(),
 		Client: &oauth2client.Client{
 			ID: uuid.New(),
@@ -134,7 +155,7 @@ func TestCreateExpiredSession(t *testing.T) {
 		Session:           &fosite.DefaultSession{},
 	}, 1))
 
-	resp, err := s.getSession(context.TODO(), dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(context.TODO(), dto.AuthCodeSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
 	assert.ErrorIs(t, err, dto.ErrDataNotFound)
 }

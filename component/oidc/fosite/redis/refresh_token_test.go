@@ -30,7 +30,12 @@ func TestRefreshTokenFlow(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	type deleteType int
 
@@ -71,7 +76,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 				Audience:       nil,
 			}
 
-			_, err := s.InsertClient(context.Background(), oauth2Client)
+			_, err := clientManager.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()
@@ -123,7 +128,12 @@ func TestFailGracePeriod(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()

@@ -55,6 +55,7 @@ generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...
 	@cd component/credentialstatus && go generate
+	@cd component/oidc/fosite && go generate ./...
 
 .PHONY: lint
 lint: generate

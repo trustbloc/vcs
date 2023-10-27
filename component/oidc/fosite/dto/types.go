@@ -16,13 +16,11 @@ import (
 )
 
 const (
-	ClientsSegment         = "fosite_clients"
-	ParSegment             = "fosite_par"
-	AuthCodeSegment        = "fosite_auth_code"
-	PkceSessionSegment     = "fosite_pkce_sessions"
-	RefreshTokenSegment    = "fosite_refresh_token_sessions" //nolint: gosec
-	AccessTokenSegment     = "fosite_access_token_sessions"
-	BlacklistedJTIsSegment = "fosite_blacklisted_jtis"
+	ParSegment          = "fosite_par"
+	AuthCodeSegment     = "fosite_auth_code"
+	PkceSessionSegment  = "fosite_pkce_sessions"
+	RefreshTokenSegment = "fosite_refresh_token_sessions" //nolint: gosec
+	AccessTokenSegment  = "fosite_access_token_sessions"
 )
 
 var ErrDataNotFound = errors.New("data not found")

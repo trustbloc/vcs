@@ -25,7 +25,7 @@ require (
 	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895
-	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000

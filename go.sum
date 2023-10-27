@@ -631,8 +631,6 @@ github.com/trustbloc/logutil-go v1.0.0-rc1 h1:rRJbvgQfrlUfyej+mY0nuQJymGqjRW4oZE
 github.com/trustbloc/logutil-go v1.0.0-rc1/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
 github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895 h1:VyUH+YNDXqEJmvszyXLTqDin6kuGJkcjeXY5UMK8T9w=
 github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895/go.mod h1:pSA6JbLCFEtJCFAci63weHOzbZbrtCI0cS7wh2GIKMI=
-github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 h1:iqqHGeoI6fXZbjtjvV9OCql7XQtr8P4LQBE9d2j9Ll8=
-github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6/go.mod h1:D/dD0ld+XRAt/MjhKnrpaVbaKTe5Zq9uAXONf5c4OxU=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go v1.2.7/go.mod h1:nF9osbDWLy6bDVv/Rtoh6QgnvNDpmCalQV5urGCCS6M=
 github.com/ugorji/go/codec v1.1.7/go.mod h1:Ax+UKWsSmolVDwsd+7N3ZtXu+yMGCf907BLYF3GoBXY=
