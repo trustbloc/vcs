@@ -22,8 +22,8 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/trustbloc/did-go v1.0.2-0.20230928194341-39d5462574c0
 	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
-	github.com/trustbloc/vc-go v1.0.3-0.20231026085232-81b5436b43d7
-	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
+	github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895
+	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.3
 	go.mongodb.org/mongo-driver v1.11.4
 	golang.org/x/oauth2 v0.7.0
