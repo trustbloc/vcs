@@ -24,15 +24,15 @@ require (
 	github.com/trustbloc/did-go v1.0.2-0.20230928194341-39d5462574c0
 	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.0.3-0.20231026085232-81b5436b43d7
-	github.com/trustbloc/vcs v0.0.0
-	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000a
+	github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895
+	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/healthchecks v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6
 	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0
+	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0-00010101000000-000000000000
 	go.mongodb.org/mongo-driver v1.11.4
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.40.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.40.0
