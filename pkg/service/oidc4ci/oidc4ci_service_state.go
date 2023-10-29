@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4ci
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+)
 
 func (s *Service) validateStateTransition(
 	oldState TransactionState,
@@ -37,5 +41,6 @@ func (s *Service) validateStateTransition(
 		return nil
 	}
 
-	return fmt.Errorf("unexpected transaction from %v to %v", oldState, newState)
+	return resterr.NewCustomError(resterr.InvalidStateTransition,
+		fmt.Errorf("unexpected transition from %v to %v", oldState, newState))
 }

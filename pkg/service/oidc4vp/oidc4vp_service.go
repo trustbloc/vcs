@@ -200,6 +200,7 @@ func (s *Service) sendOIDCInteractionInitiatedEvent(
 ) error {
 	ep := createTxEventPayload(tx, profile)
 	ep.AuthorizationRequest = authorizationRequest
+	ep.Filter = getFilter(tx.PresentationDefinition)
 
 	event, err := CreateEvent(spi.VerifierOIDCInteractionInitiated, tx.ID, ep)
 	if err != nil {
@@ -780,20 +781,10 @@ func CreateEvent(
 }
 
 func createTxEventPayload(tx *Transaction, profile *profileapi.Verifier) *EventPayload {
-	fieldsMap := make(map[string]struct{})
-
 	var presentationDefID string
 
 	if tx.PresentationDefinition != nil {
 		presentationDefID = tx.PresentationDefinition.ID
-
-		for _, desc := range tx.PresentationDefinition.InputDescriptors {
-			if desc.Constraints != nil {
-				for _, f := range desc.Constraints.Fields {
-					fieldsMap[f.ID] = struct{}{}
-				}
-			}
-		}
 	}
 
 	return &EventPayload{
@@ -802,8 +793,15 @@ func createTxEventPayload(tx *Transaction, profile *profileapi.Verifier) *EventP
 		ProfileVersion:           profile.Version,
 		OrgID:                    profile.OrganizationID,
 		PresentationDefinitionID: presentationDefID,
-		Filter:                   &Filter{Fields: getConstraintFields(tx.PresentationDefinition)},
 	}
+}
+
+func getFilter(def *presexch.PresentationDefinition) *Filter {
+	if def == nil {
+		return nil
+	}
+
+	return &Filter{Fields: getConstraintFields(def)}
 }
 
 func getConstraintFields(def *presexch.PresentationDefinition) []string {

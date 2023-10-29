@@ -736,7 +736,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}
 
 	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
-		return fmt.Errorf("validate claims: %w", err)
+		return resterr.NewCustomError(resterr.ClaimsValidationErr, err)
 	}
 
 	signedCredential, err := c.signCredential(

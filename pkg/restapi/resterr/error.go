@@ -41,6 +41,7 @@ const (
 	PresentationDefinitionMismatch  ErrorCode = "presentation-definition-mismatch"
 	ClaimsNotReceived               ErrorCode = "claims-not-received"
 	ClaimsNotFound                  ErrorCode = "claims-not-found"
+	ClaimsValidationErr             ErrorCode = "invalid-claims"
 	DataNotFound                    ErrorCode = "data-not-found"
 	OpStateKeyDuplication           ErrorCode = "op-state-key duplication"
 	CredentialTemplateNotConfigured ErrorCode = "credential-template-not-configured"
@@ -52,6 +53,7 @@ const (
 	CredentialFormatNotSupported    ErrorCode = "credential-format-not-supported"
 	VCOptionsNotConfigured          ErrorCode = "vc-options-not-configured"
 	InvalidIssuerURL                ErrorCode = "invalid-issuer-url"
+	InvalidStateTransition          ErrorCode = "invalid-state-transition"
 )
 
 type Component = string

@@ -55,5 +55,5 @@ func TestInvalidTransition(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.ErrorContains(t, s.validateStateTransition(TransactionStateUnknown, TransactionStateIssuanceInitiated),
-		"unexpected transaction from 0 to 1")
+		"unexpected transition from 0 to 1")
 }
