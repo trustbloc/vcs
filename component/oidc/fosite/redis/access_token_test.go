@@ -9,27 +9,15 @@ package redis
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/cenkalti/backoff/v4"
-	dctest "github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/ory/fosite"
 	"github.com/pborman/uuid"
-	redisapi "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/text/language"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
-)
-
-const (
-	redisConnString  = "localhost:6379"
-	dockerRedisImage = "redis"
-	dockerRedisTag   = "alpine3.17"
 )
 
 func TestAccessTokenFlow(t *testing.T) {
@@ -42,7 +30,12 @@ func TestAccessTokenFlow(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	testCases := []struct {
 		name      string
@@ -71,7 +64,7 @@ func TestAccessTokenFlow(t *testing.T) {
 				Audience:       nil,
 			}
 
-			_, err = s.InsertClient(context.Background(), oauth2Client)
+			_, err = clientManager.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()
@@ -114,39 +107,4 @@ func TestAccessTokenFlow(t *testing.T) {
 			assert.ErrorIs(t, err, dto.ErrDataNotFound)
 		})
 	}
-}
-
-func waitForRedisToBeUp() error {
-	return backoff.Retry(pingRedis, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
-}
-
-func pingRedis() error {
-	rdb := redisapi.NewClient(&redisapi.Options{
-		Addr: redisConnString,
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	return rdb.Ping(ctx).Err()
-}
-
-func startRedisContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
-	t.Helper()
-
-	pool, err := dctest.NewPool("")
-	require.NoError(t, err)
-
-	redisResource, err := pool.RunWithOptions(&dctest.RunOptions{
-		Repository: dockerRedisImage,
-		Tag:        dockerRedisTag,
-		PortBindings: map[dc.Port][]dc.PortBinding{
-			"6379/tcp": {{HostIP: "", HostPort: "6379"}},
-		},
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, waitForRedisToBeUp())
-
-	return pool, redisResource
 }

@@ -11,96 +11,55 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/ory/fosite"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
-func TestClientAsserting(t *testing.T) {
+func TestClientManagerInterface(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
 	defer func() {
 		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
+	mongoClient, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
-	s, err := NewStore(context.Background(), client)
-	assert.NoError(t, err)
+	ctx := context.Background()
 
-	err = s.ClientAssertionJWTValid(context.Background(), "total_random")
-	assert.NoError(t, err)
-}
+	t.Run("GetClient", func(t *testing.T) {
+		clientManager := NewMockClientManager(gomock.NewController(t))
+		clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Times(1).Return(&oauth2client.Client{}, nil)
 
-func TestReturnNonNilClient(t *testing.T) {
-	cl, err := (&Store{}).GetClient(context.TODO(), "")
-	assert.NoError(t, err)
-	assert.Equal(t, fosite.DefaultClient{}, *(cl.(*fosite.DefaultClient)))
-}
+		store, err := NewStore(ctx, mongoClient, clientManager)
+		assert.NoError(t, err)
 
-func TestClientAssertingWithExpiration(t *testing.T) {
-	pool, mongoDBResource := startMongoDBContainer(t)
-
-	defer func() {
-		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
-	}()
-
-	testCases := []struct {
-		jti string
-		exp time.Time
-		err error
-	}{
-		{
-			jti: "12345",
-			exp: time.Now().UTC().Add(-10 * time.Hour),
-			err: nil,
-		},
-		{
-			jti: "111",
-			exp: time.Now().UTC().Add(10 * time.Hour),
-			err: fosite.ErrJTIKnown,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.jti, func(t *testing.T) {
-			client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
-			assert.NoError(t, mongoErr)
-
-			s, err := NewStore(context.Background(), client)
-			assert.NoError(t, err)
-
-			assert.NoError(t, s.SetClientAssertionJWT(context.Background(), testCase.jti, testCase.exp))
-			err = s.ClientAssertionJWTValid(context.Background(), testCase.jti)
-			assert.Equal(t, testCase.err, err)
-		})
-	}
-}
-
-func TestInsertClient(t *testing.T) {
-	pool, mongoDBResource := startMongoDBContainer(t)
-
-	defer func() {
-		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
-	}()
-
-	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
-	assert.NoError(t, mongoErr)
-
-	s, err := NewStore(context.Background(), client)
-	assert.NoError(t, err)
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	cancel()
-
-	_, err = s.InsertClient(ctx, &oauth2client.Client{
-		ID:     uuid.New().String(),
-		Scopes: []string{"scope"},
+		_, err = store.GetClient(ctx, "clientID")
+		assert.NoError(t, err)
 	})
 
-	assert.ErrorContains(t, err, "context canceled")
+	t.Run("ClientAssertionJWTValid", func(t *testing.T) {
+		clientManager := NewMockClientManager(gomock.NewController(t))
+		clientManager.EXPECT().ClientAssertionJWTValid(gomock.Any(), gomock.Any()).Times(1)
+
+		store, err := NewStore(ctx, mongoClient, clientManager)
+		assert.NoError(t, err)
+
+		err = store.ClientAssertionJWTValid(ctx, "jti")
+		assert.NoError(t, err)
+	})
+
+	t.Run("SetClientAssertionJWT", func(t *testing.T) {
+		clientManager := NewMockClientManager(gomock.NewController(t))
+		clientManager.EXPECT().SetClientAssertionJWT(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+		store, err := NewStore(ctx, mongoClient, clientManager)
+		assert.NoError(t, err)
+
+		err = store.SetClientAssertionJWT(ctx, "jti", time.Now().UTC())
+		assert.NoError(t, err)
+	})
 }

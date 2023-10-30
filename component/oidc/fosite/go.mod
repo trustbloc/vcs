@@ -1,4 +1,4 @@
-// Copyright SecureKey Technologies Inc. All Rights Reserved.
+// Copyright Gen Digital Inc. All Rights Reserved.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,6 +8,7 @@ go 1.21
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/ory/fosite v0.44.0
@@ -15,7 +16,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
-	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs v0.0.0
 	go.mongodb.org/mongo-driver v1.11.4
 	golang.org/x/text v0.12.0
 )
@@ -46,7 +47,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v1.1.1 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect

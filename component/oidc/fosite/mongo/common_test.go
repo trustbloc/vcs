@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 )
 
 func TestCreateSessionWithoutClient(t *testing.T) {
@@ -31,10 +32,13 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
-	s, err := NewStore(context.Background(), client)
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), client)
+	assert.NoError(t, storeErr)
+
+	s, err := NewStore(context.Background(), client, clientManager)
 	assert.NoError(t, err)
 
-	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
+	assert.NoError(t, s.createSession(context.TODO(), clientmanager.ClientsSegment, "123", &fosite.Request{
 		ID: uuid.New(),
 		Client: &oauth2client.Client{
 			ID: uuid.New(),
@@ -47,9 +51,9 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 		Session:           &fosite.DefaultSession{},
 	}, 0))
 
-	resp, err := s.getSession(context.TODO(), dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(context.TODO(), clientmanager.ClientsSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
-	assert.ErrorIs(t, err, dto.ErrDataNotFound)
+	assert.ErrorIs(t, err, clientmanager.ErrDataNotFound)
 }
 
 func TestCreateSessionWithAccessRequest(t *testing.T) {
@@ -62,10 +66,13 @@ func TestCreateSessionWithAccessRequest(t *testing.T) {
 	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
-	s, err := NewStore(context.Background(), client)
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), client)
+	assert.NoError(t, storeErr)
+
+	s, err := NewStore(context.Background(), client, clientManager)
 	assert.NoError(t, err)
 
-	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.AccessRequest{
+	assert.NoError(t, s.createSession(context.TODO(), clientmanager.ClientsSegment, "123", &fosite.AccessRequest{
 		Request: fosite.Request{
 			ID: uuid.New(),
 			Client: &oauth2client.Client{
@@ -80,9 +87,9 @@ func TestCreateSessionWithAccessRequest(t *testing.T) {
 		},
 	}, 0))
 
-	resp, err := s.getSession(context.TODO(), dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(context.TODO(), clientmanager.ClientsSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
-	assert.ErrorIs(t, err, dto.ErrDataNotFound)
+	assert.ErrorIs(t, err, clientmanager.ErrDataNotFound)
 }
 
 func TestCreateSessionWithoutMongoErr(t *testing.T) {
@@ -95,13 +102,16 @@ func TestCreateSessionWithoutMongoErr(t *testing.T) {
 	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
-	s, err := NewStore(context.Background(), client)
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), client)
+	assert.NoError(t, storeErr)
+
+	s, err := NewStore(context.Background(), client, clientManager)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	resp, err := s.getSession(ctx, dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(ctx, clientmanager.ClientsSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
 	assert.ErrorContains(t, err, "context canceled")
 }
@@ -116,17 +126,20 @@ func TestCreateExpiredSession(t *testing.T) {
 	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), client)
+	assert.NoError(t, storeErr)
+
 	oauth2Client := &oauth2client.Client{
 		ID: uuid.New(),
 	}
 
-	s, err := NewStore(context.Background(), client)
+	s, err := NewStore(context.Background(), client, clientManager)
 	assert.NoError(t, err)
 
-	_, err = s.InsertClient(context.Background(), oauth2Client)
+	_, err = clientManager.InsertClient(context.Background(), oauth2Client)
 	assert.NoError(t, err)
 
-	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{
+	assert.NoError(t, s.createSession(context.TODO(), clientmanager.ClientsSegment, "123", &fosite.Request{
 		ID: uuid.New(),
 		Client: &oauth2client.Client{
 			ID: uuid.New(),
@@ -139,7 +152,7 @@ func TestCreateExpiredSession(t *testing.T) {
 		Session:           &fosite.DefaultSession{},
 	}, 1))
 
-	resp, err := s.getSession(context.TODO(), dto.ClientsSegment, "123", &fosite.DefaultSession{})
+	resp, err := s.getSession(context.TODO(), clientmanager.ClientsSegment, "123", &fosite.DefaultSession{})
 	assert.Nil(t, resp)
 	assert.ErrorIs(t, err, dto.ErrDataNotFound)
 }

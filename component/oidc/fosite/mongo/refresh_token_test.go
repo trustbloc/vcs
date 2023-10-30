@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 )
 
 func TestRefreshTokenFlow(t *testing.T) {
@@ -30,6 +31,9 @@ func TestRefreshTokenFlow(t *testing.T) {
 
 	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
+
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), client)
+	assert.NoError(t, storeErr)
 
 	type deleteType int
 
@@ -59,7 +63,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			s, err := NewStore(context.Background(), client)
+			s, err := NewStore(context.Background(), client, clientManager)
 			assert.NoError(t, err)
 
 			oauth2Client := &oauth2client.Client{
@@ -73,7 +77,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 				Audience:       nil,
 			}
 
-			_, err = s.InsertClient(context.Background(), oauth2Client)
+			_, err = clientManager.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()
@@ -125,7 +129,10 @@ func TestFailGracePeriod(t *testing.T) {
 	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
-	s, err := NewStore(context.Background(), client)
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), client)
+	assert.NoError(t, storeErr)
+
+	s, err := NewStore(context.Background(), client, clientManager)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.TODO())

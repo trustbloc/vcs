@@ -11,68 +11,52 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ory/fosite"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
-func TestClientAsserting(t *testing.T) {
+func TestClientManagerInterface(t *testing.T) {
 	pool, redisResource := startRedisContainer(t)
 
 	defer func() {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client, err := redis.New([]string{redisConnString})
+	redisClient, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	ctx := context.Background()
 
-	err = s.ClientAssertionJWTValid(context.Background(), "total_random")
-	assert.NoError(t, err)
-}
+	t.Run("GetClient", func(t *testing.T) {
+		clientManager := NewMockClientManager(gomock.NewController(t))
+		clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Times(1).Return(&oauth2client.Client{}, nil)
 
-func TestReturnNonNilClient(t *testing.T) {
-	cl, err := (&Store{}).GetClient(context.TODO(), "")
-	assert.NoError(t, err)
-	assert.Equal(t, fosite.DefaultClient{}, *(cl.(*fosite.DefaultClient)))
-}
+		store := NewStore(redisClient, clientManager)
 
-func TestClientAssertingWithExpiration(t *testing.T) {
-	pool, redisResource := startRedisContainer(t)
+		_, err = store.GetClient(ctx, "clientID")
+		assert.NoError(t, err)
+	})
 
-	defer func() {
-		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
-	}()
+	t.Run("ClientAssertionJWTValid", func(t *testing.T) {
+		clientManager := NewMockClientManager(gomock.NewController(t))
+		clientManager.EXPECT().ClientAssertionJWTValid(gomock.Any(), gomock.Any()).Times(1)
 
-	client, err := redis.New([]string{redisConnString})
-	assert.NoError(t, err)
+		store := NewStore(redisClient, clientManager)
 
-	s := NewStore(client)
+		err = store.ClientAssertionJWTValid(ctx, "jti")
+		assert.NoError(t, err)
+	})
 
-	testCases := []struct {
-		jti string
-		exp time.Time
-		err error
-	}{
-		{
-			jti: "12345",
-			exp: time.Now().UTC().Add(-10 * time.Hour),
-			err: nil,
-		},
-		{
-			jti: "111",
-			exp: time.Now().UTC().Add(10 * time.Hour),
-			err: fosite.ErrJTIKnown,
-		},
-	}
+	t.Run("SetClientAssertionJWT", func(t *testing.T) {
+		clientManager := NewMockClientManager(gomock.NewController(t))
+		clientManager.EXPECT().SetClientAssertionJWT(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
-	for _, testCase := range testCases {
-		t.Run(testCase.jti, func(t *testing.T) {
-			assert.NoError(t, s.SetClientAssertionJWT(context.Background(), testCase.jti, testCase.exp))
-			err := s.ClientAssertionJWTValid(context.Background(), testCase.jti)
-			assert.Equal(t, testCase.err, err)
-		})
-	}
+		store := NewStore(redisClient, clientManager)
+
+		err = store.SetClientAssertionJWT(ctx, "jti", time.Now().UTC())
+		assert.NoError(t, err)
+	})
 }

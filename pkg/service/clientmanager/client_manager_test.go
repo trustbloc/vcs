@@ -18,11 +18,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
+	clientmanagerstore "github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 )
 
 func TestManager_Create(t *testing.T) {
@@ -448,7 +448,7 @@ func TestManager_Get(t *testing.T) {
 		{
 			name: "client not found error",
 			setup: func() {
-				mockStore.EXPECT().GetClient(gomock.Any(), clientID).Return(nil, dto.ErrDataNotFound)
+				mockStore.EXPECT().GetClient(gomock.Any(), clientID).Return(nil, clientmanagerstore.ErrDataNotFound)
 			},
 			check: func(t *testing.T, client fosite.Client, err error) {
 				require.ErrorIs(t, err, clientmanager.ErrClientNotFound)

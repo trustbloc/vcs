@@ -31,6 +31,7 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/vermethod"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
@@ -84,7 +85,7 @@ import (
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
-	"github.com/trustbloc/vcs/pkg/service/clientmanager"
+	clientmanagersvc "github.com/trustbloc/vcs/pkg/service/clientmanager"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -96,6 +97,7 @@ import (
 	wellknownfetcher "github.com/trustbloc/vcs/pkg/service/wellknown/fetcher"
 	wellknownprovider "github.com/trustbloc/vcs/pkg/service/wellknown/provider"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	clientmanagerstore "github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslindexstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslvcstore"
 	claimdatastoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4ciclaimdatastore"
@@ -724,13 +726,30 @@ func buildEchoHandler(
 		}
 	}
 
-	oauthProvider, fositeStore, err := bootstrapOAuthProvider(
-		context.Background(),
+	ctx := context.Background()
+
+	clientManagerStore, err := clientmanagerstore.NewStore(context.Background(), mongodbClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client manager store: %w", err)
+	}
+
+	for _, c := range oauth2Clients {
+		if _, err = clientManagerStore.InsertClient(ctx, &c); err != nil {
+			if mongo.IsDuplicateKeyError(err) {
+				continue
+			}
+
+			return nil, err
+		}
+	}
+
+	oauthProvider, err := bootstrapOAuthProvider(
+		ctx,
 		conf.StartupParameters.oAuthSecret,
 		conf.StartupParameters.transientDataParams.storeType,
 		mongodbClient,
 		redisClient,
-		oauth2Clients,
+		clientManagerStore,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oauth provider: %w", err)
@@ -740,15 +759,15 @@ func buildEchoHandler(
 		oauthProvider = fositetracing.Wrap(oauthProvider, conf.Tracer)
 	}
 
-	clientManager := clientmanager.New(
-		&clientmanager.Config{
-			Store:          fositeStore.(oauth2ClientStore),
+	clientManagerService := clientmanagersvc.New(
+		&clientmanagersvc.Config{
+			Store:          clientManagerStore,
 			ProfileService: issuerProfileSvc,
 		},
 	)
 
 	clientIDSchemeSvc := clientidscheme.NewService(&clientidscheme.Config{
-		ClientManager:    clientManager,
+		ClientManager:    clientManagerService,
 		HTTPClient:       getHTTPClient(metricsProvider.ClientDiscoverableClientIDScheme),
 		ProfileService:   issuerProfileSvc,
 		TransactionStore: oidc4ciTransactionStore,
@@ -763,7 +782,7 @@ func buildEchoHandler(
 		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		JWTVerifier:             defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(conf.VDR)),
-		ClientManager:           clientManager,
+		ClientManager:           clientManagerService,
 		ClientIDSchemeService:   clientIDSchemeSvc,
 		Tracer:                  conf.Tracer,
 	}))

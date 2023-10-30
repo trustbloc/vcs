@@ -16,6 +16,7 @@ import (
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -29,7 +30,12 @@ func TestPar(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	testCases := []struct {
 		name      string
@@ -48,7 +54,7 @@ func TestPar(t *testing.T) {
 				Scopes: []string{"awesome"},
 			}
 
-			_, err := s.InsertClient(context.Background(), oauth2Client)
+			_, err := clientManager.InsertClient(context.Background(), oauth2Client)
 			assert.NoError(t, err)
 
 			sign := uuid.New()
@@ -98,7 +104,12 @@ func TestRequestInvalidSession(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	dbSes, err := s.GetPARSession(context.TODO(), "111111")
 	assert.Nil(t, dbSes)
@@ -115,7 +126,12 @@ func TestRequestInvalidParSessionWithoutClient(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	s := NewStore(client)
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
 
 	dbSes, err := s.GetPARSession(context.TODO(), "111111")
 	assert.Nil(t, dbSes)
@@ -143,5 +159,5 @@ func TestRequestInvalidParSessionWithoutClient(t *testing.T) {
 
 	dbSes, err = s.GetPARSession(context.TODO(), sign)
 	assert.Nil(t, dbSes)
-	assert.ErrorIs(t, err, dto.ErrDataNotFound)
+	assert.ErrorIs(t, err, clientmanager.ErrDataNotFound)
 }

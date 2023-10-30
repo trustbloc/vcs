@@ -17,13 +17,14 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestBoostrapOidc(t *testing.T) {
 	secret := uuid.NewString()
 
-	oauthClient := oauth2client.Client{
+	oauthClient := &oauth2client.Client{
 		ID:            "id",
 		Secret:        []byte("secret"),
 		RedirectURIs:  []string{"https://example.com/redirect"},
@@ -32,74 +33,45 @@ func TestBoostrapOidc(t *testing.T) {
 		Scopes:        []string{"openid", "profile", "email", "offline_access"},
 	}
 
-	t.Run("mongo", func(t *testing.T) {
-		pool, mongoDBResource := startMongoDBContainer(t)
-		defer func() {
-			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
-		}()
+	pool, mongoDBResource := startMongoDBContainer(t)
+	defer func() {
+		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
 
-		mongoClient, clientErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
-		assert.NoError(t, clientErr)
+	mongoClient, clientErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
+	assert.NoError(t, clientErr)
 
-		t.Run("success", func(t *testing.T) {
-			provider, manager, err := bootstrapOAuthProvider(
-				context.TODO(), secret, "", mongoClient, nil, []oauth2client.Client{oauthClient})
-			assert.NoError(t, err)
-			assert.NotNil(t, provider)
-			assert.NotNil(t, manager)
-		})
+	clientManager, storeErr := clientmanager.NewStore(context.Background(), mongoClient)
+	assert.NoError(t, storeErr)
 
-		t.Run("success with duplicate oauth clients", func(t *testing.T) {
-			oauthClients := []oauth2client.Client{
-				oauthClient,
-				{ID: oauthClient.ID},
-			}
+	_, insertErr := clientManager.InsertClient(context.Background(), oauthClient)
+	assert.NoError(t, insertErr)
 
-			provider, manager, err := bootstrapOAuthProvider(
-				context.TODO(), secret, "", mongoClient, nil, oauthClients)
-			assert.NoError(t, err)
-			assert.NotNil(t, provider)
-			assert.NotNil(t, manager)
-		})
+	redisPool, redisResource := startRedisContainer(t)
+	defer func() {
+		assert.NoError(t, redisPool.Purge(redisResource), "failed to purge Redis resource")
+	}()
+
+	redisClient, redisErr := redis.New([]string{redisConnString})
+	assert.NoError(t, redisErr)
+
+	t.Run("mongo success", func(t *testing.T) {
+		provider, err := bootstrapOAuthProvider(context.Background(), secret, "", mongoClient, nil, clientManager)
+		assert.NoError(t, err)
+		assert.NotNil(t, provider)
 	})
 
-	t.Run("redis", func(t *testing.T) {
-		pool, redisResource := startRedisContainer(t)
-		defer func() {
-			assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
-		}()
-
-		redisClient, err := redis.New([]string{redisConnString})
+	t.Run("redis success", func(t *testing.T) {
+		provider, err := bootstrapOAuthProvider(
+			context.Background(), secret, redisStore, nil, redisClient, clientManager)
 		assert.NoError(t, err)
-
-		t.Run("success", func(t *testing.T) {
-			provider, manager, err := bootstrapOAuthProvider(
-				context.TODO(), secret, redisStore, nil, redisClient, []oauth2client.Client{oauthClient})
-			assert.NoError(t, err)
-			assert.NotNil(t, provider)
-			assert.NotNil(t, manager)
-		})
-
-		t.Run("success with duplicate oauth clients", func(t *testing.T) {
-			oauthClients := []oauth2client.Client{
-				oauthClient,
-				{ID: oauthClient.ID},
-			}
-
-			provider, manager, err := bootstrapOAuthProvider(
-				context.TODO(), secret, redisStore, nil, redisClient, oauthClients)
-			assert.NoError(t, err)
-			assert.NotNil(t, provider)
-			assert.NotNil(t, manager)
-		})
+		assert.NotNil(t, provider)
 	})
 }
 
 func TestBoostrapWithInvalidSecret(t *testing.T) {
-	provider, manager, err := bootstrapOAuthProvider(
-		context.TODO(), "", "", nil, nil, []oauth2client.Client{})
+	provider, err := bootstrapOAuthProvider(context.TODO(), "", "", nil, nil, nil)
 	assert.Nil(t, provider)
-	assert.Nil(t, manager)
 	assert.ErrorContains(t, err, "invalid secret")
 }
 
@@ -117,9 +89,8 @@ func TestBoostrapOidcWithExpiredContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	provider, manager, err := bootstrapOAuthProvider(ctx, secret, "", client, nil, []oauth2client.Client{})
+	provider, err := bootstrapOAuthProvider(ctx, secret, "", client, nil, nil)
 
 	assert.Nil(t, provider)
-	assert.Nil(t, manager)
 	assert.ErrorContains(t, err, "context canceled")
 }

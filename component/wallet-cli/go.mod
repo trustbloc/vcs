@@ -148,7 +148,6 @@ require (
 	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
 	github.com/trustbloc/logutil-go v1.0.0-rc1 // indirect
 	github.com/trustbloc/sidetree-go v0.0.0-20230928172705-30e78b6b6ddd // indirect
-	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
