@@ -27,8 +27,6 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/proof/testsupport"
 
-	"github.com/trustbloc/vcs/internal/mock/vcskms"
-
 	"github.com/trustbloc/did-go/doc/did"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
@@ -42,6 +40,7 @@ import (
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -693,7 +692,9 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 	t.Run("Success JWT", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved),
+		)
 
 		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
 
@@ -721,7 +722,9 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 	t.Run("Success JsonLD", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved),
+		)
 
 		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
 		ldvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
@@ -746,9 +749,11 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
 	})
 
-	t.Run("Error", func(t *testing.T) {
+	t.Run("Empty claims", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved),
+		)
 
 		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
 		credential, err := verifiable.CreateCredential(verifiable.CredentialContents{
@@ -1170,5 +1175,18 @@ func Test_GetSupportedVPFormats(t *testing.T) {
 				assert.ElementsMatch(t, tt.want.LdpVP.ProofType, got.LdpVP.ProofType)
 			}
 		})
+	}
+}
+
+type eventPublishFunc func(ctx context.Context, topic string, messages ...*spi.Event) error
+
+func expectedPublishEventFunc(t *testing.T, eventType spi.EventType) eventPublishFunc {
+	t.Helper()
+
+	return func(ctx context.Context, topic string, messages ...*spi.Event) error {
+		require.Len(t, messages, 1)
+		require.Equal(t, eventType, messages[0].Type)
+
+		return nil
 	}
 }

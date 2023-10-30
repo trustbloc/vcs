@@ -180,7 +180,7 @@ func (s *Steps) initiateCredentialIssuanceWithClaimsSchemaValidationError() erro
 		return errors.New("error expected")
 	}
 
-	if !strings.Contains(err.Error(), "validate claims: validation error: [(root): name is required; degree: type is required]") {
+	if !strings.Contains(err.Error(), "validation error: [(root): name is required; degree: type is required]") {
 		return fmt.Errorf("unexpected error: %w", err)
 	}
 
@@ -437,7 +437,7 @@ func (s *Steps) runOIDC4CIAuthWithInvalidClaims() error {
 		return fmt.Errorf("error expected, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "validate claims: validation error: [(root): name is required; degree: type is required]") {
+	if !strings.Contains(err.Error(), "validation error: [(root): name is required; degree: type is required]") {
 		return fmt.Errorf("unexpected error: %w", err)
 	}
 

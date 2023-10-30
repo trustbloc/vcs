@@ -280,7 +280,7 @@ func TestExchangeCodeInvalidState(t *testing.T) {
 
 	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "sadsadas")
 	assert.Empty(t, resp)
-	assert.ErrorContains(t, err, "unexpected transaction from 5 to 4")
+	assert.ErrorContains(t, err, "unexpected transition from 5 to 4")
 }
 
 func TestExchangeCodePublishError(t *testing.T) {

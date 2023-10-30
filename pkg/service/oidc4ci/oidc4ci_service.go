@@ -261,8 +261,11 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, err
+		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+
+		s.sendFailedTransactionEvent(ctx, tx, e)
+
+		return nil, e
 	}
 
 	if err = s.sendIssuanceAuthRequestPreparedTxEvent(ctx, tx); err != nil {
@@ -361,7 +364,7 @@ func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *Authorizat
 	tx.AuthorizationDetails = ad
 
 	if err := s.store.Update(ctx, tx); err != nil {
-		return fmt.Errorf("update tx: %w", err)
+		return resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
 	}
 
 	return nil
@@ -454,13 +457,21 @@ func (s *Service) PrepareCredential(
 	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, tx.ProfileID, tx.ProfileVersion)
 
 	if req.AudienceClaim == "" || req.AudienceClaim != expectedAudience {
-		return nil, resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, req.AudienceClaim,
+		e := resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, req.AudienceClaim,
 			errors.New("invalid aud"))
+
+		s.sendFailedTransactionEvent(ctx, tx, e)
+
+		return nil, e
 	}
 
 	claimData, err := s.getClaimsData(ctx, tx)
 	if err != nil {
-		return nil, fmt.Errorf("get claims data: %w", err)
+		e := fmt.Errorf("get claims data: %w", err)
+
+		s.sendFailedTransactionEvent(ctx, tx, e)
+
+		return nil, e
 	}
 
 	contexts := tx.CredentialTemplate.Contexts

@@ -1542,7 +1542,7 @@ func TestController_PrepareCredential(t *testing.T) {
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.EqualError(t, c.PrepareCredential(ctx), "validate claims: validation error")
+		assert.EqualError(t, c.PrepareCredential(ctx), "invalid-claims: validation error")
 	})
 }
 
