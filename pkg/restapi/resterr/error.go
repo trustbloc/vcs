@@ -43,7 +43,7 @@ const (
 	ClaimsNotFound                  ErrorCode = "claims-not-found"
 	ClaimsValidationErr             ErrorCode = "invalid-claims"
 	DataNotFound                    ErrorCode = "data-not-found"
-	OpStateKeyDuplication           ErrorCode = "op-state-key duplication"
+	OpStateKeyDuplication           ErrorCode = "op-state-key-duplication"
 	CredentialTemplateNotConfigured ErrorCode = "credential-template-not-configured"
 	CredentialTemplateIDRequired    ErrorCode = "credential-template-id-required"
 	AuthorizedCodeFlowNotSupported  ErrorCode = "authorized-code-flow-not-supported"

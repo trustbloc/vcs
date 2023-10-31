@@ -507,6 +507,13 @@ func (c *Controller) initiateIssuance(
 			return nil, "", err
 		}
 
+		var ce *resterr.CustomError
+		if ok := errors.As(err, &ce); ok {
+			c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, err)
+
+			return nil, "", err
+		}
+
 		e := resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "InitiateIssuance", err)
 
 		c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, e)
