@@ -105,7 +105,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		}
 
 		if e := s.validateClaims(req.ClaimData, template); e != nil {
-			return nil, resterr.NewValidationError(resterr.ConditionNotMet, "claims",
+			return nil, resterr.NewCustomError(resterr.ClaimsValidationErr,
 				fmt.Errorf("validate claims: %w", e))
 		}
 

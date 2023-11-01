@@ -919,7 +919,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				},
 			},
 			{
-				name: "Service error",
+				name: "System error",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("service error")) //nolint:lll
@@ -929,6 +929,20 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "service error")
+				},
+			},
+			{
+				name: "Custom error",
+				setup: func() {
+					e := resterr.NewCustomError(resterr.InvalidValue, errors.New("custom error"))
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, e) //nolint:lll
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
+					c = echoContext(withRequestBody(req))
+				},
+				check: func(t *testing.T, err error) {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "custom error")
 				},
 			},
 		}
