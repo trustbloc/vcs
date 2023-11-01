@@ -46,7 +46,10 @@ import (
 
 var logger = log.New("oidc4vp-service")
 
-const vpSubmissionProperty = "presentation_submission"
+const (
+	vpSubmissionProperty = "presentation_submission"
+	customScopeProperty  = "_scope"
+)
 
 var ErrDataNotFound = errors.New("data not found")
 
@@ -55,7 +58,9 @@ type eventService interface {
 }
 
 type transactionManager interface {
-	CreateTx(pd *presexch.PresentationDefinition, profileID, profileVersion string) (*Transaction, string, error)
+	CreateTx(
+		pd *presexch.PresentationDefinition,
+		profileID, profileVersion, customScope string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
 	DeleteReceivedClaims(claimsID string) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
@@ -233,6 +238,7 @@ func (s *Service) InitiateOidcInteraction(
 	ctx context.Context,
 	presentationDefinition *presexch.PresentationDefinition,
 	purpose string,
+	customScope string,
 	profile *profileapi.Verifier,
 ) (*InteractionInfo, error) {
 	logger.Debugc(ctx, "InitiateOidcInteraction begin")
@@ -242,7 +248,7 @@ func (s *Service) InitiateOidcInteraction(
 			errors.New("profile signing did can't be nil"))
 	}
 
-	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version)
+	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version, customScope)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "create-txn",
 			fmt.Errorf("fail to create oidc tx: %w", err))
@@ -250,7 +256,7 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
-	token, err := s.createRequestObjectJWT(presentationDefinition, tx, nonce, purpose, profile)
+	token, err := s.createRequestObjectJWT(presentationDefinition, tx, nonce, purpose, customScope, profile)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, profile, err)
 
@@ -362,7 +368,11 @@ func (s *Service) verifyTokens(
 	return verifiedPresentations, nil
 }
 
-func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, tokens []*ProcessedVPToken) error {
+func (s *Service) VerifyOIDCVerifiablePresentation(
+	ctx context.Context,
+	txID TxID,
+	authResponse *AuthorizationResponseParsed,
+) error {
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation begin")
 	startTime := time.Now()
 
@@ -370,14 +380,14 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 		logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation", log.WithDuration(time.Since(startTime)))
 	}()
 
-	if len(tokens) == 0 {
+	if len(authResponse.VPTokens) == 0 {
 		// this should never happen
 		return resterr.NewValidationError(resterr.InvalidValue, "tokens",
 			fmt.Errorf("must have at least one token"))
 	}
 
 	// All tokens have same nonce
-	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(tokens[0].Nonce)
+	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(authResponse.VPTokens[0].Nonce)
 	if err != nil {
 		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "get-by-one-time-token",
 			fmt.Errorf("get tx by nonce failed: %w", err))
@@ -386,6 +396,16 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 	if !validNonce || tx.ID != txID {
 		return resterr.NewValidationError(resterr.InvalidValue, "nonce",
 			fmt.Errorf("invalid nonce"))
+	}
+
+	// If custom scope was requested, but no relevant additional claims were supplied by Holder.
+	noAdditionalClaims := tx.CustomScope != "" && len(authResponse.CustomScopeClaims[tx.CustomScope]) == 0
+	// If custom scope was not requested, but additional claims were supplied by Holder.
+	unexpectedAdditionalClaims := tx.CustomScope == "" && len(authResponse.CustomScopeClaims) != 0
+
+	if noAdditionalClaims || unexpectedAdditionalClaims {
+		return resterr.NewValidationError(resterr.InvalidValue, "_scope",
+			fmt.Errorf("invalid _scope"))
 	}
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation nonce verified")
@@ -402,14 +422,14 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
-	logger.Debugc(ctx, fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(tokens)))
+	logger.Debugc(ctx, fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(authResponse.VPTokens)))
 
-	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, tokens)
+	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, authResponse.VPTokens)
 	if err != nil {
 		return err
 	}
 
-	err = s.extractClaimData(ctx, tx, tokens, profile, verifiedPresentations)
+	err = s.extractClaimData(ctx, tx, authResponse, profile, verifiedPresentations)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, profile, err)
 
@@ -477,6 +497,13 @@ func (s *Service) RetrieveClaims(
 
 		result[credContents.ID] = credMeta
 	}
+
+	if len(tx.ReceivedClaims.CustomScopeClaims) > 0 {
+		result[customScopeProperty] = CredentialMetadata{
+			CustomClaims: tx.ReceivedClaims.CustomScopeClaims,
+		}
+	}
+
 	logger.Debugc(ctx, "RetrieveClaims succeed")
 
 	if err := s.sendTxEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile); err != nil {
@@ -508,13 +535,13 @@ func (s *Service) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
 func (s *Service) extractClaimData(
 	ctx context.Context,
 	tx *Transaction,
-	tokens []*ProcessedVPToken,
+	authResponse *AuthorizationResponseParsed,
 	profile *profileapi.Verifier,
 	verifiedPresentations map[string]*ProcessedVPToken,
 ) error {
 	var presentations []*verifiable.Presentation
 
-	for _, token := range tokens {
+	for _, token := range authResponse.VPTokens {
 		// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
 		token.Presentation.JWT = ""
 		presentations = append(presentations, token.Presentation)
@@ -566,7 +593,12 @@ func (s *Service) extractClaimData(
 		storeCredentials[inputDescID] = mc.Credential
 	}
 
-	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: storeCredentials})
+	receivedClaims := &ReceivedClaims{
+		CustomScopeClaims: authResponse.CustomScopeClaims,
+		Credentials:       storeCredentials,
+	}
+
+	err = s.transactionManager.StoreReceivedClaims(tx.ID, receivedClaims)
 	if err != nil {
 		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "store-received-claims",
 			fmt.Errorf("store received claims: %w", err))
@@ -609,6 +641,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 	tx *Transaction,
 	nonce string,
 	purpose string,
+	additionalScope string,
 	profile *profileapi.Verifier) (string, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
@@ -619,7 +652,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 	vpFormats := GetSupportedVPFormats(
 		kms.SupportedKeyTypes(), profile.Checks.Presentation.Format, profile.Checks.Credential.Format)
 
-	ro := s.createRequestObject(presentationDefinition, vpFormats, tx, nonce, purpose, profile)
+	ro := s.createRequestObject(presentationDefinition, vpFormats, tx, nonce, purpose, additionalScope, profile)
 
 	signatureTypes := vcsverifiable.GetSignatureTypesByKeyTypeFormat(profile.OIDCConfig.KeyType, vcsverifiable.Jwt)
 	if len(signatureTypes) < 1 {
@@ -711,6 +744,7 @@ func (s *Service) createRequestObject(
 	tx *Transaction,
 	nonce string,
 	purpose string,
+	additionalScope string,
 	profile *profileapi.Verifier) *RequestObject {
 	tokenLifetime := s.tokenLifetime
 	now := time.Now()
@@ -720,7 +754,7 @@ func (s *Service) createRequestObject(
 		ISS:          profile.SigningDID.DID,
 		ResponseType: "id_token",
 		ResponseMode: "post",
-		Scope:        "openid",
+		Scope:        getScope(additionalScope),
 		Nonce:        nonce,
 		ClientID:     profile.SigningDID.DID,
 		RedirectURI:  s.redirectURL,
@@ -737,6 +771,15 @@ func (s *Service) createRequestObject(
 			presentationDefinition,
 		}},
 	}
+}
+
+func getScope(additionalScope string) string {
+	scope := "openid"
+	if additionalScope != "" {
+		scope += "+" + additionalScope
+	}
+
+	return scope
 }
 
 type JWSSigner struct {

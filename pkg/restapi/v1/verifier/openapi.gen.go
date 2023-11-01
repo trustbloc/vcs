@@ -16,6 +16,9 @@ type InitiateOIDC4VPData struct {
 	PresentationDefinitionFilters *PresentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
 	PresentationDefinitionId      *string                        `json:"presentationDefinitionId,omitempty"`
 	Purpose                       *string                        `json:"purpose,omitempty"`
+
+	// Additional scope that defines custom claims requested from Holder to Verifier.
+	Scope *string `json:"scope,omitempty"`
 }
 
 // InitiateOIDC4VPResponse defines model for InitiateOIDC4VPResponse.

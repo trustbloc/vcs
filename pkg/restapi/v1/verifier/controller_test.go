@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
@@ -521,7 +522,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
+		customScopeClaims := map[string]oidc4vp.Claims{
+			"customScope": {
+				"key1": "value2",
+			},
+		}
 		signedClaimsJWTResult := testutil.SignedClaimsJWT(t, &IDTokenClaims{
+			CustomScopeClaims: customScopeClaims,
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
 			Nonce: validNonce,
@@ -560,14 +567,15 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
 
-		processedVPToken, err := c.verifyAuthorizationResponseTokens(context.TODO(), &authorizationResponse{
+		authorisationResponseParsed, err := c.verifyAuthorizationResponseTokens(context.TODO(), &rawAuthorizationResponse{
 			IDToken: signedClaimsJWTResult.JWT,
 			VPToken: []string{vpToken},
 			State:   "txid",
 		})
 
 		require.NoError(t, err)
-		require.Contains(t, processedVPToken[0].Presentation.Type, "PresentationSubmission")
+		require.Equal(t, customScopeClaims, authorisationResponseParsed.CustomScopeClaims)
+		require.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
 	})
 
 	t.Run("Success LDP", func(t *testing.T) {
@@ -614,14 +622,16 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
 
-		processedVPToken, err := c.verifyAuthorizationResponseTokens(context.TODO(), &authorizationResponse{
+		authorisationResponseParsed, err := c.verifyAuthorizationResponseTokens(context.TODO(), &rawAuthorizationResponse{
 			IDToken: signedClaimsJWTResult.JWT,
 			VPToken: []string{string(vpToken)},
 			State:   "txid",
 		})
 
 		require.NoError(t, err)
-		require.Contains(t, processedVPToken[0].Presentation.Type, "PresentationSubmission")
+
+		require.Nil(t, authorisationResponseParsed.CustomScopeClaims)
+		require.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
 	})
 
 	t.Run("Presentation submission missed", func(t *testing.T) {
@@ -1859,7 +1869,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -1909,7 +1919,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), "test_scope", gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -1919,7 +1929,9 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			OIDCVPService: oidc4VPSvc,
 		})
 
-		result, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
+		result, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{
+			Scope: lo.ToPtr("test_scope"),
+		},
 			&profileapi.Verifier{
 				OrganizationID: tenantID,
 				Active:         true,
@@ -1950,6 +1962,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		result, err := controller.initiateOidcInteraction(context.TODO(),
 			&InitiateOIDC4VPData{
+				Scope: lo.ToPtr("test_scope"),
 				PresentationDefinitionFilters: &PresentationDefinitionFilters{
 					Fields: &fields,
 				},
@@ -1994,6 +2007,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		result, err := controller.initiateOidcInteraction(context.TODO(),
 			&InitiateOIDC4VPData{
+				Scope:                    lo.ToPtr("test_scope"),
 				PresentationDefinitionId: &pdID,
 				PresentationDefinitionFilters: &PresentationDefinitionFilters{
 					Fields: &fields,
@@ -2153,7 +2167,8 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 	t.Run("oidc4VPService.InitiateOidcInteraction failed", func(t *testing.T) {
 		oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		oidc4VPSvc.EXPECT().
+			InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return(nil, errors.New("fail"))
 
 		controller := NewController(&Config{

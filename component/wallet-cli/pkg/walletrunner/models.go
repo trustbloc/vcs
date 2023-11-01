@@ -47,16 +47,20 @@ type IDTokenVPToken struct {
 	PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
 }
 
+type Claims = map[string]interface{}
+
 type IDTokenClaims struct {
-	VPToken IDTokenVPToken `json:"_vp_token"`
-	Nonce   string         `json:"nonce"`
-	Exp     int64          `json:"exp"`
-	Iss     string         `json:"iss"`
-	Aud     string         `json:"aud"`
-	Sub     string         `json:"sub"`
-	Nbf     int64          `json:"nbf"`
-	Iat     int64          `json:"iat"`
-	Jti     string         `json:"jti"`
+	// ScopeAdditionalClaims stores claims retrieved using additional scope.
+	ScopeAdditionalClaims map[string]Claims `json:"_scope,omitempty"` //additional scope -> claims
+	VPToken               IDTokenVPToken    `json:"_vp_token"`
+	Nonce                 string            `json:"nonce"`
+	Exp                   int64             `json:"exp"`
+	Iss                   string            `json:"iss"`
+	Aud                   string            `json:"aud"`
+	Sub                   string            `json:"sub"`
+	Nbf                   int64             `json:"nbf"`
+	Iat                   int64             `json:"iat"`
+	Jti                   string            `json:"jti"`
 }
 
 type VPTokenClaims struct {

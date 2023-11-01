@@ -36,15 +36,18 @@ type Transaction struct {
 	PresentationDefinition *presexch.PresentationDefinition
 	ReceivedClaims         *ReceivedClaims
 	ReceivedClaimsID       string
+	CustomScope            string
 }
 
 type ReceivedClaims struct {
-	Credentials map[string]*verifiable.Credential `json:"credentials"`
+	CustomScopeClaims map[string]Claims
+	Credentials       map[string]*verifiable.Credential
 }
 
 // ReceivedClaimsRaw is temporary struct for parsing to ReceivedClaims, as we need to unmarshal credentials separately.
 type ReceivedClaimsRaw struct {
-	Credentials map[string][]byte `json:"credentials"`
+	Credentials       map[string][]byte `json:"credentials"`
+	CustomScopeClaims map[string][]byte `json:"customScopeClaims,omitempty"`
 }
 
 type ClaimData struct {
@@ -57,7 +60,7 @@ type TransactionUpdate struct {
 }
 
 type txStore interface {
-	Create(pd *presexch.PresentationDefinition, profileID, profileVersion string) (TxID, *Transaction, error)
+	Create(pd *presexch.PresentationDefinition, profileID, profileVersion, customScope string) (TxID, *Transaction, error)
 	Update(update TransactionUpdate) error
 	Get(txID TxID) (*Transaction, error)
 }
@@ -106,8 +109,8 @@ func NewTxManager(
 
 // CreateTx creates transaction and generate one time access token.
 func (tm *TxManager) CreateTx(
-	pd *presexch.PresentationDefinition, profileID, profileVersion string) (*Transaction, string, error) {
-	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion)
+	pd *presexch.PresentationDefinition, profileID, profileVersion, customScope string) (*Transaction, string, error) {
+	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion, customScope)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}

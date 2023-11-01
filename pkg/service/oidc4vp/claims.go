@@ -55,6 +55,19 @@ func (tm *TxManager) ClaimsToClaimsRaw(data *ReceivedClaims) (*ReceivedClaimsRaw
 		raw.Credentials[key] = cl
 	}
 
+	if len(data.CustomScopeClaims) > 0 {
+		raw.CustomScopeClaims = make(map[string][]byte, len(data.CustomScopeClaims))
+
+		for customScope, claims := range data.CustomScopeClaims {
+			cl, err := json.Marshal(claims)
+			if err != nil {
+				return nil, fmt.Errorf("serialize received claims %w", err)
+			}
+
+			raw.CustomScopeClaims[customScope] = cl
+		}
+	}
+
 	return raw, nil
 }
 
@@ -86,6 +99,19 @@ func (tm *TxManager) DecryptClaims(ctx context.Context, data *ClaimData) (*Recei
 			return nil, fmt.Errorf("received claims deserialize failed: %w", parseErr)
 		}
 		final.Credentials[k] = parsed
+	}
+
+	if len(raw.CustomScopeClaims) > 0 {
+		final.CustomScopeClaims = make(map[string]Claims, len(raw.CustomScopeClaims))
+
+		for customScope, claimsRaw := range raw.CustomScopeClaims {
+			var claims Claims
+			if err = json.Unmarshal(claimsRaw, &claims); err != nil {
+				return nil, fmt.Errorf("received custom scope claims deserialize: %w", err)
+			}
+
+			final.CustomScopeClaims[customScope] = claims
+		}
 	}
 
 	return final, nil

@@ -60,7 +60,7 @@ var (
 	errMissedField = errors.New("missed field")
 )
 
-type authorizationResponse struct {
+type rawAuthorizationResponse struct {
 	IDToken string
 	VPToken []string
 	State   string
@@ -72,10 +72,12 @@ type IDTokenVPToken struct {
 }
 
 type IDTokenClaims struct {
-	VPToken IDTokenVPToken `json:"_vp_token"`
-	Nonce   string         `json:"nonce"`
-	Aud     string         `json:"aud"`
-	Exp     int64          `json:"exp"`
+	// CustomScopeClaims stores claims retrieved using custom scope.
+	CustomScopeClaims map[string]oidc4vp.Claims `json:"_scope,omitempty"`
+	VPToken           IDTokenVPToken            `json:"_vp_token"`
+	Nonce             string                    `json:"nonce"`
+	Aud               string                    `json:"aud"`
+	Exp               int64                     `json:"exp"`
 }
 
 type VPTokenClaims struct {
@@ -346,7 +348,7 @@ func (c *Controller) initiateOidcInteraction(
 			errors.New("OIDC not configured"))
 	}
 
-	pd, err := findPresentationDefinition(profile, strPtrToStr(data.PresentationDefinitionId))
+	pd, err := findPresentationDefinition(profile, lo.FromPtr(data.PresentationDefinitionId))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
 	}
@@ -362,7 +364,8 @@ func (c *Controller) initiateOidcInteraction(
 		logger.Debugc(ctx, "InitiateOidcInteraction applied filters to pd", logfields.WithPresDefID(pd.ID))
 	}
 
-	result, err := c.oidc4VPService.InitiateOidcInteraction(ctx, pd, strPtrToStr(data.Purpose), profile)
+	result, err := c.oidc4VPService.InitiateOidcInteraction(
+		ctx, pd, lo.FromPtr(data.Purpose), lo.FromPtr(data.Scope), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierOIDC4vpSvcComponent, "InitiateOidcInteraction", err)
 	}
@@ -460,21 +463,22 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 			log.WithDuration(time.Since(startTime)))
 	}()
 
-	authResp, err := validateAuthorizationResponse(e)
+	rawAuthResp, err := validateAuthorizationResponse(e)
 	if err != nil {
 		return err
 	}
 
-	processedTokens, err := c.verifyAuthorizationResponseTokens(ctx, authResp)
+	authorisationResponseParsed, err := c.verifyAuthorizationResponseTokens(ctx, rawAuthResp)
 	if err != nil {
 		if tenantID, e := util.GetTenantIDFromRequest(e); e == nil {
-			c.sendFailedEvent(ctx, authResp.State, tenantID, "", "", err)
+			c.sendFailedEvent(ctx, rawAuthResp.State, tenantID, "", "", err)
 		}
 
 		return err
 	}
 
-	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(ctx, oidc4vp.TxID(authResp.State), processedTokens)
+	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(
+		ctx, oidc4vp.TxID(rawAuthResp.State), authorisationResponseParsed)
 	if err != nil {
 		return err
 	}
@@ -562,8 +566,8 @@ func (c *Controller) accessOIDC4VPTx(ctx context.Context, txID string) (*oidc4vp
 
 func (c *Controller) verifyAuthorizationResponseTokens(
 	ctx context.Context,
-	authResp *authorizationResponse,
-) ([]*oidc4vp.ProcessedVPToken, error) {
+	authResp *rawAuthorizationResponse,
+) (*oidc4vp.AuthorizationResponseParsed, error) {
 	startTime := time.Now()
 	defer func() {
 		logger.Debugc(ctx, "validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
@@ -618,7 +622,10 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 		})
 	}
 
-	return processedVPTokens, nil
+	return &oidc4vp.AuthorizationResponseParsed{
+		CustomScopeClaims: idTokenClaims.CustomScopeClaims,
+		VPTokens:          processedVPTokens,
+	}, nil
 }
 
 func validateIDToken(idToken string, verifier jwt.ProofChecker) (*IDTokenClaims, error) {
@@ -644,7 +651,18 @@ func validateIDToken(idToken string, verifier jwt.ProofChecker) (*IDTokenClaims,
 		}
 	}
 
+	var customScopeClaims map[string]oidc4vp.Claims
+	if val := v.Get("_scope"); val != nil {
+		sb, err = val.Object()
+		if err == nil {
+			if err = json.Unmarshal(sb.MarshalTo([]byte{}), &customScopeClaims); err != nil {
+				return nil, fmt.Errorf("decode _scope: %w", err)
+			}
+		}
+	}
+
 	idTokenClaims := &IDTokenClaims{
+		CustomScopeClaims: customScopeClaims,
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: presentationSubmission,
 		},
@@ -752,7 +770,7 @@ func (c *Controller) validateVPTokenLDP(vpToken string) (*VPTokenClaims, error) 
 	}, nil
 }
 
-func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {
+func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, error) {
 	startTime := time.Now().UTC()
 	defer func() {
 		logger.Debugc(ctx.Request().Context(),
@@ -770,7 +788,7 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "body", err)
 	}
 
-	res := &authorizationResponse{}
+	res := &rawAuthorizationResponse{}
 
 	err = decodeFormValue(&res.IDToken, "id_token", req.PostForm)
 	if err != nil {
@@ -994,12 +1012,4 @@ func getVerifyPresentationOptions(options *VerifyPresentationOptions) *verifypre
 	}
 
 	return result
-}
-
-func strPtrToStr(str *string) string {
-	if str == nil {
-		return ""
-	}
-
-	return *str
 }

@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 	"io"
 	"log"
 	"net/http"
@@ -349,8 +350,14 @@ func (e *VPFlowExecutor) QueryCredentialFromWalletMultiVP() error {
 	return nil
 }
 
-func (e *VPFlowExecutor) getIDTokenClaims(requestPresentationSubmission *presexch.PresentationSubmission) *IDTokenClaims {
+func (e *VPFlowExecutor) getIDTokenClaims(requestPresentationSubmission *presexch.PresentationSubmission, requestObjectScope string) (*IDTokenClaims, error) {
+	scopeAdditionalClaims, err := oidc4vp.ExtractCustomScopeClaims(requestObjectScope)
+	if err != nil {
+		return nil, fmt.Errorf("ExtractCustomScopeClaims: %w", err)
+	}
+
 	return &IDTokenClaims{
+		ScopeAdditionalClaims: scopeAdditionalClaims,
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: requestPresentationSubmission,
 		},
@@ -362,7 +369,7 @@ func (e *VPFlowExecutor) getIDTokenClaims(requestPresentationSubmission *presexc
 		Nbf:   time.Now().Unix(),
 		Iat:   time.Now().Unix(),
 		Jti:   uuid.NewString(),
-	}
+	}, nil
 }
 
 func (e *VPFlowExecutor) signIDTokenJWT(idToken *IDTokenClaims, signatureType vcs.SignatureType) (string, error) {
@@ -431,7 +438,12 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse(o ...RPConfigOverride) (string
 
 	var signedIDToken string
 
-	signedIDToken, err = e.signIDTokenJWT(e.getIDTokenClaims(e.requestPresentationSubmission), e.walletSignType)
+	idToken, err := e.getIDTokenClaims(e.requestPresentationSubmission, e.requestObject.Scope)
+	if err != nil {
+		return "", err
+	}
+
+	signedIDToken, err = e.signIDTokenJWT(idToken, e.walletSignType)
 	if err != nil {
 		return "", err
 	}

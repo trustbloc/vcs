@@ -106,7 +106,7 @@ import (
 	oidc4vpclaimsstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
 	oidc4vpnoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpnoncestore"
 	oidc4vptxstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
+	requestobjectstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcissuancehistorystore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
@@ -119,7 +119,7 @@ import (
 	oidc4vptxstoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslvcstore"
-	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
+	requestobjectstores3 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 )
 
 const (
@@ -1151,9 +1151,9 @@ func createRequestObjectStore(
 			otelaws.AppendMiddlewares(&cfg.APIOptions, otelaws.WithTracerProvider(otel.GetTracerProvider()))
 		}
 
-		return requestobjectstore2.NewStore(s3.NewFromConfig(cfg), s3Bucket, s3Region, s3HostName), nil
+		return requestobjectstores3.NewStore(s3.NewFromConfig(cfg), s3Bucket, s3Region, s3HostName), nil
 	default:
-		return requestobjectstore.NewStore(mongoDbClient), nil
+		return requestobjectstoremongo.NewStore(mongoDbClient), nil
 	}
 }
 

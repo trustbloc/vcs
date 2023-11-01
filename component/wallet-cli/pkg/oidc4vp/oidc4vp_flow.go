@@ -44,6 +44,9 @@ import (
 const (
 	linkedDomainsService = "LinkedDomains"
 	tokenLifetimeSeconds = 600
+
+	customScopeTimeDetails   = "timedetails"
+	customScopeWalletDetails = "walletdetails"
 )
 
 type Flow struct {
@@ -409,7 +412,7 @@ func (f *Flow) sendAuthorizationResponse(
 		return fmt.Errorf("no matching credentials found")
 	}
 
-	idToken, err := f.createIDToken(presentationSubmission, requestObject.ClientID, requestObject.Nonce)
+	idToken, err := f.createIDToken(presentationSubmission, requestObject.ClientID, requestObject.Nonce, requestObject.Scope)
 	if err != nil {
 		return fmt.Errorf("create id token: %w", err)
 	}
@@ -569,9 +572,15 @@ func (f *Flow) signPresentationLDP(
 
 func (f *Flow) createIDToken(
 	presentationSubmission *presexch.PresentationSubmission,
-	clientID, nonce string,
+	clientID, nonce, requestObjectScope string,
 ) (string, error) {
+	scopeAdditionalClaims, err := ExtractCustomScopeClaims(requestObjectScope)
+	if err != nil {
+		return "", fmt.Errorf("extractAdditionalClaims: %w", err)
+	}
+
 	idToken := &IDTokenClaims{
+		ScopeAdditionalClaims: scopeAdditionalClaims,
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: presentationSubmission,
 		},
@@ -670,5 +679,33 @@ func WithLinkedDomainVerification() Opt {
 func WithDomainMatchingDisabled() Opt {
 	return func(opts *options) {
 		opts.disableDomainMatching = true
+	}
+}
+
+// ExtractCustomScopeClaims returns Claims associated with custom scope.
+func ExtractCustomScopeClaims(requestObjectScope string) (map[string]Claims, error) {
+	chunks := strings.Split(requestObjectScope, "+")
+	if len(chunks) == 1 {
+		return nil, nil
+	}
+
+	switch chunks[1] {
+	case customScopeTimeDetails:
+		return map[string]Claims{
+			chunks[1]: {
+				"timestamp": time.Now().Format(time.RFC3339),
+				"uuid":      uuid.NewString(),
+			},
+		}, nil
+	case customScopeWalletDetails:
+		return map[string]Claims{
+			chunks[1]: {
+				"wallet_version": "1.0",
+				"uuid":           uuid.NewString(),
+			},
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unexpected custom scope \"%s\" supplied", chunks[1])
 	}
 }

@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4vc
 
-import vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+import (
+	util "github.com/trustbloc/did-go/doc/util/time"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+)
 
 type initiateOIDC4CIRequest struct {
 	ClaimData                 *map[string]interface{} `json:"claim_data,omitempty"`
@@ -93,4 +96,14 @@ type credentialIssuanceHistoryData struct {
 	IssuanceDate    string   `json:"issuance_date,omitempty"`
 	Issuer          string   `json:"issuer"`
 	TransactionId   string   `json:"transaction_id,omitempty"`
+}
+
+type retrievedCredentialsClaims struct {
+	Format         vcsverifiable.Format              `json:"format,omitempty"`
+	Type           []string                          `json:"type,omitempty"`
+	SubjectData    []map[string]interface{}          `json:"subjectData,omitempty"`
+	Issuer         map[string]interface{}            `json:"issuer,omitempty"`
+	IssuanceDate   *util.TimeWrapper                 `json:"issuanceDate,omitempty"`
+	ExpirationDate *util.TimeWrapper                 `json:"expirationDate,omitempty"`
+	CustomClaims   map[string]map[string]interface{} `json:"customClaims,omitempty"`
 }

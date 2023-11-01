@@ -46,8 +46,10 @@ func NewTxStore(
 }
 
 // Create creates transaction document in a database.
-func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID, profileVersion string) (oidc4vp.TxID,
-	*oidc4vp.Transaction, error) {
+func (p *TxStore) Create(
+	pd *presexch.PresentationDefinition,
+	profileID, profileVersion, customScope string,
+) (oidc4vp.TxID, *oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.redisClient.ContextWithTimeout()
 	defer cancel()
 
@@ -56,6 +58,7 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID, profile
 		ProfileID:              profileID,
 		ProfileVersion:         profileVersion,
 		PresentationDefinition: pd,
+		CustomScope:            customScope,
 	}
 
 	txID := uuid.NewString()
@@ -135,6 +138,7 @@ func txFromDocument(id oidc4vp.TxID, txDoc *txDocument) *oidc4vp.Transaction {
 		ProfileVersion:         txDoc.ProfileVersion,
 		PresentationDefinition: txDoc.PresentationDefinition,
 		ReceivedClaimsID:       txDoc.ReceivedClaimsID,
+		CustomScope:            txDoc.CustomScope,
 	}
 }
 
