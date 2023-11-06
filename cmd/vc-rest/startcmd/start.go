@@ -28,7 +28,6 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
-	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/vermethod"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -648,21 +647,23 @@ func buildEchoHandler(
 	}
 
 	var oidc4ciService oidc4ci.ServiceInterface
+	var claimsDataProtector dataprotect.Protector
 
-	var dataKeyEncryptor api.EncrypterDecrypter
-	dataKeyEncryptor, err = defaultVCSKeyManager.Suite().EncrypterDecrypter()
 	if conf.StartupParameters.dataEncryptionDisabled {
-		dataKeyEncryptor = dataprotect.NewNilCrypto()
-	} else if err != nil {
-		return nil, fmt.Errorf("provided crypto suite does not support encryption/decryption: %w", err)
-	}
+		claimsDataProtector = dataprotect.NewNilDataProtector()
+	} else {
+		dataKeyEncryptor, err := defaultVCSKeyManager.Suite().EncrypterDecrypter()
+		if err != nil {
+			return nil, fmt.Errorf("provided crypto suite does not support encryption/decryption: %w", err)
+		}
 
-	claimsDataProtector := dataprotect.NewDataProtector(
-		dataKeyEncryptor,
-		conf.StartupParameters.dataEncryptionKeyID,
-		dataprotect.NewAES(conf.StartupParameters.dataEncryptionKeyLength),
-		dataprotect.NewCompressor(conf.StartupParameters.dataEncryptionCompressorAlgo),
-	)
+		claimsDataProtector = dataprotect.NewDataProtector(
+			dataKeyEncryptor,
+			conf.StartupParameters.dataEncryptionKeyID,
+			dataprotect.NewAES(conf.StartupParameters.dataEncryptionKeyLength),
+			dataprotect.NewCompressor(conf.StartupParameters.dataEncryptionCompressorAlgo),
+		)
+	}
 
 	jsonSchemaValidator := jsonschema.NewCachingValidator()
 
