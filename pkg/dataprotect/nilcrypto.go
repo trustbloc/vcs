@@ -6,17 +6,23 @@ SPDX-License-Identifier: Apache-2.0
 
 package dataprotect
 
-type NilCrypto struct {
+import "context"
+
+type NilDataProtector struct {
 }
 
-func NewNilCrypto() *NilCrypto {
-	return &NilCrypto{}
+func NewNilDataProtector() *NilDataProtector {
+	return &NilDataProtector{}
 }
 
-func (n *NilCrypto) Encrypt(msg, _ []byte, _ string) ([]byte, []byte, error) {
-	return msg, nil, nil
+func (n *NilDataProtector) Encrypt(_ context.Context, msg []byte) (*EncryptedData, error) {
+	return &EncryptedData{
+		Encrypted:      msg,
+		EncryptedKey:   nil,
+		EncryptedNonce: nil,
+	}, nil
 }
 
-func (n *NilCrypto) Decrypt(_, aad, _ []byte, _ string) ([]byte, error) {
-	return aad, nil
+func (n *NilDataProtector) Decrypt(_ context.Context, encryptedData *EncryptedData) ([]byte, error) {
+	return encryptedData.Encrypted, nil
 }
