@@ -361,6 +361,9 @@ type WellKnownOpenIDIssuerConfiguration struct {
 
 	// URL of the OP's OAuth 2.0 Token Endpoint.
 	TokenEndpoint string `json:"token_endpoint"`
+
+	// JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
+	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
 }
 
 // PostCredentialsStatusJSONBody defines parameters for PostCredentialsStatus.

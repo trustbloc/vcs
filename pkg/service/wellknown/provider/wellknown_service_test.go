@@ -211,6 +211,7 @@ func checkWellKnownOpenIDIssuerConfiguration(
 	if includedOIDCConfig {
 		assert.Equal(t, []string{"grantType1", "grantType2"}, res.GrantTypesSupported)
 		assert.Equal(t, []string{"scope1", "scope1"}, res.ScopesSupported)
+		assert.Equal(t, []string{"none", "attest_jwt_client_auth"}, res.TokenEndpointAuthMethodsSupported)
 		assert.True(t, res.PreAuthorizedGrantAnonymousAccessSupported)
 
 		if includedClientRegistration {
@@ -225,6 +226,7 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Nil(t, res.ScopesSupported)
 		assert.False(t, res.PreAuthorizedGrantAnonymousAccessSupported)
 		assert.Nil(t, res.RegistrationEndpoint)
+		assert.Nil(t, res.TokenEndpointAuthMethodsSupported)
 	}
 }
 

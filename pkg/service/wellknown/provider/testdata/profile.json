@@ -8,6 +8,7 @@
     "signed_issuer_metadata_supported": true,
     "grant_types_supported": ["grantType1","grantType2"],
     "scopes_supported": ["scope1","scope1"],
+    "token_endpoint_auth_methods_supported": ["none","attest_jwt_client_auth"],
     "pre-authorized_grant_anonymous_access_supported": true,
     "wallet_initiated_auth_flow_supported": true,
     "enable_dynamic_client_registration": true
