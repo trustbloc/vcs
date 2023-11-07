@@ -918,6 +918,11 @@ components:
           description: An array of objects, where each object contains display properties of a Credential Issuer for a certain language.
           items:
             $ref: '#/components/schemas/CredentialDisplay'
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          description: JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
       required:
         - authorization_endpoint
         - token_endpoint
@@ -929,6 +934,7 @@ components:
         - credential_issuer
         - credential_endpoint
         - credentials_supported
+        - token_endpoint_auth_methods_supported
       description: WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
     CredentialIssuanceHistoryData:
       title: CredentialIssuanceHistory response
