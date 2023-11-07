@@ -77,11 +77,11 @@ func TestWrapper_ExchangeAuthorizationCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ExchangeAuthorizationCode(gomock.Any(), "opState").Times(1)
+	svc.EXPECT().ExchangeAuthorizationCode(gomock.Any(), "opState", "", "", "").Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.ExchangeAuthorizationCode(context.Background(), "opState")
+	_, err := w.ExchangeAuthorizationCode(context.Background(), "opState", "", "", "")
 	require.NoError(t, err)
 }
 
@@ -89,11 +89,11 @@ func TestWrapper_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin", "clientID").Return(&oidc4ci.Transaction{ID: "id"}, nil)
+	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin", "clientID", "", "").Return(&oidc4ci.Transaction{ID: "id"}, nil)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.ValidatePreAuthorizedCodeRequest(context.Background(), "code", "pin", "clientID")
+	_, err := w.ValidatePreAuthorizedCodeRequest(context.Background(), "code", "pin", "clientID", "", "")
 	require.NoError(t, err)
 }
 

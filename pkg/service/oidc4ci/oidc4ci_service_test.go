@@ -845,19 +845,26 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 
 func TestValidatePreAuthCode(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
-		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		profileService := NewMockProfileService(gomock.NewController(t))
 		eventService := NewMockEventService(gomock.NewController(t))
 		pinGenerator := NewMockPinGenerator(gomock.NewController(t))
-		profileService := NewMockProfileService(gomock.NewController(t))
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 			EventService:     eventService,
 			EventTopic:       spi.IssuerEventTopic,
 			PinGenerator:     pinGenerator,
-			ProfileService:   profileService,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+			Return(&profileapi.Issuer{
+				OIDCConfig: &profileapi.OIDCConfig{
+					PreAuthorizedGrantAnonymousAccessSupported: true,
+				},
+			}, nil)
 
 		pinGenerator.EXPECT().Validate("567", "567").Return(true)
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
@@ -877,33 +884,26 @@ func TestValidatePreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
-			Return(&profileapi.Issuer{
-				OIDCConfig: &profileapi.OIDCConfig{
-					ClientID:           "clientID",
-					ClientSecretHandle: "clientSecret",
-					PreAuthorizedGrantAnonymousAccessSupported: true,
-				},
-			}, nil)
-
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "", "", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
 
 	t.Run("success without pin", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		eventMock := NewMockEventService(gomock.NewController(t))
-		profileService := NewMockProfileService(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 			EventService:     eventMock,
 			EventTopic:       spi.IssuerEventTopic,
-			ProfileService:   profileService,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -923,21 +923,25 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
 
 	t.Run("error with pin during publishing", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		eventMock := NewMockEventService(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 			EventService:     eventMock,
 			EventTopic:       spi.IssuerEventTopic,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -957,20 +961,24 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
 		assert.ErrorContains(t, err, "unexpected error")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("invalid pin", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		pinGenerator := NewMockPinGenerator(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 			PinGenerator:     pinGenerator,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		pinGenerator.EXPECT().Validate("567", "111").Return(false)
 
@@ -983,12 +991,12 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111", "", "", "")
 		assert.ErrorContains(t, err, "invalid pin")
 		assert.Nil(t, resp)
 	})
 
-	t.Run("fail find tx", func(t *testing.T) {
+	t.Run("fail to find tx", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
@@ -997,17 +1005,22 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found"))
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
 		assert.ErrorContains(t, err, "not found")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("invalid state", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
@@ -1018,14 +1031,17 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "", "", "")
 		assert.ErrorContains(t, err, "unexpected transition from 5 to 2")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("pin should not be provided", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
@@ -1038,14 +1054,17 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "", "", "")
 		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin: server does not expect pin")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("pin should be provided", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
@@ -1059,17 +1078,18 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
 		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin: server expects user pin")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("get profile error", func(t *testing.T) {
-		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		profileService := NewMockProfileService(gomock.NewController(t))
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			TransactionStore: storeMock,
 			ProfileService:   profileService,
+			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
 
@@ -1085,17 +1105,18 @@ func TestValidatePreAuthCode(t *testing.T) {
 		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("some error"))
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
 		assert.ErrorContains(t, err, "some error")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("issuer does not accept Token Request with a Pre-Authorized Code but without a client_id", func(t *testing.T) {
-		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		profileService := NewMockProfileService(gomock.NewController(t))
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			TransactionStore: storeMock,
 			ProfileService:   profileService,
+			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
 
@@ -1117,18 +1138,50 @@ func TestValidatePreAuthCode(t *testing.T) {
 				},
 			}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
 		assert.ErrorContains(t, err, "oidc-pre-authorize-invalid-client-id: issuer does not accept "+
 			"Token Request with a Pre-Authorized Code but without a client_id")
 		assert.Nil(t, resp)
 	})
 
-	t.Run("valid pre auth code", func(t *testing.T) {
+	t.Run("fail to authenticate client", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
+		attestationService := NewMockAttestationService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:     profileService,
+			AttestationService: attestationService,
+			TransactionStore:   storeMock,
+		})
+		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{
+				TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+			},
+		}, nil)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "client_id",
+			"attest_jwt_client_auth", "")
+
+		assert.ErrorContains(t, err, "invalid client assertion format")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("valid pre auth code", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
@@ -1139,17 +1192,22 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
 		assert.ErrorContains(t, err, "oidc-tx-not-found: invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("error - expired pre auth code", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
@@ -1160,17 +1218,22 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
 		assert.ErrorContains(t, err, "oidc-tx-not-found: invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
 
 	t.Run("store update error", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
 			TransactionStore: storeMock,
 		})
 		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
@@ -1182,7 +1245,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("store update error"))
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "123abc")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
 		assert.ErrorContains(t, err, "store update error")
 		assert.Nil(t, resp)
 	})

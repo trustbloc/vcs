@@ -64,7 +64,15 @@ type CredentialStatusOpt struct {
 
 // Model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeRequest struct {
-	OpState string `json:"op_state"`
+	// The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.
+	ClientAssertion *string `json:"client_assertion,omitempty"`
+
+	// Specifies the method used to authenticate the client application to the authorization server (VCS). The only supported value is "urn:ietf:params:oauth:client-assertion-type:jwt-client-attestation". It indicates that the client must authenticate using OAuth 2.0 Attestation-Based Client Authentication method.
+	ClientAssertionType *string `json:"client_assertion_type,omitempty"`
+
+	// Client ID for VCS OIDC interaction.
+	ClientId *string `json:"client_id,omitempty"`
+	OpState  string  `json:"op_state"`
 }
 
 // Response model for exchanging auth code from issuer oauth
@@ -275,7 +283,13 @@ type UpdateCredentialStatusRequest struct {
 
 // Model for validating pre-authorized code and pin.
 type ValidatePreAuthorizedCodeRequest struct {
-	// Client ID.
+	// The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.
+	ClientAssertion *string `json:"client_assertion,omitempty"`
+
+	// Specifies the method used to authenticate the client application to the authorization server (VCS). The only supported value is "urn:ietf:params:oauth:client-assertion-type:jwt-client-attestation". It indicates that the client must authenticate using OAuth 2.0 Attestation-Based Client Authentication method.
+	ClientAssertionType *string `json:"client_assertion_type,omitempty"`
+
+	// Client ID for VCS OIDC interaction.
 	ClientId *string `json:"client_id,omitempty"`
 
 	// Pre authorized code.

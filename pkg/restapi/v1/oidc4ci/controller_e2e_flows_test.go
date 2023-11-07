@@ -250,9 +250,11 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 
 	interaction.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-			ClientId:          lo.ToPtr(clientID),
-			PreAuthorizedCode: code,
-			UserPin:           lo.ToPtr(pin),
+			PreAuthorizedCode:   code,
+			UserPin:             lo.ToPtr(pin),
+			ClientId:            lo.ToPtr(clientID),
+			ClientAssertionType: lo.ToPtr(""),
+			ClientAssertion:     lo.ToPtr(""),
 		},
 	).Return(&http.Response{
 		StatusCode: http.StatusOK,
@@ -324,7 +326,10 @@ func mockIssuerInteractionClient(
 	client.EXPECT().ExchangeAuthorizationCodeRequest(
 		gomock.Any(),
 		issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
-			OpState: opState,
+			OpState:             opState,
+			ClientId:            lo.ToPtr(clientID),
+			ClientAssertion:     lo.ToPtr(""),
+			ClientAssertionType: lo.ToPtr(""),
 		},
 	).Return(&http.Response{
 		StatusCode: http.StatusOK,

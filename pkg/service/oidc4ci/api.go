@@ -248,12 +248,20 @@ type ServiceInterface interface {
 		code string,
 		flowData *common.WalletInitiatedFlowData,
 	) (TxID, error)
-	ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error)
+	ExchangeAuthorizationCode(
+		ctx context.Context,
+		opState,
+		clientID,
+		clientAssertionType,
+		clientAssertion string,
+	) (TxID, error)
 	ValidatePreAuthorizedCodeRequest(
 		ctx context.Context,
-		preAuthorizedCode string,
-		pin string,
-		clientID string,
+		preAuthorizedCode,
+		pin,
+		clientID,
+		clientAssertionType,
+		clientAssertion string,
 	) (*Transaction, error)
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
 }

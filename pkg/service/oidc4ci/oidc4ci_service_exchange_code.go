@@ -17,7 +17,13 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
-func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error) {
+func (s *Service) ExchangeAuthorizationCode(
+	ctx context.Context,
+	opState,
+	clientID,
+	clientAssertionType,
+	clientAssertion string,
+) (TxID, error) {
 	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
 		return "", fmt.Errorf("get transaction by opstate: %w", err)
@@ -43,6 +49,11 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		s.sendFailedTransactionEvent(ctx, tx, e)
 
 		return "", e
+	}
+
+	if err = s.AuthenticateClient(ctx, profile, clientID, clientAssertionType, clientAssertion); err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, err)
+		return "", resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
 	oauth2Client := oauth2.Config{

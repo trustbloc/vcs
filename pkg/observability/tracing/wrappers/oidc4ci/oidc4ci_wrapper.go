@@ -70,11 +70,11 @@ func (w *Wrapper) StoreAuthorizationCode(ctx context.Context, opState string, co
 	return w.svc.StoreAuthorizationCode(ctx, opState, code, flowData)
 }
 
-func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState string) (oidc4ci.TxID, error) {
-	return w.svc.ExchangeAuthorizationCode(ctx, opState)
+func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState, clientID, clientAttestationType, clientAttestation string) (oidc4ci.TxID, error) {
+	return w.svc.ExchangeAuthorizationCode(ctx, opState, clientID, clientAttestationType, clientAttestation)
 }
 
-func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode, pin, clientID string) (*oidc4ci.Transaction, error) {
+func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode, pin, clientID, clientAttestationType, clientAttestation string) (*oidc4ci.Transaction, error) {
 	ctx, span := w.tracer.Start(ctx, "oidc4ci.ValidatePreAuthorizedCodeRequest")
 	defer span.End()
 
@@ -82,7 +82,7 @@ func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAutho
 	span.SetAttributes(attribute.String("pin", pin))
 	span.SetAttributes(attribute.String("client_id", clientID))
 
-	tx, err := w.svc.ValidatePreAuthorizedCodeRequest(ctx, preAuthorizedCode, pin, clientID)
+	tx, err := w.svc.ValidatePreAuthorizedCodeRequest(ctx, preAuthorizedCode, pin, clientID, clientAttestationType, clientAttestation)
 	if err != nil {
 		return nil, err
 	}

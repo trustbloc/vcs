@@ -1206,7 +1206,8 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		opState := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState).Return(oidc4ci.TxID("1234"), nil)
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
+			Return(oidc4ci.TxID("1234"), nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1220,7 +1221,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 	t.Run("error from service", func(t *testing.T) {
 		opState := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState).
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
 			Return(oidc4ci.TxID(""), errors.New("unexpected error"))
 
 		c := &Controller{
@@ -1244,7 +1245,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123").
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123", "", "").
 			Return(&oidc4ci.Transaction{
 				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
@@ -1263,7 +1264,7 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 
 	t.Run("success without pin", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "", "123").
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "", "123", "", "").
 			Return(&oidc4ci.Transaction{
 				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
@@ -1282,7 +1283,7 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 
 	t.Run("fail with pin", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123").
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123", "", "").
 			Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{

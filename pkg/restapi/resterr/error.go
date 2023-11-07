@@ -30,6 +30,7 @@ const (
 	OIDCPreAuthorizeInvalidClientID  ErrorCode = "oidc-pre-authorize-invalid-client-id"
 	OIDCCredentialFormatNotSupported ErrorCode = "oidc-credential-format-not-supported"
 	OIDCCredentialTypeNotSupported   ErrorCode = "oidc-credential-type-not-supported"
+	OIDCClientAuthenticationFailed   ErrorCode = "oidc-client-authentication-failed"
 	InvalidOrMissingProofOIDCErr     ErrorCode = "invalid_or_missing_proof"
 
 	ProfileNotFound                 ErrorCode = "profile-not-found"
