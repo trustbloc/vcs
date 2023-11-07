@@ -91,7 +91,7 @@ func (c *Client) GetScopes() fosite.Arguments {
 
 // IsPublic returns true if the client is public.
 func (c *Client) IsPublic() bool {
-	return c.TokenEndpointAuthMethod == "none"
+	return c.TokenEndpointAuthMethod == "" || c.TokenEndpointAuthMethod == "none"
 }
 
 // GetAudience returns the client audience.
