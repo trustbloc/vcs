@@ -58,6 +58,7 @@ const (
 	ClientIssuerInteraction          ClientID = "issuer-interaction"
 	ClientCredentialVerifier         ClientID = "credential-verifier" //nolint:gosec
 	ClientDiscoverableClientIDScheme ClientID = "discoverable-client-id-scheme"
+	ClientAttestationService         ClientID = "attestation-service"
 )
 
 // Provider is an interface for metrics provider.

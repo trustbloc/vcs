@@ -665,7 +665,12 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	txID, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState)
+	txID, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(),
+		body.OpState,
+		lo.FromPtr(body.ClientId),
+		lo.FromPtr(body.ClientAssertionType),
+		lo.FromPtr(body.ClientAssertion),
+	)
 	if err != nil {
 		return util.WriteOutput(ctx)(nil, err)
 	}
@@ -683,8 +688,12 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	}
 
 	result, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
-		body.PreAuthorizedCode, lo.FromPtr(body.UserPin), lo.FromPtr(body.ClientId))
-
+		body.PreAuthorizedCode,
+		lo.FromPtr(body.UserPin),
+		lo.FromPtr(body.ClientId),
+		lo.FromPtr(body.ClientAssertionType),
+		lo.FromPtr(body.ClientAssertion),
+	)
 	if err != nil {
 		return err
 	}

@@ -839,12 +839,18 @@ func TestController_OidcToken(t *testing.T) {
 									"opState": opState,
 								},
 							},
+							Client: &fosite.DefaultClient{
+								ID: clientID,
+							},
 						},
 					}, nil)
 
 				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(),
 					issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
-						OpState: opState,
+						OpState:             opState,
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).
 					Return(
 						&http.Response{
@@ -883,6 +889,9 @@ func TestController_OidcToken(t *testing.T) {
 									"opState": "1234",
 								},
 							},
+							Client: &fosite.DefaultClient{
+								ID: clientID,
+							},
 						},
 					}, nil)
 
@@ -910,6 +919,9 @@ func TestController_OidcToken(t *testing.T) {
 								Extra: map[string]interface{}{
 									"opState": "1234",
 								},
+							},
+							Client: &fosite.DefaultClient{
+								ID: clientID,
 							},
 						},
 					}, nil)
@@ -1895,9 +1907,11 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			setup: func() {
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode: "123456",
-						UserPin:           lo.ToPtr("5678"),
-						ClientId:          lo.ToPtr(clientID),
+						PreAuthorizedCode:   "123456",
+						UserPin:             lo.ToPtr("5678"),
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).Return(nil, errors.New("invalid pin"))
 
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1927,9 +1941,11 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					}, nil)
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode: "321",
-						UserPin:           lo.ToPtr(""),
-						ClientId:          lo.ToPtr(clientID),
+						PreAuthorizedCode:   "321",
+						UserPin:             lo.ToPtr(""),
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader("{")),
 					StatusCode: http.StatusOK,
@@ -1955,9 +1971,11 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					}, nil)
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode: "321",
-						UserPin:           lo.ToPtr(""),
-						ClientId:          lo.ToPtr(clientID),
+						PreAuthorizedCode:   "321",
+						UserPin:             lo.ToPtr(""),
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader("{}")),
 					StatusCode: http.StatusBadRequest,
@@ -1983,9 +2001,11 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					}, nil)
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode: "321",
-						UserPin:           lo.ToPtr(""),
-						ClientId:          lo.ToPtr(clientID),
+						PreAuthorizedCode:   "321",
+						UserPin:             lo.ToPtr(""),
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-tx-not-found"}`)),
 					StatusCode: http.StatusBadRequest,
@@ -2013,9 +2033,11 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					}, nil)
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode: "321",
-						UserPin:           lo.ToPtr(""),
-						ClientId:          lo.ToPtr(clientID),
+						PreAuthorizedCode:   "321",
+						UserPin:             lo.ToPtr(""),
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-expect-pin"}`)),
 					StatusCode: http.StatusBadRequest,
@@ -2042,9 +2064,11 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					}, nil)
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode: "321",
-						UserPin:           lo.ToPtr(""),
-						ClientId:          lo.ToPtr(""),
+						PreAuthorizedCode:   "321",
+						UserPin:             lo.ToPtr(""),
+						ClientId:            lo.ToPtr(""),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-invalid-client-id"}`)),
 					StatusCode: http.StatusBadRequest,

@@ -83,6 +83,7 @@ import (
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
+	"github.com/trustbloc/vcs/pkg/service/attestation"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	clientmanagersvc "github.com/trustbloc/vcs/pkg/service/clientmanager"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
@@ -667,6 +668,12 @@ func buildEchoHandler(
 
 	jsonSchemaValidator := jsonschema.NewCachingValidator()
 
+	attestationService := attestation.NewService(
+		&attestation.Config{
+			HTTPClient: getHTTPClient(metricsProvider.ClientAttestationService),
+		},
+	)
+
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
@@ -683,6 +690,7 @@ func buildEchoHandler(
 		KMSRegistry:                   kmsRegistry,
 		CryptoJWTSigner:               vcCrypto,
 		JSONSchemaValidator:           jsonSchemaValidator,
+		AttestationService:            attestationService,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)

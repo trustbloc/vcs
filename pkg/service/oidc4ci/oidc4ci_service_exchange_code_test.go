@@ -87,7 +87,7 @@ func TestExchangeCode(t *testing.T) {
 			},
 		}, nil)
 
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState)
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState, "", "", "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp)
 }
@@ -98,7 +98,7 @@ func TestExchangeCodeErrFindTx(t *testing.T) {
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New("tx not found"))
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "123")
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "123", "", "", "")
 	assert.Empty(t, resp)
 	assert.ErrorContains(t, err, "tx not found")
 }
@@ -133,9 +133,50 @@ func TestExchangeCodeProfileGetError(t *testing.T) {
 			return nil
 		})
 
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "opState")
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "opState", "", "", "")
 	assert.Empty(t, resp)
 	assert.ErrorContains(t, err, "get profile error")
+}
+
+func TestExchangeCodeAuthenticateClientError(t *testing.T) {
+	store := NewMockTransactionStore(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
+	profileService := NewMockProfileService(gomock.NewController(t))
+	attestationService := NewMockAttestationService(gomock.NewController(t))
+
+	svc, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore:   store,
+		ProfileService:     profileService,
+		AttestationService: attestationService,
+		EventService:       eventMock,
+		EventTopic:         spi.IssuerEventTopic,
+	})
+	assert.NoError(t, err)
+
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
+		TransactionData: oidc4ci.TransactionData{
+			State:         oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+			TokenEndpoint: "https://localhost/token",
+		},
+	}, nil)
+
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profile.Issuer{
+		OIDCConfig: &profile.OIDCConfig{
+			TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+		},
+	}, nil)
+
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+			return nil
+		})
+
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "opState", "client_id", "attest_jwt_client_auth", "")
+	assert.Empty(t, resp)
+	assert.ErrorContains(t, err, "invalid client assertion format")
 }
 
 func TestExchangeCodeIssuerError(t *testing.T) {
@@ -186,7 +227,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 			},
 		}, nil)
 
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "sadsadas")
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "sadsadas", "", "", "")
 	assert.Empty(t, resp)
 	assert.ErrorContains(t, err, "oauth2: server response missing access_token")
 }
@@ -247,7 +288,7 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
 	store.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
 
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState)
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState, "", "", "")
 	assert.ErrorContains(t, err, "update error")
 	assert.Empty(t, resp)
 }
@@ -278,7 +319,7 @@ func TestExchangeCodeInvalidState(t *testing.T) {
 			return nil
 		})
 
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "sadsadas")
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "sadsadas", "", "", "")
 	assert.Empty(t, resp)
 	assert.ErrorContains(t, err, "unexpected transition from 5 to 4")
 }
@@ -346,7 +387,7 @@ func TestExchangeCodePublishError(t *testing.T) {
 			},
 		}, nil)
 
-	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState)
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState, "", "", "")
 	assert.ErrorContains(t, err, "publish error")
 	assert.Empty(t, resp)
 }

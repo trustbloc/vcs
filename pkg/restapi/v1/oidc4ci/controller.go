@@ -479,6 +479,8 @@ func (c *Controller) OidcToken(e echo.Context) error {
 			e.FormValue("pre-authorized_code"),
 			e.FormValue("user_pin"),
 			e.FormValue("client_id"),
+			e.FormValue("client_assertion_type"),
+			e.FormValue("client_assertion"),
 		)
 
 		if preAuthorizeErr != nil {
@@ -490,7 +492,10 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		exchangeResp, errExchange := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
 			issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
-				OpState: ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
+				OpState:             ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
+				ClientId:            lo.ToPtr(ar.GetClient().GetID()),
+				ClientAssertionType: lo.ToPtr(e.FormValue("client_assertion_type")),
+				ClientAssertion:     lo.ToPtr(e.FormValue("client_assertion")),
 			},
 		)
 		if errExchange != nil {
@@ -725,12 +730,16 @@ func (c *Controller) oidcPreAuthorizedCode(
 	preAuthorizedCode string,
 	userPin string,
 	clientID string,
+	clientAssertionType string,
+	clientAssertion string,
 ) (*issuer.ValidatePreAuthorizedCodeResponse, error) {
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-			PreAuthorizedCode: preAuthorizedCode,
-			UserPin:           lo.ToPtr(userPin),
-			ClientId:          lo.ToPtr(clientID),
+			PreAuthorizedCode:   preAuthorizedCode,
+			UserPin:             lo.ToPtr(userPin),
+			ClientId:            lo.ToPtr(clientID),
+			ClientAssertionType: lo.ToPtr(clientAssertionType),
+			ClientAssertion:     lo.ToPtr(clientAssertion),
 		})
 	if err != nil {
 		return nil, err

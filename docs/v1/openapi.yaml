@@ -906,16 +906,16 @@ components:
           description: The Credential Issuer's identifier.
         credential_endpoint:
           type: string
-          description: URL of the Credential Issuer's Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.
+          description: 'URL of the Credential Issuer''s Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.'
         batch_credential_endpoint:
           type: string
-          description: URL of the Credential Issuer's Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.
+          description: 'URL of the Credential Issuer''s Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.'
         credentials_supported:
           type: array
-          description: A JSON array containing a list of JSON objects, each of them representing metadata about a separate credential type that the Credential Issuer can issue.
+          description: 'A JSON array containing a list of JSON objects, each of them representing metadata about a separate credential type that the Credential Issuer can issue.'
         display:
           type: array
-          description: An array of objects, where each object contains display properties of a Credential Issuer for a certain language.
+          description: 'An array of objects, where each object contains display properties of a Credential Issuer for a certain language.'
           items:
             $ref: '#/components/schemas/CredentialDisplay'
         token_endpoint_auth_methods_supported:
@@ -1283,6 +1283,15 @@ components:
       properties:
         op_state:
           type: string
+        client_id:
+          type: string
+          description: Client ID for VCS OIDC interaction.
+        client_assertion_type:
+          type: string
+          description: 'Specifies the method used to authenticate the client application to the authorization server (VCS). The only supported value is "urn:ietf:params:oauth:client-assertion-type:jwt-client-attestation". It indicates that the client must authenticate using OAuth 2.0 Attestation-Based Client Authentication method.'
+        client_assertion:
+          type: string
+          description: 'The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.'
       required:
         - op_state
     ExchangeAuthorizationCodeResponse:
@@ -1337,7 +1346,13 @@ components:
           description: User pin.
         client_id:
           type: string
-          description: Client ID.
+          description: Client ID for VCS OIDC interaction.
+        client_assertion_type:
+          type: string
+          description: 'Specifies the method used to authenticate the client application to the authorization server (VCS). The only supported value is "urn:ietf:params:oauth:client-assertion-type:jwt-client-attestation". It indicates that the client must authenticate using OAuth 2.0 Attestation-Based Client Authentication method.'
+        client_assertion:
+          type: string
+          description: 'The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.'
       required:
         - pre-authorized_code
     ValidatePreAuthorizedCodeResponse:

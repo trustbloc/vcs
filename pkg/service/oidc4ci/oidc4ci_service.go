@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,attestationService=MockAttestationService
 
 package oidc4ci
 
@@ -37,6 +37,8 @@ const (
 	defaultResponseType = "token"
 	defaultCtx          = "https://www.w3.org/2018/credentials/v1"
 )
+
+var _ ServiceInterface = (*Service)(nil)
 
 var logger = log.New("oidc4ci")
 
@@ -116,6 +118,11 @@ type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
+type attestationService interface {
+	ValidateClientAttestationJWT(ctx context.Context, clientID, clientAttestationJWT string) error
+	ValidateClientAttestationPoPJWT(ctx context.Context, clientID, clientAttestationPoPJWT string) error
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -133,6 +140,7 @@ type Config struct {
 	KMSRegistry                   kmsRegistry
 	CryptoJWTSigner               cryptoJWTSigner
 	JSONSchemaValidator           jsonSchemaValidator
+	AttestationService            attestationService
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -152,6 +160,7 @@ type Service struct {
 	kmsRegistry                   kmsRegistry
 	cryptoJWTSigner               cryptoJWTSigner
 	schemaValidator               jsonSchemaValidator
+	attestationService            attestationService
 }
 
 // NewService returns a new Service instance.
@@ -172,6 +181,7 @@ func NewService(config *Config) (*Service, error) {
 		kmsRegistry:                   config.KMSRegistry,
 		cryptoJWTSigner:               config.CryptoJWTSigner,
 		schemaValidator:               config.JSONSchemaValidator,
+		attestationService:            config.AttestationService,
 	}, nil
 }
 
@@ -372,9 +382,11 @@ func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *Authorizat
 
 func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	ctx context.Context,
-	preAuthorizedCode string,
-	pin string,
-	clientID string,
+	preAuthorizedCode,
+	pin,
+	clientID,
+	clientAssertionType,
+	clientAssertion string,
 ) (*Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
@@ -391,22 +403,24 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 			fmt.Errorf("server expects user pin"))
 	}
 
-	if clientID == "" {
-		var profile *profileapi.Issuer
-
-		profile, err = s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
-		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
-			}
-
-			return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
 		}
 
+		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+	}
+
+	if clientID == "" { // check if anonymous access is allowed
 		// profile.OIDCConfig is not required for pre-auth flow, so no specific error for this case.
 		if profile.OIDCConfig != nil && !profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported {
 			return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidClientID,
 				fmt.Errorf("issuer does not accept Token Request with a Pre-Authorized Code but without a client_id"))
+		}
+	} else {
+		if err = s.AuthenticateClient(ctx, profile, clientID, clientAssertionType, clientAssertion); err != nil {
+			return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 		}
 	}
 
