@@ -54,7 +54,7 @@ type ServiceInterface interface {
 		ctx context.Context,
 		presentationDefinition *presexch.PresentationDefinition,
 		purpose string,
-		customScope string,
+		customScopes []string,
 		profile *profileapi.Verifier,
 	) (*InteractionInfo, error)
 	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, authResponse *AuthorizationResponseParsed) error
@@ -84,4 +84,4 @@ type TxNonceStore txNonceStore
 
 type TxClaimsStore txClaimsStore
 
-type TxStoreStore txStore
+type TxStore txStore

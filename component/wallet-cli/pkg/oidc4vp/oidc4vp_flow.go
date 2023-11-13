@@ -45,6 +45,7 @@ const (
 	linkedDomainsService = "LinkedDomains"
 	tokenLifetimeSeconds = 600
 
+	scopeOpenID              = "openid"
 	customScopeTimeDetails   = "timedetails"
 	customScopeWalletDetails = "walletdetails"
 )
@@ -689,23 +690,27 @@ func ExtractCustomScopeClaims(requestObjectScope string) (map[string]Claims, err
 		return nil, nil
 	}
 
-	switch chunks[1] {
-	case customScopeTimeDetails:
-		return map[string]Claims{
-			chunks[1]: {
+	claimsData := make(map[string]Claims, len(chunks)-1)
+
+	for _, scope := range chunks {
+		switch scope {
+		case scopeOpenID:
+			// scopeOpenID is a required specification scope, so no additional claims for this case.
+			continue
+		case customScopeTimeDetails:
+			claimsData[scope] = Claims{
 				"timestamp": time.Now().Format(time.RFC3339),
 				"uuid":      uuid.NewString(),
-			},
-		}, nil
-	case customScopeWalletDetails:
-		return map[string]Claims{
-			chunks[1]: {
+			}
+		case customScopeWalletDetails:
+			claimsData[scope] = Claims{
 				"wallet_version": "1.0",
 				"uuid":           uuid.NewString(),
-			},
-		}, nil
-
-	default:
-		return nil, fmt.Errorf("unexpected custom scope \"%s\" supplied", chunks[1])
+			}
+		default:
+			return nil, fmt.Errorf("unexpected custom scope \"%s\" supplied", chunks[1])
+		}
 	}
+
+	return claimsData, nil
 }

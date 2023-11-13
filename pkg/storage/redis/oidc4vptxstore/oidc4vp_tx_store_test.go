@@ -54,13 +54,13 @@ func TestTxStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create tx", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, customScope)
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 	})
 
 	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, customScope)
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -68,17 +68,17 @@ func TestTxStore_Success(t *testing.T) {
 		tx, err := store.Get(id)
 		require.NoError(t, err)
 		require.NotNil(t, tx)
-		require.Equal(t, customScope, tx.CustomScope)
+		require.Equal(t, []string{customScope}, tx.CustomScopes)
 	})
 
 	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
-		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion, "")
+		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
 		require.NotNil(t, txCreate)
 		require.Empty(t, txCreate.ReceivedClaimsID)
-		require.Empty(t, txCreate.CustomScope)
+		require.Nil(t, txCreate.CustomScopes)
 
 		err = store.Update(oidc4vp.TransactionUpdate{
 			ID:               id,
@@ -93,7 +93,7 @@ func TestTxStore_Success(t *testing.T) {
 		require.NotNil(t, txUpdate)
 		require.Nil(t, txUpdate.ReceivedClaims)
 		require.Equal(t, txCreate, txUpdate)
-		require.Empty(t, txCreate.CustomScope)
+		require.Nil(t, txCreate.CustomScopes)
 	})
 }
 
@@ -126,7 +126,8 @@ func TestTxStore_Fails(t *testing.T) {
 	t.Run("test expiration", func(t *testing.T) {
 		storeExpired := NewTxStore(client, testutil.DocumentLoader(t), 1)
 
-		id, _, err := storeExpired.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, customScope)
+		id, _, err := storeExpired.Create(
+			&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 

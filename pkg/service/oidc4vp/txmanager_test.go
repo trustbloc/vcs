@@ -27,13 +27,13 @@ import (
 func TestTxManager_CreateTx(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), profileID, profileVersion, customScope).Return(
+		store.EXPECT().Create(gomock.Any(), profileID, profileVersion, []string{customScope}).Return(
 			oidc4vp.TxID("txID"),
 			&oidc4vp.Transaction{
 				ID:             "txID",
 				ProfileID:      profileID,
 				ProfileVersion: profileVersion,
-				CustomScope:    customScope,
+				CustomScopes:   []string{customScope},
 			},
 			nil,
 		)
@@ -49,19 +49,20 @@ func TestTxManager_CreateTx(t *testing.T) {
 		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
-		tx, nonce, err := manager.CreateTx(&presexch.PresentationDefinition{}, profileID, profileVersion, customScope)
+		tx, nonce, err := manager.CreateTx(
+			&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
 
 		require.NoError(t, err)
 		require.NotEmpty(t, nonce)
 		require.NotNil(t, tx)
 		require.Equal(t, profileID, tx.ProfileID)
 		require.Equal(t, profileVersion, tx.ProfileVersion)
-		require.Equal(t, customScope, tx.CustomScope)
+		require.Equal(t, []string{customScope}, tx.CustomScopes)
 	})
 
 	t.Run("Fail", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), profileID, profileVersion, customScope).
+		store.EXPECT().Create(gomock.Any(), profileID, profileVersion, []string{customScope}).
 			Return(oidc4vp.TxID(""), nil, errors.New("test error"))
 
 		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
@@ -72,14 +73,14 @@ func TestTxManager_CreateTx(t *testing.T) {
 		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
-		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, profileID, profileVersion, customScope)
+		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
 
 		require.Contains(t, err.Error(), "test error")
 	})
 
 	t.Run("Fail", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), profileID, profileVersion, "").Return(oidc4vp.TxID("txID"), nil, nil)
+		store.EXPECT().Create(gomock.Any(), profileID, profileVersion, nil).Return(oidc4vp.TxID("txID"), nil, nil)
 
 		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
 
@@ -91,7 +92,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
-		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, profileID, profileVersion, "")
+		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, profileID, profileVersion, nil)
 
 		require.Contains(t, err.Error(), "test error")
 	})

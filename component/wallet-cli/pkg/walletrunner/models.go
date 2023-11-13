@@ -50,8 +50,8 @@ type IDTokenVPToken struct {
 type Claims = map[string]interface{}
 
 type IDTokenClaims struct {
-	// ScopeAdditionalClaims stores claims retrieved using additional scope.
-	ScopeAdditionalClaims map[string]Claims `json:"_scope,omitempty"` //additional scope -> claims
+	// ScopeAdditionalClaims stores additional claims retrieved using custom scope.
+	ScopeAdditionalClaims map[string]Claims `json:"_scope,omitempty"` // custom scope -> additional claims
 	VPToken               IDTokenVPToken    `json:"_vp_token"`
 	Nonce                 string            `json:"nonce"`
 	Exp                   int64             `json:"exp"`

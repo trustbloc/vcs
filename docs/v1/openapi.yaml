@@ -1227,9 +1227,11 @@ components:
           type: string
         purpose:
           type: string
-        scope:
-          type: string
-          description: Additional scope that defines custom claims requested from Holder to Verifier.
+        scopes:
+          type: array
+          items:
+            type: string
+          description: List of custom scopes that defines additional claims requested from Holder to Verifier.
         presentationDefinitionFilters:
           $ref: '#/components/schemas/PresentationDefinitionFilters'
     PresentationDefinitionFilters:
