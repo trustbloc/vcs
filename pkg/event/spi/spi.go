@@ -19,6 +19,8 @@ const (
 	IssuerEventTopic = "vcs-issuer"
 	// CredentialStatusEventTopic credential status topic name.
 	CredentialStatusEventTopic = "vcs-credentialstatus"
+	// AttestationSvcEventTopic attestation svc topic name.
+	AttestationSvcEventTopic = "vcs-attestation-svc" //nolint
 )
 
 // EventType event type.
