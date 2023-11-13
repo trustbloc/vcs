@@ -33,7 +33,7 @@ type txDocument struct {
 	ProfileVersion         string                 `bson:"profileVersion"`
 	PresentationDefinition map[string]interface{} `bson:"presentationDefinition"`
 	ReceivedClaimsID       string                 `bson:"receivedClaimsID"`
-	CustomScope            string                 `bson:"customScope,omitempty"`
+	CustomScopes           []string               `bson:"customScopes,omitempty"`
 	ExpireAt               time.Time              `bson:"expire_at"`
 }
 
@@ -84,7 +84,7 @@ func (p *TxStore) migrate(ctx context.Context) error {
 // Create creates transaction document in a database.
 func (p *TxStore) Create(
 	pd *presexch.PresentationDefinition,
-	profileID, profileVersion, customScope string,
+	profileID, profileVersion string, customScopes []string,
 ) (oidc4vp.TxID, *oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
@@ -101,7 +101,7 @@ func (p *TxStore) Create(
 		ProfileID:              profileID,
 		ProfileVersion:         profileVersion,
 		PresentationDefinition: pdContent,
-		CustomScope:            customScope,
+		CustomScopes:           customScopes,
 	}
 
 	result, err := collection.InsertOne(ctxWithTimeout, txDoc)
@@ -206,6 +206,6 @@ func txFromDocument(txDoc *txDocument) (*oidc4vp.Transaction, error) {
 		ProfileVersion:         txDoc.ProfileVersion,
 		PresentationDefinition: pd,
 		ReceivedClaimsID:       txDoc.ReceivedClaimsID,
-		CustomScope:            txDoc.CustomScope,
+		CustomScopes:           txDoc.CustomScopes,
 	}, nil
 }

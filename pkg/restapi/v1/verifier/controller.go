@@ -365,7 +365,7 @@ func (c *Controller) initiateOidcInteraction(
 	}
 
 	result, err := c.oidc4VPService.InitiateOidcInteraction(
-		ctx, pd, lo.FromPtr(data.Purpose), lo.FromPtr(data.Scope), profile)
+		ctx, pd, lo.FromPtr(data.Purpose), lo.FromPtr(data.Scopes), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierOIDC4vpSvcComponent, "InitiateOidcInteraction", err)
 	}

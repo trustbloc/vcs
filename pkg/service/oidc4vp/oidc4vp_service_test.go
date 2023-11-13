@@ -75,12 +75,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		&vcskms.MockKMS{Signer: customSigner}, nil)
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
-	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any(), gomock.Any(), customScope).AnyTimes().
+	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any(), gomock.Any(), []string{customScope}).AnyTimes().
 		Return(&oidc4vp.Transaction{
 			ID:                     "TxID1",
 			ProfileID:              "test4",
 			PresentationDefinition: &presexch.PresentationDefinition{},
-			CustomScope:            customScope,
+			CustomScopes:           []string{customScope},
 		}, "nonce1", nil)
 	requestObjectPublicStore := NewMockRequestObjectPublicStore(gomock.NewController(t))
 	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any()).
@@ -133,7 +133,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{
 			ID: "test",
-		}, "test", customScope, correctProfile)
+		}, "test", []string{customScope}, correctProfile)
 
 		require.NoError(t, err)
 		require.NotNil(t, info)
@@ -145,7 +145,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.SigningDID = nil
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", customScope, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -154,7 +154,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Tx create failed", func(t *testing.T) {
 		txManagerErr := NewMockTransactionManager(gomock.NewController(t))
 		txManagerErr.EXPECT().CreateTx(
-			gomock.Any(), gomock.Any(), gomock.Any(), customScope).AnyTimes().Return(nil, "", errors.New("fail"))
+			gomock.Any(), gomock.Any(), gomock.Any(), []string{customScope}).AnyTimes().Return(nil, "", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
@@ -169,7 +169,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			context.TODO(),
 			&presexch.PresentationDefinition{},
 			"test",
-			customScope,
+			[]string{customScope},
 			correctProfile,
 		)
 
@@ -195,7 +195,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			context.TODO(),
 			&presexch.PresentationDefinition{},
 			"test",
-			customScope,
+			[]string{customScope},
 			correctProfile,
 		)
 
@@ -220,7 +220,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			context.TODO(),
 			&presexch.PresentationDefinition{},
 			"test",
-			customScope,
+			[]string{customScope},
 			correctProfile,
 		)
 
@@ -234,7 +234,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.SigningDID.KMSKeyID = "invalid"
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", customScope, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -246,7 +246,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.OIDCConfig.KeyType = "invalid"
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", customScope, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -406,7 +406,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: defs,
-			CustomScope:            customScope,
+			CustomScopes:           []string{customScope},
 		}, true, nil)
 
 		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).Times(1).
@@ -623,7 +623,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid nonce")
 	})
 
-	t.Run("Invalid _scope", func(t *testing.T) {
+	t.Run("Invalid _scope (invalid amount)", func(t *testing.T) {
 		errTxManager := NewMockTransactionManager(gomock.NewController(t))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			TransactionManager: errTxManager,
@@ -634,7 +634,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
-			CustomScope:            customScope,
+			CustomScopes:           []string{customScope},
 		}, true, nil)
 
 		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -647,7 +647,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid _scope")
 	})
 
-	t.Run("Invalid _scope 2", func(t *testing.T) {
+	t.Run("Invalid _scope 2 (no claims supplied)", func(t *testing.T) {
 		errTxManager := NewMockTransactionManager(gomock.NewController(t))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			TransactionManager: errTxManager,
@@ -658,7 +658,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
-			CustomScope:            customScope,
+			CustomScopes:           []string{customScope},
 		}, true, nil)
 
 		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",

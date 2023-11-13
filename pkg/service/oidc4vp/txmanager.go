@@ -36,7 +36,7 @@ type Transaction struct {
 	PresentationDefinition *presexch.PresentationDefinition
 	ReceivedClaims         *ReceivedClaims
 	ReceivedClaimsID       string
-	CustomScope            string
+	CustomScopes           []string
 }
 
 type ReceivedClaims struct {
@@ -60,7 +60,11 @@ type TransactionUpdate struct {
 }
 
 type txStore interface {
-	Create(pd *presexch.PresentationDefinition, profileID, profileVersion, customScope string) (TxID, *Transaction, error)
+	Create(
+		pd *presexch.PresentationDefinition,
+		profileID, profileVersion string,
+		customScopes []string,
+	) (TxID, *Transaction, error)
 	Update(update TransactionUpdate) error
 	Get(txID TxID) (*Transaction, error)
 }
@@ -109,8 +113,11 @@ func NewTxManager(
 
 // CreateTx creates transaction and generate one time access token.
 func (tm *TxManager) CreateTx(
-	pd *presexch.PresentationDefinition, profileID, profileVersion, customScope string) (*Transaction, string, error) {
-	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion, customScope)
+	pd *presexch.PresentationDefinition,
+	profileID, profileVersion string,
+	customScopes []string,
+) (*Transaction, string, error) {
+	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion, customScopes)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}

@@ -37,17 +37,17 @@ func (w *Wrapper) InitiateOidcInteraction(
 	ctx context.Context,
 	presentationDefinition *presexch.PresentationDefinition,
 	purpose string,
-	customScope string,
+	customScopes []string,
 	profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error) {
 	ctx, span := w.tracer.Start(ctx, "oidc4vp.InitiateOidcInteraction")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
 	span.SetAttributes(attribute.String("purpose", purpose))
-	span.SetAttributes(attribute.String("custom_cope", customScope))
+	span.SetAttributes(attribute.StringSlice("custom_copes", customScopes))
 	span.SetAttributes(attributeutil.JSON("presentation_definition", presentationDefinition))
 
-	resp, err := w.svc.InitiateOidcInteraction(ctx, presentationDefinition, purpose, customScope, profile)
+	resp, err := w.svc.InitiateOidcInteraction(ctx, presentationDefinition, purpose, customScopes, profile)
 	if err != nil {
 		return nil, err
 	}

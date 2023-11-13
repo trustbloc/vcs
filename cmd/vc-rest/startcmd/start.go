@@ -1023,8 +1023,8 @@ func getOIDC4VPTxStore(
 	redisClient *redis.Client,
 	mongodbClient *mongodb.Client,
 	documentLoader jsonld.DocumentLoader,
-	oidc4vpTransactionDataTTLSec int32) (oidc4vp.TxStoreStore, error) {
-	var store oidc4vp.TxStoreStore
+	oidc4vpTransactionDataTTLSec int32) (oidc4vp.TxStore, error) {
+	var store oidc4vp.TxStore
 	var err error
 
 	switch transientDataStoreType {

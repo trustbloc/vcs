@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,7 +61,7 @@ type eventService interface {
 type transactionManager interface {
 	CreateTx(
 		pd *presexch.PresentationDefinition,
-		profileID, profileVersion, customScope string) (*Transaction, string, error)
+		profileID, profileVersion string, customScopes []string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
 	DeleteReceivedClaims(claimsID string) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
@@ -238,7 +239,7 @@ func (s *Service) InitiateOidcInteraction(
 	ctx context.Context,
 	presentationDefinition *presexch.PresentationDefinition,
 	purpose string,
-	customScope string,
+	customScopes []string,
 	profile *profileapi.Verifier,
 ) (*InteractionInfo, error) {
 	logger.Debugc(ctx, "InitiateOidcInteraction begin")
@@ -248,7 +249,7 @@ func (s *Service) InitiateOidcInteraction(
 			errors.New("profile signing did can't be nil"))
 	}
 
-	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version, customScope)
+	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version, customScopes)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "create-txn",
 			fmt.Errorf("fail to create oidc tx: %w", err))
@@ -256,7 +257,7 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
-	token, err := s.createRequestObjectJWT(presentationDefinition, tx, nonce, purpose, customScope, profile)
+	token, err := s.createRequestObjectJWT(presentationDefinition, tx, nonce, purpose, customScopes, profile)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, profile, err)
 
@@ -398,12 +399,16 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 			fmt.Errorf("invalid nonce"))
 	}
 
-	// If custom scope was requested, but no relevant additional claims were supplied by Holder.
-	noAdditionalClaims := tx.CustomScope != "" && len(authResponse.CustomScopeClaims[tx.CustomScope]) == 0
-	// If custom scope was not requested, but additional claims were supplied by Holder.
-	unexpectedAdditionalClaims := tx.CustomScope == "" && len(authResponse.CustomScopeClaims) != 0
+	// If amount custom scopes is not equal to amount of supplied claims.
+	unexpectedClaimsAmount := len(tx.CustomScopes) != len(authResponse.CustomScopeClaims)
+	// If no additional claims supplied for any of custom scopes.
+	_, noAdditionalClaimsSupplied := lo.Find(tx.CustomScopes, func(item string) bool {
+		val, ok := authResponse.CustomScopeClaims[item]
 
-	if noAdditionalClaims || unexpectedAdditionalClaims {
+		return !ok || len(val) == 0
+	})
+
+	if unexpectedClaimsAmount || noAdditionalClaimsSupplied {
 		return resterr.NewValidationError(resterr.InvalidValue, "_scope",
 			fmt.Errorf("invalid _scope"))
 	}
@@ -641,7 +646,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 	tx *Transaction,
 	nonce string,
 	purpose string,
-	additionalScope string,
+	customScopes []string,
 	profile *profileapi.Verifier) (string, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
@@ -652,7 +657,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 	vpFormats := GetSupportedVPFormats(
 		kms.SupportedKeyTypes(), profile.Checks.Presentation.Format, profile.Checks.Credential.Format)
 
-	ro := s.createRequestObject(presentationDefinition, vpFormats, tx, nonce, purpose, additionalScope, profile)
+	ro := s.createRequestObject(presentationDefinition, vpFormats, tx, nonce, purpose, customScopes, profile)
 
 	signatureTypes := vcsverifiable.GetSignatureTypesByKeyTypeFormat(profile.OIDCConfig.KeyType, vcsverifiable.Jwt)
 	if len(signatureTypes) < 1 {
@@ -744,7 +749,7 @@ func (s *Service) createRequestObject(
 	tx *Transaction,
 	nonce string,
 	purpose string,
-	additionalScope string,
+	customScopes []string,
 	profile *profileapi.Verifier) *RequestObject {
 	tokenLifetime := s.tokenLifetime
 	now := time.Now()
@@ -754,7 +759,7 @@ func (s *Service) createRequestObject(
 		ISS:          profile.SigningDID.DID,
 		ResponseType: "id_token",
 		ResponseMode: "post",
-		Scope:        getScope(additionalScope),
+		Scope:        getScope(customScopes),
 		Nonce:        nonce,
 		ClientID:     profile.SigningDID.DID,
 		RedirectURI:  s.redirectURL,
@@ -773,10 +778,10 @@ func (s *Service) createRequestObject(
 	}
 }
 
-func getScope(additionalScope string) string {
+func getScope(customScopes []string) string {
 	scope := "openid"
-	if additionalScope != "" {
-		scope += "+" + additionalScope
+	if len(customScopes) > 0 {
+		scope += "+" + strings.Join(customScopes, "+")
 	}
 
 	return scope

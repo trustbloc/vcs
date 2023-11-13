@@ -119,9 +119,9 @@ func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, 
 	return nil
 }
 
-func (s *Steps) runOIDC4VPFlowWithCustomScope(profileVersionedID, pdID, fields, customScope string) error {
+func (s *Steps) runOIDC4VPFlowWithCustomScopes(profileVersionedID, pdID, fields, customScopes string) error {
 	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, func(d *initiateOIDC4VPData) {
-		d.Scope = customScope
+		d.Scopes = strings.Split(customScopes, ",")
 	})
 }
 
@@ -180,7 +180,7 @@ func (s *Steps) retrieveInteractionsClaim(profile string) error {
 	return s.validateRetrievedInteractionsClaim(credentialClaims)
 }
 
-func (s *Steps) retrieveInteractionsClaimWithCustomScope(profile, customScope string) error {
+func (s *Steps) retrieveInteractionsClaimWithCustomScopes(profile, customScopes string) error {
 	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
 		return err
 	}
@@ -203,9 +203,11 @@ func (s *Steps) retrieveInteractionsClaimWithCustomScope(profile, customScope st
 		return errors.New("_scope claim expected")
 	}
 
-	customScopeClaims, ok := customClaimsMetadata.CustomClaims[customScope]
-	if !ok || len(customScopeClaims) == 0 {
-		return fmt.Errorf("no additional claims supplied for custom scope %s", customScope)
+	for _, scope := range strings.Split(customScopes, ",") {
+		customScopeClaims, ok := customClaimsMetadata.CustomClaims[scope]
+		if !ok || len(customScopeClaims) == 0 {
+			return fmt.Errorf("no additional claims supplied for custom scope %s", scope)
+		}
 	}
 
 	delete(credentialClaims, "_scope")
@@ -307,8 +309,8 @@ func (s *Steps) waitForEvent(eventType string) (string, error) {
 }
 
 type initiateOIDC4VPData struct {
-	// Additional scope that defines custom claims requested from Holder to Verifier.
-	Scope                         string                         `json:"scope,omitempty"`
+	// Custom scopes that defines additional claims requested from Holder to Verifier.
+	Scopes                        []string                       `json:"scopes,omitempty"`
 	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
 	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
 }

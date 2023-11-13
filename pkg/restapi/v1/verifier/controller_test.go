@@ -1919,7 +1919,8 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), "test_scope", gomock.Any()).
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(
+		gomock.Any(), gomock.Any(), gomock.Any(), []string{"test_scope"}, gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -1930,7 +1931,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		})
 
 		result, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{
-			Scope: lo.ToPtr("test_scope"),
+			Scopes: lo.ToPtr([]string{"test_scope"}),
 		},
 			&profileapi.Verifier{
 				OrganizationID: tenantID,
@@ -1962,7 +1963,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		result, err := controller.initiateOidcInteraction(context.TODO(),
 			&InitiateOIDC4VPData{
-				Scope: lo.ToPtr("test_scope"),
+				Scopes: lo.ToPtr([]string{"test_scope"}),
 				PresentationDefinitionFilters: &PresentationDefinitionFilters{
 					Fields: &fields,
 				},
@@ -2007,7 +2008,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		result, err := controller.initiateOidcInteraction(context.TODO(),
 			&InitiateOIDC4VPData{
-				Scope:                    lo.ToPtr("test_scope"),
+				Scopes:                   lo.ToPtr([]string{"test_scope"}),
 				PresentationDefinitionId: &pdID,
 				PresentationDefinitionFilters: &PresentationDefinitionFilters{
 					Fields: &fields,
