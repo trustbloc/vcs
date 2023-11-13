@@ -47,6 +47,9 @@ const (
 	IssuerOIDCInteractionFailed                       EventType = "issuer.oidc-interaction-failed.v1"
 
 	CredentialStatusStatusUpdated EventType = "issuer.credential-status-updated.v1" //nolint:gosec
+
+	WalletAttestationCredentialIssued EventType = "issuer.wallet-attestation-succeeded.v1" //nolint
+	WalletAttestationFailed           EventType = "issuer.wallet-attestation-failed.v1"    //nolint
 )
 
 // Payload defines payload.
