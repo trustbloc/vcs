@@ -618,6 +618,20 @@ func buildEchoHandler(
 		issueCredentialSvc = issuecredentialtracing.Wrap(issueCredentialSvc, conf.Tracer)
 	}
 
+	var verifyCredentialSvc verifycredential.ServiceInterface
+
+	verifyCredentialSvc = verifycredential.New(&verifycredential.Config{
+		HTTPClient:              getHTTPClient(metricsProvider.ClientCredentialVerifier),
+		VCStatusProcessorGetter: statustype.GetVCStatusProcessor,
+		StatusListVCResolver:    statusListVCSvc,
+		DocumentLoader:          documentLoader,
+		VDR:                     conf.VDR,
+	})
+
+	if conf.IsTraceEnabled {
+		verifyCredentialSvc = verifycredentialtracing.Wrap(verifyCredentialSvc, conf.Tracer)
+	}
+
 	oidc4ciTransactionStore, err := getOIDC4CITransactionStore(
 		conf.StartupParameters.transientDataParams.storeType,
 		redisClient,
@@ -668,9 +682,14 @@ func buildEchoHandler(
 
 	jsonSchemaValidator := jsonschema.NewCachingValidator()
 
+	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(conf.VDR))
+
 	attestationService := attestation.NewService(
 		&attestation.Config{
-			HTTPClient: getHTTPClient(metricsProvider.ClientAttestationService),
+			HTTPClient:       getHTTPClient(metricsProvider.ClientAttestationService),
+			DocumentLoader:   documentLoader,
+			ProofChecker:     proofChecker,
+			VCStatusVerifier: verifyCredentialSvc,
 		},
 	)
 
@@ -790,7 +809,7 @@ func buildEchoHandler(
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
 		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		JWTVerifier:             defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(conf.VDR)),
+		JWTVerifier:             proofChecker,
 		ClientManager:           clientManagerService,
 		ClientIDSchemeService:   clientIDSchemeSvc,
 		Tracer:                  conf.Tracer,
@@ -827,20 +846,6 @@ func buildEchoHandler(
 		})
 	if err != nil {
 		return nil, err
-	}
-
-	var verifyCredentialSvc verifycredential.ServiceInterface
-
-	verifyCredentialSvc = verifycredential.New(&verifycredential.Config{
-		HTTPClient:              getHTTPClient(metricsProvider.ClientCredentialVerifier),
-		VCStatusProcessorGetter: statustype.GetVCStatusProcessor,
-		StatusListVCResolver:    statusListVCSvc,
-		DocumentLoader:          documentLoader,
-		VDR:                     conf.VDR,
-	})
-
-	if conf.IsTraceEnabled {
-		verifyCredentialSvc = verifycredentialtracing.Wrap(verifyCredentialSvc, conf.Tracer)
 	}
 
 	var verifyPresentationSvc verifypresentation.ServiceInterface
