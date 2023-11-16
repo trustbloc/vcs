@@ -13,4 +13,5 @@ import "context"
 type ServiceInterface interface {
 	ValidateClientAttestationJWT(ctx context.Context, clientID, clientAttestationJWT string) error
 	ValidateClientAttestationPoPJWT(ctx context.Context, clientID, clientAttestationPoPJWT string) error
+	ValidateClientAttestationVP(ctx context.Context, clientID, jwtVP string) error
 }

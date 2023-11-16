@@ -17,10 +17,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
-const (
-	attestJWTClientAuthType     = "attest_jwt_client_auth"
-	attestJWTClientAuthJWTCount = 2
-)
+const attestJWTClientAuthType = "attest_jwt_client_auth"
 
 func (s *Service) AuthenticateClient(
 	ctx context.Context,
@@ -45,17 +42,22 @@ func (s *Service) AuthenticateClient(
 
 	jwts := strings.Split(clientAssertion, "~")
 
-	if len(jwts) != attestJWTClientAuthJWTCount {
+	switch {
+	case len(jwts) == 1 && jwts[0] != "":
+		if err := s.attestationService.ValidateClientAttestationVP(ctx, clientID, jwts[0]); err != nil {
+			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		}
+	case len(jwts) == 2 && jwts[0] != "" && jwts[1] != "":
+		if err := s.attestationService.ValidateClientAttestationJWT(ctx, clientID, jwts[0]); err != nil {
+			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		}
+
+		if err := s.attestationService.ValidateClientAttestationPoPJWT(ctx, clientID, jwts[1]); err != nil {
+			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		}
+	default:
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
 			errors.New("invalid client assertion format"))
-	}
-
-	if err := s.attestationService.ValidateClientAttestationJWT(ctx, clientID, jwts[0]); err != nil {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
-	}
-
-	if err := s.attestationService.ValidateClientAttestationPoPJWT(ctx, clientID, jwts[1]); err != nil {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
 	return nil
