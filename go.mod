@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.20.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.31.0
-	github.com/btcsuite/btcd v0.22.3
+	github.com/btcsuite/btcd/btcec/v2 v2.1.3
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/deepmap/oapi-codegen v1.11.0
@@ -35,11 +35,11 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
-	github.com/trustbloc/bbs-signature-go v1.0.0
-	github.com/trustbloc/did-go v1.0.2-0.20230928194341-39d5462574c0
-	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
+	github.com/trustbloc/bbs-signature-go v1.0.1
+	github.com/trustbloc/did-go v1.0.2-0.20231117120416-ed019bda587f
+	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895
+	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734
 	github.com/valyala/fastjson v1.6.3
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.mongodb.org/mongo-driver v1.11.4
@@ -55,7 +55,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
+	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/PaesslerAG/gval v1.2.0 // indirect
@@ -78,16 +78,18 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.6 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bits-and-blooms/bitset v1.7.0 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
-	github.com/consensys/gnark-crypto v0.9.1 // indirect
+	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/creasty/defaults v1.7.0 // indirect
 	github.com/cristalhq/jwt/v4 v4.0.2 // indirect
 	github.com/dave/jennifer v1.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/cli v20.10.21+incompatible // indirect
