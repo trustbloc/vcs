@@ -20,9 +20,9 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/trustbloc/did-go v1.0.2-0.20230928194341-39d5462574c0
-	github.com/trustbloc/kms-go v1.0.1-0.20230928143453-638bd66bb721
-	github.com/trustbloc/vc-go v1.0.3-0.20231027080036-03fc2b8e9895
+	github.com/trustbloc/did-go v1.0.2-0.20231117120416-ed019bda587f
+	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a
+	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.3
 	go.mongodb.org/mongo-driver v1.11.4
@@ -31,7 +31,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
+	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/PaesslerAG/gval v1.2.0 // indirect
@@ -51,16 +51,18 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.6 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
+	github.com/bits-and-blooms/bitset v1.7.0 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
-	github.com/btcsuite/btcd v0.22.3 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.1.3 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
-	github.com/consensys/gnark-crypto v0.9.1 // indirect
+	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/creasty/defaults v1.7.0 // indirect
 	github.com/dave/jennifer v1.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.11.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/docker/cli v20.10.21+incompatible // indirect
@@ -145,9 +147,9 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/trustbloc/bbs-signature-go v1.0.0 // indirect
+	github.com/trustbloc/bbs-signature-go v1.0.1 // indirect
 	github.com/trustbloc/logutil-go v1.0.0-rc1 // indirect
-	github.com/trustbloc/sidetree-go v0.0.0-20230928172705-30e78b6b6ddd // indirect
+	github.com/trustbloc/sidetree-go v0.0.0-20231117115139-d71ec9786d12 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
