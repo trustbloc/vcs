@@ -1822,6 +1822,97 @@
     },
     {
       "verifier": {
+        "id": "v_myprofile_jwt_no_strict",
+        "version": "v1.0",
+        "name": "v_myprofile_jwt_no_strict",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "jwt"
+            ],
+            "issuerTrustList": {
+              "i_myprofile_ud_es256k_jwt": {}
+            },
+            "proof": true,
+            "status": true
+          },
+          "presentation": {
+            "format": [
+              "jwt"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        },
+        "presentationDefinitions": [
+          {
+            "id": "y6s13jos-attestation-vc-single-field",
+            "input_descriptors": [
+              {
+                "id": "attestation_vc_type",
+                "name": "type",
+                "purpose": "Wallet Attestation VC required",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.type"
+                      ],
+                      "id": "attestation_vc_type",
+                      "purpose": "Wallet Attestation VC required",
+                      "filter": {
+                        "type": "array",
+                        "contains": {
+                          "type": "string",
+                          "pattern": "WalletAttestationCredential"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "degree_type_id",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type"
+                      ],
+                      "id": "degree_type_id",
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
         "id": "v_myprofile_multivp_jwt",
         "version": "v1.0",
         "name": "v_myprofile_multivp_jwt",
@@ -1931,7 +2022,7 @@
               "jwt"
             ],
             "issuerTrustList": {
-              "bank_issuer" : {},
+              "bank_issuer": {},
               "bank_issuer_sdjwt_v5": {
                 "credentialTypes": [
                   "CrudeProductCredential"

@@ -35,16 +35,22 @@ type vcVerifier interface {
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
+type trustRegistry interface {
+	ValidatePresentation(policyID string, presentationCredentials []*verifiable.Credential) error
+}
+
 type Config struct {
 	VDR            vdrapi.Registry
 	DocumentLoader ld.DocumentLoader
 	VcVerifier     vcVerifier
+	TrustRegistry  trustRegistry
 }
 
 type Service struct {
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
 	vcVerifier     vcVerifier
+	trustRegistry  trustRegistry
 }
 
 func New(config *Config) *Service {
@@ -52,6 +58,7 @@ func New(config *Config) *Service {
 		vdr:            config.VDR,
 		documentLoader: config.DocumentLoader,
 		vcVerifier:     config.VcVerifier,
+		trustRegistry:  config.TrustRegistry,
 	}
 }
 

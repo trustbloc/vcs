@@ -240,3 +240,18 @@ Feature: OIDC4VC REST API
       | issuerProfile    | credentialType             | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
       | bank_issuer/v1.0 | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+
+  @oidc4vc_rest_auth_flow_attestation_vc
+  Scenario: OIDC credential issuance and verification Auth flow with Attestation VC
+    When User inits wallet with Trust Registry verifier validation enabled
+    And   New verifiable credentials is created from table:
+      | IssuerProfile                  | UserName              | Password                  | Credential             | DIDIndex |
+      | i_myprofile_ud_es256k_jwt/v1.0 | profile-user-issuer-1 | profile-user-issuer-1-pwd | attestation_vc.jwt     | 0        |
+      | i_myprofile_ud_es256k_jwt/v1.0 | profile-user-issuer-1 | profile-user-issuer-1-pwd | university_degree.json | 0        |
+    And User saves issued credentials
+    And Profile "v_myprofile_jwt_no_strict/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_no_strict/v1.0" profile with presentation definition ID "y6s13jos-attestation-vc-single-field" and fields "attestation_vc_type,degree_type_id"
+    And Verifier with profile "v_myprofile_jwt_no_strict/v1.0" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "v_myprofile_jwt_no_strict/v1.0" requests deleted interactions claims
