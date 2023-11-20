@@ -9,6 +9,7 @@ package walletrunner
 import (
 	"crypto/tls"
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
@@ -158,6 +159,23 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		debug:          config.Debug,
 		keepWalletOpen: config.KeepWalletOpen,
 	}, nil
+}
+
+func (s *Service) SignJwtClaims(
+	claims interface{},
+	headers map[string]interface{},
+) (string, error) {
+	jws, err := signTokenJWT(claims,
+		s.vcProviderConf.WalletParams.DidKeyID[0],
+		s.ariesServices.suite,
+		s.vcProviderConf.WalletParams.SignType,
+		headers,
+	)
+	if err != nil {
+		return "", errors.Join(err, errors.New("can not sign claims"))
+	}
+
+	return jws, nil
 }
 
 func (s *Service) GetConfig() *vcprovider.Config {

@@ -12,13 +12,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 
 	"github.com/google/uuid"
 	"github.com/trustbloc/did-go/method/jwk"
@@ -373,7 +374,13 @@ func (e *VPFlowExecutor) getIDTokenClaims(requestPresentationSubmission *presexc
 }
 
 func (e *VPFlowExecutor) signIDTokenJWT(idToken *IDTokenClaims, signatureType vcs.SignatureType) (string, error) {
-	idTokenJWS, err := signTokenJWT(idToken, e.walletDidKeyID[0], e.ariesServices.suite, signatureType)
+	idTokenJWS, err := signTokenJWT(
+		idToken,
+		e.walletDidKeyID[0],
+		e.ariesServices.suite,
+		signatureType,
+		map[string]interface{}{"typ": "JWT"},
+	)
 	if err != nil {
 		return "", fmt.Errorf("sign id_token: %w", err)
 	}
@@ -527,7 +534,13 @@ func (e *VPFlowExecutor) signPresentationJWT(vp *verifiable.Presentation, signat
 
 	vpTokenJWS := strings.ReplaceAll(string(vpTokenBytes), `"type":"VerifiablePresentation"`, `"type":["VerifiablePresentation"]`)
 
-	vpTokenJWS, err = signTokenJWT(vpTokenJWS, didKeyID, e.ariesServices.suite, signatureType)
+	vpTokenJWS, err = signTokenJWT(
+		vpTokenJWS,
+		didKeyID,
+		e.ariesServices.suite,
+		signatureType,
+		map[string]interface{}{"typ": "JWT"},
+	)
 	if err != nil {
 		return "", fmt.Errorf("sign vp_token: %w", err)
 	}
@@ -617,7 +630,12 @@ func (e *VPFlowExecutor) GetSubjectID(creds []*verifiable.Credential) (string, e
 	return subjectID, nil
 }
 
-func signTokenJWT(claims interface{}, didKeyID string, suite api.Suite, signType vcs.SignatureType,
+func signTokenJWT(
+	claims interface{},
+	didKeyID string,
+	suite api.Suite,
+	signType vcs.SignatureType,
+	headers map[string]interface{},
 ) (string, error) {
 	fks, err := suite.FixedKeyMultiSigner(strings.Split(didKeyID, "#")[1])
 	if err != nil {
@@ -644,7 +662,7 @@ func signTokenJWT(claims interface{}, didKeyID string, suite api.Suite, signType
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
 	}
 
-	token, err := jwt.NewJoseSigned(claims, map[string]interface{}{"typ": "JWT"}, NewJWSSigner(signerKeyID,
+	token, err := jwt.NewJoseSigned(claims, headers, NewJWSSigner(signerKeyID,
 		string(signType), kmsSigner))
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)
