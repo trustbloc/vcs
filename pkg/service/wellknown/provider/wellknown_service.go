@@ -144,8 +144,8 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 		ResponseTypesSupported: []string{
 			"code",
 		},
-		TokenEndpoint:           fmt.Sprintf("%soidc/token", host),
-		AcknowledgementEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
+		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
+		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
 	}
 
 	if issuerProfile.OIDCConfig != nil {

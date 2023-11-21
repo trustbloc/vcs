@@ -318,11 +318,11 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
-	// URL of the acknowledgement endpoint.
-	AcknowledgementEndpoint string `json:"acknowledgement_endpoint"`
-
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
+
+	// URL of the acknowledgement endpoint.
+	CredentialAckEndpoint string `json:"credential_ack_endpoint"`
 
 	// JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
 	GrantTypesSupported []string `json:"grant_types_supported"`
@@ -348,14 +348,14 @@ type WellKnownOpenIDConfiguration struct {
 
 // WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
 type WellKnownOpenIDIssuerConfiguration struct {
-	// URL of the acknowledgement endpoint.
-	AcknowledgementEndpoint string `json:"acknowledgement_endpoint"`
-
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
 	// URL of the Credential Issuer's Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.
 	BatchCredentialEndpoint *string `json:"batch_credential_endpoint,omitempty"`
+
+	// URL of the acknowledgement endpoint.
+	CredentialAckEndpoint string `json:"credential_ack_endpoint"`
 
 	// URL of the Credential Issuer's Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.
 	CredentialEndpoint string `json:"credential_endpoint"`

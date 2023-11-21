@@ -16,13 +16,13 @@ import (
 // CreateAck creates an acknowledgement.
 func (s *Service) CreateAck(
 	ctx context.Context,
-	ack Ack,
+	ack *Ack,
 ) (*string, error) {
 	if s.ackStore == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
-	id, err := s.ackStore.Create(ctx, &ack)
+	id, err := s.ackStore.Create(ctx, ack)
 	if err != nil {
 		return nil, err
 	}

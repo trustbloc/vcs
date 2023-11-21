@@ -448,8 +448,8 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		ResponseTypesSupported: []string{
 			"code",
 		},
-		TokenEndpoint:           fmt.Sprintf("%soidc/token", host),
-		AcknowledgementEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
+		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
+		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
 	}
 
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)

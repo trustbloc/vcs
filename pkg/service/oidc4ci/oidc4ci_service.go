@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,attestationService=MockAttestationService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,attestationService=MockAttestationService,ackStore=MockAckStore
 
 package oidc4ci
 
@@ -190,6 +190,7 @@ func NewService(config *Config) (*Service, error) {
 		cryptoJWTSigner:               config.CryptoJWTSigner,
 		schemaValidator:               config.JSONSchemaValidator,
 		attestationService:            config.AttestationService,
+		ackStore:                      config.AckStore,
 	}, nil
 }
 
@@ -546,7 +547,7 @@ func (s *Service) PrepareCredential(
 		return nil, fmt.Errorf("create cred: %w", err)
 	}
 
-	ack, err := s.CreateAck(ctx, Ack{
+	ack, err := s.CreateAck(ctx, &Ack{
 		HashedToken:    "",
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,

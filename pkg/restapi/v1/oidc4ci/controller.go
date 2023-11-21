@@ -11,8 +11,10 @@ package oidc4ci
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,6 +101,14 @@ type ProfileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
+type AckService interface {
+	Ack(
+		ctx context.Context,
+		id string,
+		hashedToken string,
+	) error
+}
+
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider          OAuth2Provider
@@ -112,6 +122,7 @@ type Config struct {
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
 	ExternalHostURL         string
+	AckService              AckService
 }
 
 // Controller for OIDC credential issuance API.
@@ -127,6 +138,7 @@ type Controller struct {
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
 	internalHostURL         string
+	ackService              AckService
 }
 
 // NewController creates a new Controller instance.
@@ -143,6 +155,7 @@ func NewController(config *Config) *Controller {
 		tracer:                  config.Tracer,
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
 		internalHostURL:         config.ExternalHostURL,
+		ackService:              config.AckService,
 	}
 }
 
@@ -563,6 +576,44 @@ func mustGenerateNonce() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
+// OidcAcknowledgement handles OIDC acknowledgement request (POST /oidc/acknowledgement).
+func (c *Controller) OidcAcknowledgement(e echo.Context) error {
+	req := e.Request()
+
+	ctx, span := c.tracer.Start(req.Context(), "OidcAcknowledgement")
+	defer span.End()
+
+	var body AckRequest
+	if err := e.Bind(&body); err != nil {
+		return err
+	}
+
+	token := hashToken(fosite.AccessTokenFromRequest(req))
+	if token == "" {
+		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
+	}
+
+	_, _, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
+	if err != nil {
+		return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
+	}
+
+	var finalErr error
+	for _, r := range body.Credentials {
+		if err = c.ackService.Ack(req.Context(), r.AckId, token); err != nil {
+			finalErr = errors.Join(finalErr, err)
+		}
+	}
+
+	if finalErr != nil {
+		return apiUtil.WriteOutputWithCode(http.StatusBadRequest, e)(AckErrorResponse{
+			Error: finalErr.Error(),
+		}, nil)
+	}
+
+	return e.NoContent(http.StatusNoContent)
+}
+
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
 func (c *Controller) OidcCredential(e echo.Context) error {
 	req := e.Request()
@@ -615,7 +666,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 			Types:         credentialRequest.Types,
 			Format:        credentialRequest.Format,
 			AudienceClaim: claims.Audience,
-			HashedToken:   token, // todo
+			HashedToken:   hashToken(token),
 		},
 	)
 	if err != nil {
@@ -983,4 +1034,9 @@ func parseInteractionError(reader io.Reader) error {
 	}
 
 	return &e
+}
+
+func hashToken(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
 }

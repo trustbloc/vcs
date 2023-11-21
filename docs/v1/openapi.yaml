@@ -805,6 +805,28 @@ paths:
             schema:
               $ref: '#/components/schemas/CredentialRequest'
       parameters: []
+  /oidc/acknowledgement:
+    post:
+      summary: OIDC Acknowledgement
+      tags:
+        - oidc4ci
+      responses:
+        '204':
+            description: Ok
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckErrorResponse'
+      operationId: oidc-acknowledgement
+      description: Issues credentials in exchange for an authorization token.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckRequest'
+      parameters: [ ]
 components:
   schemas:
     HealthCheckResponse:
@@ -860,7 +882,7 @@ components:
         wallet_initiated_auth_flow_supported:
           type: boolean
           description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
-        acknowledgement_endpoint:
+        credential_ack_endpoint:
           type: string
           description: URL of the acknowledgement endpoint.
       required:
@@ -871,7 +893,7 @@ components:
         - grant_types_supported
         - wallet_initiated_auth_flow_supported
         - pre-authorized_grant_anonymous_access_supported
-        - acknowledgement_endpoint
+        - credential_ack_endpoint
     WellKnownOpenIDIssuerConfiguration:
       title: WellKnownOpenIDIssuerConfiguration response
       x-tags:
@@ -927,7 +949,7 @@ components:
           items:
             type: string
           description: JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
-        acknowledgement_endpoint:
+        credential_ack_endpoint:
           type: string
           description: URL of the acknowledgement endpoint.
       required:
@@ -942,7 +964,7 @@ components:
         - credential_endpoint
         - credentials_supported
         - token_endpoint_auth_methods_supported
-        - acknowledgement_endpoint
+        - credential_ack_endpoint
       description: WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
     CredentialIssuanceHistoryData:
       title: CredentialIssuanceHistory response
@@ -1834,6 +1856,47 @@ components:
       required:
         - proof_type
         - jwt
+    AckRequest:
+      title: AckRequest
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Ack response.
+      properties:
+        credentials:
+          type: array
+          items:
+              $ref: '#/components/schemas/AcpRequestItem'
+      required:
+        - credentials
+    AcpRequestItem:
+      type: object
+      description: AcpRequestItem
+      properties:
+        ack_id:
+          type: string
+          description: Ack ID.
+        status:
+          type: string
+          description: Ack Status.
+        error_description:
+          type: string
+          description: error description.
+      required:
+        - ack_id
+        - status
+    AckErrorResponse:
+      title: AckResponse
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Ack response.
+      properties:
+        error:
+          type: string
+          description: Error description.
+      required:
+        - error
     CredentialResponse:
       title: CredentialResponse
       x-tags:

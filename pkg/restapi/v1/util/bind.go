@@ -27,6 +27,10 @@ func ReadBody(ctx echo.Context, body interface{}) error {
 }
 
 func WriteOutput(ctx echo.Context) func(output interface{}, err error) error {
+	return WriteOutputWithCode(http.StatusOK, ctx)
+}
+
+func WriteOutputWithCode(code int, ctx echo.Context) func(output interface{}, err error) error {
 	return func(output interface{}, err error) error {
 		if err != nil {
 			return err
@@ -37,7 +41,7 @@ func WriteOutput(ctx echo.Context) func(output interface{}, err error) error {
 			return err
 		}
 
-		return ctx.JSONBlob(http.StatusOK, b)
+		return ctx.JSONBlob(code, b)
 	}
 }
 

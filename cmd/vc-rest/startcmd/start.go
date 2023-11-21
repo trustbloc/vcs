@@ -111,6 +111,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
+	"github.com/trustbloc/vcs/pkg/storage/redis/ackstore"
 	oidc4ciclaimdatastoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4ciclaimdatastore"
 	oidc4cinoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cinoncestore"
 	oidc4cistatestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cistatestore"
@@ -642,6 +643,8 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to instantiate oidc4ci transaction store: %w", err)
 	}
 
+	ackStore := getAckStore(redisClient, conf.StartupParameters.transientDataParams.oidc4ciTransactionDataTTL)
+
 	oidc4ciClaimDataStore, err := getOIDC4CIClaimDataStore(
 		conf.StartupParameters.transientDataParams.storeType,
 		redisClientNoTracing,
@@ -710,6 +713,7 @@ func buildEchoHandler(
 		CryptoJWTSigner:               vcCrypto,
 		JSONSchemaValidator:           jsonSchemaValidator,
 		AttestationService:            attestationService,
+		AckStore:                      ackStore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -1144,6 +1148,18 @@ func getOIDC4CITransactionStore(
 	}
 
 	return store, nil
+}
+
+func getAckStore(
+	redisClient *redis.Client,
+	oidc4ciTransactionDataTTL int32,
+) *ackstore.Store {
+	if redisClient == nil {
+		logger.Warn("Redis client is not configured. Acknowledgement store will not be used")
+		return nil
+	}
+
+	return ackstore.New(redisClient, oidc4ciTransactionDataTTL)
 }
 
 func createRequestObjectStore(
