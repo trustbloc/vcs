@@ -17,7 +17,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
-	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
+	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jinzhu/copier v0.3.5
