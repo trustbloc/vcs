@@ -860,6 +860,9 @@ components:
         wallet_initiated_auth_flow_supported:
           type: boolean
           description: JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
+        acknowledgement_endpoint:
+          type: string
+          description: URL of the acknowledgement endpoint.
       required:
         - authorization_endpoint
         - token_endpoint
@@ -868,6 +871,7 @@ components:
         - grant_types_supported
         - wallet_initiated_auth_flow_supported
         - pre-authorized_grant_anonymous_access_supported
+        - acknowledgement_endpoint
     WellKnownOpenIDIssuerConfiguration:
       title: WellKnownOpenIDIssuerConfiguration response
       x-tags:
@@ -923,6 +927,9 @@ components:
           items:
             type: string
           description: JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
+        acknowledgement_endpoint:
+          type: string
+          description: URL of the acknowledgement endpoint.
       required:
         - authorization_endpoint
         - token_endpoint
@@ -935,6 +942,7 @@ components:
         - credential_endpoint
         - credentials_supported
         - token_endpoint_auth_methods_supported
+        - acknowledgement_endpoint
       description: WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
     CredentialIssuanceHistoryData:
       title: CredentialIssuanceHistory response
@@ -1756,10 +1764,14 @@ components:
         audienceClaim:
           type: string
           description: The "aud" claim received from the client.
+        hashed_token:
+            type: string
+            description: Hashed token received from the client.
       required:
         - tx_id
         - types
         - audienceClaim
+        - hashed_token
     PrepareCredentialResult:
       title: PrepareCredentialResult
       x-tags:
@@ -1777,6 +1789,9 @@ components:
         oidc_format:
           type: string
           description: OIDC credential format
+        ack_id:
+            type: string
+            description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
         retry:
           type: boolean
           description: TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
@@ -1842,6 +1857,9 @@ components:
         c_nonce_expires_in:
           type: integer
           description: JSON integer denoting the lifetime in seconds of the c_nonce.
+        ack_id:
+          type: string
+          description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
       required:
         - format
         - credential

@@ -45,6 +45,9 @@ const (
 	IssuerOIDCInteractionAuthorizationCodeStored      EventType = "issuer.oidc-interaction-authorization-code-stored.v1"      //nolint
 	IssuerOIDCInteractionAuthorizationCodeExchanged   EventType = "issuer.oidc-interaction-authorization-code-exchanged.v1"   //nolint
 	IssuerOIDCInteractionFailed                       EventType = "issuer.oidc-interaction-failed.v1"
+	IssuerOIDCInteractionAckSucceeded                 EventType = "issuer.oidc-interaction-ack-succeeded.v1"
+	IssuerOIDCInteractionAckFailed                    EventType = "issuer.oidc-interaction-ack-failed.v1"
+	IssuerOIDCInteractionAckRejected                  EventType = "issuer.oidc-interaction-ack-rejected.v1"
 
 	CredentialStatusStatusUpdated EventType = "issuer.credential-status-updated.v1" //nolint:gosec
 )

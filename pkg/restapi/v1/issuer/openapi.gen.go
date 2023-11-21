@@ -231,6 +231,9 @@ type PrepareCredential struct {
 	// Format of the credential being issued.
 	Format *string `json:"format,omitempty"`
 
+	// Hashed token received from the client.
+	HashedToken string `json:"hashed_token"`
+
 	// Transaction ID.
 	TxId string `json:"tx_id"`
 
@@ -240,6 +243,8 @@ type PrepareCredential struct {
 
 // Model for Prepare Credential response.
 type PrepareCredentialResult struct {
+	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+	AckId      *string     `json:"ack_id,omitempty"`
 	Credential interface{} `json:"credential"`
 
 	// Format of issued credential.
@@ -313,6 +318,9 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
+	// URL of the acknowledgement endpoint.
+	AcknowledgementEndpoint string `json:"acknowledgement_endpoint"`
+
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
@@ -340,6 +348,9 @@ type WellKnownOpenIDConfiguration struct {
 
 // WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
 type WellKnownOpenIDIssuerConfiguration struct {
+	// URL of the acknowledgement endpoint.
+	AcknowledgementEndpoint string `json:"acknowledgement_endpoint"`
+
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 

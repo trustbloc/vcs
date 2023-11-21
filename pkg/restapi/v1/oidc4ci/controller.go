@@ -615,6 +615,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 			Types:         credentialRequest.Types,
 			Format:        credentialRequest.Format,
 			AudienceClaim: claims.Audience,
+			HashedToken:   token, // todo
 		},
 	)
 	if err != nil {
@@ -661,6 +662,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 		Format:          result.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
+		AckId:           result.AckId,
 	}, nil)
 }
 

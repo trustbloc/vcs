@@ -164,6 +164,7 @@ type PrepareCredential struct {
 	CredentialFormat vcsverifiable.Format
 	DID              string
 	AudienceClaim    string
+	HashedToken      string
 }
 
 type PrepareCredentialResult struct {
@@ -175,6 +176,7 @@ type PrepareCredentialResult struct {
 	EnforceStrictValidation bool
 	OidcFormat              vcsverifiable.OIDCFormat
 	CredentialTemplate      *profileapi.CredentialTemplate
+	AckID                   *string
 }
 
 type InsertOptions struct {
@@ -264,4 +266,13 @@ type ServiceInterface interface {
 		clientAssertion string,
 	) (*Transaction, error)
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
+}
+
+type Ack struct {
+	HashedToken    string `json:"hashed_token"`
+	ProfileID      string `json:"profile_id"`
+	ProfileVersion string `json:"profile_version"`
+	TxID           TxID   `json:"tx_id"`
+	WebHookURL     string `json:"webhook_url"`
+	OrgID          string `json:"org_id"`
 }

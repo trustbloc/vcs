@@ -50,6 +50,9 @@ type CredentialResponse struct {
 	// A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
 	AcceptanceToken *string `json:"acceptance_token,omitempty"`
 
+	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+	AckId *string `json:"ack_id,omitempty"`
+
 	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
 	CNonce *string `json:"c_nonce,omitempty"`
 

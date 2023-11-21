@@ -448,7 +448,8 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		ResponseTypesSupported: []string{
 			"code",
 		},
-		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
+		TokenEndpoint:           fmt.Sprintf("%soidc/token", host),
+		AcknowledgementEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
 	}
 
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
@@ -729,6 +730,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			CredentialFormat: vcFormat,
 			DID:              lo.FromPtr(body.Did),
 			AudienceClaim:    body.AudienceClaim,
+			HashedToken:      body.HashedToken,
 		},
 	)
 
@@ -766,6 +768,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		Format:     string(result.Format),
 		OidcFormat: string(result.OidcFormat),
 		Retry:      result.Retry,
+		AckId:      result.AckID,
 	}, nil)
 }
 

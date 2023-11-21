@@ -124,6 +124,11 @@ type attestationService interface {
 	ValidateClientAttestationVP(ctx context.Context, clientID, jwtVP string) error
 }
 
+type ackStore interface {
+	Create(ctx context.Context, data *Ack) (string, error)
+	Get(ctx context.Context, id string) (*Ack, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -142,6 +147,7 @@ type Config struct {
 	CryptoJWTSigner               cryptoJWTSigner
 	JSONSchemaValidator           jsonSchemaValidator
 	AttestationService            attestationService
+	AckStore                      ackStore
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -162,6 +168,7 @@ type Service struct {
 	cryptoJWTSigner               cryptoJWTSigner
 	schemaValidator               jsonSchemaValidator
 	attestationService            attestationService
+	ackStore                      ackStore
 }
 
 // NewService returns a new Service instance.
@@ -534,13 +541,25 @@ func (s *Service) PrepareCredential(
 		return nil, e
 	}
 
-	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		return nil, errSendEvent
-	}
-
 	cred, err := verifiable.CreateCredential(vcc, customFields)
 	if err != nil {
 		return nil, fmt.Errorf("create cred: %w", err)
+	}
+
+	ack, err := s.CreateAck(ctx, Ack{
+		HashedToken:    "",
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		TxID:           tx.ID,
+		WebHookURL:     tx.WebHookURL,
+		OrgID:          tx.OrgID,
+	})
+	if err != nil { // its not critical and should not break the flow
+		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
+	}
+
+	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		return nil, errSendEvent
 	}
 
 	return &PrepareCredentialResult{
@@ -552,6 +571,7 @@ func (s *Service) PrepareCredential(
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
 		CredentialTemplate:      tx.CredentialTemplate,
+		AckID:                   ack,
 	}, nil
 }
 
