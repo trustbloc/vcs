@@ -41,7 +41,12 @@ func (s *Store) Create(
 ) (string, error) {
 	id := uuid.NewString()
 
-	if err := s.redisClient.API().Set(ctx, s.resolveRedisKey(id), ack, s.ttl).Err(); err != nil {
+	b, err := json.Marshal(ack)
+	if err != nil {
+		return "", err
+	}
+
+	if err = s.redisClient.API().Set(ctx, s.resolveRedisKey(id), string(b), s.ttl).Err(); err != nil {
 		return "", fmt.Errorf("redis insert received claims data: %w", err)
 	}
 

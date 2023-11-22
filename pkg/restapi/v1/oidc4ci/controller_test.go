@@ -2152,7 +2152,7 @@ func TestController_Ack(t *testing.T) {
 			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
 		}`)))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-
+		req.Header.Set("Authorization", "Bearer xxxx")
 		rec := httptest.NewRecorder()
 
 		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
@@ -2182,6 +2182,7 @@ func TestController_Ack(t *testing.T) {
 			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
 		}`)))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer xxxx")
 
 		rec := httptest.NewRecorder()
 
@@ -2212,11 +2213,33 @@ func TestController_Ack(t *testing.T) {
 			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
 		}`)))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer xxxx")
 
 		rec := httptest.NewRecorder()
 
 		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
 		assert.ErrorContains(t, err, "some token err")
+	})
+
+	t.Run("token err 2", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.ErrorContains(t, err, "missing access token")
 	})
 }
 

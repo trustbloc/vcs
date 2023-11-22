@@ -587,7 +587,7 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 		return err
 	}
 
-	token := hashToken(fosite.AccessTokenFromRequest(req))
+	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
 		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
 	}
