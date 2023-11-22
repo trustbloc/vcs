@@ -433,11 +433,10 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 // OpenidConfigV2 request openid configuration for issuer. // TODO to remove
 // GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration.
 func (c *Controller) OpenidConfigV2(ctx echo.Context, profileID, profileVersion string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID, profileVersion))
+	return util.WriteOutput(ctx)(c.GetOpenIDConfig(profileID, profileVersion))
 }
 
-// TODO to remove
-func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
+func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"

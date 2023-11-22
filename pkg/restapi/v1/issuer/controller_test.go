@@ -1774,6 +1774,20 @@ func Test_getCredentialSubjects(t *testing.T) {
 	})
 }
 
+func TestGetConfig(t *testing.T) {
+	profileSvc := NewMockProfileService(gomock.NewController(t))
+
+	ctr := NewController(&Config{
+		ProfileSvc: profileSvc,
+	})
+
+	profileSvc.EXPECT().GetProfile("12345", "v0.1").
+		Return(&profileapi.Issuer{}, nil)
+	resp, err := ctr.GetOpenIDConfig("12345", "v0.1")
+	assert.NoError(t, err)
+	assert.Equal(t, "/oidc/acknowledgement", resp.CredentialAckEndpoint)
+}
+
 func Test_sendFailedEvent(t *testing.T) {
 	t.Run("marshal error", func(t *testing.T) {
 		c := NewController(&Config{})
