@@ -29,11 +29,13 @@ func TestCreate(t *testing.T) {
 			HashedToken: "abcd",
 		}
 
+		b, _ := json.Marshal(obj) //nolint
+
 		api.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, s string, i interface{}, duration time.Duration) *redisapi.StatusCmd {
 				assert.True(t, strings.HasPrefix(s, "oidc4ci_ack"))
 				assert.Equal(t, 30*time.Second, duration)
-				assert.Equal(t, obj, i)
+				assert.Equal(t, string(b), i)
 
 				return &redisapi.StatusCmd{}
 			})
