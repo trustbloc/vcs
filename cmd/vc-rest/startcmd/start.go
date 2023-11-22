@@ -696,6 +696,11 @@ func buildEchoHandler(
 		},
 	)
 
+	ackService := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
+		EventSvc:   eventSvc,
+		EventTopic: conf.StartupParameters.issuerEventTopic,
+		AckStore:   ackStore,
+	})
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
@@ -713,7 +718,7 @@ func buildEchoHandler(
 		CryptoJWTSigner:               vcCrypto,
 		JSONSchemaValidator:           jsonSchemaValidator,
 		AttestationService:            attestationService,
-		AckStore:                      ackStore,
+		AckService:                    ackService,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -817,6 +822,7 @@ func buildEchoHandler(
 		ClientManager:           clientManagerService,
 		ClientIDSchemeService:   clientIDSchemeSvc,
 		Tracer:                  conf.Tracer,
+		AckService:              ackService,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{

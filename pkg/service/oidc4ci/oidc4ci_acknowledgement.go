@@ -9,20 +9,40 @@ package oidc4ci
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
+type AckService struct {
+	cfg *AckServiceConfig
+}
+
+type AckServiceConfig struct {
+	AckStore   ackStore
+	EventSvc   eventService
+	EventTopic string
+}
+
+func NewAckService(
+	cfg *AckServiceConfig,
+) *AckService {
+	return &AckService{
+		cfg: cfg,
+	}
+}
+
 // CreateAck creates an acknowledgement.
-func (s *Service) CreateAck(
+func (s *AckService) CreateAck(
 	ctx context.Context,
 	ack *Ack,
 ) (*string, error) {
-	if s.ackStore == nil {
+	if s.cfg.AckStore == nil {
 		return nil, nil //nolint:nilnil
 	}
 
-	id, err := s.ackStore.Create(ctx, ack)
+	id, err := s.cfg.AckStore.Create(ctx, ack)
 	if err != nil {
 		return nil, err
 	}
@@ -31,18 +51,21 @@ func (s *Service) CreateAck(
 }
 
 // Ack acknowledges the interaction.
-func (s *Service) Ack(
+func (s *AckService) Ack(
 	ctx context.Context,
-	id string,
-	hashedToken string,
+	req AckRemote,
 ) error {
-	if s.ackStore == nil {
+	if s.cfg.AckStore == nil {
 		return nil
 	}
 
-	ack, err := s.ackStore.Get(ctx, id)
+	ack, err := s.cfg.AckStore.Get(ctx, req.Id)
 	if err != nil {
 		return err
+	}
+
+	if ack.HashedToken != req.HashedToken {
+		return errors.New("invalid token")
 	}
 
 	eventPayload := &EventPayload{
@@ -52,29 +75,51 @@ func (s *Service) Ack(
 		OrgID:          ack.OrgID,
 	}
 
-	if ack.HashedToken != hashedToken {
-		tokenErr := errors.New("invalid token")
-		s.setAckError(eventPayload, tokenErr)
-
-		eventErr := s.sendEvent(ctx, spi.IssuerOIDCInteractionAckRejected, ack.TxID, eventPayload)
-		return errors.Join(tokenErr, eventErr)
+	if req.ErrorText != "" {
+		eventPayload.ErrorComponent = "wallet"
+		eventPayload.Error = req.ErrorText
 	}
 
-	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckSucceeded, ack.TxID, eventPayload)
+	targetEvent, err := s.AckEventMap(req.Status)
 	if err != nil {
-		s.setAckError(eventPayload, err)
-		eventErr := s.sendEvent(ctx, spi.IssuerOIDCInteractionAckFailed, ack.TxID, eventPayload)
-		if eventErr != nil {
-			logger.Errorc(ctx, eventErr.Error())
-		}
+		return err
+	}
 
-		return errors.Join(err, eventErr)
+	err = s.sendEvent(ctx, targetEvent, ack.TxID, eventPayload)
+	if err != nil {
+		return err
+	}
+
+	if err = s.cfg.AckStore.Delete(ctx, req.Id); err != nil { // not critical
+		logger.Errorc(ctx, fmt.Sprintf("failed to delete ack with id[%s]: %s", req.Id, err.Error()))
 	}
 
 	return nil
 }
 
-func (s *Service) setAckError(payload *EventPayload, err error) {
-	payload.Error = err.Error()
-	payload.ErrorComponent = "ack"
+func (s *AckService) sendEvent(
+	ctx context.Context,
+	eventType spi.EventType,
+	transactionID TxID,
+	ep *EventPayload,
+) error {
+	event, err := createEvent(eventType, transactionID, ep)
+	if err != nil {
+		return err
+	}
+
+	return s.cfg.EventSvc.Publish(ctx, s.cfg.EventTopic, event)
+}
+
+func (s *AckService) AckEventMap(status string) (spi.EventType, error) {
+	switch strings.ToLower(status) {
+	case "success":
+		return spi.IssuerOIDCInteractionAckSucceeded, nil
+	case "failure":
+		return spi.IssuerOIDCInteractionAckFailed, nil
+	case "rejected":
+		return spi.IssuerOIDCInteractionAckRejected, nil
+	}
+
+	return spi.IssuerOIDCInteractionAckFailed, fmt.Errorf("invalid status: %s", status)
 }

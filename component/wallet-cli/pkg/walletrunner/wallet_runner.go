@@ -187,6 +187,7 @@ type PerfInfo struct {
 	GetIssuerCredentialsOIDCConfig time.Duration `json:"vci_get_issuer_credentials_oidc_config"`
 	GetAccessToken                 time.Duration `json:"vci_get_access_token"`
 	GetCredential                  time.Duration `json:"vci_get_credential"`
+	CredentialsAck                 time.Duration `json:"vci_credentials_ack"`
 	FetchRequestObject             time.Duration `json:"vp_fetch_request_object"`
 	VerifyAuthorizationRequest     time.Duration `json:"vp_verify_authorization_request"`
 	QueryCredentialFromWallet      time.Duration `json:"vp_query_credential_from_wallet"`

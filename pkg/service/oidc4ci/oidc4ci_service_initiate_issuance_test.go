@@ -49,6 +49,7 @@ type mocks struct {
 	pinGenerator        *MockPinGenerator
 	crypto              *MockDataProtector
 	jsonSchemaValidator *MockJSONSchemaValidator
+	ackService          *MockAckService
 }
 
 func TestService_InitiateIssuance(t *testing.T) {

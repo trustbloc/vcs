@@ -276,3 +276,10 @@ type Ack struct {
 	WebHookURL     string `json:"webhook_url"`
 	OrgID          string `json:"org_id"`
 }
+
+type AckRemote struct {
+	HashedToken string `json:"hashed_token"`
+	Id          string `json:"id"`
+	Status      string `json:"status"`
+	ErrorText   string `json:"error_text"`
+}

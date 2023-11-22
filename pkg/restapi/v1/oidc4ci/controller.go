@@ -104,8 +104,7 @@ type ProfileService interface {
 type AckService interface {
 	Ack(
 		ctx context.Context,
-		id string,
-		hashedToken string,
+		req oidc4ci.AckRemote,
 	) error
 }
 
@@ -600,7 +599,12 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 
 	var finalErr error
 	for _, r := range body.Credentials {
-		if err = c.ackService.Ack(req.Context(), r.AckId, token); err != nil {
+		if err = c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
+			HashedToken: hashToken(token),
+			Id:          r.AckId,
+			Status:      r.Status,
+			ErrorText:   lo.FromPtr(r.ErrorDescription),
+		}); err != nil {
 			finalErr = errors.Join(finalErr, err)
 		}
 	}

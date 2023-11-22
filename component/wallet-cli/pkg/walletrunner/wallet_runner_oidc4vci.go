@@ -232,7 +232,7 @@ func (s *Service) RunOIDC4VCI(config *OIDC4VCIConfig, hooks *Hooks) error {
 
 	s.print("Getting credential")
 
-	vc, _, err := s.getCredential(
+	credResponse, _, err := s.getCredential(
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
@@ -243,6 +243,7 @@ func (s *Service) RunOIDC4VCI(config *OIDC4VCIConfig, hooks *Hooks) error {
 		return fmt.Errorf("get credential: %w", err)
 	}
 
+	vc := credResponse.Credential
 	b, err = json.Marshal(vc)
 	if err != nil {
 		return fmt.Errorf("marshal vc: %w", err)
@@ -269,6 +270,10 @@ func (s *Service) RunOIDC4VCI(config *OIDC4VCIConfig, hooks *Hooks) error {
 
 	if !s.keepWalletOpen {
 		s.wallet.Close()
+	}
+
+	if err = s.handleIssuanceAck(oidcIssuerCredentialConfig, credResponse); err != nil {
+		return err
 	}
 
 	return nil
@@ -392,7 +397,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4VCIConfig, hooks *Hooks
 	s.token = token
 
 	s.print("Getting credential")
-	vc, _, err := s.getCredential(
+	credResponse, _, err := s.getCredential(
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
@@ -403,6 +408,7 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4VCIConfig, hooks *Hooks
 		return fmt.Errorf("get credential: %w", err)
 	}
 
+	vc := credResponse.Credential
 	b, err = json.Marshal(vc)
 	if err != nil {
 		return fmt.Errorf("marshal vc: %w", err)
@@ -429,6 +435,10 @@ func (s *Service) RunOIDC4CIWalletInitiated(config *OIDC4VCIConfig, hooks *Hooks
 
 	if !s.keepWalletOpen {
 		s.wallet.Close()
+	}
+
+	if err = s.handleIssuanceAck(oidcIssuerCredentialConfig, credResponse); err != nil {
+		return err
 	}
 
 	return nil
@@ -520,7 +530,7 @@ func (s *Service) getCredential(
 	credentialFormat,
 	issuerURI string,
 	beforeCredentialRequestOpts ...CredentialRequestOpt,
-) (interface{}, time.Duration, error) {
+) (*CredentialResponse, time.Duration, error) {
 	credentialsRequestParamsOverride := &credentialRequestOpts{}
 	for _, f := range beforeCredentialRequestOpts {
 		f(credentialsRequestParamsOverride)
@@ -559,7 +569,7 @@ func (s *Service) getCredential(
 	} else if strings.Contains(didKeyID, "did:jwk") {
 		res, err := jwk.New().Read(strings.Split(didKeyID, "#")[0])
 		if err != nil {
-			return "", 0, err
+			return nil, 0, err
 		}
 
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
@@ -628,7 +638,7 @@ func (s *Service) getCredential(
 		return nil, finalDuration, fmt.Errorf("decode credential response: %w", err)
 	}
 
-	return credentialResp.Credential, finalDuration, nil
+	return &credentialResp, finalDuration, nil
 }
 
 func (s *Service) print(

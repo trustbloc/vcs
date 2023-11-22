@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,attestationService=MockAttestationService,ackStore=MockAckStore
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,attestationService=MockAttestationService,ackStore=MockAckStore,ackService=MockAckService
 
 package oidc4ci
 
@@ -127,6 +127,18 @@ type attestationService interface {
 type ackStore interface {
 	Create(ctx context.Context, data *Ack) (string, error)
 	Get(ctx context.Context, id string) (*Ack, error)
+	Delete(ctx context.Context, id string) error
+}
+
+type ackService interface {
+	Ack(
+		ctx context.Context,
+		req AckRemote,
+	) error
+	CreateAck(
+		ctx context.Context,
+		ack *Ack,
+	) (*string, error)
 }
 
 // Config holds configuration options and dependencies for Service.
@@ -147,7 +159,7 @@ type Config struct {
 	CryptoJWTSigner               cryptoJWTSigner
 	JSONSchemaValidator           jsonSchemaValidator
 	AttestationService            attestationService
-	AckStore                      ackStore
+	AckService                    ackService
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -168,7 +180,7 @@ type Service struct {
 	cryptoJWTSigner               cryptoJWTSigner
 	schemaValidator               jsonSchemaValidator
 	attestationService            attestationService
-	ackStore                      ackStore
+	ackService                    ackService
 }
 
 // NewService returns a new Service instance.
@@ -190,7 +202,7 @@ func NewService(config *Config) (*Service, error) {
 		cryptoJWTSigner:               config.CryptoJWTSigner,
 		schemaValidator:               config.JSONSchemaValidator,
 		attestationService:            config.AttestationService,
-		ackStore:                      config.AckStore,
+		ackService:                    config.AckService,
 	}, nil
 }
 
@@ -547,8 +559,8 @@ func (s *Service) PrepareCredential(
 		return nil, fmt.Errorf("create cred: %w", err)
 	}
 
-	ack, err := s.CreateAck(ctx, &Ack{
-		HashedToken:    "",
+	ack, err := s.ackService.CreateAck(ctx, &Ack{
+		HashedToken:    req.HashedToken,
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,
 		TxID:           tx.ID,

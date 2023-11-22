@@ -8,6 +8,8 @@ package walletrunner
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +24,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
+	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 )
 
@@ -113,7 +116,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig, hooks *Hooks) (*veri
 
 	s.print("Getting credential")
 	startTime = time.Now()
-	vc, vcsDuration, err := s.getCredential(
+	credResponse, vcsDuration, err := s.getCredential(
 		oidcIssuerCredentialConfig.CredentialEndpoint,
 		config.CredentialType,
 		config.CredentialFormat,
@@ -126,6 +129,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig, hooks *Hooks) (*veri
 	s.perfInfo.VcsCIFlowDuration += vcsDuration
 	s.perfInfo.GetCredential = time.Since(startTime)
 
+	vc := credResponse.Credential
 	b, err := json.Marshal(vc)
 	if err != nil {
 		return nil, fmt.Errorf("marshal vc: %w", err)
@@ -152,5 +156,57 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig, hooks *Hooks) (*veri
 		s.wallet.Close()
 	}
 
+	startTime = time.Now()
+	if err = s.handleIssuanceAck(oidcIssuerCredentialConfig, credResponse); err != nil {
+		return nil, err
+	}
+	s.perfInfo.CredentialsAck = time.Since(startTime)
+
 	return vcParsed, nil
+}
+
+func (s *Service) handleIssuanceAck(
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+	credResponse *CredentialResponse,
+) error {
+	if wellKnown == nil || credResponse == nil {
+		return nil
+	}
+
+	if wellKnown.CredentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
+		return nil
+	}
+
+	s.print("Sending wallet ACK")
+
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
+	httpClient := s.oauthClient.Client(ctx, s.token)
+
+	b, err := json.Marshal(oidc4ci.AckRequest{
+		Credentials: []oidc4ci.AcpRequestItem{
+			{
+				AckId:            *credResponse.AckID,
+				ErrorDescription: nil,
+				Status:           "success",
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := httpClient.Post(wellKnown.CredentialAckEndpoint, "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return err
+	}
+
+	s.print(fmt.Sprintf("Wallet ACK sent with status code %v", resp.StatusCode))
+
+	b, _ = io.ReadAll(resp.Body) // nolint
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("expected to receive status code %d but got status code %d with response body %s",
+			http.StatusNoContent, resp.StatusCode, string(b))
+	}
+
+	return nil
 }
