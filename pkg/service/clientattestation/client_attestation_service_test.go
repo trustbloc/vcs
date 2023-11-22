@@ -4,7 +4,7 @@ Copyright Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package attestation_test
+package clientattestation_test
 
 import (
 	"context"
@@ -24,7 +24,8 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/service/attestation"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 )
 
 const (
@@ -35,75 +36,12 @@ const (
 	walletKeyID = "did:example:wallet#wallet-key-id"
 )
 
-func TestService_ValidateClientAttestationJWT(t *testing.T) {
-	httpClient := NewMockHTTPClient(gomock.NewController(t))
-
-	var clientID, clientAttestationJWT string
-
-	tests := []struct {
-		name  string
-		setup func()
-		check func(t *testing.T, err error)
-	}{
-		{
-			name:  "success",
-			setup: func() {},
-			check: func(t *testing.T, err error) {
-				require.NoError(t, err)
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
-
-			svc := attestation.NewService(&attestation.Config{
-				HTTPClient: httpClient,
-			})
-
-			err := svc.ValidateClientAttestationJWT(context.Background(), clientID, clientAttestationJWT)
-			tt.check(t, err)
-		})
-	}
-}
-
-func TestService_ValidateClientAttestationPoPJWT(t *testing.T) {
-	httpClient := NewMockHTTPClient(gomock.NewController(t))
-
-	var clientID, clientAttestationPoPJWT string
-
-	tests := []struct {
-		name  string
-		setup func()
-		check func(t *testing.T, err error)
-	}{
-		{
-			name:  "success",
-			setup: func() {},
-			check: func(t *testing.T, err error) {
-				require.NoError(t, err)
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
-
-			svc := attestation.NewService(&attestation.Config{
-				HTTPClient: httpClient,
-			})
-
-			err := svc.ValidateClientAttestationPoPJWT(context.Background(), clientID, clientAttestationPoPJWT)
-			tt.check(t, err)
-		})
-	}
-}
-
-func TestService_ValidateClientAttestationVP(t *testing.T) {
+func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 	httpClient := NewMockHTTPClient(gomock.NewController(t))
 	vcStatusVerifier := NewMockVCStatusVerifier(gomock.NewController(t))
 
-	var clientID, jwtVP string
+	var jwtVP string
+	var profile *profileapi.Issuer
 
 	proofCreators, defaultProofChecker := testsupport.NewKMSSignersAndVerifier(t,
 		[]testsupport.SigningKey{
@@ -132,7 +70,7 @@ func TestService_ValidateClientAttestationVP(t *testing.T) {
 			name: "success",
 			setup: func() {
 				// create wallet attestation VC with wallet DID as subject and attestation DID as issuer
-				attestationVC := createAttestationVC(t, attestationProofCreator, false)
+				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
 
 				// prepare wallet attestation VP (in jwt_vp format) signed by wallet DID
 				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
@@ -148,7 +86,7 @@ func TestService_ValidateClientAttestationVP(t *testing.T) {
 		{
 			name: "fail to parse attestation vp",
 			setup: func() {
-				attestationVC := createAttestationVC(t, attestationProofCreator, false)
+				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
 
 				jwtVP = createAttestationVP(t, attestationVC,
 					&mockProofCreator{
@@ -182,7 +120,7 @@ func TestService_ValidateClientAttestationVP(t *testing.T) {
 		{
 			name: "attestation vc is expired",
 			setup: func() {
-				attestationVC := createAttestationVC(t, attestationProofCreator, true)
+				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
 
 				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
@@ -195,9 +133,24 @@ func TestService_ValidateClientAttestationVP(t *testing.T) {
 			},
 		},
 		{
+			name: "attestation vc subject does not match vp holder",
+			setup: func() {
+				attestationVC := createAttestationVC(t, attestationProofCreator, "invalid-subject", false)
+
+				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+
+				proofChecker = defaultProofChecker
+
+				vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "attestation vc subject does not match vp holder")
+			},
+		},
+		{
 			name: "fail to check attestation vc status",
 			setup: func() {
-				attestationVC := createAttestationVC(t, attestationProofCreator, false)
+				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
 
 				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
@@ -216,20 +169,25 @@ func TestService_ValidateClientAttestationVP(t *testing.T) {
 			tt.setup()
 
 			tt.check(t,
-				attestation.NewService(
-					&attestation.Config{
+				clientattestation.NewService(
+					&clientattestation.Config{
 						HTTPClient:       httpClient,
 						DocumentLoader:   testutil.DocumentLoader(t),
 						ProofChecker:     proofChecker,
 						VCStatusVerifier: vcStatusVerifier,
 					},
-				).ValidateClientAttestationVP(context.Background(), clientID, jwtVP),
+				).ValidateAttestationJWTVP(context.Background(), profile, jwtVP),
 			)
 		})
 	}
 }
 
-func createAttestationVC(t *testing.T, proofCreator jwt.ProofCreator, isExpired bool) *verifiable.Credential {
+func createAttestationVC(
+	t *testing.T,
+	proofCreator jwt.ProofCreator,
+	subject string,
+	isExpired bool,
+) *verifiable.Credential {
 	t.Helper()
 
 	vcc := verifiable.CredentialContents{
@@ -243,7 +201,7 @@ func createAttestationVC(t *testing.T, proofCreator jwt.ProofCreator, isExpired 
 		},
 		Subject: []verifiable.Subject{
 			{
-				ID: walletDID,
+				ID: subject,
 			},
 		},
 		Issuer: &verifiable.Issuer{
@@ -289,6 +247,7 @@ func createAttestationVP(
 	}
 
 	vp.ID = uuid.New().String()
+	vp.Holder = walletDID
 
 	claims, err := vp.JWTClaims([]string{}, false)
 	require.NoError(t, err)

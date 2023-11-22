@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,attestationService=MockAttestationService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,clientAttestationService=MockClientAttestationService
 
 package oidc4ci
 
@@ -118,10 +118,8 @@ type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
-type attestationService interface {
-	ValidateClientAttestationJWT(ctx context.Context, clientID, clientAttestationJWT string) error
-	ValidateClientAttestationPoPJWT(ctx context.Context, clientID, clientAttestationPoPJWT string) error
-	ValidateClientAttestationVP(ctx context.Context, clientID, jwtVP string) error
+type clientAttestationService interface {
+	ValidateAttestationJWTVP(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
 }
 
 // Config holds configuration options and dependencies for Service.
@@ -141,7 +139,7 @@ type Config struct {
 	KMSRegistry                   kmsRegistry
 	CryptoJWTSigner               cryptoJWTSigner
 	JSONSchemaValidator           jsonSchemaValidator
-	AttestationService            attestationService
+	ClientAttestationService      clientAttestationService
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -161,7 +159,7 @@ type Service struct {
 	kmsRegistry                   kmsRegistry
 	cryptoJWTSigner               cryptoJWTSigner
 	schemaValidator               jsonSchemaValidator
-	attestationService            attestationService
+	clientAttestationService      clientAttestationService
 }
 
 // NewService returns a new Service instance.
@@ -182,7 +180,7 @@ func NewService(config *Config) (*Service, error) {
 		kmsRegistry:                   config.KMSRegistry,
 		cryptoJWTSigner:               config.CryptoJWTSigner,
 		schemaValidator:               config.JSONSchemaValidator,
-		attestationService:            config.AttestationService,
+		clientAttestationService:      config.ClientAttestationService,
 	}, nil
 }
 

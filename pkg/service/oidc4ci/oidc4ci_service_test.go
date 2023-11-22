@@ -1146,13 +1146,13 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 	t.Run("fail to authenticate client", func(t *testing.T) {
 		profileService := NewMockProfileService(gomock.NewController(t))
-		attestationService := NewMockAttestationService(gomock.NewController(t))
+		clientAttestationService := NewMockClientAttestationService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			ProfileService:     profileService,
-			AttestationService: attestationService,
-			TransactionStore:   storeMock,
+			ProfileService:           profileService,
+			ClientAttestationService: clientAttestationService,
+			TransactionStore:         storeMock,
 		})
 		assert.NoError(t, err)
 
@@ -1167,7 +1167,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "client_id",
 			"attest_jwt_client_auth", "")
 
-		assert.ErrorContains(t, err, "invalid client assertion format")
+		assert.ErrorContains(t, err, "client_assertion is required")
 		assert.Nil(t, resp)
 	})
 

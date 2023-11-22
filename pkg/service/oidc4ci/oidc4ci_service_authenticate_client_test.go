@@ -20,11 +20,11 @@ import (
 
 func TestService_AuthenticateClient(t *testing.T) {
 	var (
-		attestationService  *MockAttestationService
-		profile             *profileapi.Issuer
-		clientID            string
-		clientAssertionType string
-		clientAssertion     string
+		clientAttestationService *MockClientAttestationService
+		profile                  *profileapi.Issuer
+		clientID                 string
+		clientAssertionType      string
+		clientAssertion          string
 	)
 
 	tests := []struct {
@@ -33,7 +33,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 		check func(t *testing.T, err error)
 	}{
 		{
-			name: "success with client attestation jwt and client attestation pop jwt",
+			name: "success with client attestation jwt vp",
 			setup: func() {
 				profile = &profileapi.Issuer{
 					OIDCConfig: &profileapi.OIDCConfig{
@@ -43,44 +43,14 @@ func TestService_AuthenticateClient(t *testing.T) {
 
 				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "client-attestation-jwt~client-attestation-pop-jwt"
+				clientAssertion = "client-attestation-jwt-vp"
 
-				attestationService = NewMockAttestationService(gomock.NewController(t))
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				attestationService.EXPECT().ValidateClientAttestationJWT(
+				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
 					gomock.Any(),
-					clientID,
-					"client-attestation-jwt",
-				).Return(nil)
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(gomock.Any(),
-					clientID,
-					"client-attestation-pop-jwt",
-				).Return(nil)
-			},
-			check: func(t *testing.T, err error) {
-				require.NoError(t, err)
-			},
-		},
-		{
-			name: "success with client attestation vp",
-			setup: func() {
-				profile = &profileapi.Issuer{
-					OIDCConfig: &profileapi.OIDCConfig{
-						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
-					},
-				}
-
-				clientID = "client-id"
-				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "client-attestation-vp"
-
-				attestationService = NewMockAttestationService(gomock.NewController(t))
-
-				attestationService.EXPECT().ValidateClientAttestationVP(
-					gomock.Any(),
-					clientID,
-					"client-attestation-vp",
+					profile,
+					clientAssertion,
 				).Return(nil)
 			},
 			check: func(t *testing.T, err error) {
@@ -98,17 +68,11 @@ func TestService_AuthenticateClient(t *testing.T) {
 
 				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "client-attestation-jwt~client-attestation-pop-jwt"
+				clientAssertion = "client-attestation-jwt-vp"
 
-				attestationService = NewMockAttestationService(gomock.NewController(t))
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				attestationService.EXPECT().ValidateClientAttestationJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Times(0)
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(
+				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
@@ -128,16 +92,12 @@ func TestService_AuthenticateClient(t *testing.T) {
 				}
 
 				clientID = ""
+				clientAssertionType = "attest_jwt_client_auth"
+				clientAssertion = "client-attestation-jwt-vp"
 
-				attestationService = NewMockAttestationService(gomock.NewController(t))
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				attestationService.EXPECT().ValidateClientAttestationJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Times(0)
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(
+				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
@@ -158,16 +118,11 @@ func TestService_AuthenticateClient(t *testing.T) {
 
 				clientID = "client-id"
 				clientAssertionType = "not_supported_client_assertion_type"
+				clientAssertion = "client-attestation-jwt-vp"
 
-				attestationService = NewMockAttestationService(gomock.NewController(t))
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				attestationService.EXPECT().ValidateClientAttestationJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Times(0)
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(
+				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
@@ -178,7 +133,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid client assertion format",
+			name: "empty client assertion",
 			setup: func() {
 				profile = &profileapi.Issuer{
 					OIDCConfig: &profileapi.OIDCConfig{
@@ -188,24 +143,18 @@ func TestService_AuthenticateClient(t *testing.T) {
 
 				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "invalid~assertion~format"
+				clientAssertion = ""
 
-				attestationService = NewMockAttestationService(gomock.NewController(t))
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				attestationService.EXPECT().ValidateClientAttestationJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Times(0)
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(
+				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
 				).Times(0)
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "invalid client assertion format")
+				require.ErrorContains(t, err, "client_assertion is required")
 			},
 		},
 		{
@@ -219,48 +168,11 @@ func TestService_AuthenticateClient(t *testing.T) {
 
 				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "client-attestation-jwt~client-attestation-pop-jwt"
+				clientAssertion = "client-attestation-jwt-vp"
 
-				attestationService = NewMockAttestationService(gomock.NewController(t))
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				attestationService.EXPECT().ValidateClientAttestationJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Return(errors.New("validate error"))
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Times(0)
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "validate error")
-			},
-		},
-		{
-			name: "fail to validate client attestation pop jwt",
-			setup: func() {
-				profile = &profileapi.Issuer{
-					OIDCConfig: &profileapi.OIDCConfig{
-						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
-					},
-				}
-
-				clientID = "client-id"
-				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "client-attestation-jwt~client-attestation-pop-jwt"
-
-				attestationService = NewMockAttestationService(gomock.NewController(t))
-
-				attestationService.EXPECT().ValidateClientAttestationJWT(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Return(nil)
-
-				attestationService.EXPECT().ValidateClientAttestationPoPJWT(
+				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
 					gomock.Any(),
 					gomock.Any(),
 					gomock.Any(),
@@ -276,7 +188,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 			tt.setup()
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
-				AttestationService: attestationService,
+				ClientAttestationService: clientAttestationService,
 			})
 			require.NoError(t, err)
 
