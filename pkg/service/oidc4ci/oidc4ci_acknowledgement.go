@@ -59,7 +59,7 @@ func (s *AckService) Ack(
 		return nil
 	}
 
-	ack, err := s.cfg.AckStore.Get(ctx, req.Id)
+	ack, err := s.cfg.AckStore.Get(ctx, req.ID)
 	if err != nil {
 		return err
 	}
@@ -90,8 +90,8 @@ func (s *AckService) Ack(
 		return err
 	}
 
-	if err = s.cfg.AckStore.Delete(ctx, req.Id); err != nil { // not critical
-		logger.Errorc(ctx, fmt.Sprintf("failed to delete ack with id[%s]: %s", req.Id, err.Error()))
+	if err = s.cfg.AckStore.Delete(ctx, req.ID); err != nil { // not critical
+		logger.Errorc(ctx, fmt.Sprintf("failed to delete ack with id[%s]: %s", req.ID, err.Error()))
 	}
 
 	return nil

@@ -474,7 +474,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	return tx, nil
 }
 
-func (s *Service) PrepareCredential(
+func (s *Service) PrepareCredential( //nolint:funlen
 	ctx context.Context,
 	req *PrepareCredential,
 ) (*PrepareCredentialResult, error) {

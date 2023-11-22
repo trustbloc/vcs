@@ -5,14 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService
 
 package oidc4ci
 
 import (
 	"context"
-	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -601,7 +601,7 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	for _, r := range body.Credentials {
 		if err = c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
 			HashedToken: hashToken(token),
-			Id:          r.AckId,
+			ID:          r.AckId,
 			Status:      r.Status,
 			ErrorText:   lo.FromPtr(r.ErrorDescription),
 		}); err != nil {
@@ -1041,6 +1041,6 @@ func parseInteractionError(reader io.Reader) error {
 }
 
 func hashToken(text string) string {
-	hash := md5.Sum([]byte(text))
+	hash := sha256.Sum256([]byte(text))
 	return hex.EncodeToString(hash[:])
 }

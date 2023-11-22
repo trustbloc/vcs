@@ -98,7 +98,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			Id:          "123",
+			ID:          "123",
 			Status:      "failure",
 			ErrorText:   "some-random-text",
 		})
@@ -119,7 +119,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			Id:          "123",
+			ID:          "123",
 		})
 		assert.ErrorContains(t, err, "store err")
 	})
@@ -139,7 +139,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			Id:          "123",
+			ID:          "123",
 		})
 		assert.ErrorContains(t, err, "invalid token")
 	})
@@ -159,7 +159,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			Id:          "123",
+			ID:          "123",
 			Status:      "xxx",
 		})
 		assert.ErrorContains(t, err, "invalid status: xxx")
@@ -183,7 +183,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			Id:          "123",
+			ID:          "123",
 			Status:      "rejected",
 		})
 		assert.ErrorContains(t, err, "event send err")

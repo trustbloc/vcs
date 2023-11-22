@@ -12,6 +12,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2101,6 +2103,121 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			tt.check(t, rec, err)
 		})
 	}
+}
+
+func TestController_Ack(t *testing.T) {
+	hh := func(text string) string {
+		hash := sha256.Sum256([]byte(text))
+		return hex.EncodeToString(hash[:])
+	}
+
+	t.Run("success", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		ackMock := NewMockAckService(gomock.NewController(t))
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			AckService:     ackMock,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		var expectedToken string
+		mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(
+				_ context.Context,
+				s string,
+				_ fosite.TokenType,
+				_ fosite.Session,
+				s2 ...string,
+			) (fosite.TokenType, fosite.AccessRequester, error) {
+				assert.NotEmpty(t, s)
+				expectedToken = s
+
+				return fosite.AccessToken, nil, nil
+			})
+
+		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, remote oidc4cisrv.AckRemote) error {
+				assert.Equal(t, hh(expectedToken), remote.HashedToken)
+				assert.Equal(t, "tx_id", remote.ID)
+				assert.Equal(t, "status", remote.Status)
+				assert.Equal(t, "err_txt", remote.ErrorText)
+
+				return nil
+			})
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+	})
+
+	t.Run("ack err", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		ackMock := NewMockAckService(gomock.NewController(t))
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			AckService:     ackMock,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(fosite.AccessToken, nil, nil)
+
+		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
+			Return(errors.New("some error"))
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var bd oidc4ci.AckErrorResponse
+		b, _ := io.ReadAll(rec.Body)
+
+		assert.NoError(t, json.Unmarshal(b, &bd))
+		assert.Equal(t, "some error", bd.Error)
+	})
+
+	t.Run("token err 1", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(fosite.AccessToken, nil, errors.New("some token err"))
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.ErrorContains(t, err, "some token err")
+	})
 }
 
 func TestController_OidcRegisterClient(t *testing.T) {

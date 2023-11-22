@@ -279,7 +279,7 @@ type Ack struct {
 
 type AckRemote struct {
 	HashedToken string `json:"hashed_token"`
-	Id          string `json:"id"`
+	ID          string `json:"id"`
 	Status      string `json:"status"`
 	ErrorText   string `json:"error_text"`
 }
