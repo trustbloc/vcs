@@ -579,8 +579,8 @@ func mustGenerateNonce() string {
 func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	req := e.Request()
 
-	ctx, span := c.tracer.Start(req.Context(), "OidcAcknowledgement")
-	defer span.End()
+	//ctx, span := c.tracer.Start(req.Context(), "OidcAcknowledgement")
+	//defer span.End()
 
 	var body AckRequest
 	if err := e.Bind(&body); err != nil {
