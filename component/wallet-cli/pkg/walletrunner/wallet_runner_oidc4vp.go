@@ -42,6 +42,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/observability/metrics/noop"
+	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 type RPConfigOverride func(rpc *RPConfig)
@@ -119,6 +120,22 @@ func (s *Service) RunOIDC4VPFlow(ctx context.Context, authorizationRequest strin
 	s.perfInfo.QueryCredentialFromWallet = time.Since(startTime)
 	if !s.vcProviderConf.KeepWalletOpen {
 		s.wallet.Close()
+	}
+
+	// Run Trust Registry verification only if TrustRegistryURL supplied
+	if trustRegistryURL := s.vcProviderConf.TrustRegistryURL; trustRegistryURL != "" {
+		log.Println("Run Trust Registry Verifier validation")
+
+		trustRegistry := trustregistry.New(&trustregistry.Config{
+			TrustRegistryURL: trustRegistryURL,
+			HTTPClient:       s.httpClient,
+		})
+
+		credentials := s.vpFlowExecutor.requestPresentation[0].Credentials()
+
+		if err = trustRegistry.ValidateVerifier(s.vpFlowExecutor.requestObject.ClientID, credentials); err != nil {
+			return fmt.Errorf("trust registry verifier validation: %w", err)
+		}
 	}
 
 	var createAuthorizedResponseHooks []RPConfigOverride

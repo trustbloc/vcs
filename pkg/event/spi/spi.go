@@ -7,10 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package spi
 
 import (
+	"encoding/json"
 	"time"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
+
+var logger = log.New("event")
 
 const (
 	// VerifierEventTopic verifier topic name.
@@ -54,7 +58,7 @@ const (
 )
 
 // Payload defines payload.
-type Payload []byte
+type Payload json.RawMessage
 
 // Event defines event.
 type Event struct {
@@ -77,7 +81,7 @@ type Event struct {
 	DataContentType string `json:"datacontenttype,omitempty"`
 
 	// Data defines message(optional).
-	Data []byte `json:"data,omitempty"`
+	Data interface{} `json:"data,omitempty"`
 
 	// TransactionID defines transaction ID(optional).
 	TransactionID string `json:"txnid,omitempty"`
@@ -112,7 +116,12 @@ func (m *Event) Copy() *Event {
 func NewEventWithPayload(uuid string, source string, eventType EventType, payload Payload) *Event {
 	event := NewEvent(uuid, source, eventType)
 
-	event.Data = payload
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		logger.Error(err.Error())
+	}
+
+	event.Data = data
 
 	// vcs components always use json
 	event.DataContentType = "application/json"

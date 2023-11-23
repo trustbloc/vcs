@@ -124,6 +124,15 @@ mock-login-consent-docker:
 	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) test/bdd/loginconsent
 
+.PHONY: mock-trustregistry-docker
+mock-trustregistry-docker:
+	@echo "Building mock Trust Registry server"
+	@docker build -f ./images/mocks/trustregistry/Dockerfile --no-cache -t  vcs/mock-trustregistry:latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
+	--build-arg GO_PROXY=$(GOPROXY) \
+	--build-arg GO_IMAGE=$(GO_IMAGE) test/bdd/trustregistry
+
 .PHONY: sample-cognito-auth
 sample-cognito-auth:
 	@echo "Building sample cognito auth server"
@@ -142,7 +151,7 @@ sample-cognito-auth-docker:
 
 
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker sample-cognito-auth-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
+bdd-test: clean vc-rest-docker sample-cognito-auth-docker sample-webhook-docker mock-login-consent-docker mock-trustregistry-docker generate-test-keys build-krakend-plugin
 	@cd test/bdd && GOPROXY=$(GOPROXY) go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test

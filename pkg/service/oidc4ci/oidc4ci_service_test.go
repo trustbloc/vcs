@@ -1146,13 +1146,13 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 	t.Run("fail to authenticate client", func(t *testing.T) {
 		profileService := NewMockProfileService(gomock.NewController(t))
-		attestationService := NewMockAttestationService(gomock.NewController(t))
+		clientAttestationService := NewMockClientAttestationService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			ProfileService:     profileService,
-			AttestationService: attestationService,
-			TransactionStore:   storeMock,
+			ProfileService:           profileService,
+			ClientAttestationService: clientAttestationService,
+			TransactionStore:         storeMock,
 		})
 		assert.NoError(t, err)
 
@@ -1167,7 +1167,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "client_id",
 			"attest_jwt_client_auth", "")
 
-		assert.ErrorContains(t, err, "invalid client assertion format")
+		assert.ErrorContains(t, err, "client_assertion is required")
 		assert.Nil(t, resp)
 	})
 
@@ -2046,7 +2046,11 @@ func expectedPublishErrorEventFunc(
 		require.Equal(t, spi.IssuerOIDCInteractionFailed, messages[0].Type)
 
 		var ep oidc4ci.EventPayload
-		require.NoError(t, json.Unmarshal(messages[0].Data, &ep))
+
+		jsonData, err := json.Marshal(messages[0].Data.(map[string]interface{}))
+		require.NoError(t, err)
+
+		require.NoError(t, json.Unmarshal(jsonData, &ep))
 
 		assert.Equalf(t, string(errCode), ep.ErrorCode, "unexpected error code")
 		assert.Equalf(t, errComponent, ep.ErrorComponent, "unexpected error component")

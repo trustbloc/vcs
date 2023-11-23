@@ -27,6 +27,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -41,6 +42,7 @@ const (
 	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
+	trustRegistryURL                    = "https://mock-trustregistry.trustbloc.local:8098/policies/evaluate"
 )
 
 func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {
@@ -725,6 +727,51 @@ func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
 		}
 	default:
 		return fmt.Errorf("unexpected signature representation in profile")
+	}
+
+	return nil
+}
+
+func (s *Steps) initWalletWithTrustRegistryURL() error {
+	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
+		func(c *vcprovider.Config) {
+			c.DidKeyType = "ECDSAP384DER"
+			c.DidMethod = "ion"
+			c.KeepWalletOpen = true
+			c.TrustRegistryURL = trustRegistryURL
+		})
+	if err != nil {
+		return fmt.Errorf("unable create wallet runner: %w", err)
+	}
+
+	s.walletRunner = walletRunner
+
+	err = walletRunner.CreateWallet()
+	if err != nil {
+		return fmt.Errorf("walletRunner.CreateWallet: %w", err)
+	}
+
+	s.bddContext.CredentialSubject = append(s.bddContext.CredentialSubject, s.walletRunner.GetConfig().WalletParams.DidID...)
+	return nil
+}
+
+func (s *Steps) saveCredentials() error {
+	for _, cred := range s.bddContext.CreatedCredentialsSet {
+		err := s.walletRunner.SaveCredentialInWallet(cred)
+		if err != nil {
+			return fmt.Errorf("wallet add credential failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Steps) saveCredentialsInWallet() error {
+	for _, cred := range s.bddContext.CreatedCredentialsSet {
+		err := s.walletRunner.SaveCredentialInWallet(cred)
+		if err != nil {
+			return fmt.Errorf("wallet add credential failed: %w", err)
+		}
 	}
 
 	return nil

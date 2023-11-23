@@ -39,6 +39,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/observability/metrics/noop"
+	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 const (
@@ -61,6 +62,7 @@ type Flow struct {
 	requestURI                     string
 	enableLinkedDomainVerification bool
 	disableDomainMatching          bool
+	trustRegistryURL               string
 }
 
 type provider interface {
@@ -124,6 +126,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		requestURI:                     o.requestURI,
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
 		disableDomainMatching:          o.disableDomainMatching,
+		trustRegistryURL:               o.trustRegistryURL,
 	}, nil
 }
 
@@ -142,6 +145,19 @@ func (f *Flow) Run(ctx context.Context) error {
 	credentials, err := f.queryWallet(requestObject.Claims.VPToken.PresentationDefinition)
 	if err != nil {
 		return fmt.Errorf("query wallet: %w", err)
+	}
+
+	if trustRegistryURL := f.trustRegistryURL; trustRegistryURL != "" {
+		slog.Info("Run Trust Registry Verifier validation", "url", trustRegistryURL)
+
+		trustRegistry := trustregistry.New(&trustregistry.Config{
+			TrustRegistryURL: trustRegistryURL,
+			HTTPClient:       f.httpClient,
+		})
+
+		if err = trustRegistry.ValidateVerifier(requestObject.ClientID, credentials); err != nil {
+			return fmt.Errorf("trust registry verifier validation: %w", err)
+		}
 	}
 
 	if !f.disableDomainMatching {
@@ -655,6 +671,7 @@ type options struct {
 	requestURI                     string
 	enableLinkedDomainVerification bool
 	disableDomainMatching          bool
+	trustRegistryURL               string
 }
 
 type Opt func(opts *options)
@@ -680,6 +697,12 @@ func WithLinkedDomainVerification() Opt {
 func WithDomainMatchingDisabled() Opt {
 	return func(opts *options) {
 		opts.disableDomainMatching = true
+	}
+}
+
+func WithTrustRegistryURL(url string) Opt {
+	return func(opts *options) {
+		opts.trustRegistryURL = url
 	}
 }
 

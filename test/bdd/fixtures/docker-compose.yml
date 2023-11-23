@@ -224,6 +224,20 @@ services:
     networks:
       - bdd_net
 
+  mock-trustregistry.trustbloc.local: # mock for Trust registry
+    container_name: mock-trustregistry.trustbloc.local
+    image: vcs/mock-trustregistry:latest
+    environment:
+      - LISTEN_ADDR=:8098
+      - TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
+      - TLS_KEY_PATH=/etc/tls/ec-key.pem
+    ports:
+      - "8098:8098"
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
   oidc4vp-store.example.com: # oidc4vp request object public store
     container_name: oidc4vp-store.example.com
     image: nginx:latest
