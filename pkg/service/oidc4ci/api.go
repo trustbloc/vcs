@@ -48,6 +48,7 @@ const (
 const (
 	ContentTypeApplicationJSON InitiateIssuanceResponseContentType = echo.MIMEApplicationJSONCharsetUTF8
 	ContentTypeApplicationJWT  InitiateIssuanceResponseContentType = "application/jwt"
+	issuerIdentifierParts                                          = 2
 )
 
 // ClaimData represents user claims in pre-auth code flow.

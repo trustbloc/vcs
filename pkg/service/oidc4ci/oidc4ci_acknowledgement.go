@@ -60,7 +60,7 @@ func (s *AckService) HandleAckNotFound(
 	}
 
 	parts := strings.Split(req.IssuerIdentifier, "/")
-	if len(parts) != 2 {
+	if len(parts) != issuerIdentifierParts {
 		return errors.New("invalid issuer identifier. expected format {profileID}/{profileVersion}")
 	}
 

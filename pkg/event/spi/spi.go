@@ -52,7 +52,7 @@ const (
 	IssuerOIDCInteractionAckSucceeded                 EventType = "issuer.oidc-interaction-ack-succeeded.v1"
 	IssuerOIDCInteractionAckFailed                    EventType = "issuer.oidc-interaction-ack-failed.v1"
 	IssuerOIDCInteractionAckRejected                  EventType = "issuer.oidc-interaction-ack-rejected.v1"
-	IssuerOIDCInteractionAckExpired                  EventType = "issuer.oidc-interaction-ack-expired.v1"
+	IssuerOIDCInteractionAckExpired                   EventType = "issuer.oidc-interaction-ack-expired.v1"
 
 	CredentialStatusStatusUpdated EventType = "issuer.credential-status-updated.v1" //nolint:gosec
 )

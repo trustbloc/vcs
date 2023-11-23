@@ -579,8 +579,8 @@ func mustGenerateNonce() string {
 func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	req := e.Request()
 
-	//ctx, span := c.tracer.Start(req.Context(), "OidcAcknowledgement")
-	//defer span.End()
+	// ctx, span := c.tracer.Start(req.Context(), "OidcAcknowledgement")
+	// defer span.End()
 
 	var body AckRequest
 	if err := e.Bind(&body); err != nil {
@@ -594,10 +594,10 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 
 	// for now we dont need to introspect token as it can be expired.
 	// todo: once new we have new spec add logic with token
-	//_, _, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
-	//if err != nil {
+	// _, _, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
+	// if err != nil {
 	//	return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
-	//}
+	// }
 
 	var finalErr error
 	for _, r := range body.Credentials {

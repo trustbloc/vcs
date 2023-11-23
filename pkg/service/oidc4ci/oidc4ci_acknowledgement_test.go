@@ -86,7 +86,7 @@ func TestAckFallback(t *testing.T) {
 				assert.Equal(t, spi.IssuerOIDCInteractionAckExpired, event.Type)
 
 				var dat oidc4ci.EventPayload
-				assert.NoError(t, json.Unmarshal(event.Data, &dat))
+				assert.NoError(t, json.Unmarshal(event.Data.([]byte), &dat))
 
 				assert.Equal(t, "4567", dat.ProfileID)
 				assert.Equal(t, "2222", dat.ProfileVersion)
@@ -236,7 +236,7 @@ func TestAck(t *testing.T) {
 				assert.Equal(t, spi.IssuerOIDCInteractionAckFailed, event.Type)
 
 				var dat oidc4ci.EventPayload
-				assert.NoError(t, json.Unmarshal(event.Data, &dat))
+				assert.NoError(t, json.Unmarshal(event.Data.([]byte), &dat))
 
 				assert.Equal(t, "profile1", dat.ProfileID)
 				assert.Equal(t, "v2.0", dat.ProfileVersion)
