@@ -60,12 +60,12 @@ func (s *AckService) HandleAckNotFound(
 	}
 
 	parts := strings.Split(req.IssuerIdentifier, "/")
-	if len(parts) != issuerIdentifierParts {
-		return errors.New("invalid issuer identifier. expected format {profileID}/{profileVersion}")
+	if len(parts) < issuerIdentifierParts {
+		return errors.New("invalid issuer identifier. expected format https://xxx/{profileID}/{profileVersion}")
 	}
 
-	profileID := parts[0]
-	profileVersion := parts[1]
+	profileID := parts[len(parts)-2]
+	profileVersion := parts[len(parts)-1]
 
 	profile, err := s.cfg.ProfileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {

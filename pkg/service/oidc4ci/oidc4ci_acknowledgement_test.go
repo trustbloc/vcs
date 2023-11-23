@@ -104,9 +104,72 @@ func TestAckFallback(t *testing.T) {
 			ID:               "123",
 			Status:           "failure",
 			ErrorText:        "some-random-text",
+			IssuerIdentifier: "https://someurl/some_issuer/v1.0",
+		})
+		assert.ErrorContains(t, err, "ack expired")
+	})
+
+	t.Run("success with short identifier", func(t *testing.T) {
+		store := NewMockAckStore(gomock.NewController(t))
+		eventSvc := NewMockEventService(gomock.NewController(t))
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+
+		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
+			AckStore:   store,
+			EventSvc:   eventSvc,
+			ProfileSvc: profileSvc,
+		})
+
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(&profile.Issuer{
+				WebHook:        "1234",
+				ID:             "4567",
+				Version:        "2222",
+				OrganizationID: "1111",
+			}, nil)
+
+		store.EXPECT().Get(gomock.Any(), "123").Return(nil, oidc4ci.ErrDataNotFound)
+		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, _ string, events ...*spi.Event) error {
+				assert.Len(t, events, 1)
+				event := events[0]
+
+				assert.Equal(t, spi.IssuerOIDCInteractionAckExpired, event.Type)
+
+				var dat oidc4ci.EventPayload
+				b, _ := json.Marshal(event.Data) //nolint
+				assert.NoError(t, json.Unmarshal(b, &dat))
+
+				assert.Equal(t, "4567", dat.ProfileID)
+				assert.Equal(t, "2222", dat.ProfileVersion)
+				assert.Equal(t, "1111", dat.OrgID)
+				assert.Equal(t, "1234", dat.WebHook)
+				assert.Equal(t, "wallet", dat.ErrorComponent)
+				assert.Equal(t, "some-random-text", dat.Error)
+
+				return nil
+			})
+
+		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
+			HashedToken:      "abcds",
+			ID:               "123",
+			Status:           "failure",
+			ErrorText:        "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
 		})
 		assert.ErrorContains(t, err, "ack expired")
+	})
+
+	t.Run("no store", func(t *testing.T) {
+		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{})
+
+		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
+			HashedToken: "abcds",
+			ID:          "123",
+			Status:      "failure",
+			ErrorText:   "some-random-text",
+		})
+		assert.NoError(t, err)
 	})
 
 	t.Run("missing identifier", func(t *testing.T) {
@@ -147,7 +210,7 @@ func TestAckFallback(t *testing.T) {
 			ID:               "123",
 			Status:           "failure",
 			ErrorText:        "some-random-text",
-			IssuerIdentifier: "https://someurl/issuer/v1.0",
+			IssuerIdentifier: "abcd",
 		})
 		assert.ErrorContains(t, err, "invalid issuer identifier. expected format")
 	})
