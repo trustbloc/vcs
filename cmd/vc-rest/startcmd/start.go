@@ -700,6 +700,7 @@ func buildEchoHandler(
 		EventSvc:   eventSvc,
 		EventTopic: conf.StartupParameters.issuerEventTopic,
 		AckStore:   ackStore,
+		ProfileSvc: issuerProfileSvc,
 	})
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,

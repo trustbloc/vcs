@@ -8,6 +8,7 @@ package oidc4ci
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"time"
 
@@ -278,8 +279,11 @@ type Ack struct {
 }
 
 type AckRemote struct {
-	HashedToken string `json:"hashed_token"`
-	ID          string `json:"id"`
-	Status      string `json:"status"`
-	ErrorText   string `json:"error_text"`
+	HashedToken      string `json:"hashed_token"`
+	ID               string `json:"id"`
+	Status           string `json:"status"`
+	ErrorText        string `json:"error_text"`
+	IssuerIdentifier string `json:"issuer_identifier"`
 }
+
+var ErrDataNotFound = errors.New("data not found")

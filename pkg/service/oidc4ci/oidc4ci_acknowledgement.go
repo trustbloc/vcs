@@ -23,6 +23,7 @@ type AckServiceConfig struct {
 	AckStore   ackStore
 	EventSvc   eventService
 	EventTopic string
+	ProfileSvc profileService
 }
 
 func NewAckService(
@@ -50,6 +51,47 @@ func (s *AckService) CreateAck(
 	return &id, nil
 }
 
+func (s *AckService) HandleAckNotFound(
+	ctx context.Context,
+	req AckRemote,
+) error {
+	if req.IssuerIdentifier == "" {
+		return errors.New("issuer identifier is empty and ack not found")
+	}
+
+	parts := strings.Split(req.IssuerIdentifier, "/")
+	if len(parts) != 2 {
+		return errors.New("invalid issuer identifier. expected format {profileID}/{profileVersion}")
+	}
+
+	profileID := parts[0]
+	profileVersion := parts[1]
+
+	profile, err := s.cfg.ProfileSvc.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return err
+	}
+
+	eventPayload := &EventPayload{
+		WebHook:        profile.WebHook,
+		ProfileID:      profile.ID,
+		ProfileVersion: profile.Version,
+		OrgID:          profile.OrganizationID,
+	}
+
+	if req.ErrorText != "" {
+		eventPayload.ErrorComponent = "wallet"
+		eventPayload.Error = req.ErrorText
+	}
+
+	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, TxID(req.ID), eventPayload)
+	if err != nil {
+		return err
+	}
+
+	return errors.New("ack expired")
+}
+
 // Ack acknowledges the interaction.
 func (s *AckService) Ack(
 	ctx context.Context,
@@ -61,6 +103,9 @@ func (s *AckService) Ack(
 
 	ack, err := s.cfg.AckStore.Get(ctx, req.ID)
 	if err != nil {
+		if errors.Is(err, ErrDataNotFound) {
+			return s.HandleAckNotFound(ctx, req)
+		}
 		return err
 	}
 

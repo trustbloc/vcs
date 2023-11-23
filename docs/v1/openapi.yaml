@@ -1879,6 +1879,9 @@ components:
         status:
           type: string
           description: Ack Status.
+        issuer_identifier:
+          type: string
+          description: Optional issuer identifier.
         error_description:
           type: string
           description: error description.

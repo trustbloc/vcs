@@ -592,18 +592,21 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
 	}
 
-	_, _, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
-	if err != nil {
-		return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
-	}
+	// for now we dont need to introspect token as it can be expired.
+	// todo: once new we have new spec add logic with token
+	//_, _, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
+	//if err != nil {
+	//	return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
+	//}
 
 	var finalErr error
 	for _, r := range body.Credentials {
-		if err = c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
-			HashedToken: hashToken(token),
-			ID:          r.AckId,
-			Status:      r.Status,
-			ErrorText:   lo.FromPtr(r.ErrorDescription),
+		if err := c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
+			HashedToken:      hashToken(token),
+			ID:               r.AckId,
+			Status:           r.Status,
+			ErrorText:        lo.FromPtr(r.ErrorDescription),
+			IssuerIdentifier: lo.FromPtr(r.IssuerIdentifier),
 		}); err != nil {
 			finalErr = errors.Join(finalErr, err)
 		}

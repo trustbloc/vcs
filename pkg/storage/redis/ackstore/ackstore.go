@@ -9,10 +9,11 @@ package ackstore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -39,7 +40,7 @@ func (s *Store) Create(
 	ctx context.Context,
 	ack *oidc4ci.Ack,
 ) (string, error) {
-	id := uuid.NewString()
+	id := string(ack.TxID) // for now, it should much with TxID before new spec.
 
 	b, err := json.Marshal(ack)
 	if err != nil {
@@ -56,6 +57,10 @@ func (s *Store) Create(
 func (s *Store) Get(ctx context.Context, id string) (*oidc4ci.Ack, error) {
 	b, err := s.redisClient.API().Get(ctx, s.resolveRedisKey(id)).Bytes()
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, oidc4ci.ErrDataNotFound
+		}
+
 		return nil, err
 	}
 

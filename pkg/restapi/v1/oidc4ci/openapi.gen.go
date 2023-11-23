@@ -54,6 +54,9 @@ type AcpRequestItem struct {
 	// error description.
 	ErrorDescription *string `json:"error_description,omitempty"`
 
+	// Optional issuer identifier.
+	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
+
 	// Ack Status.
 	Status string `json:"status"`
 }

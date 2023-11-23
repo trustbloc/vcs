@@ -26,6 +26,7 @@ func TestCreate(t *testing.T) {
 		store := ackstore.New(cl, 30)
 
 		obj := &oidc4ci.Ack{
+			TxID:        "12354",
 			HashedToken: "abcd",
 		}
 
@@ -42,6 +43,7 @@ func TestCreate(t *testing.T) {
 		id, err := store.Create(context.TODO(), obj)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, id)
+		assert.EqualValues(t, id, obj.TxID)
 	})
 
 	t.Run("err", func(t *testing.T) {
@@ -104,7 +106,7 @@ func TestGet(t *testing.T) {
 		assert.ErrorContains(t, err, "cannot unmarshal array into Go value of type")
 	})
 
-	t.Run("err", func(t *testing.T) {
+	t.Run("err nil", func(t *testing.T) {
 		cl := NewMockredisClient(gomock.NewController(t))
 		api := NewMockredisApi(gomock.NewController(t))
 
@@ -117,7 +119,23 @@ func TestGet(t *testing.T) {
 
 		id, err := store.Get(context.TODO(), "1234")
 		assert.Nil(t, id)
-		assert.ErrorIs(t, err, redisapi.Nil)
+		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
+	})
+
+	t.Run("err", func(t *testing.T) {
+		cl := NewMockredisClient(gomock.NewController(t))
+		api := NewMockredisApi(gomock.NewController(t))
+
+		cl.EXPECT().API().Return(api).AnyTimes()
+
+		store := ackstore.New(cl, 30)
+
+		api.EXPECT().Get(gomock.Any(), "oidc4ci_ack-1234").
+			Return(redisapi.NewStringResult("", errors.New("unexpected err")))
+
+		id, err := store.Get(context.TODO(), "1234")
+		assert.Nil(t, id)
+		assert.ErrorContains(t, err, "unexpected err")
 	})
 }
 
