@@ -188,6 +188,7 @@ func (s *Service) handleIssuanceAck(
 				AckId:            *credResponse.AckID,
 				ErrorDescription: nil,
 				Status:           "success",
+				IssuerIdentifier: &wellKnown.CredentialIssuer,
 			},
 		},
 	})

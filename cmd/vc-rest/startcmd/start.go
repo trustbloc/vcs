@@ -643,7 +643,7 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to instantiate oidc4ci transaction store: %w", err)
 	}
 
-	ackStore := getAckStore(redisClient, conf.StartupParameters.transientDataParams.oidc4ciTransactionDataTTL)
+	ackStore := getAckStore(redisClient, conf.StartupParameters.transientDataParams.oidc4ciAckDataTTL)
 
 	oidc4ciClaimDataStore, err := getOIDC4CIClaimDataStore(
 		conf.StartupParameters.transientDataParams.storeType,

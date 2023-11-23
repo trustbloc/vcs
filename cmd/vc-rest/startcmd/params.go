@@ -268,6 +268,11 @@ const (
 	oidc4ciTransactionDataTTLFlagUsage = "OIDC4CI transaction data TTL. Defaults to 15m. " +
 		commonEnvVarUsageText + oidc4ciTransactionDataTTLEnvKey
 
+	oidc4ciAckDataTTLFlagName  = "vc-oidc4ci-ack-data-ttl"
+	oidc4ciAckDataTTLEnvKey    = "VC_OIDC4CI_ACK_DATA_TTL"
+	oidc4ciAckDataTTLFlagUsage = "OIDC4CI ack data TTL. Defaults to 24h. " +
+		commonEnvVarUsageText + oidc4ciAckDataTTLEnvKey
+
 	oidc4ciAuthStateTTLFlagName  = "vc-oidc4ci-auth-state-ttl"
 	oidc4ciAuthStateTTLEnvKey    = "VC_OIDC4CI_AUTH_STATE_TTL"
 	oidc4ciAuthStateTTLFlagUsage = "OIDC4CI auth state data TTL. Defaults to 15m. " +
@@ -379,6 +384,7 @@ const (
 	defaultOIDC4VPTransactionDataTTL    = time.Hour
 	defaultOIDC4VPNonceDataTTL          = 15 * time.Minute
 	defaultOIDC4CITransactionDataTTL    = 15 * time.Minute
+	defaultOIDC4CIAckDataTTL            = 24 * time.Hour
 	defaultOIDC4CIAuthStateTTL          = 15 * time.Minute
 	defaultDataEncryptionKeyLength      = 256
 )
@@ -432,6 +438,7 @@ type transientDataParams struct {
 	storeType                    string
 	claimDataTTL                 int32
 	oidc4ciTransactionDataTTL    int32
+	oidc4ciAckDataTTL            int32
 	oidc4ciAuthStateTTL          int32
 	oidc4vpNonceStoreDataTTL     int32
 	oidc4vpTransactionDataTTL    int32
@@ -793,6 +800,13 @@ func getTransientDataParams(cmd *cobra.Command) (*transientDataParams, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	oidc4ciAckDataTTL, err := getDuration(
+		cmd, oidc4ciAckDataTTLFlagName, oidc4ciAckDataTTLEnvKey, defaultOIDC4CIAckDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
 	oidc4ciAuthStateTTL, err := getDuration(
 		cmd, oidc4ciAuthStateTTLFlagName, oidc4ciAuthStateTTLEnvKey, defaultOIDC4CIAuthStateTTL)
 	if err != nil {
@@ -803,6 +817,7 @@ func getTransientDataParams(cmd *cobra.Command) (*transientDataParams, error) {
 		storeType:                    transientDataStoreType,
 		claimDataTTL:                 int32(claimDataTTL.Seconds()),
 		oidc4ciTransactionDataTTL:    int32(oidc4ciTransactionDataTTL.Seconds()),
+		oidc4ciAckDataTTL:            int32(oidc4ciAckDataTTL.Seconds()),
 		oidc4ciAuthStateTTL:          int32(oidc4ciAuthStateTTL.Seconds()),
 		oidc4vpReceivedClaimsDataTTL: int32(oidc4vpReceivedClaimsDataTTL.Seconds()),
 		oidc4vpNonceStoreDataTTL:     int32(oidc4vpNonceStoreDataTTL.Seconds()),
@@ -1163,6 +1178,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(oidc4vpTransactionDataTTLFlagName, "", "", oidc4vpTransactionDataTTLFlagUsage)
 	startCmd.Flags().StringP(oidc4vpNonceTTLFlagName, "", "", oidc4vpNonceTTLFlagUsage)
 	startCmd.Flags().StringP(oidc4ciTransactionDataTTLFlagName, "", "", oidc4ciTransactionDataTTLFlagUsage)
+	startCmd.Flags().StringP(oidc4ciAckDataTTLFlagName, "", "", oidc4ciAckDataTTLFlagUsage)
 	startCmd.Flags().StringP(oidc4ciAuthStateTTLFlagName, "", "", oidc4ciAuthStateTTLFlagUsage)
 
 	startCmd.Flags().StringP(otelServiceNameFlagName, "", "", otelServiceNameFlagUsage)
