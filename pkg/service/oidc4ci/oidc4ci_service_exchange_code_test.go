@@ -142,14 +142,14 @@ func TestExchangeCodeAuthenticateClientError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	eventMock := NewMockEventService(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
-	attestationService := NewMockAttestationService(gomock.NewController(t))
+	clientAttestationService := NewMockClientAttestationService(gomock.NewController(t))
 
 	svc, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:   store,
-		ProfileService:     profileService,
-		AttestationService: attestationService,
-		EventService:       eventMock,
-		EventTopic:         spi.IssuerEventTopic,
+		TransactionStore:         store,
+		ProfileService:           profileService,
+		ClientAttestationService: clientAttestationService,
+		EventService:             eventMock,
+		EventTopic:               spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 
@@ -176,7 +176,7 @@ func TestExchangeCodeAuthenticateClientError(t *testing.T) {
 
 	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), "opState", "client_id", "attest_jwt_client_auth", "")
 	assert.Empty(t, resp)
-	assert.ErrorContains(t, err, "invalid client assertion format")
+	assert.ErrorContains(t, err, "client_assertion is required")
 }
 
 func TestExchangeCodeIssuerError(t *testing.T) {

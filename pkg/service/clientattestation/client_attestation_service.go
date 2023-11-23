@@ -4,9 +4,9 @@ Copyright Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination attestation_service_mocks_test.go -package attestation_test -source=attestation_service.go -mock_names httpClient=MockHTTPClient,vcStatusVerifier=MockVCStatusVerifier
+//go:generate mockgen -destination client_attestation_service_mocks_test.go -package clientattestation_test -source=client_attestation_service.go -mock_names httpClient=MockHTTPClient,vcStatusVerifier=MockVCStatusVerifier
 
-package attestation
+package clientattestation
 
 import (
 	"context"
@@ -16,6 +16,8 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/vc-go/verifiable"
+
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 type httpClient interface {
@@ -52,28 +54,10 @@ func NewService(config *Config) *Service {
 	}
 }
 
-// ValidateClientAttestationJWT validates Client Attestation JWT.
+// ValidateAttestationJWTVP validates attestation VP in jwt_vp format.
 //
 //nolint:revive
-func (s *Service) ValidateClientAttestationJWT(ctx context.Context, clientID, clientAttestationJWT string) error {
-	// TODO: Validate Client Attestation JWT and check the status of Attestation VC.
-	// https://datatracker.ietf.org/doc/html/draft-ietf-oauth-attestation-based-client-auth-01#section-4.1.1
-	return nil
-}
-
-// ValidateClientAttestationPoPJWT validates Client Attestation Proof-of-Possession JWT.
-//
-//nolint:revive
-func (s *Service) ValidateClientAttestationPoPJWT(ctx context.Context, clientID, clientAttestationPoPJWT string) error {
-	// TODO: Validate Client Attestation Proof of Possession (PoP) JWT.
-	// https://datatracker.ietf.org/doc/html/draft-ietf-oauth-attestation-based-client-auth-01#section-4.1.2
-	return nil
-}
-
-// ValidateClientAttestationVP validates Client Attestation VP in jwt_vp format.
-//
-//nolint:revive
-func (s *Service) ValidateClientAttestationVP(ctx context.Context, clientID, jwtVP string) error {
+func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error {
 	vp, err := verifiable.ParsePresentation(
 		[]byte(jwtVP),
 		verifiable.WithPresProofChecker(s.proofChecker),
@@ -87,28 +71,32 @@ func (s *Service) ValidateClientAttestationVP(ctx context.Context, clientID, jwt
 		return fmt.Errorf("missing attestation vc")
 	}
 
-	attestationVC := vp.Credentials()[0]
+	vc := vp.Credentials()[0]
 
-	// validate attestation vc
+	// validate attestation VC
 	opts := []verifiable.CredentialOpt{
 		verifiable.WithProofChecker(s.proofChecker),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 	}
 
-	if err = attestationVC.ValidateCredential(opts...); err != nil {
+	if err = vc.ValidateCredential(opts...); err != nil {
 		return fmt.Errorf("validate attestation vc: %w", err)
 	}
 
-	if err = attestationVC.CheckProof(opts...); err != nil {
+	if err = vc.CheckProof(opts...); err != nil {
 		return fmt.Errorf("check attestation vc proof: %w", err)
 	}
 
-	vcc := attestationVC.Contents()
+	vcc := vc.Contents()
 	if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
 		return fmt.Errorf("attestation vc is expired")
 	}
 
-	// check attestation vc status
+	if len(vcc.Subject) == 0 || vcc.Subject[0].ID != vp.Holder {
+		return fmt.Errorf("attestation vc subject does not match vp holder")
+	}
+
+	// check attestation VC status
 	if err = s.vcStatusVerifier.ValidateVCStatus(ctx, vcc.Status, vcc.Issuer); err != nil {
 		return fmt.Errorf("validate attestation vc status: %w", err)
 	}

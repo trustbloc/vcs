@@ -9,7 +9,6 @@ package oidc4ci
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/samber/lo"
 
@@ -40,24 +39,13 @@ func (s *Service) AuthenticateClient(
 			errors.New("only supported client assertion type is attest_jwt_client_auth"))
 	}
 
-	jwts := strings.Split(clientAssertion, "~")
-
-	switch {
-	case len(jwts) == 1 && jwts[0] != "":
-		if err := s.attestationService.ValidateClientAttestationVP(ctx, clientID, jwts[0]); err != nil {
-			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
-		}
-	case len(jwts) == 2 && jwts[0] != "" && jwts[1] != "":
-		if err := s.attestationService.ValidateClientAttestationJWT(ctx, clientID, jwts[0]); err != nil {
-			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
-		}
-
-		if err := s.attestationService.ValidateClientAttestationPoPJWT(ctx, clientID, jwts[1]); err != nil {
-			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
-		}
-	default:
+	if clientAssertion == "" {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
-			errors.New("invalid client assertion format"))
+			errors.New("client_assertion is required"))
+	}
+
+	if err := s.clientAttestationService.ValidateAttestationJWTVP(ctx, profile, clientAssertion); err != nil {
+		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
 	return nil
