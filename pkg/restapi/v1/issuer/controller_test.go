@@ -840,7 +840,11 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 							assert.Equal(t, msg.Type, spi.IssuerOIDCInteractionFailed)
 
 							ep := &oidc4ci.EventPayload{}
-							assert.NoError(t, json.Unmarshal(msg.Data, ep))
+
+							jsonData, errMarshal := json.Marshal(msg.Data.(map[string]interface{}))
+							require.NoError(t, errMarshal)
+
+							assert.NoError(t, json.Unmarshal(jsonData, ep))
 
 							assert.Equal(t, string(resterr.SystemError), ep.ErrorCode)
 							assert.Equal(t, resterr.IssuerProfileSvcComponent, ep.ErrorComponent)
@@ -869,7 +873,11 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 							assert.Equal(t, msg.Type, spi.IssuerOIDCInteractionFailed)
 
 							ep := &oidc4ci.EventPayload{}
-							assert.NoError(t, json.Unmarshal(msg.Data, ep))
+
+							jsonData, errMarshal := json.Marshal(msg.Data.(map[string]interface{}))
+							require.NoError(t, errMarshal)
+
+							assert.NoError(t, json.Unmarshal(jsonData, ep))
 
 							assert.Equal(t, string(resterr.ProfileNotFound), ep.ErrorCode)
 							assert.Empty(t, ep.ErrorComponent)

@@ -88,7 +88,12 @@ func (s *Service) HandleEvent(ctx context.Context, event *spi.Event) error { //n
 
 	payload := credentialstatus.UpdateCredentialStatusEventPayload{}
 
-	if err := json.Unmarshal(event.Data, &payload); err != nil {
+	jsonData, err := json.Marshal(event.Data.(map[string]interface{}))
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(jsonData, &payload); err != nil {
 		return err
 	}
 

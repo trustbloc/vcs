@@ -854,7 +854,7 @@ func validateEvent(e *spi.Event) error {
 		return fmt.Errorf(unexpectedFieldFmt, "DataContentType")
 	}
 
-	if len(e.Data) == 0 {
+	if len(e.Data.(map[string]interface{})) == 0 {
 		return fmt.Errorf(unexpectedFieldFmt, "Data")
 	}
 
