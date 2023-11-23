@@ -77,7 +77,7 @@ func (e *Steps) fetchRequestObjectAndDecodeClaims() error {
 		return err
 	}
 
-	_, err = e.waitForEvent("verifier.oidc-interaction-qr-scanned.v1")
+	_, err = e.waitForEvent("verifier.oidc-interaction-initiated.v1")
 	if err != nil {
 		return err
 	}

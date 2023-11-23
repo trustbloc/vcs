@@ -34,6 +34,7 @@ type oidc4vpCommandFlags struct {
 	enableLinkedDomainVerification bool
 	enableTracing                  bool
 	disableDomainMatching          bool
+	trustRegistryURL               string
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -142,6 +143,7 @@ func NewOIDC4VPCommand() *cobra.Command {
 
 			opts := []oidc4vp.Opt{
 				oidc4vp.WithRequestURI(requestURI),
+				oidc4vp.WithTrustRegistryURL(flags.trustRegistryURL),
 			}
 
 			if flags.walletDIDIndex != -1 {
@@ -182,6 +184,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
 	cmd.Flags().BoolVar(&flags.disableDomainMatching, "disable-domain-matching", false, "disables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
+	cmd.Flags().StringVar(&flags.trustRegistryURL, "trust-registry-url", "", "Trust Registry URL. If supplied, Wallet will run Verifier verification against Trust Registry")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 }
