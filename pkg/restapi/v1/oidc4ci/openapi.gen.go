@@ -35,6 +35,32 @@ type AccessTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
+// Ack response.
+type AckErrorResponse struct {
+	// Error description.
+	Error string `json:"error"`
+}
+
+// Ack response.
+type AckRequest struct {
+	Credentials []AcpRequestItem `json:"credentials"`
+}
+
+// AcpRequestItem
+type AcpRequestItem struct {
+	// Ack ID.
+	AckId string `json:"ack_id"`
+
+	// error description.
+	ErrorDescription *string `json:"error_description,omitempty"`
+
+	// Optional issuer identifier.
+	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
+
+	// Ack Status.
+	Status string `json:"status"`
+}
+
 // Model for OIDC Credential request.
 type CredentialRequest struct {
 	// Format of the credential being issued.
@@ -49,6 +75,9 @@ type CredentialRequest struct {
 type CredentialResponse struct {
 	// A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
 	AcceptanceToken *string `json:"acceptance_token,omitempty"`
+
+	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+	AckId *string `json:"ack_id,omitempty"`
 
 	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
 	CNonce *string `json:"c_nonce,omitempty"`
@@ -196,6 +225,9 @@ type RegisterOAuthClientResponse struct {
 	TosUri *string `json:"tos_uri,omitempty"`
 }
 
+// OidcAcknowledgementJSONBody defines parameters for OidcAcknowledgement.
+type OidcAcknowledgementJSONBody = AckRequest
+
 // OidcAuthorizeParams defines parameters for OidcAuthorize.
 type OidcAuthorizeParams struct {
 	// Value MUST be set to "code".
@@ -250,6 +282,9 @@ type OidcRedirectParams struct {
 // OidcRegisterClientJSONBody defines parameters for OidcRegisterClient.
 type OidcRegisterClientJSONBody = RegisterOAuthClientRequest
 
+// OidcAcknowledgementJSONRequestBody defines body for OidcAcknowledgement for application/json ContentType.
+type OidcAcknowledgementJSONRequestBody = OidcAcknowledgementJSONBody
+
 // OidcCredentialJSONRequestBody defines body for OidcCredential for application/json ContentType.
 type OidcCredentialJSONRequestBody = OidcCredentialJSONBody
 
@@ -258,6 +293,9 @@ type OidcRegisterClientJSONRequestBody = OidcRegisterClientJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// OIDC Acknowledgement
+	// (POST /oidc/acknowledgement)
+	OidcAcknowledgement(ctx echo.Context) error
 	// OIDC Authorization Request
 	// (GET /oidc/authorize)
 	OidcAuthorize(ctx echo.Context, params OidcAuthorizeParams) error
@@ -281,6 +319,15 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// OidcAcknowledgement converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcAcknowledgement(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OidcAcknowledgement(ctx)
+	return err
 }
 
 // OidcAuthorize converts echo context to params.
@@ -482,6 +529,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.POST(baseURL+"/oidc/acknowledgement", wrapper.OidcAcknowledgement)
 	router.GET(baseURL+"/oidc/authorize", wrapper.OidcAuthorize)
 	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)

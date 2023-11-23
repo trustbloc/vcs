@@ -433,11 +433,10 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 // OpenidConfigV2 request openid configuration for issuer. // TODO to remove
 // GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration.
 func (c *Controller) OpenidConfigV2(ctx echo.Context, profileID, profileVersion string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID, profileVersion))
+	return util.WriteOutput(ctx)(c.GetOpenIDConfig(profileID, profileVersion))
 }
 
-// TODO to remove
-func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
+func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
@@ -448,7 +447,8 @@ func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKno
 		ResponseTypesSupported: []string{
 			"code",
 		},
-		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
+		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
+		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
 	}
 
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
@@ -729,6 +729,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			CredentialFormat: vcFormat,
 			DID:              lo.FromPtr(body.Did),
 			AudienceClaim:    body.AudienceClaim,
+			HashedToken:      body.HashedToken,
 		},
 	)
 
@@ -766,6 +767,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		Format:     string(result.Format),
 		OidcFormat: string(result.OidcFormat),
 		Retry:      result.Retry,
+		AckId:      result.AckID,
 	}, nil)
 }
 

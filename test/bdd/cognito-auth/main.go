@@ -7,6 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	cip "github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -16,9 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.uber.org/zap"
-	"net/http"
-	"net/url"
-	"os"
 )
 
 var logger = log.New("cognito-auth")
@@ -145,7 +146,7 @@ func writeJsonResponse(w http.ResponseWriter, code int, resp interface{}) {
 }
 
 func computeSecretHash(username, clientID, clientSecret string) string {
-	// Base64 ( HMAC_SHA256 ( "Client Secret Key", "Username" + "Client Id" ) )
+	// Base64 ( HMAC_SHA256 ( "Client Secret Key", "Username" + "Client ID" ) )
 	mac := hmac.New(sha256.New, []byte(clientSecret))
 	mac.Write([]byte(username + clientID))
 

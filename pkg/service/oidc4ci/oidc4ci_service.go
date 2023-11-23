@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,clientAttestationService=MockClientAttestationService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,clientAttestationService=MockClientAttestationService,ackStore=MockAckStore,ackService=MockAckService
 
 package oidc4ci
 
@@ -122,6 +122,23 @@ type clientAttestationService interface {
 	ValidateAttestationJWTVP(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
 }
 
+type ackStore interface {
+	Create(ctx context.Context, data *Ack) (string, error)
+	Get(ctx context.Context, id string) (*Ack, error)
+	Delete(ctx context.Context, id string) error
+}
+
+type ackService interface {
+	Ack(
+		ctx context.Context,
+		req AckRemote,
+	) error
+	CreateAck(
+		ctx context.Context,
+		ack *Ack,
+	) (*string, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -140,6 +157,7 @@ type Config struct {
 	CryptoJWTSigner               cryptoJWTSigner
 	JSONSchemaValidator           jsonSchemaValidator
 	ClientAttestationService      clientAttestationService
+	AckService                    ackService
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -160,6 +178,7 @@ type Service struct {
 	cryptoJWTSigner               cryptoJWTSigner
 	schemaValidator               jsonSchemaValidator
 	clientAttestationService      clientAttestationService
+	ackService                    ackService
 }
 
 // NewService returns a new Service instance.
@@ -181,6 +200,7 @@ func NewService(config *Config) (*Service, error) {
 		cryptoJWTSigner:               config.CryptoJWTSigner,
 		schemaValidator:               config.JSONSchemaValidator,
 		clientAttestationService:      config.ClientAttestationService,
+		ackService:                    config.AckService,
 	}, nil
 }
 
@@ -452,7 +472,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	return tx, nil
 }
 
-func (s *Service) PrepareCredential(
+func (s *Service) PrepareCredential( //nolint:funlen
 	ctx context.Context,
 	req *PrepareCredential,
 ) (*PrepareCredentialResult, error) {
@@ -532,13 +552,25 @@ func (s *Service) PrepareCredential(
 		return nil, e
 	}
 
-	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		return nil, errSendEvent
-	}
-
 	cred, err := verifiable.CreateCredential(vcc, customFields)
 	if err != nil {
 		return nil, fmt.Errorf("create cred: %w", err)
+	}
+
+	ack, err := s.ackService.CreateAck(ctx, &Ack{
+		HashedToken:    req.HashedToken,
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		TxID:           tx.ID,
+		WebHookURL:     tx.WebHookURL,
+		OrgID:          tx.OrgID,
+	})
+	if err != nil { // its not critical and should not break the flow
+		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
+	}
+
+	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		return nil, errSendEvent
 	}
 
 	return &PrepareCredentialResult{
@@ -550,6 +582,7 @@ func (s *Service) PrepareCredential(
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
 		CredentialTemplate:      tx.CredentialTemplate,
+		AckID:                   ack,
 	}, nil
 }
 

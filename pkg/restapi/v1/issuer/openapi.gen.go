@@ -231,6 +231,9 @@ type PrepareCredential struct {
 	// Format of the credential being issued.
 	Format *string `json:"format,omitempty"`
 
+	// Hashed token received from the client.
+	HashedToken string `json:"hashed_token"`
+
 	// Transaction ID.
 	TxId string `json:"tx_id"`
 
@@ -240,6 +243,8 @@ type PrepareCredential struct {
 
 // Model for Prepare Credential response.
 type PrepareCredentialResult struct {
+	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+	AckId      *string     `json:"ack_id,omitempty"`
 	Credential interface{} `json:"credential"`
 
 	// Format of issued credential.
@@ -316,6 +321,9 @@ type WellKnownOpenIDConfiguration struct {
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
+	// URL of the acknowledgement endpoint.
+	CredentialAckEndpoint string `json:"credential_ack_endpoint"`
+
 	// JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
 	GrantTypesSupported []string `json:"grant_types_supported"`
 
@@ -345,6 +353,9 @@ type WellKnownOpenIDIssuerConfiguration struct {
 
 	// URL of the Credential Issuer's Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.
 	BatchCredentialEndpoint *string `json:"batch_credential_endpoint,omitempty"`
+
+	// URL of the acknowledgement endpoint.
+	CredentialAckEndpoint string `json:"credential_ack_endpoint"`
 
 	// URL of the Credential Issuer's Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.
 	CredentialEndpoint string `json:"credential_endpoint"`

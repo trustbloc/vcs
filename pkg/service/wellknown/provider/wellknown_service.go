@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/trustbloc/vc-go/jwt"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -143,7 +144,8 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 		ResponseTypesSupported: []string{
 			"code",
 		},
-		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
+		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
+		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
 	}
 
 	if issuerProfile.OIDCConfig != nil {
