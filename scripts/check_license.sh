@@ -12,7 +12,7 @@ function filterExcludedFiles {
   | grep -v .pem$ | grep -v .block$ | grep -v .tx$ | grep -v ^LICENSE$ | grep -v _sk$ \
   | grep -v .key$ | grep -v .crt$ | grep -v \\.gen.go$ | grep -v \\.json$ | grep -v \\.jsonld | grep -v Gopkg.lock$ \
   | grep -v .md$ | grep -v ^vendor/ | grep -v ^build/ | grep -v .pb.go$ | grep -v ci.properties$ \
-  | grep -v go.sum$ | grep -v openapi/ | grep -v component/echo/ | grep -v test/bdd/fixtures/file-server \
+  | grep -v go.sum$ | grep -v _mocks.go$ | grep -v openapi/ | grep -v component/echo/ | grep -v test/bdd/fixtures/file-server \
   | grep -v \\.jwt | grep -v \\.sdjwt | grep -v \\.tmpl | sort -u`
 }
 
