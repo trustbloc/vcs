@@ -197,7 +197,7 @@ func TestService_HandleEvent(t *testing.T) {
 		event := createStatusUpdatedEvent(
 			t, cslURL, profileID, profileVersion, statusBytePositionIndex, true)
 
-		event.Data = []byte(`   123`)
+		event.Data = map[string]interface{}{}
 
 		s := New(&Config{
 			DocumentLoader: loader,

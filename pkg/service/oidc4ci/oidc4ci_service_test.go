@@ -1956,7 +1956,11 @@ func expectedPublishErrorEventFunc(
 		require.Equal(t, spi.IssuerOIDCInteractionFailed, messages[0].Type)
 
 		var ep oidc4ci.EventPayload
-		require.NoError(t, json.Unmarshal(messages[0].Data, &ep))
+
+		jsonData, err := json.Marshal(messages[0].Data.(map[string]interface{}))
+		require.NoError(t, err)
+
+		require.NoError(t, json.Unmarshal(jsonData, &ep))
 
 		assert.Equalf(t, string(errCode), ep.ErrorCode, "unexpected error code")
 		assert.Equalf(t, errComponent, ep.ErrorComponent, "unexpected error component")

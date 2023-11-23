@@ -679,7 +679,11 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				assert.Equal(t, msg.Type, spi.VerifierOIDCInteractionFailed)
 
 				ep := &oidc4ci.EventPayload{}
-				assert.NoError(t, json.Unmarshal(msg.Data, ep))
+
+				jsonData, err := json.Marshal(msg.Data.(map[string]interface{}))
+				require.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
 
 				assert.Equal(t, string(resterr.InvalidValue), ep.ErrorCode)
 				assert.Empty(t, ep.ErrorComponent)
