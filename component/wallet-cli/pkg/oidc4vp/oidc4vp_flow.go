@@ -32,6 +32,7 @@ import (
 	"github.com/trustbloc/vc-go/vermethod"
 
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -39,7 +40,6 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/observability/metrics/noop"
-	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 const (
@@ -151,11 +151,10 @@ func (f *Flow) Run(ctx context.Context) error {
 		slog.Info("Run Trust Registry Verifier validation", "url", trustRegistryURL)
 
 		trustRegistry := trustregistry.New(&trustregistry.Config{
-			TrustRegistryURL: trustRegistryURL,
-			HTTPClient:       f.httpClient,
+			HTTPClient: f.httpClient,
 		})
 
-		if err = trustRegistry.ValidateVerifier(requestObject.ClientID, credentials); err != nil {
+		if err = trustRegistry.ValidateVerifier(trustRegistryURL, requestObject.ClientID, credentials); err != nil {
 			return fmt.Errorf("trust registry verifier validation: %w", err)
 		}
 	}

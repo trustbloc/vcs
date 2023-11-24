@@ -1,0 +1,73 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+    "https://w3id.org/vc/status-list/2021/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+  "type": "VerifiablePresentation",
+  "verifiableCredential": [
+    {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1",
+        "https://w3id.org/vc/status-list/2021/v1"
+      ],
+      "id": "http://example.edu/credentials/58473",
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ],
+      "issuer": "https://example.edu/issuers/14",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "alumniOf": "Example University"
+      },
+      "credentialStatus": {
+        "id": "urn:uuid:71d57ab4-9e3a-4267-a3fd-e64d661c0df3",
+        "statusListCredential": "https://test.com/2.json",
+        "statusListIndex": "17",
+        "statusPurpose": "revocation",
+        "type": "StatusList2021Entry"
+      },
+      "proof": {
+        "type": "RsaSignature2018"
+      }
+    },
+    {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1",
+        "https://www.w3.org/2022/credentials/walletAttestation/v1",
+        "https://w3id.org/vc/status-list/2021/v1"
+      ],
+      "id": "http://example.edu/credentials/58473",
+      "type": [
+        "VerifiableCredential",
+        "WalletAttestationCredential"
+      ],
+      "issuer": "https://example.edu/issuers/14",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "key_type": "key_type",
+        "user_authentication": "user_authentication",
+        "assurance_level": "assurance_level"
+      },
+      "credentialStatus": {
+        "id": "urn:uuid:3cv7ab4-9e3a-4267-a3fd-e64d66f1c0df3",
+        "statusListCredential": "https://test.com/2.json",
+        "statusListIndex": "17",
+        "statusPurpose": "revocation",
+        "type": "StatusList2021Entry"
+      },
+      "proof": {
+        "type": "RsaSignature2018"
+      }
+    }
+  ],
+  "holder": "did:trustblock:abc"
+}

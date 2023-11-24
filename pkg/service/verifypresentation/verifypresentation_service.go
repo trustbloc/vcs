@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifypresentation -source=verifypresentation_service.go -mock_names vcVerifier=MockVcVerifier
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifypresentation -source=verifypresentation_service.go -mock_names vcVerifier=MockVcVerifier,clientAttestationService=MockClientAttestationService
 
 package verifypresentation
 
@@ -27,6 +27,11 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/clientattestation"
+)
+
+const (
+	walletAttestationVCType = "WalletAttestationCredential"
 )
 
 type vcVerifier interface {
@@ -35,30 +40,34 @@ type vcVerifier interface {
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
-type trustRegistry interface {
-	ValidatePresentation(policyID string, presentationCredentials []*verifiable.Credential) error
+type clientAttestationService interface {
+	ValidateAttestationJWTVP(
+		ctx context.Context,
+		jwtVP string,
+		policyURL string,
+		payloadBuilder clientattestation.TrustRegistryPayloadBuilder) error
 }
 
 type Config struct {
-	VDR            vdrapi.Registry
-	DocumentLoader ld.DocumentLoader
-	VcVerifier     vcVerifier
-	TrustRegistry  trustRegistry
+	VDR                      vdrapi.Registry
+	DocumentLoader           ld.DocumentLoader
+	VcVerifier               vcVerifier
+	ClientAttestationService clientAttestationService
 }
 
 type Service struct {
-	vdr            vdrapi.Registry
-	documentLoader ld.DocumentLoader
-	vcVerifier     vcVerifier
-	trustRegistry  trustRegistry
+	vdr                      vdrapi.Registry
+	documentLoader           ld.DocumentLoader
+	vcVerifier               vcVerifier
+	clientAttestationService clientAttestationService
 }
 
 func New(config *Config) *Service {
 	return &Service{
-		vdr:            config.VDR,
-		documentLoader: config.DocumentLoader,
-		vcVerifier:     config.VcVerifier,
-		trustRegistry:  config.TrustRegistry,
+		vdr:                      config.VDR,
+		documentLoader:           config.DocumentLoader,
+		vcVerifier:               config.VcVerifier,
+		clientAttestationService: config.ClientAttestationService,
 	}
 }
 
@@ -84,6 +93,24 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 	var targetPresentation interface{}
 	targetPresentation = presentation
+
+	trustRegistryValidationEnabled := profile.Policy.URL != ""
+
+	if trustRegistryValidationEnabled {
+		st := time.Now()
+
+		// Attestation VC validation.
+		err := s.clientAttestationService.ValidateAttestationJWTVP(
+			ctx, presentation.JWT, profile.Policy.URL, clientattestation.VerifierInteractionTrustRegistryPayloadBuilder)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "clientAttestation",
+				Error: err.Error(),
+			})
+		}
+
+		logger.Debugc(ctx, "Checks.Policy", log.WithDuration(time.Since(st)))
+	}
 
 	if profile.Checks.Presentation.Proof {
 		st := time.Now()
@@ -112,8 +139,9 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 			})
 		}
 	}
+
 	if profile.Checks.Credential.CredentialExpiry {
-		err := s.checkCredentialExpiry(ctx, credentials)
+		err := s.checkCredentialExpiry(ctx, credentials, trustRegistryValidationEnabled)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialExpiry",
@@ -125,7 +153,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
-		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials)
+		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials, trustRegistryValidationEnabled)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -138,7 +166,8 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 	if profile.Checks.Credential.Status {
 		st := time.Now()
-		err := s.validateCredentialsStatus(ctx, credentials)
+
+		err := s.validateCredentialsStatus(ctx, credentials, trustRegistryValidationEnabled)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -231,9 +260,17 @@ func (s *Service) checkCredentialStrict(
 	return claimKeysDict, nil
 }
 
-func (s *Service) checkCredentialExpiry(_ context.Context, credentials []*verifiable.Credential) error {
+func (s *Service) checkCredentialExpiry(
+	_ context.Context,
+	credentials []*verifiable.Credential,
+	trustRegistryValidationEnabled bool) error {
 	for _, credential := range credentials {
 		vcc := credential.Contents()
+
+		if trustRegistryValidationEnabled && lo.Contains(vcc.Types, walletAttestationVCType) {
+			continue
+		}
+
 		if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
 			return errors.New("credential expired")
 		}
@@ -353,8 +390,13 @@ func (s *Service) validateCredentialsProof(
 	ctx context.Context,
 	vpJWT string,
 	credentials []*verifiable.Credential,
+	trustRegistryValidationEnabled bool,
 ) error {
 	for _, cred := range credentials {
+		if trustRegistryValidationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
+			continue
+		}
+
 		err := s.vcVerifier.ValidateCredentialProof(ctx, cred, "", "", true, vpJWT == "")
 		if err != nil {
 			return err
@@ -367,12 +409,17 @@ func (s *Service) validateCredentialsProof(
 func (s *Service) validateCredentialsStatus(
 	ctx context.Context,
 	credentials []*verifiable.Credential,
+	trustRegistryValidationEnabled bool,
 ) error {
 	for _, cred := range credentials {
-		extractedType, issuer := s.extractCredentialStatus(cred)
+		if trustRegistryValidationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
+			continue
+		}
 
-		if extractedType != nil {
-			err := s.vcVerifier.ValidateVCStatus(ctx, extractedType, issuer)
+		typedID, issuer := s.extractCredentialStatus(cred)
+
+		if typedID != nil {
+			err := s.vcVerifier.ValidateVCStatus(ctx, typedID, issuer)
 			if err != nil {
 				return err
 			}

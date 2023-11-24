@@ -1157,6 +1157,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		assert.NoError(t, err)
 
 		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{
+			Policy: profileapi.Policy{URL: "https://example.com"},
 			OIDCConfig: &profileapi.OIDCConfig{
 				TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 			},
