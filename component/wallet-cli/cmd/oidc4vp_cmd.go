@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/henvic/httpretty"
@@ -35,6 +36,7 @@ type oidc4vpCommandFlags struct {
 	enableTracing                  bool
 	disableDomainMatching          bool
 	trustRegistryURL               string
+	proxyURL                       string
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -93,10 +95,21 @@ func NewOIDC4VPCommand() *cobra.Command {
 				)
 			}
 
+			httpTransport := &http.Transport{
+				TLSClientConfig: tlsConfig,
+			}
+
+			if flags.proxyURL != "" {
+				proxyURL, parseErr := url.Parse(flags.proxyURL)
+				if parseErr != nil {
+					return fmt.Errorf("parse proxy url: %w", parseErr)
+				}
+
+				httpTransport.Proxy = http.ProxyURL(proxyURL)
+			}
+
 			httpClient := &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-				},
+				Transport: httpTransport,
 			}
 
 			if flags.enableTracing {
@@ -187,6 +200,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().StringVar(&flags.trustRegistryURL, "trust-registry-url", "", "Trust Registry URL. If supplied, Wallet will run Verifier verification against Trust Registry")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
+	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
 }
 
 type oidc4vpProvider struct {
