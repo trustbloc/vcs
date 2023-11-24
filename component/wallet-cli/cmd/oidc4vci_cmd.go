@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"strings"
 
 	"github.com/henvic/httpretty"
@@ -54,6 +55,7 @@ type oidc4vciCommandFlags struct {
 	pin                        string
 	enableDiscoverableClientID bool
 	enableTracing              bool
+	proxyURL                   string
 }
 
 func NewOIDC4VCICommand() *cobra.Command {
@@ -132,16 +134,27 @@ func NewOIDC4VCICommand() *cobra.Command {
 				return fmt.Errorf("--credential-format not set")
 			}
 
+			httpTransport := &http.Transport{
+				TLSClientConfig: tlsConfig,
+			}
+
+			if flags.proxyURL != "" {
+				proxyURL, parseErr := url.Parse(flags.proxyURL)
+				if parseErr != nil {
+					return fmt.Errorf("parse proxy url: %w", parseErr)
+				}
+
+				httpTransport.Proxy = http.ProxyURL(proxyURL)
+			}
+
 			cookie, err := cookiejar.New(&cookiejar.Options{})
 			if err != nil {
 				return fmt.Errorf("init cookie jar: %w", err)
 			}
 
 			httpClient := &http.Client{
-				Jar: cookie,
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-				},
+				Jar:       cookie,
+				Transport: httpTransport,
 			}
 
 			if flags.enableTracing {
@@ -322,6 +335,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 	cmd.Flags().BoolVar(&flags.enableDiscoverableClientID, "enable-discoverable-client-id", false, "enables discoverable client id scheme for dynamic client registration")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
+	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
 
 	return cmd
 }

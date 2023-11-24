@@ -75,6 +75,7 @@ used for this purpose. The following CLI arguments are supported:
       --leveldb-path string                leveldb path
       --mongodb-connection-string string   mongodb connection string
       --pin string                         pin for pre-authorized code flow
+      --proxy-url string                   proxy url for http client
       --qr-code-path string                path to file with qr code
       --redirect-uri string                callback where the authorization code should be sent (default "http://127.0.0.1/callback")
       --scopes strings                     vcs oauth2 scopes (default [openid])
@@ -145,7 +146,9 @@ Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
   -h, --help                                help for oidc4vp
       --leveldb-path string                 leveldb path
       --mongodb-connection-string string    mongodb connection string
+      --proxy-url string                    proxy url for http client
       --qr-code-path string                 path to file with qr code
+      --trust-registry-url string           Trust Registry URL. If supplied, Wallet will run Verifier verification against Trust Registry
       --wallet-did-index int                index of wallet did, if not set the most recently created DID is used (default -1)
 ```
 
