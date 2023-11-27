@@ -15,10 +15,14 @@ import (
 	"time"
 
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
+	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
+
+const WalletAttestationVCType = "WalletAttestationCredential"
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -60,18 +64,30 @@ func NewService(config *Config) *Service {
 func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error {
 	vp, err := verifiable.ParsePresentation(
 		[]byte(jwtVP),
-		verifiable.WithPresProofChecker(s.proofChecker),
+		// The verification of proof is conducted manually, along with an extra verification to ensure that signer of
+		// the VP matches the subject of the attestation VC.
+		verifiable.WithPresDisabledProofCheck(),
 		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
 	)
 	if err != nil {
 		return fmt.Errorf("parse attestation vp: %w", err)
 	}
 
-	if len(vp.Credentials()) == 0 {
-		return fmt.Errorf("missing attestation vc")
+	var vc *verifiable.Credential
+
+	for _, credential := range vp.Credentials() {
+		content := credential.Contents()
+
+		if lo.Contains(content.Types, WalletAttestationVCType) {
+			vc = credential
+
+			break
+		}
 	}
 
-	vc := vp.Credentials()[0]
+	if vc == nil {
+		return fmt.Errorf("missing attestation vc")
+	}
 
 	// validate attestation VC
 	opts := []verifiable.CredentialOpt{
@@ -88,12 +104,14 @@ func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profile
 	}
 
 	vcc := vc.Contents()
+
 	if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
 		return fmt.Errorf("attestation vc is expired")
 	}
 
-	if len(vcc.Subject) == 0 || vcc.Subject[0].ID != vp.Holder {
-		return fmt.Errorf("attestation vc subject does not match vp holder")
+	// validate vp proof with extra check for wallet binding
+	if err = jwt.CheckProof(jwtVP, s.proofChecker, &vcc.Subject[0].ID, nil); err != nil {
+		return fmt.Errorf("check attestation vp proof: %w", err)
 	}
 
 	// check attestation VC status
