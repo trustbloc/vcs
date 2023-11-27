@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/checker"
@@ -86,15 +85,7 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 		{
 			name: "fail to parse attestation vp",
 			setup: func() {
-				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-
-				jwtVP = createAttestationVP(t, attestationVC,
-					&mockProofCreator{
-						SignJWTFunc: func(params jwt.SignParameters, data []byte) ([]byte, error) {
-							return []byte("invalid signature"), nil
-						},
-					},
-				)
+				jwtVP = "invalid-jwt-vp"
 
 				proofChecker = defaultProofChecker
 
@@ -133,7 +124,7 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 			},
 		},
 		{
-			name: "attestation vc subject does not match vp holder",
+			name: "attestation vc subject does not match vp signer",
 			setup: func() {
 				attestationVC := createAttestationVC(t, attestationProofCreator, "invalid-subject", false)
 
@@ -144,7 +135,7 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 				vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "attestation vc subject does not match vp holder")
+				require.ErrorContains(t, err, "check attestation vp proof")
 			},
 		},
 		{
@@ -198,6 +189,7 @@ func createAttestationVC(
 		ID: uuid.New().String(),
 		Types: []string{
 			verifiable.VCType,
+			clientattestation.WalletAttestationVCType,
 		},
 		Subject: []verifiable.Subject{
 			{
@@ -247,7 +239,6 @@ func createAttestationVP(
 	}
 
 	vp.ID = uuid.New().String()
-	vp.Holder = walletDID
 
 	claims, err := vp.JWTClaims([]string{}, false)
 	require.NoError(t, err)
@@ -259,18 +250,4 @@ func createAttestationVP(
 	require.NoError(t, err)
 
 	return jws
-}
-
-type mockProofCreator struct {
-	SignJWTFunc func(params jwt.SignParameters, data []byte) ([]byte, error)
-}
-
-func (m *mockProofCreator) SignJWT(params jwt.SignParameters, data []byte) ([]byte, error) {
-	return m.SignJWTFunc(params, data)
-}
-
-func (m *mockProofCreator) CreateJWTHeaders(_ jwt.SignParameters) (jose.Headers, error) {
-	return map[string]interface{}{
-		jose.HeaderAlgorithm: "ES256",
-	}, nil
 }
