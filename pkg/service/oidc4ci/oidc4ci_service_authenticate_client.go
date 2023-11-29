@@ -14,6 +14,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 )
 
 const attestJWTClientAuthType = "attest_jwt_client_auth"
@@ -24,6 +25,10 @@ func (s *Service) AuthenticateClient(
 	clientID,
 	clientAssertionType,
 	clientAssertion string) error {
+	if profile.Policy.URL == "" {
+		return nil
+	}
+
 	if profile.OIDCConfig == nil || !lo.Contains(profile.OIDCConfig.TokenEndpointAuthMethodsSupported,
 		attestJWTClientAuthType) {
 		return nil
@@ -44,7 +49,11 @@ func (s *Service) AuthenticateClient(
 			errors.New("client_assertion is required"))
 	}
 
-	if err := s.clientAttestationService.ValidateAttestationJWTVP(ctx, profile, clientAssertion); err != nil {
+	if err := s.clientAttestationService.ValidateAttestationJWTVP(
+		ctx,
+		clientAssertion,
+		profile.Policy.URL,
+		clientattestation.IssuerInteractionTrustRegistryPayloadBuilder); err != nil {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 

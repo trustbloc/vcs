@@ -121,6 +121,7 @@ func NewMetrics(
 		metrics.ClientWellKnown, metrics.ClientCredentialVerifier,
 		metrics.ClientDiscoverableClientIDScheme,
 		metrics.ClientAttestationService,
+		metrics.TrustRegistryService,
 	}
 
 	pm := &PromMetrics{

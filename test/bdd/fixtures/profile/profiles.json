@@ -1829,6 +1829,9 @@
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",
+        "policy": {
+          "url": "https://mock-trustregistry.trustbloc.local:8098/policies/evaluate"
+        },
         "checks": {
           "credential": {
             "format": [

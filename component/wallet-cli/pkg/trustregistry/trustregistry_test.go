@@ -1,9 +1,3 @@
-/*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
-
-SPDX-License-Identifier: Apache-2.0
-*/
-
 package trustregistry
 
 import (
@@ -14,9 +8,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
+)
+
+const (
+	walletAttestationVCType = "WalletAttestationCredential"
 )
 
 func TestService_ValidateVerifier(t *testing.T) {
@@ -137,115 +134,10 @@ func TestService_ValidateVerifier(t *testing.T) {
 			tt.addTestCaseHandler(t, handler)
 
 			s := &Service{
-				url:        tt.fields.url,
 				httpClient: http.DefaultClient,
 			}
 
-			err := s.ValidateVerifier(tt.args.verifierDID, tt.args.getPresentationCredentials(t, now))
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateVerifier() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if tt.wantErr {
-				assert.ErrorContains(t, err, tt.errContains)
-			}
-		})
-	}
-}
-
-func TestService_ValidatePresentation(t *testing.T) {
-	now := time.Now()
-	handler := echo.New()
-
-	srv := httptest.NewServer(handler)
-	defer srv.Close()
-
-	type fields struct {
-		url string
-	}
-	type args struct {
-		policyID                   string
-		getPresentationCredentials func(t *testing.T, now time.Time) []*verifiable.Credential
-	}
-	tests := []struct {
-		name               string
-		addTestCaseHandler func(t *testing.T, e *echo.Echo)
-		fields             fields
-		args               args
-		wantErr            bool
-		errContains        string
-	}{
-		{
-			name: "Success",
-			addTestCaseHandler: func(t *testing.T, e *echo.Echo) {
-				e.Add(http.MethodPost, "/testcase1", func(c echo.Context) error {
-					var got *PresentationValidationConfig
-					assert.NoError(t, c.Bind(&got))
-
-					attestationVCUniversalForm, err := getAttestationCredential(t, now).ToUniversalForm()
-					assert.NoError(t, err)
-
-					expected := &PresentationValidationConfig{
-						PolicyID:      "policy1",
-						AttestationVC: attestationVCUniversalForm,
-						Metadata:      getDefaultMetadata(t, now),
-					}
-
-					assert.Equal(t, expected, got)
-
-					return c.JSON(http.StatusOK, map[string]bool{"allowed": true})
-				})
-			},
-			fields: fields{
-				url: srv.URL + "/testcase1",
-			},
-			args: args{
-				policyID:                   "policy1",
-				getPresentationCredentials: getDefaultCredentials,
-			},
-			wantErr: false,
-		},
-		{
-			name:               "httpClient.Post error",
-			addTestCaseHandler: func(t *testing.T, e *echo.Echo) {},
-			fields: fields{
-				url: "abcd",
-			},
-			args: args{
-				policyID:                   "policy1",
-				getPresentationCredentials: getDefaultCredentials,
-			},
-			wantErr:     true,
-			errContains: "send request:",
-		},
-		{
-			name: "Interaction restricted error",
-			addTestCaseHandler: func(t *testing.T, e *echo.Echo) {
-				e.Add(http.MethodPost, "/testcase2", func(c echo.Context) error {
-					return c.JSON(http.StatusOK, map[string]bool{"allowed": false})
-				})
-			},
-			fields: fields{
-				url: srv.URL + "/testcase2",
-			},
-			args: args{
-				policyID:                   "policy1",
-				getPresentationCredentials: getDefaultCredentials,
-			},
-			wantErr:     true,
-			errContains: "interaction restricted",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.addTestCaseHandler(t, handler)
-
-			s := New(&Config{
-				TrustRegistryURL: tt.fields.url,
-				HTTPClient:       http.DefaultClient,
-			})
-
-			err := s.ValidatePresentation(tt.args.policyID, tt.args.getPresentationCredentials(t, now))
+			err := s.ValidateVerifier(tt.fields.url, tt.args.verifierDID, tt.args.getPresentationCredentials(t, now))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVerifier() error = %v, wantErr %v", err, tt.wantErr)
 			}

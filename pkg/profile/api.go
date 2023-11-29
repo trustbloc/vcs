@@ -50,6 +50,7 @@ type Issuer struct {
 	CredentialTemplates []*CredentialTemplate `json:"credentialTemplates,omitempty"`
 	WebHook             string                `json:"webHook,omitempty"`
 	CredentialMetaData  *CredentialMetaData   `json:"credentialMetadata"`
+	Policy              Policy                `json:"policy,omitempty"`
 }
 
 type CredentialTemplate struct {
@@ -146,6 +147,13 @@ type Verifier struct {
 	SigningDID              *SigningDID                        `json:"signingDID,omitempty"`
 	PresentationDefinitions []*presexch.PresentationDefinition `json:"presentationDefinitions,omitempty"`
 	WebHook                 string                             `json:"webHook,omitempty"`
+	Policy                  Policy                             `json:"policy,omitempty"`
+}
+
+// Policy represents profile configuration for Trust Registry policy.
+type Policy struct {
+	// URL is the Trust Registry policy URL.
+	URL string `json:"url"`
 }
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.

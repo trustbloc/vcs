@@ -4,15 +4,14 @@ Copyright Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package trustregistry
+package clientattestation
 
-type VerifierValidationConfig struct {
-	VerifierDID string                `json:"verifier_did"`
-	Metadata    []*CredentialMetadata `json:"metadata"`
+type IssuerInteractionValidationConfig struct {
+	AttestationVC interface{}           `json:"attestation_vc"`
+	Metadata      []*CredentialMetadata `json:"metadata"`
 }
 
-type PresentationValidationConfig struct {
-	PolicyID      string                `json:"policy_id"`
+type VerifierInteractionValidationConfig struct {
 	AttestationVC interface{}           `json:"attestation_vc"`
 	Metadata      []*CredentialMetadata `json:"metadata"`
 }
@@ -25,6 +24,6 @@ type CredentialMetadata struct {
 	Expired      string   `json:"expired"`
 }
 
-type Response struct {
+type TrustRegistryResponse struct {
 	Allowed bool `json:"allowed"`
 }

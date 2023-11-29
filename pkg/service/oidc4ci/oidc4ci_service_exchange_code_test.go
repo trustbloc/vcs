@@ -161,6 +161,7 @@ func TestExchangeCodeAuthenticateClientError(t *testing.T) {
 	}, nil)
 
 	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profile.Issuer{
+		Policy: profile.Policy{URL: "https://localhost/policy"},
 		OIDCConfig: &profile.OIDCConfig{
 			TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 		},

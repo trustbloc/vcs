@@ -30,6 +30,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 )
 
 const (
@@ -119,7 +120,11 @@ type jsonSchemaValidator interface {
 }
 
 type clientAttestationService interface {
-	ValidateAttestationJWTVP(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
+	ValidateAttestationJWTVP(
+		ctx context.Context,
+		jwtVP string,
+		policyURL string,
+		builder clientattestation.TrustRegistryPayloadBuilder) error
 }
 
 type ackStore interface {

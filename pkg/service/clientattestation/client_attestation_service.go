@@ -10,6 +10,7 @@ package clientattestation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -18,11 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
-
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
-
-const WalletAttestationVCType = "WalletAttestationCredential"
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -31,6 +28,8 @@ type httpClient interface {
 type vcStatusVerifier interface {
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
 }
+
+type TrustRegistryPayloadBuilder func(attestationVC *verifiable.Credential, vp *verifiable.Presentation) ([]byte, error)
 
 // Config defines configuration for Service.
 type Config struct {
@@ -61,7 +60,12 @@ func NewService(config *Config) *Service {
 // ValidateAttestationJWTVP validates attestation VP in jwt_vp format.
 //
 //nolint:revive
-func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error {
+func (s *Service) ValidateAttestationJWTVP(
+	ctx context.Context,
+	jwtVP string,
+	policyURL string,
+	payloadBuilder TrustRegistryPayloadBuilder,
+) error {
 	vp, err := verifiable.ParsePresentation(
 		[]byte(jwtVP),
 		// The verification of proof is conducted manually, along with an extra verification to ensure that signer of
@@ -73,20 +77,12 @@ func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profile
 		return fmt.Errorf("parse attestation vp: %w", err)
 	}
 
-	var vc *verifiable.Credential
+	attestationVC, found := lo.Find(vp.Credentials(), func(item *verifiable.Credential) bool {
+		return lo.Contains(item.Contents().Types, walletAttestationVCType)
+	})
 
-	for _, credential := range vp.Credentials() {
-		content := credential.Contents()
-
-		if lo.Contains(content.Types, WalletAttestationVCType) {
-			vc = credential
-
-			break
-		}
-	}
-
-	if vc == nil {
-		return fmt.Errorf("missing attestation vc")
+	if !found {
+		return errors.New("attestation vc is not supplied")
 	}
 
 	// validate attestation VC
@@ -95,15 +91,15 @@ func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profile
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 	}
 
-	if err = vc.ValidateCredential(opts...); err != nil {
+	if err = attestationVC.ValidateCredential(opts...); err != nil {
 		return fmt.Errorf("validate attestation vc: %w", err)
 	}
 
-	if err = vc.CheckProof(opts...); err != nil {
+	if err = attestationVC.CheckProof(opts...); err != nil {
 		return fmt.Errorf("check attestation vc proof: %w", err)
 	}
 
-	vcc := vc.Contents()
+	vcc := attestationVC.Contents()
 
 	if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
 		return fmt.Errorf("attestation vc is expired")
@@ -119,7 +115,20 @@ func (s *Service) ValidateAttestationJWTVP(ctx context.Context, profile *profile
 		return fmt.Errorf("validate attestation vc status: %w", err)
 	}
 
-	// TODO: validate attestation vc in trust registry
+	var trustRegistryRequestBody []byte
+	trustRegistryRequestBody, err = payloadBuilder(attestationVC, vp)
+	if err != nil {
+		return fmt.Errorf("payload builder: %w", err)
+	}
+
+	responseDecoded, err := s.doTrustRegistryRequest(ctx, policyURL, trustRegistryRequestBody)
+	if err != nil {
+		return err
+	}
+
+	if !responseDecoded.Allowed {
+		return ErrInteractionRestricted
+	}
 
 	return nil
 }

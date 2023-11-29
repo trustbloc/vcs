@@ -862,9 +862,10 @@ func buildEchoHandler(
 	var verifyPresentationSvc verifypresentation.ServiceInterface
 
 	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
-		VcVerifier:     verifyCredentialSvc,
-		DocumentLoader: documentLoader,
-		VDR:            conf.VDR,
+		VcVerifier:               verifyCredentialSvc,
+		DocumentLoader:           documentLoader,
+		VDR:                      conf.VDR,
+		ClientAttestationService: clientAttestationService,
 	})
 
 	if conf.IsTraceEnabled {
