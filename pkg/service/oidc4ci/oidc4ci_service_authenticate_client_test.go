@@ -18,6 +18,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
+const (
+	issuerDID = "did:oin:abc"
+)
+
 func TestService_AuthenticateClient(t *testing.T) {
 	var (
 		clientAttestationService *MockClientAttestationService
@@ -40,6 +44,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 					},
+					SigningDID: &profileapi.SigningDID{DID: issuerDID},
 				}
 
 				clientID = "client-id"
@@ -52,8 +57,9 @@ func TestService_AuthenticateClient(t *testing.T) {
 					context.Background(),
 					clientAssertion,
 					"https://policy.example.com",
+					issuerDID,
 					gomock.Any(),
-				).Return(nil)
+				).Times(1).Return(nil)
 			},
 			check: func(t *testing.T, err error) {
 				require.NoError(t, err)
@@ -113,13 +119,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 				clientAssertion = "client-attestation-jwt-vp"
 
 				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
-
-				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
-					context.Background(),
-					clientAssertion, //
-					"",
-					gomock.Any(),
-				).Times(0)
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "client_id is required")
@@ -140,13 +139,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 				clientAssertion = "client-attestation-jwt-vp"
 
 				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
-
-				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
-					context.Background(),
-					clientAssertion, //
-					"",
-					gomock.Any(),
-				).Times(0)
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "only supported client assertion type is attest_jwt_client_auth")
@@ -167,13 +159,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 				clientAssertion = ""
 
 				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
-
-				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
-					context.Background(),
-					clientAssertion, //
-					"",
-					gomock.Any(),
-				).Times(0)
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "client_assertion is required")
@@ -183,7 +168,8 @@ func TestService_AuthenticateClient(t *testing.T) {
 			name: "fail to validate client attestation jwt",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: "https://policy.example.com"},
+					SigningDID: &profileapi.SigningDID{DID: issuerDID},
+					Policy:     profileapi.Policy{URL: "https://policy.example.com"},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 					},
@@ -199,6 +185,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 					context.Background(),
 					clientAssertion, //
 					"https://policy.example.com",
+					issuerDID,
 					gomock.Any(),
 				).Return(errors.New("validate error"))
 			},

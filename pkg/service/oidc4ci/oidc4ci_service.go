@@ -124,6 +124,7 @@ type clientAttestationService interface {
 		ctx context.Context,
 		jwtVP string,
 		policyURL string,
+		clientDID string,
 		builder clientattestation.TrustRegistryPayloadBuilder) error
 }
 

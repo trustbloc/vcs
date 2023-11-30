@@ -34,12 +34,13 @@ func New(conf *Config) *Service {
 	return &Service{httpClient: conf.HTTPClient}
 }
 
-func (s *Service) ValidateVerifier(
+// ValidateWalletPresentation validates wallet presentation using Trust Registry API.
+func (s *Service) ValidateWalletPresentation(
 	policyURL, verifierDID string,
 	presentationCredentials []*verifiable.Credential,
 ) error {
-	logger.Debug("ValidateVerifier begin")
-	verifierValidationConfig := &VerifierValidationConfig{
+	logger.Debug("ValidateWalletPresentation begin")
+	walletPresentationConfig := &WalletPresentationValidationConfig{
 		VerifierDID: verifierDID,
 		Metadata:    make([]*CredentialMetadata, len(presentationCredentials)),
 	}
@@ -47,10 +48,10 @@ func (s *Service) ValidateVerifier(
 	for i, credential := range presentationCredentials {
 		content := credential.Contents()
 
-		verifierValidationConfig.Metadata[i] = getTrustRegistryCredentialMetadata(content)
+		walletPresentationConfig.Metadata[i] = getTrustRegistryCredentialMetadata(content)
 	}
 
-	reqPayload, err := json.Marshal(verifierValidationConfig)
+	reqPayload, err := json.Marshal(walletPresentationConfig)
 	if err != nil {
 		return fmt.Errorf("encode verifier config: %w", err)
 	}
@@ -64,7 +65,7 @@ func (s *Service) ValidateVerifier(
 		return ErrInteractionRestricted
 	}
 
-	logger.Debug("ValidateVerifier succeed")
+	logger.Debug("ValidateWalletPresentation succeed")
 
 	return nil
 }
@@ -108,10 +109,10 @@ func getTrustRegistryCredentialMetadata(content verifiable.CredentialContents) *
 	}
 
 	return &CredentialMetadata{
-		CredentialID: content.ID,
-		Types:        content.Types,
-		Issuer:       content.Issuer.ID,
-		Issued:       iss,
-		Expired:      exp,
+		CredentialID:    content.ID,
+		CredentialTypes: content.Types,
+		ExpirationDate:  exp,
+		IssuanceDate:    iss,
+		IssuerID:        content.Issuer.ID,
 	}
 }

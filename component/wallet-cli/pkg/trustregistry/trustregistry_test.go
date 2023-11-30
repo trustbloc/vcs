@@ -16,7 +16,7 @@ const (
 	walletAttestationVCType = "WalletAttestationCredential"
 )
 
-func TestService_ValidateVerifier(t *testing.T) {
+func TestService_ValidateWalletPresentation(t *testing.T) {
 	now := time.Now()
 	handler := echo.New()
 
@@ -42,10 +42,10 @@ func TestService_ValidateVerifier(t *testing.T) {
 			name: "Success",
 			addTestCaseHandler: func(t *testing.T, e *echo.Echo) {
 				e.Add(http.MethodPost, "/testcase1", func(c echo.Context) error {
-					var got *VerifierValidationConfig
+					var got *WalletPresentationValidationConfig
 					assert.NoError(t, c.Bind(&got))
 
-					expected := &VerifierValidationConfig{
+					expected := &WalletPresentationValidationConfig{
 						VerifierDID: "did:oin:abc",
 						Metadata:    getDefaultMetadata(t, now),
 					}
@@ -137,9 +137,9 @@ func TestService_ValidateVerifier(t *testing.T) {
 				httpClient: http.DefaultClient,
 			}
 
-			err := s.ValidateVerifier(tt.fields.url, tt.args.verifierDID, tt.args.getPresentationCredentials(t, now))
+			err := s.ValidateWalletPresentation(tt.fields.url, tt.args.verifierDID, tt.args.getPresentationCredentials(t, now))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateVerifier() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ValidateWalletPresentation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if tt.wantErr {
@@ -199,21 +199,21 @@ func getDefaultMetadata(t *testing.T, now time.Time) []*CredentialMetadata {
 	return []*CredentialMetadata{
 		{
 			CredentialID: "credentialID1",
-			Types: []string{
+			CredentialTypes: []string{
 				"VerifiableCredential",
 			},
-			Issuer:  "issuerID1",
-			Issued:  now.Format(time.RFC3339Nano),
-			Expired: now.Add(time.Hour).Format(time.RFC3339Nano),
+			IssuerID:       "issuerID1",
+			IssuanceDate:   now.Format(time.RFC3339Nano),
+			ExpirationDate: now.Add(time.Hour).Format(time.RFC3339Nano),
 		},
 		{
 			CredentialID: "credentialID2",
-			Types: []string{
+			CredentialTypes: []string{
 				walletAttestationVCType,
 			},
-			Issuer:  "issuerID2",
-			Issued:  now.Format(time.RFC3339Nano),
-			Expired: now.Add(time.Hour).Format(time.RFC3339Nano),
+			IssuerID:       "issuerID2",
+			IssuanceDate:   now.Format(time.RFC3339Nano),
+			ExpirationDate: now.Add(time.Hour).Format(time.RFC3339Nano),
 		},
 	}
 }

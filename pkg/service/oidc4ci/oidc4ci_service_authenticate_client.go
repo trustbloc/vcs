@@ -53,6 +53,7 @@ func (s *Service) AuthenticateClient(
 		ctx,
 		clientAssertion,
 		profile.Policy.URL,
+		profile.SigningDID.DID,
 		clientattestation.IssuerInteractionTrustRegistryPayloadBuilder); err != nil {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}

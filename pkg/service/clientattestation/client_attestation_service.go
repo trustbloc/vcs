@@ -29,7 +29,8 @@ type vcStatusVerifier interface {
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
 }
 
-type TrustRegistryPayloadBuilder func(attestationVC *verifiable.Credential, vp *verifiable.Presentation) ([]byte, error)
+type TrustRegistryPayloadBuilder func(
+	clientDID string, attestationVC *verifiable.Credential, vp *verifiable.Presentation) ([]byte, error)
 
 // Config defines configuration for Service.
 type Config struct {
@@ -59,11 +60,20 @@ func NewService(config *Config) *Service {
 
 // ValidateAttestationJWTVP validates attestation VP in jwt_vp format.
 //
+// Arguments:
+//
+//	jwtVP 	  		- presentation contains attestation VC
+//	policyURL 		- Trust Registry policy URL
+//	clientDID  		- DID identifier.
+//
+// payloadBuilder 	- payload builder function.
+//
 //nolint:revive
 func (s *Service) ValidateAttestationJWTVP(
 	ctx context.Context,
 	jwtVP string,
 	policyURL string,
+	clientDID string,
 	payloadBuilder TrustRegistryPayloadBuilder,
 ) error {
 	vp, err := verifiable.ParsePresentation(
@@ -116,7 +126,7 @@ func (s *Service) ValidateAttestationJWTVP(
 	}
 
 	var trustRegistryRequestBody []byte
-	trustRegistryRequestBody, err = payloadBuilder(attestationVC, vp)
+	trustRegistryRequestBody, err = payloadBuilder(clientDID, attestationVC, vp)
 	if err != nil {
 		return fmt.Errorf("payload builder: %w", err)
 	}

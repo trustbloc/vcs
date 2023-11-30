@@ -6,17 +6,27 @@ SPDX-License-Identifier: Apache-2.0
 
 package trustregistry
 
-type VerifierValidationConfig struct {
+type WalletPresentationValidationConfig struct {
 	VerifierDID string                `json:"verifier_did"`
-	Metadata    []*CredentialMetadata `json:"metadata"`
+	Metadata    []*CredentialMetadata `json:"credential_metadata"`
 }
 
+// CredentialMetadata defines model for CredentialMetadata.
 type CredentialMetadata struct {
-	CredentialID string   `json:"credential_id"`
-	Types        []string `json:"types"`
-	Issuer       string   `json:"issuer"`
-	Issued       string   `json:"issued"`
-	Expired      string   `json:"expired"`
+	// Credential ID
+	CredentialID string `json:"credential_id,omitempty"`
+
+	// Credential Types
+	CredentialTypes []string `json:"credential_types,omitempty"`
+
+	// Expiration date/time.
+	ExpirationDate string `json:"expiration_date,omitempty"`
+
+	// Issuance date/time.
+	IssuanceDate string `json:"issuance_date,omitempty"`
+
+	// Issuer ID
+	IssuerID string `json:"issuer_id,omitempty"`
 }
 
 type Response struct {

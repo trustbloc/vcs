@@ -35,6 +35,7 @@ const (
 	attestationKeyID = "did:example:attestation-service#attestation-key-id"
 
 	walletDID   = "did:example:wallet"
+	verifierDID = "did:example:verifier"
 	walletKeyID = "did:example:wallet#wallet-key-id"
 )
 
@@ -48,6 +49,7 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 	vcStatusVerifier := NewMockVCStatusVerifier(gomock.NewController(t))
 
 	var jwtVP string
+	var clientDID string
 	var payloadBuilder clientattestation.TrustRegistryPayloadBuilder
 
 	proofCreators, defaultProofChecker := testsupport.NewKMSSignersAndVerifier(t,
@@ -117,6 +119,8 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 			name: "success OIDC4VP",
 			url:  srv.URL + "/success_oidc4vp",
 			setup: func() {
+				clientDID = verifierDID
+
 				// create wallet attestation VC with wallet DID as subject and attestation DID as issuer
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, now, false)
 
@@ -133,15 +137,16 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 				payloadBuilder = clientattestation.VerifierInteractionTrustRegistryPayloadBuilder
 
 				handler.Add(http.MethodPost, "/success_oidc4vp", func(c echo.Context) error {
-					var got *clientattestation.VerifierInteractionValidationConfig
+					var got *clientattestation.VerifierPresentationValidationConfig
 					assert.NoError(t, c.Bind(&got))
 
-					attestationVCUniversalForm, err := attestationVC.ToUniversalForm()
+					attestationVCJWT, err := attestationVC.ToJWTString()
 					assert.NoError(t, err)
 
-					expected := &clientattestation.VerifierInteractionValidationConfig{
-						AttestationVC: attestationVCUniversalForm,
-						Metadata: []*clientattestation.CredentialMetadata{
+					expected := &clientattestation.VerifierPresentationValidationConfig{
+						AttestationVC: []string{attestationVCJWT},
+						VerifierDID:   verifierDID,
+						RequestedVCMetadata: []*clientattestation.CredentialMetadata{
 							getAttestationVCMetadata(t, now, false),
 							getRequestedVCMetadata(t, now),
 						},
@@ -241,7 +246,7 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 
 				vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-				payloadBuilder = func(_ *verifiable.Credential, _ *verifiable.Presentation) ([]byte, error) {
+				payloadBuilder = func(_ string, _ *verifiable.Credential, _ *verifiable.Presentation) ([]byte, error) {
 					return nil, errors.New("some error")
 				}
 			},
@@ -310,7 +315,7 @@ func TestService_ValidateClientAttestationJWTVP(t *testing.T) {
 						ProofChecker:     proofChecker,
 						VCStatusVerifier: vcStatusVerifier,
 					},
-				).ValidateAttestationJWTVP(context.Background(), jwtVP, tt.url, payloadBuilder),
+				).ValidateAttestationJWTVP(context.Background(), jwtVP, tt.url, clientDID, payloadBuilder),
 			)
 		})
 	}
@@ -440,9 +445,9 @@ func getAttestationVCMetadata(t *testing.T, now time.Time, expired bool) *client
 			"VerifiableCredential",
 			"WalletAttestationCredential",
 		},
-		Issuer:  attestationDID,
-		Issued:  now.Format(time.RFC3339),
-		Expired: exp,
+		IssuerID: attestationDID,
+		Issued:   now.Format(time.RFC3339),
+		Expired:  exp,
 	}
 }
 
@@ -454,8 +459,8 @@ func getRequestedVCMetadata(t *testing.T, now time.Time) *clientattestation.Cred
 		Types: []string{
 			"VerifiableCredential",
 		},
-		Issuer:  walletDID,
-		Issued:  now.Round(time.Second).Format(time.RFC3339),
-		Expired: now.Round(time.Second).Add(-time.Hour).Format(time.RFC3339),
+		IssuerID: walletDID,
+		Issued:   now.Round(time.Second).Format(time.RFC3339),
+		Expired:  now.Round(time.Second).Add(-time.Hour).Format(time.RFC3339),
 	}
 }

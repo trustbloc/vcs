@@ -45,6 +45,7 @@ type clientAttestationService interface {
 		ctx context.Context,
 		jwtVP string,
 		policyURL string,
+		clientDID string,
 		payloadBuilder clientattestation.TrustRegistryPayloadBuilder) error
 }
 
@@ -101,7 +102,11 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 		// Attestation VC validation.
 		err := s.clientAttestationService.ValidateAttestationJWTVP(
-			ctx, presentation.JWT, profile.Policy.URL, clientattestation.VerifierInteractionTrustRegistryPayloadBuilder)
+			ctx, presentation.JWT,
+			profile.Policy.URL,
+			profile.SigningDID.DID,
+			clientattestation.VerifierInteractionTrustRegistryPayloadBuilder,
+		)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "clientAttestation",

@@ -1830,7 +1830,7 @@
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",
         "policy": {
-          "url": "https://mock-trustregistry.trustbloc.local:8098/policies/evaluate"
+          "url": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/policyID/policyVersion/interactions/presentation"
         },
         "checks": {
           "credential": {

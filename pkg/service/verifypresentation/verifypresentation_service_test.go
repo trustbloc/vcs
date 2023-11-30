@@ -36,6 +36,10 @@ var (
 	clientAttestationVP []byte
 )
 
+const (
+	verifierDID = "did:key:abc"
+)
+
 func TestNew(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
@@ -128,6 +132,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						context.Background(),
 						gomock.Any(),
 						"https://trustregistry.example.com",
+						verifierDID,
 						gomock.Any(),
 					).Return(nil)
 
@@ -140,7 +145,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 				profile: &profileapi.Verifier{
 					Policy:     profileapi.Policy{URL: "https://trustregistry.example.com"},
-					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
+					SigningDID: &profileapi.SigningDID{DID: verifierDID},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
@@ -168,7 +173,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "OK with Trust registry disabled enabled and client attestation VC included in VP",
+			name: "OK with Trust registry validation disabled and client attestation VC included in VP",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return signedClientAttestationVP.VDR
@@ -200,7 +205,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 					return signedClientAttestationVP.Presentation
 				},
 				profile: &profileapi.Verifier{
-					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
+					SigningDID: &profileapi.SigningDID{DID: verifierDID},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
@@ -260,7 +265,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 					return signedRequestedCredentialsVP.Presentation
 				},
 				profile: &profileapi.Verifier{
-					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
+					SigningDID: &profileapi.SigningDID{DID: verifierDID},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
@@ -362,6 +367,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						context.Background(),
 						gomock.Any(),
 						"https://trustregistry.example.com",
+						verifierDID,
 						gomock.Any(),
 					).Return(errors.New("some error"))
 
@@ -374,7 +380,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 				profile: &profileapi.Verifier{
 					Policy:     profileapi.Policy{URL: "https://trustregistry.example.com"},
-					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
+					SigningDID: &profileapi.SigningDID{DID: verifierDID},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
 							Proof:  false,
