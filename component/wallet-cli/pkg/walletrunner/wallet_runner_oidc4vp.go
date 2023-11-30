@@ -132,7 +132,7 @@ func (s *Service) RunOIDC4VPFlow(ctx context.Context, authorizationRequest strin
 
 		credentials := s.vpFlowExecutor.requestPresentation[0].Credentials()
 
-		if err = trustRegistry.ValidateVerifier(trustRegistryURL, s.vpFlowExecutor.requestObject.ClientID, credentials); err != nil {
+		if err = trustRegistry.ValidateWalletPresentation(trustRegistryURL, s.vpFlowExecutor.requestObject.ClientID, credentials); err != nil {
 			return fmt.Errorf("trust registry verifier validation: %w", err)
 		}
 	}

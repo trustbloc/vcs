@@ -42,7 +42,7 @@ const (
 	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
-	trustRegistryURL                    = "https://mock-trustregistry.trustbloc.local:8098/policies/evaluate"
+	trustRegistryURL                    = "https://mock-trustregistry.trustbloc.local:8098/wallet/interactions/presentation"
 )
 
 func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {

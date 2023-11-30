@@ -161,7 +161,7 @@ func Test_getCredentialMetadata(t *testing.T) {
 			want: &CredentialMetadata{
 				CredentialID: "credentialID",
 				Types:        []string{verifiable.VCType, "WalletAttestationCredential"},
-				Issuer:       "someIssuerID",
+				IssuerID:     "someIssuerID",
 				Issued:       "",
 				Expired:      "",
 			},
@@ -184,7 +184,7 @@ func Test_getCredentialMetadata(t *testing.T) {
 			want: &CredentialMetadata{
 				CredentialID: "credentialID",
 				Types:        []string{verifiable.VCType, "WalletAttestationCredential"},
-				Issuer:       "someIssuerID",
+				IssuerID:     "someIssuerID",
 				Issued:       now.Format(time.RFC3339Nano),
 				Expired:      now.Add(time.Hour).Format(time.RFC3339Nano),
 			},

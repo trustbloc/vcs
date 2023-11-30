@@ -154,7 +154,7 @@ func (f *Flow) Run(ctx context.Context) error {
 			HTTPClient: f.httpClient,
 		})
 
-		if err = trustRegistry.ValidateVerifier(trustRegistryURL, requestObject.ClientID, credentials); err != nil {
+		if err = trustRegistry.ValidateWalletPresentation(trustRegistryURL, requestObject.ClientID, credentials); err != nil {
 			return fmt.Errorf("trust registry verifier validation: %w", err)
 		}
 	}

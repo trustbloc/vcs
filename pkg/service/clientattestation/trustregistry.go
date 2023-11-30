@@ -27,6 +27,7 @@ const (
 
 // TODO: update payloads
 func IssuerInteractionTrustRegistryPayloadBuilder(
+	_ string,
 	attestationVC *verifiable.Credential,
 	presentation *verifiable.Presentation,
 ) ([]byte, error) {
@@ -54,25 +55,28 @@ func IssuerInteractionTrustRegistryPayloadBuilder(
 	return reqPayload, nil
 }
 
-// TODO: update payloads
+// VerifierInteractionTrustRegistryPayloadBuilder builds Trust Registry payload for Verifier interaction verification.
 func VerifierInteractionTrustRegistryPayloadBuilder(
+	verifierDID string,
 	attestationVC *verifiable.Credential,
 	presentation *verifiable.Presentation,
 ) ([]byte, error) {
 	credentials := presentation.Credentials()
 
-	presentationValidationConfig := &VerifierInteractionValidationConfig{
-		Metadata: make([]*CredentialMetadata, len(credentials)),
+	presentationValidationConfig := &VerifierPresentationValidationConfig{
+		AttestationVC:       make([]string, 1),
+		VerifierDID:         verifierDID,
+		RequestedVCMetadata: make([]*CredentialMetadata, len(credentials)),
 	}
 
-	if uf, err := attestationVC.ToUniversalForm(); err == nil {
-		presentationValidationConfig.AttestationVC = uf
+	if attestationVCJWT, err := attestationVC.ToJWTString(); err == nil {
+		presentationValidationConfig.AttestationVC[0] = attestationVCJWT
 	}
 
 	for i, credential := range credentials {
 		content := credential.Contents()
 
-		presentationValidationConfig.Metadata[i] = getCredentialMetadata(content)
+		presentationValidationConfig.RequestedVCMetadata[i] = getCredentialMetadata(content)
 	}
 
 	reqPayload, err := json.Marshal(presentationValidationConfig)
@@ -125,7 +129,7 @@ func getCredentialMetadata(content verifiable.CredentialContents) *CredentialMet
 	return &CredentialMetadata{
 		CredentialID: content.ID,
 		Types:        content.Types,
-		Issuer:       content.Issuer.ID,
+		IssuerID:     content.Issuer.ID,
 		Issued:       iss,
 		Expired:      exp,
 	}

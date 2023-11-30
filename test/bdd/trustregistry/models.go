@@ -1,15 +1,10 @@
 /*
-Copyright Gen Digital Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
 
-package clientattestation
-
-type IssuerInteractionValidationConfig struct {
-	AttestationVC interface{}           `json:"attestation_vc"`
-	Metadata      []*CredentialMetadata `json:"metadata"`
-}
+package main
 
 // VerifierPresentationValidationConfig represents DTO for verifier presentation policy evaluation.
 type VerifierPresentationValidationConfig struct {
@@ -18,6 +13,11 @@ type VerifierPresentationValidationConfig struct {
 	// Verifier DID.
 	VerifierDID string `json:"verifier_did"`
 	// Credential metadata for Requested VCs only.
+	RequestedVCMetadata []*CredentialMetadata `json:"credential_metadata"`
+}
+
+type WalletPresentationValidationConfig struct {
+	VerifierDID         string                `json:"verifier_did"`
 	RequestedVCMetadata []*CredentialMetadata `json:"credential_metadata"`
 }
 
@@ -32,8 +32,4 @@ type CredentialMetadata struct {
 	Issued string `json:"issuance_date"`
 	// Expiration date/time.
 	Expired string `json:"expiration_date"`
-}
-
-type TrustRegistryResponse struct {
-	Allowed bool `json:"allowed"`
 }
