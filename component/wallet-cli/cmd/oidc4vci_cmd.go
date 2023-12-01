@@ -305,10 +305,20 @@ func NewOIDC4VCICommand() *cobra.Command {
 				return fmt.Errorf("add credential to wallet: %w", err)
 			}
 
+			var cslURL, statusListIndex, statusListType string
+			if vcc := vc.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
+				cslURL = vcc.Status.CustomFields["statusListCredential"].(string)
+				statusListIndex = vcc.Status.CustomFields["statusListIndex"].(string)
+				statusListType = vcc.Status.Type
+			}
+
 			slog.Info("credential added to wallet",
 				"credential_id", vc.Contents().ID,
 				"credential_type", strings.Join(lo.Filter(vc.Contents().Types, func(item string, i int) bool { return !strings.EqualFold(item, "VerifiableCredential") }), ","),
 				"issuer_id", vc.Contents().Issuer.ID,
+				"csl_url", cslURL,
+				"status_list_index", statusListIndex,
+				"status_list_type", statusListType,
 			)
 
 			return nil
