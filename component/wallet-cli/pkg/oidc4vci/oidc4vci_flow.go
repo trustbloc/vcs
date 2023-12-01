@@ -40,6 +40,7 @@ import (
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -297,7 +298,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		)
 	}
 
-	vc, err := f.getVC(token, openIDConfig.CredentialEndpoint, credentialIssuer)
+	vc, err := f.getVC(token, openIDConfig, credentialIssuer)
 	if err != nil {
 		return err
 	}
@@ -501,9 +502,10 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 
 func (f *Flow) getVC(
 	token *oauth2.Token,
-	credentialEndpoint,
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialIssuer string,
 ) (*verifiable.Credential, error) {
+	credentialEndpoint := wellKnown.CredentialEndpoint
 	slog.Info("getting credential",
 		"credential_endpoint", credentialEndpoint,
 		"credential_issuer", credentialIssuer,
@@ -592,8 +594,70 @@ func (f *Flow) getVC(
 		return nil, fmt.Errorf("parse credential: %w", err)
 	}
 
+	if err = f.handleIssuanceAck(wellKnown, &credentialResp, token); err != nil {
+		return nil, err
+	}
+
 	return parsedVC, nil
 }
+
+
+func (f *Flow) handleIssuanceAck(
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+	credResponse *CredentialResponse,
+	token *oauth2.Token,
+) error {
+	if wellKnown == nil || credResponse == nil {
+		return nil
+	}
+
+	if wellKnown.CredentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
+		return nil
+	}
+
+	slog.Info("Sending wallet ACK",
+		"ack_id", credResponse.AckID,
+		"endpoint", wellKnown.CredentialAckEndpoint,
+	)
+
+	b, err := json.Marshal(oidc4civ1.AckRequest{
+		Credentials: []oidc4civ1.AcpRequestItem{
+			{
+				AckId:            *credResponse.AckID,
+				ErrorDescription: nil,
+				Status:           "success",
+				IssuerIdentifier: &wellKnown.CredentialIssuer,
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, wellKnown.CredentialAckEndpoint, bytes.NewBuffer(b))
+	if err != nil {
+		return fmt.Errorf("ack credential request: %w", err)
+	}
+
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add("authorization", "Bearer "+token.AccessToken)
+
+	resp, err := f.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	slog.Info(fmt.Sprintf("Wallet ACK sent with status code %v", resp.StatusCode))
+
+	b, _ = io.ReadAll(resp.Body) // nolint
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("expected to receive status code %d but got status code %d with response body %s",
+			http.StatusNoContent, resp.StatusCode, string(b))
+	}
+
+	return nil
+}
+
 
 func waitForEnter(
 	done chan<- struct{},

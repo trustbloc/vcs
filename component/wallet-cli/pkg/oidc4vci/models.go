@@ -32,4 +32,5 @@ type CredentialResponse struct {
 	CNonceExpiresIn int                   `json:"c_nonce_expires_in,omitempty"`
 	Credential      interface{}           `json:"credential"`
 	Format          verifiable.OIDCFormat `json:"format"`
+	AckID           *string               `json:"ack_id"`
 }
