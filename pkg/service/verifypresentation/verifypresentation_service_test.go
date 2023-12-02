@@ -88,11 +88,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 		getVcVerifier           func(t *testing.T) vcVerifier
 		getClientAttestationSrv func(t *testing.T) clientAttestationService
 	}
+
 	type args struct {
 		getPresentation func(t *testing.T) *verifiable.Presentation
 		profile         *profileapi.Verifier
 		opts            *Options
 	}
+
 	tests := []struct {
 		name    string
 		marshal bool
@@ -128,11 +130,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
 					tr := NewMockClientAttestationService(gomock.NewController(t))
 
-					tr.EXPECT().ValidateAttestationJWTVP(
+					tr.EXPECT().ValidatePresentation(
 						context.Background(),
 						gomock.Any(),
-						"https://trustregistry.example.com",
-						verifierDID,
 						gomock.Any(),
 					).Return(nil)
 
@@ -363,11 +363,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
 					ca := NewMockClientAttestationService(gomock.NewController(t))
 
-					ca.EXPECT().ValidateAttestationJWTVP(
+					ca.EXPECT().ValidatePresentation(
 						context.Background(),
 						gomock.Any(),
-						"https://trustregistry.example.com",
-						verifierDID,
 						gomock.Any(),
 					).Return(errors.New("some error"))
 
