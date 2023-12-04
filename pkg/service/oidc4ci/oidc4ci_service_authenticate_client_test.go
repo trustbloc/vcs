@@ -26,7 +26,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 	var (
 		clientAttestationService *MockClientAttestationService
 		profile                  *profileapi.Issuer
-		clientID                 string
 		clientAssertionType      string
 		clientAssertion          string
 	)
@@ -47,39 +46,16 @@ func TestService_AuthenticateClient(t *testing.T) {
 					SigningDID: &profileapi.SigningDID{DID: issuerDID},
 				}
 
-				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
 				clientAssertion = "client-attestation-jwt-vp"
 
 				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
+				clientAttestationService.EXPECT().ValidateIssuance(
 					context.Background(),
+					profile,
 					clientAssertion,
-					"https://policy.example.com",
-					issuerDID,
-					gomock.Any(),
 				).Times(1).Return(nil)
-			},
-			check: func(t *testing.T, err error) {
-				require.NoError(t, err)
-			},
-		},
-		{
-			name: "profile has no policy URL",
-			setup: func() {
-				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: ""},
-					OIDCConfig: &profileapi.OIDCConfig{
-						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
-					},
-				}
-
-				clientID = "client-id"
-				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = "client-attestation-jwt-vp"
-
-				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 			},
 			check: func(t *testing.T, err error) {
 				require.NoError(t, err)
@@ -94,7 +70,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 					},
 				}
 
-				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
 				clientAssertion = "client-attestation-jwt-vp"
 
@@ -105,23 +80,22 @@ func TestService_AuthenticateClient(t *testing.T) {
 			},
 		},
 		{
-			name: "missing client_id",
+			name: "policy URL not set for the profile",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: "https://policy.example.com"},
+					Policy: profileapi.Policy{URL: ""},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 					},
 				}
 
-				clientID = ""
 				clientAssertionType = "attest_jwt_client_auth"
 				clientAssertion = "client-attestation-jwt-vp"
 
 				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "client_id is required")
+				require.ErrorContains(t, err, "policy url not set for profile")
 			},
 		},
 		{
@@ -134,7 +108,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 					},
 				}
 
-				clientID = "client-id"
 				clientAssertionType = "not_supported_client_assertion_type"
 				clientAssertion = "client-attestation-jwt-vp"
 
@@ -154,7 +127,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 					},
 				}
 
-				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
 				clientAssertion = ""
 
@@ -175,18 +147,15 @@ func TestService_AuthenticateClient(t *testing.T) {
 					},
 				}
 
-				clientID = "client-id"
 				clientAssertionType = "attest_jwt_client_auth"
 				clientAssertion = "client-attestation-jwt-vp"
 
 				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
 
-				clientAttestationService.EXPECT().ValidateAttestationJWTVP(
+				clientAttestationService.EXPECT().ValidateIssuance(
 					context.Background(),
-					clientAssertion, //
-					"https://policy.example.com",
-					issuerDID,
-					gomock.Any(),
+					profile,
+					clientAssertion,
 				).Return(errors.New("validate error"))
 			},
 			check: func(t *testing.T, err error) {
@@ -203,7 +172,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			err = svc.AuthenticateClient(context.Background(), profile, clientID, clientAssertionType, clientAssertion)
+			err = svc.AuthenticateClient(context.Background(), profile, clientAssertionType, clientAssertion)
 			tt.check(t, err)
 		})
 	}

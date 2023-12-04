@@ -6,12 +6,51 @@ SPDX-License-Identifier: Apache-2.0
 
 package clientattestation
 
-import "context"
+import (
+	"context"
+	"errors"
 
-// ServiceInterface defines an interface for Attestation Service. The task of Attestation Service is to validate and
-// confirm the device binding and authentication of the wallet instance.
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
+)
+
+var ErrInteractionRestricted = errors.New("interaction restricted")
+
+// CredentialMetadata represents metadata of matched credentials for policy evaluation.
+type CredentialMetadata struct {
+	// Credential ID
+	CredentialID string `json:"credential_id"`
+	// Credential Types.
+	Types []string `json:"credential_types"`
+	// Issuer ID.
+	IssuerID string `json:"issuer_id"`
+	// Issuance date/time.
+	Issued string `json:"issuance_date"`
+	// Expiration date/time.
+	Expired string `json:"expiration_date"`
+}
+
+// IssuancePolicyEvaluationRequest is a request payload for issuance policy evaluation service.
+type IssuancePolicyEvaluationRequest struct {
+	IssuerDID     string   `json:"issuer_did"`
+	AttestationVC []string `json:"attestation_vc,omitempty"`
+}
+
+// PresentationPolicyEvaluationRequest is a request payload for presentation policy evaluation service.
+type PresentationPolicyEvaluationRequest struct {
+	VerifierDID        string                `json:"verifier_did"`
+	AttestationVC      []string              `json:"attestation_vc,omitempty"`
+	CredentialMetadata []*CredentialMetadata `json:"credential_metadata,omitempty"`
+}
+
+// PolicyEvaluationResponse is a response from policy evaluation service.
+type PolicyEvaluationResponse struct {
+	Allowed bool                   `json:"allowed"`
+	Payload map[string]interface{} `json:"payload,omitempty"`
+}
+
+// ServiceInterface defines an interface for client attestation service. The task of service is to validate and confirm
+// the device binding and authentication of the client instance by validating attestation VP and evaluating policy.
 type ServiceInterface interface {
-	ValidateClientAttestationJWT(ctx context.Context, clientID, clientAttestationJWT string) error
-	ValidateClientAttestationPoPJWT(ctx context.Context, clientID, clientAttestationPoPJWT string) error
-	ValidateClientAttestationVP(ctx context.Context, clientID, jwtVP string) error
+	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
+	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, jwtVP string) error
 }

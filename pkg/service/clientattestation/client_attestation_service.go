@@ -9,7 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 package clientattestation
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,7 +21,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
+
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
+
+const WalletAttestationVCType = "WalletAttestationCredential"
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -28,9 +34,6 @@ type httpClient interface {
 type vcStatusVerifier interface {
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
 }
-
-type TrustRegistryPayloadBuilder func(
-	clientDID string, attestationVC *verifiable.Credential, vp *verifiable.Presentation) ([]byte, error)
 
 // Config defines configuration for Service.
 type Config struct {
@@ -58,25 +61,137 @@ func NewService(config *Config) *Service {
 	}
 }
 
-// ValidateAttestationJWTVP validates attestation VP in jwt_vp format.
-//
-// Arguments:
-//
-//	jwtVP 	  		- presentation contains attestation VC
-//	policyURL 		- Trust Registry policy URL
-//	clientDID  		- DID identifier.
-//
-// payloadBuilder 	- payload builder function.
-//
-//nolint:revive
-func (s *Service) ValidateAttestationJWTVP(
+// ValidateIssuance validates attestation VP and requests issuance policy evaluation.
+func (s *Service) ValidateIssuance(
+	ctx context.Context,
+	profile *profileapi.Issuer,
+	jwtVP string,
+) error {
+	_, attestationVCs, err := s.validateAttestationVP(ctx, jwtVP)
+	if err != nil {
+		return err
+	}
+
+	if profile.Policy.URL == "" {
+		return nil
+	}
+
+	req := &IssuancePolicyEvaluationRequest{
+		IssuerDID: profile.SigningDID.DID,
+	}
+
+	req.AttestationVC = make([]string, len(attestationVCs))
+
+	for i, vc := range attestationVCs {
+		jwtVC, convertErr := vc.ToJWTString()
+		if convertErr != nil {
+			return fmt.Errorf("convert attestation vc to jwt: %w", convertErr)
+		}
+
+		req.AttestationVC[i] = jwtVC
+	}
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	resp, err := s.requestPolicyEvaluation(ctx, profile.Policy.URL, payload)
+	if err != nil {
+		return fmt.Errorf("policy evaluation: %w", err)
+	}
+
+	if !resp.Allowed {
+		return ErrInteractionRestricted
+	}
+
+	return nil
+}
+
+// ValidatePresentation validates attestation VP and requests presentation policy evaluation.
+func (s *Service) ValidatePresentation(
+	ctx context.Context,
+	profile *profileapi.Verifier,
+	jwtVP string,
+) error {
+	vp, attestationVCs, err := s.validateAttestationVP(ctx, jwtVP)
+	if err != nil {
+		return err
+	}
+
+	if profile.Policy.URL == "" {
+		return nil
+	}
+
+	req := &PresentationPolicyEvaluationRequest{
+		VerifierDID: profile.SigningDID.DID,
+	}
+
+	req.AttestationVC = make([]string, len(attestationVCs))
+
+	for i, vc := range attestationVCs {
+		jwtVC, marshalErr := vc.ToJWTString()
+		if marshalErr != nil {
+			return fmt.Errorf("marshal attestation vc to jwt: %w", marshalErr)
+		}
+
+		req.AttestationVC[i] = jwtVC
+	}
+
+	credentialMetadata := make([]*CredentialMetadata, 0)
+
+	for _, vc := range vp.Credentials() {
+		if lo.Contains(vc.Contents().Types, WalletAttestationVCType) {
+			continue
+		}
+
+		vcc := vc.Contents()
+
+		var iss, exp string
+
+		if vcc.Issued != nil {
+			iss = vcc.Issued.FormatToString()
+		}
+
+		if vcc.Expired != nil {
+			exp = vcc.Expired.FormatToString()
+		}
+
+		credentialMetadata = append(credentialMetadata, &CredentialMetadata{
+			CredentialID: vcc.ID,
+			Types:        vcc.Types,
+			IssuerID:     vcc.Issuer.ID,
+			Issued:       iss,
+			Expired:      exp,
+		})
+	}
+
+	if len(credentialMetadata) > 0 {
+		req.CredentialMetadata = credentialMetadata
+	}
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	resp, err := s.requestPolicyEvaluation(ctx, profile.Policy.URL, payload)
+	if err != nil {
+		return fmt.Errorf("policy evaluation: %w", err)
+	}
+
+	if !resp.Allowed {
+		return ErrInteractionRestricted
+	}
+
+	return nil
+}
+
+func (s *Service) validateAttestationVP(
 	ctx context.Context,
 	jwtVP string,
-	policyURL string,
-	clientDID string,
-	payloadBuilder TrustRegistryPayloadBuilder,
-) error {
-	vp, err := verifiable.ParsePresentation(
+) (*verifiable.Presentation, []*verifiable.Credential, error) {
+	attestationVP, err := verifiable.ParsePresentation(
 		[]byte(jwtVP),
 		// The verification of proof is conducted manually, along with an extra verification to ensure that signer of
 		// the VP matches the subject of the attestation VC.
@@ -84,61 +199,84 @@ func (s *Service) ValidateAttestationJWTVP(
 		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
 	)
 	if err != nil {
-		return fmt.Errorf("parse attestation vp: %w", err)
+		return nil, nil, fmt.Errorf("parse attestation vp: %w", err)
 	}
 
-	attestationVC, found := lo.Find(vp.Credentials(), func(item *verifiable.Credential) bool {
-		return lo.Contains(item.Contents().Types, walletAttestationVCType)
-	})
+	attestationVCs := make([]*verifiable.Credential, 0)
 
-	if !found {
-		return errors.New("attestation vc is not supplied")
+	for _, vc := range attestationVP.Credentials() {
+		if !lo.Contains(vc.Contents().Types, WalletAttestationVCType) {
+			continue
+		}
+
+		// validate attestation VC
+		credentialOpts := []verifiable.CredentialOpt{
+			verifiable.WithProofChecker(s.proofChecker),
+			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
+		}
+
+		if err = vc.ValidateCredential(credentialOpts...); err != nil {
+			return nil, nil, fmt.Errorf("validate attestation vc: %w", err)
+		}
+
+		if err = vc.CheckProof(credentialOpts...); err != nil {
+			return nil, nil, fmt.Errorf("check attestation vc proof: %w", err)
+		}
+
+		vcc := vc.Contents()
+
+		if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
+			return nil, nil, fmt.Errorf("attestation vc is expired")
+		}
+
+		// validate vp proof with extra check for wallet binding
+		if err = jwt.CheckProof(jwtVP, s.proofChecker, &vcc.Subject[0].ID, nil); err != nil {
+			return nil, nil, fmt.Errorf("check attestation vp proof: %w", err)
+		}
+
+		// check attestation VC status
+		if err = s.vcStatusVerifier.ValidateVCStatus(ctx, vcc.Status, vcc.Issuer); err != nil {
+			return nil, nil, fmt.Errorf("validate attestation vc status: %w", err)
+		}
+
+		attestationVCs = append(attestationVCs, vc)
 	}
 
-	// validate attestation VC
-	opts := []verifiable.CredentialOpt{
-		verifiable.WithProofChecker(s.proofChecker),
-		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
+	if len(attestationVCs) == 0 {
+		return nil, nil, errors.New("no attestation vc found")
 	}
 
-	if err = attestationVC.ValidateCredential(opts...); err != nil {
-		return fmt.Errorf("validate attestation vc: %w", err)
-	}
+	return attestationVP, attestationVCs, nil
+}
 
-	if err = attestationVC.CheckProof(opts...); err != nil {
-		return fmt.Errorf("check attestation vc proof: %w", err)
-	}
-
-	vcc := attestationVC.Contents()
-
-	if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
-		return fmt.Errorf("attestation vc is expired")
-	}
-
-	// validate vp proof with extra check for wallet binding
-	if err = jwt.CheckProof(jwtVP, s.proofChecker, &vcc.Subject[0].ID, nil); err != nil {
-		return fmt.Errorf("check attestation vp proof: %w", err)
-	}
-
-	// check attestation VC status
-	if err = s.vcStatusVerifier.ValidateVCStatus(ctx, vcc.Status, vcc.Issuer); err != nil {
-		return fmt.Errorf("validate attestation vc status: %w", err)
-	}
-
-	var trustRegistryRequestBody []byte
-	trustRegistryRequestBody, err = payloadBuilder(clientDID, attestationVC, vp)
+func (s *Service) requestPolicyEvaluation(
+	ctx context.Context,
+	policyURL string,
+	payload []byte,
+) (*PolicyEvaluationResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, policyURL, bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("payload builder: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	responseDecoded, err := s.doTrustRegistryRequest(ctx, policyURL, trustRegistryRequestBody)
+	req.Header.Add("content-type", "application/json")
+
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("send request: %w", err)
 	}
 
-	if !responseDecoded.Allowed {
-		return ErrInteractionRestricted
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	return nil
+	var result *PolicyEvaluationResponse
+
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return result, nil
 }

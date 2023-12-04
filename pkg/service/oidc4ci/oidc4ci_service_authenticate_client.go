@@ -14,7 +14,6 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 )
 
 const attestJWTClientAuthType = "attest_jwt_client_auth"
@@ -22,21 +21,15 @@ const attestJWTClientAuthType = "attest_jwt_client_auth"
 func (s *Service) AuthenticateClient(
 	ctx context.Context,
 	profile *profile.Issuer,
-	clientID,
 	clientAssertionType,
 	clientAssertion string) error {
-	if profile.Policy.URL == "" {
-		return nil
-	}
-
 	if profile.OIDCConfig == nil || !lo.Contains(profile.OIDCConfig.TokenEndpointAuthMethodsSupported,
 		attestJWTClientAuthType) {
 		return nil
 	}
 
-	if clientID == "" {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
-			errors.New("client_id is required"))
+	if profile.Policy.URL == "" {
+		return errors.New("policy url not set for profile") // this is profile configuration error
 	}
 
 	if clientAssertionType != "attest_jwt_client_auth" {
@@ -49,12 +42,7 @@ func (s *Service) AuthenticateClient(
 			errors.New("client_assertion is required"))
 	}
 
-	if err := s.clientAttestationService.ValidateAttestationJWTVP(
-		ctx,
-		clientAssertion,
-		profile.Policy.URL,
-		profile.SigningDID.DID,
-		clientattestation.IssuerInteractionTrustRegistryPayloadBuilder); err != nil {
+	if err := s.clientAttestationService.ValidateIssuance(ctx, profile, clientAssertion); err != nil {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 

@@ -30,7 +30,6 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 )
 
 const (
@@ -120,12 +119,7 @@ type jsonSchemaValidator interface {
 }
 
 type clientAttestationService interface {
-	ValidateAttestationJWTVP(
-		ctx context.Context,
-		jwtVP string,
-		policyURL string,
-		clientDID string,
-		builder clientattestation.TrustRegistryPayloadBuilder) error
+	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
 }
 
 type ackStore interface {
@@ -443,10 +437,10 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 			return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidClientID,
 				fmt.Errorf("issuer does not accept Token Request with a Pre-Authorized Code but without a client_id"))
 		}
-	} else {
-		if err = s.AuthenticateClient(ctx, profile, clientID, clientAssertionType, clientAssertion); err != nil {
-			return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
-		}
+	}
+
+	if err = s.AuthenticateClient(ctx, profile, clientAssertionType, clientAssertion); err != nil {
+		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
 	newState := TransactionStatePreAuthCodeValidated

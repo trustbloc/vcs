@@ -20,7 +20,7 @@ import (
 func (s *Service) ExchangeAuthorizationCode(
 	ctx context.Context,
 	opState,
-	clientID,
+	clientID, // nolint:revive
 	clientAssertionType,
 	clientAssertion string,
 ) (TxID, error) {
@@ -51,7 +51,7 @@ func (s *Service) ExchangeAuthorizationCode(
 		return "", e
 	}
 
-	if err = s.AuthenticateClient(ctx, profile, clientID, clientAssertionType, clientAssertion); err != nil {
+	if err = s.AuthenticateClient(ctx, profile, clientAssertionType, clientAssertion); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return "", resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}

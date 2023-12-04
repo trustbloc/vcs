@@ -27,7 +27,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 )
 
 const (
@@ -41,12 +40,7 @@ type vcVerifier interface {
 }
 
 type clientAttestationService interface {
-	ValidateAttestationJWTVP(
-		ctx context.Context,
-		jwtVP string,
-		policyURL string,
-		clientDID string,
-		payloadBuilder clientattestation.TrustRegistryPayloadBuilder) error
+	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, jwtVP string) error
 }
 
 type Config struct {
@@ -95,17 +89,15 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	var targetPresentation interface{}
 	targetPresentation = presentation
 
-	trustRegistryValidationEnabled := profile.Policy.URL != ""
+	attestationEnabled := profile.Policy.URL != ""
 
-	if trustRegistryValidationEnabled {
+	if attestationEnabled {
 		st := time.Now()
 
-		// Attestation VC validation.
-		err := s.clientAttestationService.ValidateAttestationJWTVP(
-			ctx, presentation.JWT,
-			profile.Policy.URL,
-			profile.SigningDID.DID,
-			clientattestation.VerifierInteractionTrustRegistryPayloadBuilder,
+		err := s.clientAttestationService.ValidatePresentation(
+			ctx,
+			profile,
+			presentation.JWT,
 		)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
@@ -146,7 +138,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	}
 
 	if profile.Checks.Credential.CredentialExpiry {
-		err := s.checkCredentialExpiry(ctx, credentials, trustRegistryValidationEnabled)
+		err := s.checkCredentialExpiry(ctx, credentials, attestationEnabled)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialExpiry",
@@ -158,7 +150,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
-		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials, trustRegistryValidationEnabled)
+		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials, attestationEnabled)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -172,7 +164,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Status {
 		st := time.Now()
 
-		err := s.validateCredentialsStatus(ctx, credentials, trustRegistryValidationEnabled)
+		err := s.validateCredentialsStatus(ctx, credentials, attestationEnabled)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -268,11 +260,11 @@ func (s *Service) checkCredentialStrict(
 func (s *Service) checkCredentialExpiry(
 	_ context.Context,
 	credentials []*verifiable.Credential,
-	trustRegistryValidationEnabled bool) error {
+	attestationEnabled bool) error {
 	for _, credential := range credentials {
 		vcc := credential.Contents()
 
-		if trustRegistryValidationEnabled && lo.Contains(vcc.Types, walletAttestationVCType) {
+		if attestationEnabled && lo.Contains(vcc.Types, walletAttestationVCType) {
 			continue
 		}
 
@@ -395,10 +387,10 @@ func (s *Service) validateCredentialsProof(
 	ctx context.Context,
 	vpJWT string,
 	credentials []*verifiable.Credential,
-	trustRegistryValidationEnabled bool,
+	attestationEnabled bool,
 ) error {
 	for _, cred := range credentials {
-		if trustRegistryValidationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
+		if attestationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
 			continue
 		}
 
@@ -414,10 +406,10 @@ func (s *Service) validateCredentialsProof(
 func (s *Service) validateCredentialsStatus(
 	ctx context.Context,
 	credentials []*verifiable.Credential,
-	trustRegistryValidationEnabled bool,
+	attestationEnabled bool,
 ) error {
 	for _, cred := range credentials {
-		if trustRegistryValidationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
+		if attestationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
 			continue
 		}
 
