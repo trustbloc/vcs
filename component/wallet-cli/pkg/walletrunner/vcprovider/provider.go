@@ -27,7 +27,6 @@ type Config struct {
 	UniResolverURL       string
 	ContextProviderURL   string
 	OidcProviderURL      string
-	TrustRegistryURL     string
 	IssueVCURL           string
 	DidDomain            string
 	DidServiceAuthToken  string

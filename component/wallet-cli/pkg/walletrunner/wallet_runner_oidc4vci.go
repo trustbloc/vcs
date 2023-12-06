@@ -53,6 +53,7 @@ type OIDC4VCIConfig struct {
 	Password                   string
 	IssuerState                string
 	EnableDiscoverableClientID bool
+	EnableClientAttestation    bool
 }
 
 type credentialRequestOpts struct {

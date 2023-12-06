@@ -36,7 +36,6 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -120,21 +119,6 @@ func (s *Service) RunOIDC4VPFlow(ctx context.Context, authorizationRequest strin
 	s.perfInfo.QueryCredentialFromWallet = time.Since(startTime)
 	if !s.vcProviderConf.KeepWalletOpen {
 		s.wallet.Close()
-	}
-
-	// Run Trust Registry verification only if TrustRegistryURL supplied
-	if trustRegistryURL := s.vcProviderConf.TrustRegistryURL; trustRegistryURL != "" {
-		log.Println("Run Trust Registry Verifier validation")
-
-		trustRegistry := trustregistry.New(&trustregistry.Config{
-			HTTPClient: s.httpClient,
-		})
-
-		credentials := s.vpFlowExecutor.requestPresentation[0].Credentials()
-
-		if err = trustRegistry.ValidateWalletPresentation(trustRegistryURL, s.vpFlowExecutor.requestObject.ClientID, credentials); err != nil {
-			return fmt.Errorf("trust registry verifier validation: %w", err)
-		}
 	}
 
 	var createAuthorizedResponseHooks []RPConfigOverride

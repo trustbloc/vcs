@@ -241,17 +241,15 @@ Feature: OIDC4VC REST API
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
       | bank_issuer/v1.0 | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
-  @oidc4vc_rest_auth_flow_attestation_vc
-  Scenario: OIDC credential issuance and verification Auth flow with Attestation VC
-    When User inits wallet with Trust Registry verifier validation enabled
-    And   New verifiable credentials is created from table:
-      | IssuerProfile                  | UserName              | Password                  | Credential             | DIDIndex |
-      | i_myprofile_ud_es256k_jwt/v1.0 | profile-user-issuer-1 | profile-user-issuer-1-pwd | attestation_vc.jwt     | 0        |
-      | i_myprofile_ud_es256k_jwt/v1.0 | profile-user-issuer-1 | profile-user-issuer-1-pwd | university_degree.json | 0        |
-    And User saves issued credentials
-    And Profile "v_myprofile_jwt_no_strict/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+  @oidc4vc_rest_pre_auth_flow_client_attestation
+  Scenario: OIDC credential pre-authorized code flow issuance and verification with client attestation
+    Given Profile "i_myprofile_jwt_client_attestation/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
+    And Profile "v_myprofile_jwt_client_attestation/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_no_strict/v1.0" profile with presentation definition ID "y6s13jos-attestation-vc-single-field" and fields "attestation_vc_type,degree_type_id"
-    And Verifier with profile "v_myprofile_jwt_no_strict/v1.0" retrieves interactions claims
+    When User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled
+    Then credential is issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_client_attestation/v1.0" profile with presentation definition ID "attestation-vc-single-field" and fields "attestation_vc_type,degree_type_id"
+    And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" retrieves interactions claims
     Then we wait 2 seconds
-    And Verifier with profile "v_myprofile_jwt_no_strict/v1.0" requests deleted interactions claims
+    And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" requests deleted interactions claims

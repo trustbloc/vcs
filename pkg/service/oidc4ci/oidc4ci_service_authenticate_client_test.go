@@ -118,6 +118,25 @@ func TestService_AuthenticateClient(t *testing.T) {
 			},
 		},
 		{
+			name: "no client assertion type specified",
+			setup: func() {
+				profile = &profileapi.Issuer{
+					Policy: profileapi.Policy{URL: "https://policy.example.com"},
+					OIDCConfig: &profileapi.OIDCConfig{
+						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+				}
+
+				clientAssertionType = ""
+				clientAssertion = "client-attestation-jwt-vp"
+
+				clientAttestationService = NewMockClientAttestationService(gomock.NewController(t))
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "no client assertion type specified")
+			},
+		},
+		{
 			name: "empty client assertion",
 			setup: func() {
 				profile = &profileapi.Issuer{

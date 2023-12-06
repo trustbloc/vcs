@@ -16,8 +16,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/henvic/httpretty"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/did-go/doc/did"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	"github.com/trustbloc/did-go/doc/ld/context/remote"
@@ -37,6 +39,7 @@ import (
 	"github.com/trustbloc/kms-go/spi/secretlock"
 	"github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
@@ -201,6 +204,10 @@ func (s *Service) GetPerfInfo() *PerfInfo {
 	return s.perfInfo
 }
 
+func (s *Service) GetVCProviderConf() *vcprovider.Config {
+	return s.vcProviderConf
+}
+
 func (s *Service) createAgentServices(vcProviderConf *vcprovider.Config) (*ariesServices, error) {
 	var storageProvider storage.Provider
 	switch strings.ToLower(s.vcProviderConf.StorageProvider) {
@@ -352,6 +359,54 @@ func createVDR(vcProviderConf *vcprovider.Config) (vdrapi.Registry, error) {
 	)
 
 	return vdr.New(opts...), nil
+}
+
+func (s *Service) createAttestationVP() (string, error) {
+	if s.wallet == nil {
+		return "", fmt.Errorf("wallet is not initialized")
+	}
+
+	content, err := s.wallet.GetAll()
+	if err != nil {
+		return "", fmt.Errorf("get wallet content: %w", err)
+	}
+
+	var attestationVC *verifiable.Credential
+
+	for _, vcData := range content {
+		vc, parseErr := verifiable.ParseCredential(
+			vcData,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(s.ariesServices.JSONLDDocumentLoader()),
+		)
+		if parseErr != nil {
+			return "", parseErr
+		}
+
+		if lo.Contains(vc.Contents().Types, "WalletAttestationCredential") {
+			attestationVC = vc
+			break
+		}
+	}
+
+	if attestationVC == nil {
+		return "", fmt.Errorf("no attestation vc found")
+	}
+
+	attestationVP, err := verifiable.NewPresentation()
+	if err != nil {
+		return "", fmt.Errorf("create attestation vp: %w", err)
+	}
+
+	attestationVP.AddCredentials(attestationVC)
+	attestationVP.ID = uuid.New().String()
+
+	claims, err := attestationVP.JWTClaims([]string{}, false)
+	if err != nil {
+		return "", fmt.Errorf("create attestation jwt claims: %w", err)
+	}
+
+	return s.SignJwtClaims(claims, nil)
 }
 
 type kmsProvider struct {
