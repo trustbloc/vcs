@@ -1390,6 +1390,148 @@
         }
       },
       "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_jwt_client_attestation",
+        "version": "v1.0",
+        "groupID": "i_myprofile_jwt_client_attestation",
+        "name": "i_myprofile_jwt_client_attestation",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "policy": {
+          "url": "https://mock-trustregistry.trustbloc.local:8098/issuer/policies/policyID/policyVersion/interactions/issuance"
+        },
+        "vcConfig": {
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "ion",
+          "status": {
+            "type": "RevocationList2020Status"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "attest_jwt_client_auth"
+          ],
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://www.w3.org/2018/credentials/examples/v1"
+            ],
+            "jsonSchema": "{\"$id\":\"https://trustbloc.com/universitydegree.schema.json\",\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"title\":\"UniversityDegreeCredential\",\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"spouse\":{\"type\":\"string\"},\"degree\":{\"type\":\"object\",\"description\":\"Describes the degree.\",\"properties\":{\"type\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"}},\"required\":[\"type\",\"degree\"]}},\"required\":[\"name\",\"spouse\",\"degree\"]}",
+            "type": "UniversityDegreeCredential",
+            "id": "universityDegreeTemplateID",
+            "issuer": "did:ion:i_profile_jwt_client_attestation",
+            "checks": {
+              "strict": true
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "credentials_supported": [
+            {
+              "format": "jwt_vc_json-ld",
+              "id": "VerifiedEmployee_JWT",
+              "types": [
+                "VerifiableCredential",
+                "VerifiedEmployee"
+              ],
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "url": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credentialSubject": {
+                "displayName": {
+                  "display": [
+                    {
+                      "name": "Employee",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "givenName": {
+                  "display": [
+                    {
+                      "name": "Given Name",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "jobTitle": {
+                  "display": [
+                    {
+                      "name": "Job Title",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "surname": {
+                  "display": [
+                    {
+                      "name": "Surname",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "preferredLanguage": {
+                  "display": [
+                    {
+                      "name": "Preferred Language",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "mail": {
+                  "display": [
+                    {
+                      "name": "Mail",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "photo": {
+                  "display": [
+                    {
+                      "name": "Photo"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "createDID": true
     }
   ],
   "verifiers": [
@@ -1822,100 +1964,6 @@
     },
     {
       "verifier": {
-        "id": "v_myprofile_jwt_no_strict",
-        "version": "v1.0",
-        "name": "v_myprofile_jwt_no_strict",
-        "organizationID": "00000000-0000-0000-0000-000000000001",
-        "url": "https://test-verifier.com",
-        "active": true,
-        "webHook": "http://vcs.webhook.example.com:8180",
-        "policy": {
-          "url": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/policyID/policyVersion/interactions/presentation"
-        },
-        "checks": {
-          "credential": {
-            "format": [
-              "jwt"
-            ],
-            "issuerTrustList": {
-              "i_myprofile_ud_es256k_jwt": {}
-            },
-            "proof": true,
-            "status": true
-          },
-          "presentation": {
-            "format": [
-              "jwt"
-            ],
-            "vcSubject": true,
-            "proof": true
-          }
-        },
-        "oidcConfig": {
-          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
-          "keyType": "ECDSASecp256k1DER",
-          "didMethod": "ion"
-        },
-        "presentationDefinitions": [
-          {
-            "id": "y6s13jos-attestation-vc-single-field",
-            "input_descriptors": [
-              {
-                "id": "attestation_vc_type",
-                "name": "type",
-                "purpose": "Wallet Attestation VC required",
-                "schema": [
-                  {
-                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
-                  }
-                ],
-                "constraints": {
-                  "fields": [
-                    {
-                      "path": [
-                        "$.type"
-                      ],
-                      "id": "attestation_vc_type",
-                      "purpose": "Wallet Attestation VC required",
-                      "filter": {
-                        "type": "array",
-                        "contains": {
-                          "type": "string",
-                          "pattern": "WalletAttestationCredential"
-                        }
-                      }
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "degree_type_id",
-                "name": "degree",
-                "purpose": "We can only hire with bachelor degree.",
-                "constraints": {
-                  "fields": [
-                    {
-                      "path": [
-                        "$.credentialSubject.degree.type"
-                      ],
-                      "id": "degree_type_id",
-                      "purpose": "We can only hire with bachelor degree.",
-                      "filter": {
-                        "type": "string",
-                        "const": "BachelorDegree"
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "createDID": true
-    },
-    {
-      "verifier": {
         "id": "v_myprofile_multivp_jwt",
         "version": "v1.0",
         "name": "v_myprofile_multivp_jwt",
@@ -2221,6 +2269,100 @@
                           "type": "string",
                           "pattern": "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
                         }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
+        "id": "v_myprofile_jwt_client_attestation",
+        "version": "v1.0",
+        "name": "v_myprofile_jwt_client_attestation",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "policy": {
+          "url": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/policyID/policyVersion/interactions/presentation"
+        },
+        "checks": {
+          "credential": {
+            "format": [
+              "jwt"
+            ],
+            "issuerTrustList": {
+              "i_myprofile_jwt_client_attestation": {}
+            },
+            "proof": true,
+            "status": true
+          },
+          "presentation": {
+            "format": [
+              "jwt"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        },
+        "presentationDefinitions": [
+          {
+            "id": "attestation-vc-single-field",
+            "input_descriptors": [
+              {
+                "id": "attestation_vc_type",
+                "name": "type",
+                "purpose": "Wallet Attestation VC required",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.type"
+                      ],
+                      "id": "attestation_vc_type",
+                      "purpose": "Wallet Attestation VC required",
+                      "filter": {
+                        "type": "array",
+                        "contains": {
+                          "type": "string",
+                          "pattern": "WalletAttestationCredential"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "degree_type_id",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type"
+                      ],
+                      "id": "degree_type_id",
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
                       }
                     }
                   ]

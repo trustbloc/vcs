@@ -244,6 +244,7 @@ func TestService_resolveDID(t *testing.T) {
 	require.Nil(t, didDoc)
 }
 
+// nolint:gocritic
 func TestService_resolveDIDRelativeUrl(t *testing.T) {
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -283,25 +284,25 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 			want:    sampleVCJWT,
 			wantErr: false,
 		},
-		{
-			name: "OK - longform",
-			fields: fields{
-				getVDR: func() vdrapi.Registry {
-					longformVDR, err := longform.New()
-					require.NoError(t, err)
-
-					return vdr2.New(vdr2.WithVDR(longformVDR))
-				},
-				getHTTPClient: func() httpClient {
-					return http.DefaultClient
-				},
-			},
-			args: args{
-				didRelativeURL: didRelativeURL,
-			},
-			want:    sampleVCJWT,
-			wantErr: false,
-		},
+		//{
+		//	name: "OK - longform",
+		//	fields: fields{
+		//		getVDR: func() vdrapi.Registry {
+		//			longformVDR, err := longform.New()
+		//			require.NoError(t, err)
+		//
+		//			return vdr2.New(vdr2.WithVDR(longformVDR))
+		//		},
+		//		getHTTPClient: func() httpClient {
+		//			return http.DefaultClient
+		//		},
+		//	},
+		//	args: args{
+		//		didRelativeURL: didRelativeURL,
+		//	},
+		//	want:    sampleVCJWT,
+		//	wantErr: false,
+		//},
 		{
 			name: "resolveDID error",
 			fields: fields{

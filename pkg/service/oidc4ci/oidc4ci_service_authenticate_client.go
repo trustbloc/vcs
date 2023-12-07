@@ -32,6 +32,11 @@ func (s *Service) AuthenticateClient(
 		return errors.New("policy url not set for profile") // this is profile configuration error
 	}
 
+	if clientAssertionType == "" {
+		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
+			errors.New("no client assertion type specified"))
+	}
+
 	if clientAssertionType != "attest_jwt_client_auth" {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
 			errors.New("only supported client assertion type is attest_jwt_client_auth"))

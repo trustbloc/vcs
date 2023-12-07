@@ -26,8 +26,8 @@ func newServer() *server {
 		router: router,
 	}
 
-	router.HandleFunc("/wallet/interactions/presentation", srv.evaluateWalletPresentation).Methods(http.MethodPost)
-	router.HandleFunc("/verifier/policies/policyID/policyVersion/interactions/presentation", srv.evaluateVerifierPresentation).Methods(http.MethodPost)
+	router.HandleFunc("/issuer/policies/policyID/policyVersion/interactions/issuance", srv.evaluateIssuerIssuancePolicy).Methods(http.MethodPost)
+	router.HandleFunc("/verifier/policies/policyID/policyVersion/interactions/presentation", srv.evaluateVerifierPresentationPolicy).Methods(http.MethodPost)
 
 	return srv
 }
@@ -36,27 +36,27 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }
 
-func (s *server) evaluateVerifierPresentation(w http.ResponseWriter, r *http.Request) {
-	var request VerifierPresentationValidationConfig
+func (s *server) evaluateIssuerIssuancePolicy(w http.ResponseWriter, r *http.Request) {
+	var request IssuerIssuanceRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		s.writeResponse(
-			w, http.StatusBadRequest, fmt.Sprintf("failed to decode evaluate request: %s", err.Error()))
+			w, http.StatusBadRequest, fmt.Sprintf("decode issuance policy request: %s", err.Error()))
 
 		return
 	}
 
-	if len(request.AttestationVC) < 1 {
+	if request.IssuerDID == "" {
 		s.writeResponse(
-			w, http.StatusBadRequest, "at least one attestation vc should be supplied")
+			w, http.StatusBadRequest, "issuer did is empty")
 
 		return
 	}
 
-	if len(request.RequestedVCMetadata) < 1 {
+	if request.AttestationVC == nil || len(*request.AttestationVC) == 0 {
 		s.writeResponse(
-			w, http.StatusBadRequest, "at least one requested vc metadata should be supplied")
+			w, http.StatusBadRequest, "no attestation vc supplied")
 
 		return
 	}
@@ -66,37 +66,44 @@ func (s *server) evaluateVerifierPresentation(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	claims := map[string]interface{}{
-		"allowed": true,
+	response := &PolicyEvaluationResponse{
+		Allowed: true,
 	}
 
-	err = json.NewEncoder(w).Encode(claims)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Printf("failed to write response: %s", err.Error())
 	}
 }
 
-func (s *server) evaluateWalletPresentation(w http.ResponseWriter, r *http.Request) {
-	var request WalletPresentationValidationConfig
+func (s *server) evaluateVerifierPresentationPolicy(w http.ResponseWriter, r *http.Request) {
+	var request VerifierPresentationRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		s.writeResponse(
-			w, http.StatusBadRequest, fmt.Sprintf("failed to decode evaluate request: %s", err.Error()))
+			w, http.StatusBadRequest, fmt.Sprintf("decode presentation policy request: %s", err.Error()))
 
 		return
 	}
 
-	if len(request.VerifierDID) < 1 {
+	if request.VerifierDID == "" {
 		s.writeResponse(
-			w, http.StatusBadRequest, "verifier did is not supplied")
+			w, http.StatusBadRequest, "verifier did is empty")
 
 		return
 	}
 
-	if len(request.RequestedVCMetadata) < 1 {
+	if request.CredentialMetadata == nil || len(request.CredentialMetadata) == 0 {
 		s.writeResponse(
-			w, http.StatusBadRequest, "at least one requested vc metadata should be supplied")
+			w, http.StatusBadRequest, "no credential metadata supplied")
+
+		return
+	}
+
+	if request.AttestationVC == nil || len(*request.AttestationVC) == 0 {
+		s.writeResponse(
+			w, http.StatusBadRequest, "no attestation vc supplied")
 
 		return
 	}
@@ -106,11 +113,11 @@ func (s *server) evaluateWalletPresentation(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	claims := map[string]interface{}{
-		"allowed": true,
+	response := &PolicyEvaluationResponse{
+		Allowed: true,
 	}
 
-	err = json.NewEncoder(w).Encode(claims)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Printf("failed to write response: %s", err.Error())
 	}

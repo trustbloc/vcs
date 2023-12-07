@@ -66,6 +66,16 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4VCIConfig, hooks *Hooks) (*veri
 		"client_id":           []string{config.ClientID},
 	}
 
+	if config.EnableClientAttestation {
+		jwtVP, createErr := s.createAttestationVP()
+		if createErr != nil {
+			return nil, createErr
+		}
+
+		tokenValues.Add("client_assertion_type", "attest_jwt_client_auth")
+		tokenValues.Add("client_assertion", jwtVP)
+	}
+
 	if credentialOfferResponse.Grants.PreAuthorizationGrant.UserPinRequired {
 		if len(config.Pin) == 0 {
 			log.Println("Enter PIN:")

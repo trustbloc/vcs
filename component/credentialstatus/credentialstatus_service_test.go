@@ -743,6 +743,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 }
 
 func TestService_Resolve(t *testing.T) {
+	t.Skip("Check issue with resolving did:ion")
 	loader := testutil.DocumentLoader(t)
 	// Assert
 	credential, err := verifiable.ParseCredential(

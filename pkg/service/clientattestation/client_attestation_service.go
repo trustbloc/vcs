@@ -19,13 +19,17 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
+	"go.uber.org/zap"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 const WalletAttestationVCType = "WalletAttestationCredential"
+
+var logger = log.New("client-attestation")
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -67,6 +71,13 @@ func (s *Service) ValidateIssuance(
 	profile *profileapi.Issuer,
 	jwtVP string,
 ) error {
+	logger.Debugc(ctx, "validate issuance",
+		zap.String("profileID", profile.ID),
+		zap.String("profileVersion", profile.Version),
+		zap.String("policyURL", profile.Policy.URL),
+		zap.String("jwtVP", jwtVP),
+	)
+
 	_, attestationVCs, err := s.validateAttestationVP(ctx, jwtVP)
 	if err != nil {
 		return err
@@ -80,15 +91,13 @@ func (s *Service) ValidateIssuance(
 		IssuerDID: profile.SigningDID.DID,
 	}
 
-	req.AttestationVC = make([]string, len(attestationVCs))
-
-	for i, vc := range attestationVCs {
+	for _, vc := range attestationVCs {
 		jwtVC, convertErr := vc.ToJWTString()
 		if convertErr != nil {
 			return fmt.Errorf("convert attestation vc to jwt: %w", convertErr)
 		}
 
-		req.AttestationVC[i] = jwtVC
+		req.AttestationVC = lo.ToPtr(jwtVC)
 	}
 
 	payload, err := json.Marshal(req)
@@ -114,6 +123,13 @@ func (s *Service) ValidatePresentation(
 	profile *profileapi.Verifier,
 	jwtVP string,
 ) error {
+	logger.Debugc(ctx, "validate presentation",
+		zap.String("profileID", profile.ID),
+		zap.String("profileVersion", profile.Version),
+		zap.String("policyURL", profile.Policy.URL),
+		zap.String("jwtVP", jwtVP),
+	)
+
 	vp, attestationVCs, err := s.validateAttestationVP(ctx, jwtVP)
 	if err != nil {
 		return err
@@ -127,7 +143,7 @@ func (s *Service) ValidatePresentation(
 		VerifierDID: profile.SigningDID.DID,
 	}
 
-	req.AttestationVC = make([]string, len(attestationVCs))
+	jwtVCs := make([]string, len(attestationVCs))
 
 	for i, vc := range attestationVCs {
 		jwtVC, marshalErr := vc.ToJWTString()
@@ -135,10 +151,12 @@ func (s *Service) ValidatePresentation(
 			return fmt.Errorf("marshal attestation vc to jwt: %w", marshalErr)
 		}
 
-		req.AttestationVC[i] = jwtVC
+		jwtVCs[i] = jwtVC
 	}
 
-	credentialMetadata := make([]*CredentialMetadata, 0)
+	req.AttestationVC = lo.ToPtr(jwtVCs)
+
+	credentialMetadata := make([]CredentialMetadata, 0)
 
 	for _, vc := range vp.Credentials() {
 		if lo.Contains(vc.Contents().Types, WalletAttestationVCType) {
@@ -157,7 +175,7 @@ func (s *Service) ValidatePresentation(
 			exp = vcc.Expired.FormatToString()
 		}
 
-		credentialMetadata = append(credentialMetadata, &CredentialMetadata{
+		credentialMetadata = append(credentialMetadata, CredentialMetadata{
 			CredentialID: vcc.ID,
 			Types:        vcc.Types,
 			IssuerID:     vcc.Issuer.ID,

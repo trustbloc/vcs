@@ -12,7 +12,6 @@ import (
 	"net/http/cookiejar"
 
 	"github.com/cucumber/godog"
-
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
@@ -73,6 +72,7 @@ func (s *Steps) ResetAndSetup() error {
 			_ = s.walletRunner.GetWallet().Close()
 		}
 	}
+
 	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
 		func(c *vcprovider.Config) {
 			c.DidKeyType = "ECDSAP384DER"
@@ -116,7 +116,6 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Profile "([^"]*)" issuer has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeIssuerProfileUser)
 	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
-	sc.Step(`^User inits wallet with Trust Registry verifier validation enabled`, s.initWalletWithTrustRegistryURL)
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
 	sc.Step(`^credential is issued$`, s.checkIssuedCredential)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
@@ -127,6 +126,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with wallet-initiated$`, s.runOIDC4CIAuthWalletInitiatedFlow)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow$`, s.runOIDC4CIPreAuthWithValidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema$`, s.runOIDC4CIAuthWithInvalidClaims)
+	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled$`, s.runOIDC4CIPreAuthWithClientAttestation)
 
 	// VP.
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)

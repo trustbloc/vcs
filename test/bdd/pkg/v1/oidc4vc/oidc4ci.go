@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
@@ -30,19 +31,17 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 const (
 	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
+	issueCredentialURLFormat            = vcsAPIGateway + "/issuer/profiles/%s/%s/credentials/issue"
 	issuedCredentialHistoryURL          = vcsAPIGateway + "/issuer/profiles/%s/issued-credentials"
-	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
-	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
 	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
-	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
-	trustRegistryURL                    = "https://mock-trustregistry.trustbloc.local:8098/wallet/interactions/presentation"
 )
 
 func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {
@@ -125,12 +124,13 @@ func (s *Steps) runOIDC4CIPreAuth(initiateOIDC4CIRequest initiateOIDC4CIRequest)
 		return fmt.Errorf("initiateCredentialIssuance: %w", err)
 	}
 
-	_, err = s.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-		CredentialType:     s.issuedCredentialType,
-		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Pin:                *initiateOIDC4CIResponseData.UserPin,
-	}, nil)
+	_, err = s.walletRunner.RunOIDC4CIPreAuth(
+		&walletrunner.OIDC4VCIConfig{
+			CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
+			CredentialType:     s.issuedCredentialType,
+			CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+			Pin:                *initiateOIDC4CIResponseData.UserPin,
+		}, nil)
 	if err != nil {
 		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
 	}
@@ -230,6 +230,129 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 	}
 
 	return s.runOIDC4CIPreAuth(initiateIssuanceRequest)
+}
+
+func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
+	if err := s.walletRunner.CreateWallet(); err != nil {
+		return fmt.Errorf("create wallet: %w", err)
+	}
+
+	if err := s.addAttestationVC(); err != nil {
+		return fmt.Errorf("add attestation vc to wallet: %w", err)
+	}
+
+	claims, err := s.fetchClaimData(s.issuedCredentialType)
+	if err != nil {
+		return fmt.Errorf("fetchClaimData: %w", err)
+	}
+
+	initiateIssuanceRequest := initiateOIDC4CIRequest{
+		CredentialTemplateId: s.issuedCredentialTemplateID,
+		ClaimData:            &claims,
+		UserPinRequired:      true,
+	}
+
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(initiateIssuanceRequest)
+	if err != nil {
+		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+	}
+
+	_, err = s.walletRunner.RunOIDC4CIPreAuth(
+		&walletrunner.OIDC4VCIConfig{
+			CredentialOfferURI:      initiateOIDC4CIResponseData.OfferCredentialURL,
+			CredentialType:          s.issuedCredentialType,
+			CredentialFormat:        s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
+			Pin:                     *initiateOIDC4CIResponseData.UserPin,
+			EnableClientAttestation: true,
+		}, nil)
+	if err != nil {
+		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) addAttestationVC() error {
+	vcc := verifiable.CredentialContents{
+		Context: []string{
+			verifiable.ContextURI,
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		},
+		ID: uuid.New().String(),
+		Types: []string{
+			verifiable.VCType,
+			"WalletAttestationCredential",
+		},
+		Subject: []verifiable.Subject{
+			{
+				ID: s.walletRunner.GetVCProviderConf().WalletParams.DidID[0],
+			},
+		},
+		Issuer: &verifiable.Issuer{
+			ID: s.walletRunner.GetVCProviderConf().WalletParams.DidID[0],
+		},
+		Issued: &utiltime.TimeWrapper{
+			Time: time.Now(),
+		},
+		Expired: &utiltime.TimeWrapper{
+			Time: time.Now().Add(time.Hour),
+		},
+	}
+
+	vc, err := verifiable.CreateCredential(vcc, nil)
+	if err != nil {
+		return fmt.Errorf("create attestation vc: %w", err)
+	}
+
+	var vcOIDCFormat vcsverifiable.OIDCFormat
+
+	switch s.issuerProfile.VCConfig.Format {
+	case vcsverifiable.Jwt:
+		vcOIDCFormat = vcsverifiable.JwtVCJson
+	case vcsverifiable.Ldp:
+		vcOIDCFormat = vcsverifiable.LdpVC
+	default:
+		return fmt.Errorf("unsupported vc format: %s", s.issuerProfile.VCConfig.Format)
+	}
+
+	reqData, err := vcprovider.GetIssueCredentialRequestData(vc, vcOIDCFormat)
+	if err != nil {
+		return fmt.Errorf("get issue credential request data: %w", err)
+	}
+
+	req := &model.IssueCredentialData{
+		Credential: reqData,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := bddutil.HTTPSDo(
+		http.MethodPost,
+		fmt.Sprintf(issueCredentialURLFormat, s.issuerProfile.ID, s.issuerProfile.Version),
+		"application/json",
+		s.bddContext.Args[getOrgAuthTokenKey(fmt.Sprintf("%s/%s", s.issuerProfile.ID, s.issuerProfile.Version))],
+		bytes.NewBuffer(body),
+		s.tlsConfig,
+	)
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBody)
+	}
+
+	return s.walletRunner.SaveCredentialInWallet(respBody)
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithError(errorContains string) error {
@@ -564,10 +687,6 @@ func (s *Steps) checkIssuedCredential() error {
 		return fmt.Errorf("wallet.GetAll(): %w", err)
 	}
 
-	if len(credentialMap) != 1 {
-		return fmt.Errorf("unexpected amount fo credentials in wallet")
-	}
-
 	var vcParsed *verifiable.Credential
 
 	for _, vcBytes := range credentialMap {
@@ -590,7 +709,8 @@ func (s *Steps) checkIssuedCredential() error {
 
 func (s *Steps) checkIssuedCredentialHistory(credential *verifiable.Credential, oidcFlow bool) error {
 	// If credential status is disabled - history will not be stored.
-	if s.issuerProfile.VCConfig.Status.Disable {
+	if s.issuerProfile.VCConfig.Status.Disable ||
+		lo.Contains(credential.Contents().Types, "WalletAttestationCredential") {
 		return nil
 	}
 
@@ -729,29 +849,6 @@ func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
 		return fmt.Errorf("unexpected signature representation in profile")
 	}
 
-	return nil
-}
-
-func (s *Steps) initWalletWithTrustRegistryURL() error {
-	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
-		func(c *vcprovider.Config) {
-			c.DidKeyType = "ECDSAP384DER"
-			c.DidMethod = "ion"
-			c.KeepWalletOpen = true
-			c.TrustRegistryURL = trustRegistryURL
-		})
-	if err != nil {
-		return fmt.Errorf("unable create wallet runner: %w", err)
-	}
-
-	s.walletRunner = walletRunner
-
-	err = walletRunner.CreateWallet()
-	if err != nil {
-		return fmt.Errorf("walletRunner.CreateWallet: %w", err)
-	}
-
-	s.bddContext.CredentialSubject = append(s.bddContext.CredentialSubject, s.walletRunner.GetConfig().WalletParams.DidID...)
 	return nil
 }
 
