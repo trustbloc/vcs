@@ -1400,8 +1400,10 @@
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
-        "policy": {
-          "url": "https://mock-trustregistry.trustbloc.local:8098/issuer/policies/policyID/policyVersion/interactions/issuance"
+        "checks": {
+          "clientAttestationCheck": {
+            "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/issuer/policies/policyID/policyVersion/interactions/issuance"
+          }
         },
         "vcConfig": {
           "signingAlgorithm": "ES256K",
@@ -2289,9 +2291,6 @@
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",
-        "policy": {
-          "url": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/policyID/policyVersion/interactions/presentation"
-        },
         "checks": {
           "credential": {
             "format": [
@@ -2309,6 +2308,9 @@
             ],
             "vcSubject": true,
             "proof": true
+          },
+          "clientAttestationCheck": {
+            "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/policyID/policyVersion/interactions/presentation"
           }
         },
         "oidcConfig": {

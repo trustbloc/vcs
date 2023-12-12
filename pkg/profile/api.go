@@ -50,7 +50,7 @@ type Issuer struct {
 	CredentialTemplates []*CredentialTemplate `json:"credentialTemplates,omitempty"`
 	WebHook             string                `json:"webHook,omitempty"`
 	CredentialMetaData  *CredentialMetaData   `json:"credentialMetadata"`
-	Policy              Policy                `json:"policy,omitempty"`
+	Checks              IssuanceChecks        `json:"checks"`
 }
 
 type CredentialTemplate struct {
@@ -147,13 +147,6 @@ type Verifier struct {
 	SigningDID              *SigningDID                        `json:"signingDID,omitempty"`
 	PresentationDefinitions []*presexch.PresentationDefinition `json:"presentationDefinitions,omitempty"`
 	WebHook                 string                             `json:"webHook,omitempty"`
-	Policy                  Policy                             `json:"policy,omitempty"`
-}
-
-// Policy represents profile configuration for Trust Registry policy.
-type Policy struct {
-	// URL is the Trust Registry policy URL.
-	URL string `json:"url"`
 }
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.
@@ -165,8 +158,19 @@ type OIDC4VPConfig struct {
 
 // VerificationChecks are checks to be performed for verifying credentials and presentations.
 type VerificationChecks struct {
-	Credential   CredentialChecks    `json:"credential,omitempty"`
-	Presentation *PresentationChecks `json:"presentation,omitempty"`
+	Credential             CredentialChecks       `json:"credential,omitempty"`
+	Presentation           *PresentationChecks    `json:"presentation,omitempty"`
+	ClientAttestationCheck ClientAttestationCheck `json:"clientAttestationCheck,omitempty"`
+}
+
+// IssuanceChecks are checks to be performed for issuance credentials and presentations.
+type IssuanceChecks struct {
+	ClientAttestationCheck ClientAttestationCheck `json:"clientAttestationCheck,omitempty"`
+}
+
+// ClientAttestationCheck stores Client Attestation check configuration.
+type ClientAttestationCheck struct {
+	PolicyURL string `json:"policyUrl"`
 }
 
 // PresentationChecks are checks to be performed during presentation verification.

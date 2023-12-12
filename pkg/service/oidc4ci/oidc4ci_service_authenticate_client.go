@@ -28,7 +28,7 @@ func (s *Service) AuthenticateClient(
 		return nil
 	}
 
-	if profile.Policy.URL == "" {
+	if profile.Checks.ClientAttestationCheck.PolicyURL == "" {
 		return errors.New("policy url not set for profile") // this is profile configuration error
 	}
 

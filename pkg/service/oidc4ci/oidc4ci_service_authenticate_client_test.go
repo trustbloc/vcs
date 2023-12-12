@@ -39,11 +39,15 @@ func TestService_AuthenticateClient(t *testing.T) {
 			name: "success with client attestation jwt vp",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: "https://policy.example.com"},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 					},
 					SigningDID: &profileapi.SigningDID{DID: issuerDID},
+					Checks: profileapi.IssuanceChecks{
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://policy.example.com",
+						},
+					},
 				}
 
 				clientAssertionType = "attest_jwt_client_auth"
@@ -83,9 +87,11 @@ func TestService_AuthenticateClient(t *testing.T) {
 			name: "policy URL not set for the profile",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: ""},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{},
 					},
 				}
 
@@ -102,9 +108,14 @@ func TestService_AuthenticateClient(t *testing.T) {
 			name: "invalid client assertion type",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: "https://policy.example.com"},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+
+					Checks: profileapi.IssuanceChecks{
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://policy.example.com",
+						},
 					},
 				}
 
@@ -121,9 +132,13 @@ func TestService_AuthenticateClient(t *testing.T) {
 			name: "no client assertion type specified",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: "https://policy.example.com"},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://policy.example.com",
+						},
 					},
 				}
 
@@ -140,9 +155,13 @@ func TestService_AuthenticateClient(t *testing.T) {
 			name: "empty client assertion",
 			setup: func() {
 				profile = &profileapi.Issuer{
-					Policy: profileapi.Policy{URL: "https://policy.example.com"},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://policy.example.com",
+						},
 					},
 				}
 
@@ -160,9 +179,13 @@ func TestService_AuthenticateClient(t *testing.T) {
 			setup: func() {
 				profile = &profileapi.Issuer{
 					SigningDID: &profileapi.SigningDID{DID: issuerDID},
-					Policy:     profileapi.Policy{URL: "https://policy.example.com"},
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://policy.example.com",
+						},
 					},
 				}
 

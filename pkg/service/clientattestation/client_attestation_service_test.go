@@ -491,6 +491,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 					SigningDID: &profileapi.SigningDID{
 						DID: issuerDID,
 					},
+					Checks: &profileapi.VerificationChecks{},
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -676,8 +677,10 @@ func createIssuerProfile(t *testing.T) *profileapi.Issuer {
 		SigningDID: &profileapi.SigningDID{
 			DID: issuerDID,
 		},
-		Policy: profileapi.Policy{
-			URL: issuancePolicyURL,
+		Checks: profileapi.IssuanceChecks{
+			ClientAttestationCheck: profileapi.ClientAttestationCheck{
+				PolicyURL: issuancePolicyURL,
+			},
 		},
 	}
 
@@ -691,8 +694,10 @@ func createVerifierProfile(t *testing.T) *profileapi.Verifier {
 		SigningDID: &profileapi.SigningDID{
 			DID: verifierDID,
 		},
-		Policy: profileapi.Policy{
-			URL: presentationPolicyURL,
+		Checks: &profileapi.VerificationChecks{
+			ClientAttestationCheck: profileapi.ClientAttestationCheck{
+				PolicyURL: presentationPolicyURL,
+			},
 		},
 	}
 
