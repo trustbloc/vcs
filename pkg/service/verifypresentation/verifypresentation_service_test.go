@@ -144,7 +144,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 					return signedClientAttestationVP.Presentation
 				},
 				profile: &profileapi.Verifier{
-					Policy:     profileapi.Policy{URL: "https://trustregistry.example.com"},
 					SigningDID: &profileapi.SigningDID{DID: verifierDID},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
@@ -161,6 +160,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 							IssuerTrustList: map[string]profileapi.TrustList{
 								"https://example.edu/issuers/14": {},
 							},
+						},
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://trustregistry.example.com",
 						},
 					},
 				},
@@ -377,7 +379,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 					return signedClientAttestationVP.Presentation
 				},
 				profile: &profileapi.Verifier{
-					Policy:     profileapi.Policy{URL: "https://trustregistry.example.com"},
 					SigningDID: &profileapi.SigningDID{DID: verifierDID},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
@@ -392,6 +393,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 							IssuerTrustList: map[string]profileapi.TrustList{
 								"random": {},
 							},
+						},
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							PolicyURL: "https://trustregistry.example.com",
 						},
 					},
 				},

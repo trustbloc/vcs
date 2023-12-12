@@ -89,7 +89,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	var targetPresentation interface{}
 	targetPresentation = presentation
 
-	attestationEnabled := profile.Policy.URL != ""
+	attestationEnabled := profile.Checks.ClientAttestationCheck.PolicyURL != ""
 
 	if attestationEnabled {
 		st := time.Now()

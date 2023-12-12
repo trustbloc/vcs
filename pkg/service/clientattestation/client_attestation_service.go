@@ -74,7 +74,7 @@ func (s *Service) ValidateIssuance(
 	logger.Debugc(ctx, "validate issuance",
 		zap.String("profileID", profile.ID),
 		zap.String("profileVersion", profile.Version),
-		zap.String("policyURL", profile.Policy.URL),
+		zap.String("policyURL", profile.Checks.ClientAttestationCheck.PolicyURL),
 		zap.String("jwtVP", jwtVP),
 	)
 
@@ -83,7 +83,7 @@ func (s *Service) ValidateIssuance(
 		return err
 	}
 
-	if profile.Policy.URL == "" {
+	if profile.Checks.ClientAttestationCheck.PolicyURL == "" {
 		return nil
 	}
 
@@ -105,7 +105,7 @@ func (s *Service) ValidateIssuance(
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	resp, err := s.requestPolicyEvaluation(ctx, profile.Policy.URL, payload)
+	resp, err := s.requestPolicyEvaluation(ctx, profile.Checks.ClientAttestationCheck.PolicyURL, payload)
 	if err != nil {
 		return fmt.Errorf("policy evaluation: %w", err)
 	}
@@ -126,7 +126,7 @@ func (s *Service) ValidatePresentation(
 	logger.Debugc(ctx, "validate presentation",
 		zap.String("profileID", profile.ID),
 		zap.String("profileVersion", profile.Version),
-		zap.String("policyURL", profile.Policy.URL),
+		zap.String("policyURL", profile.Checks.ClientAttestationCheck.PolicyURL),
 		zap.String("jwtVP", jwtVP),
 	)
 
@@ -135,7 +135,7 @@ func (s *Service) ValidatePresentation(
 		return err
 	}
 
-	if profile.Policy.URL == "" {
+	if profile.Checks.ClientAttestationCheck.PolicyURL == "" {
 		return nil
 	}
 
@@ -193,7 +193,7 @@ func (s *Service) ValidatePresentation(
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	resp, err := s.requestPolicyEvaluation(ctx, profile.Policy.URL, payload)
+	resp, err := s.requestPolicyEvaluation(ctx, profile.Checks.ClientAttestationCheck.PolicyURL, payload)
 	if err != nil {
 		return fmt.Errorf("policy evaluation: %w", err)
 	}
