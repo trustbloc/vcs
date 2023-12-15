@@ -158,7 +158,7 @@ func TestAckFallback(t *testing.T) {
 			ErrorText:        "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
 		})
-		assert.ErrorContains(t, err, "ack expired")
+		assert.ErrorContains(t, err, "expired_ack_id")
 	})
 
 	t.Run("no store", func(t *testing.T) {
