@@ -6,29 +6,31 @@ SPDX-License-Identifier: Apache-2.0
 
 package trustregistry
 
-type WalletPresentationValidationConfig struct {
-	VerifierDID string                `json:"verifier_did"`
-	Metadata    []*CredentialMetadata `json:"credential_metadata"`
+// WalletIssuanceRequest is a request model for wallet issuance policy evaluation.
+type WalletIssuanceRequest struct {
+	ClientAttestationRequested bool   `json:"client_attestation_requested,omitempty"`
+	CredentialFormat           string `json:"credential_format,omitempty"`
+	CredentialType             string `json:"credential_type,omitempty"`
+	IssuerDID                  string `json:"issuer_did"`
+	IssuerDomain               string `json:"issuer_domain,omitempty"`
 }
 
-// CredentialMetadata defines model for CredentialMetadata.
 type CredentialMetadata struct {
-	// Credential ID
-	CredentialID string `json:"credential_id,omitempty"`
-
-	// Credential Types
+	CredentialID    string   `json:"credential_id,omitempty"`
 	CredentialTypes []string `json:"credential_types,omitempty"`
-
-	// Expiration date/time.
-	ExpirationDate string `json:"expiration_date,omitempty"`
-
-	// Issuance date/time.
-	IssuanceDate string `json:"issuance_date,omitempty"`
-
-	// Issuer ID
-	IssuerID string `json:"issuer_id,omitempty"`
+	ExpirationDate  string   `json:"expiration_date,omitempty"`
+	IssuanceDate    string   `json:"issuance_date,omitempty"`
+	IssuerID        string   `json:"issuer_id,omitempty"`
 }
 
-type Response struct {
-	Allowed bool `json:"allowed"`
+// WalletPresentationRequest is a request model for wallet presentation policy evaluation.
+type WalletPresentationRequest struct {
+	CredentialMetadata []CredentialMetadata `json:"credential_metadata"`
+	VerifierDID        string               `json:"verifier_did"`
+	VerifierDomain     string               `json:"verifier_domain,omitempty"`
+}
+
+type PolicyEvaluationResponse struct {
+	Allowed bool                    `json:"allowed"`
+	Payload *map[string]interface{} `json:"payload,omitempty"`
 }

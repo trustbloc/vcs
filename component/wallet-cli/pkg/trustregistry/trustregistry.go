@@ -20,65 +20,123 @@ import (
 
 var (
 	ErrInteractionRestricted = errors.New("interaction restricted")
-	logger                   = log.New("trustregistry")
+	logger                   = log.New("trust-registry-client")
 )
 
-type Config struct {
-	HTTPClient *http.Client
-}
-type Service struct {
-	httpClient *http.Client
+type Client struct {
+	httpClient       *http.Client
+	trustRegistryURL string
 }
 
-func New(conf *Config) *Service {
-	return &Service{httpClient: conf.HTTPClient}
+func NewClient(httpClient *http.Client, policyURL string) *Client {
+	return &Client{
+		httpClient:       httpClient,
+		trustRegistryURL: policyURL,
+	}
 }
 
-// ValidateWalletPresentation validates wallet presentation using Trust Registry API.
-func (s *Service) ValidateWalletPresentation(
-	policyURL, verifierDID string,
-	presentationCredentials []*verifiable.Credential,
+func (c *Client) ValidateIssuer(
+	issuerDID,
+	issuerDomain,
+	credentialType,
+	credentialFormat string,
+	clientAttestationRequested bool,
 ) error {
-	logger.Debug("ValidateWalletPresentation begin")
-	walletPresentationConfig := &WalletPresentationValidationConfig{
-		VerifierDID: verifierDID,
-		Metadata:    make([]*CredentialMetadata, len(presentationCredentials)),
+	logger.Debug("issuer validation begin")
+
+	req := &WalletIssuanceRequest{
+		ClientAttestationRequested: clientAttestationRequested,
+		CredentialFormat:           credentialFormat,
+		CredentialType:             credentialType,
+		IssuerDID:                  issuerDID,
+		IssuerDomain:               issuerDomain,
 	}
 
-	for i, credential := range presentationCredentials {
-		content := credential.Contents()
-
-		walletPresentationConfig.Metadata[i] = getTrustRegistryCredentialMetadata(content)
-	}
-
-	reqPayload, err := json.Marshal(walletPresentationConfig)
+	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("encode verifier config: %w", err)
+		return fmt.Errorf("marshal wallet issuance request: %w", err)
 	}
 
-	responseDecoded, err := s.doTrustRegistryRequest(context.Background(), policyURL, reqPayload)
+	resp, err := c.doRequest(context.Background(), c.trustRegistryURL, body)
 	if err != nil {
 		return err
 	}
 
-	if !responseDecoded.Allowed {
+	if !resp.Allowed {
 		return ErrInteractionRestricted
 	}
 
-	logger.Debug("ValidateWalletPresentation succeed")
+	logger.Debug("issuer validation succeed")
 
 	return nil
 }
 
-func (s *Service) doTrustRegistryRequest(ctx context.Context, policyURL string, req []byte) (*Response, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, policyURL, bytes.NewReader(req))
+func (c *Client) ValidateVerifier(
+	verifierDID,
+	verifierDomain string,
+	credentials []*verifiable.Credential,
+) error {
+	logger.Debug("verifier validation begin")
+
+	req := &WalletPresentationRequest{
+		VerifierDID:        verifierDID,
+		VerifierDomain:     verifierDomain,
+		CredentialMetadata: make([]CredentialMetadata, len(credentials)),
+	}
+
+	for i, credential := range credentials {
+		content := credential.Contents()
+
+		req.CredentialMetadata[i] = getCredentialMetadata(content)
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal wallet presentation request: %w", err)
+	}
+
+	resp, err := c.doRequest(context.Background(), c.trustRegistryURL, body)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Allowed {
+		return ErrInteractionRestricted
+	}
+
+	logger.Debug("verifier validation succeed")
+
+	return nil
+}
+
+func getCredentialMetadata(content verifiable.CredentialContents) CredentialMetadata {
+	var iss, exp string
+	if content.Issued != nil {
+		iss = content.Issued.FormatToString()
+	}
+
+	if content.Expired != nil {
+		exp = content.Expired.FormatToString()
+	}
+
+	return CredentialMetadata{
+		CredentialID:    content.ID,
+		CredentialTypes: content.Types,
+		ExpirationDate:  exp,
+		IssuanceDate:    iss,
+		IssuerID:        content.Issuer.ID,
+	}
+}
+
+func (c *Client) doRequest(ctx context.Context, policyURL string, body []byte) (*PolicyEvaluationResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, policyURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	request.Header.Add("content-type", "application/json")
+	req.Header.Add("content-type", "application/json")
 
-	resp, err := s.httpClient.Do(request)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}
@@ -89,30 +147,12 @@ func (s *Service) doTrustRegistryRequest(ctx context.Context, policyURL string, 
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var responseDecoded *Response
-	err = json.NewDecoder(resp.Body).Decode(&responseDecoded)
+	var policyEvaluationResp *PolicyEvaluationResponse
+
+	err = json.NewDecoder(resp.Body).Decode(&policyEvaluationResp)
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	return responseDecoded, nil
-}
-
-func getTrustRegistryCredentialMetadata(content verifiable.CredentialContents) *CredentialMetadata {
-	var iss, exp string
-	if content.Issued != nil {
-		iss = content.Issued.FormatToString()
-	}
-
-	if content.Expired != nil {
-		exp = content.Expired.FormatToString()
-	}
-
-	return &CredentialMetadata{
-		CredentialID:    content.ID,
-		CredentialTypes: content.Types,
-		ExpirationDate:  exp,
-		IssuanceDate:    iss,
-		IssuerID:        content.Issuer.ID,
-	}
+	return policyEvaluationResp, nil
 }

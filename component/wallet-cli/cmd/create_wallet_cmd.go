@@ -22,9 +22,10 @@ import (
 )
 
 type createCommandFlags struct {
-	serviceFlags *serviceFlags
-	didMethod    string
-	didKeyType   string
+	serviceFlags     *serviceFlags
+	didMethod        string
+	didKeyType       string
+	trustRegistryURL string
 }
 
 func NewCreateWalletCommand() *cobra.Command {

@@ -56,6 +56,8 @@ type oidc4vciCommandFlags struct {
 	enableDiscoverableClientID bool
 	enableTracing              bool
 	proxyURL                   string
+	trustRegistryURL           string
+	attestationVP              string
 }
 
 func NewOIDC4VCICommand() *cobra.Command {
@@ -217,6 +219,8 @@ func NewOIDC4VCICommand() *cobra.Command {
 				oidc4vci.WithCredentialFormat(flags.credentialFormat),
 				oidc4vci.WithClientID(flags.clientID),
 				oidc4vci.WithWalletSignatureType(w.SignatureType()),
+				oidc4vci.WithTrustRegistryURL(flags.trustRegistryURL),
+				oidc4vci.WithAttestationVP(flags.attestationVP),
 			}
 
 			if walletInitiatedFlow {
@@ -343,6 +347,8 @@ func NewOIDC4VCICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.issuerState, "issuer-state", "", "issuer state in wallet-initiated flow")
 	cmd.Flags().StringVar(&flags.pin, "pin", "", "pin for pre-authorized code flow")
 	cmd.Flags().BoolVar(&flags.enableDiscoverableClientID, "enable-discoverable-client-id", false, "enables discoverable client id scheme for dynamic client registration")
+	cmd.Flags().StringVar(&flags.trustRegistryURL, "trust-registry-url", "", "if supplied, wallet will run issuer verification in trust registry")
+	cmd.Flags().StringVar(&flags.attestationVP, "attestation-vp", "", "wallet attestation vp in jwt format")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
