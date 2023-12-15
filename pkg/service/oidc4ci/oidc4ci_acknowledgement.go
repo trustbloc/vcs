@@ -19,6 +19,8 @@ type AckService struct {
 	cfg *AckServiceConfig
 }
 
+var ErrAckExpired = errors.New("expired_ack_id")
+
 type AckServiceConfig struct {
 	AckStore   ackStore
 	EventSvc   eventService
@@ -89,7 +91,7 @@ func (s *AckService) HandleAckNotFound(
 		return err
 	}
 
-	return errors.New("ack expired")
+	return ErrAckExpired
 }
 
 // Ack acknowledges the interaction.
