@@ -147,15 +147,16 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("query wallet: %w", err)
 	}
 
-	if trustRegistryURL := f.trustRegistryURL; trustRegistryURL != "" {
-		slog.Info("Run Trust Registry Verifier validation", "url", trustRegistryURL)
+	if f.trustRegistryURL != "" {
+		slog.Info("validate verifier", "url", f.trustRegistryURL)
 
-		trustRegistry := trustregistry.New(&trustregistry.Config{
-			HTTPClient: f.httpClient,
-		})
-
-		if err = trustRegistry.ValidateWalletPresentation(trustRegistryURL, requestObject.ClientID, credentials); err != nil {
-			return fmt.Errorf("trust registry verifier validation: %w", err)
+		if err = trustregistry.NewClient(f.httpClient, f.trustRegistryURL).
+			ValidateVerifier(
+				requestObject.ClientID,
+				"",
+				credentials,
+			); err != nil {
+			return fmt.Errorf("validate verifier: %w", err)
 		}
 	}
 

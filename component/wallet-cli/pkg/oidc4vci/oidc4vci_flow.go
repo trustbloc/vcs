@@ -35,6 +35,7 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -49,7 +50,8 @@ const (
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 
-	jwtProofTypeHeader = "openid4vci-proof+jwt"
+	jwtProofTypeHeader      = "openid4vci-proof+jwt"
+	attestJWTClientAuthType = "attest_jwt_client_auth"
 )
 
 type FlowType string
@@ -66,6 +68,7 @@ type Flow struct {
 	vdrRegistry                vdrapi.Registry
 	signer                     jose.Signer
 	wellKnownService           *wellknown.Service
+	trustRegistryURL           string
 	flowType                   FlowType
 	credentialOffer            string
 	credentialType             string
@@ -79,6 +82,7 @@ type Flow struct {
 	issuerState                string
 	pin                        string
 	vc                         *verifiable.Credential
+	attestationVP              string
 }
 
 type provider interface {
@@ -164,6 +168,8 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		userPassword:               o.userPassword,
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
+		trustRegistryURL:           o.trustRegistryURL,
+		attestationVP:              o.attestationVP,
 	}, nil
 }
 
@@ -180,13 +186,16 @@ func (f *Flow) Run(ctx context.Context) error {
 	)
 
 	var (
-		credentialIssuer      string
-		issuerState           string
-		preAuthorizationGrant *oidc4ci.PreAuthorizationGrant
+		credentialIssuer        string
+		issuerState             string
+		preAuthorizationGrant   *oidc4ci.PreAuthorizationGrant
+		credentialOfferResponse *oidc4ci.CredentialOfferResponse
 	)
 
 	if f.flowType == FlowTypeAuthorizationCode || f.flowType == FlowTypePreAuthorizedCode {
-		credentialOfferResponse, err := f.parseCredentialOfferURI(f.credentialOffer)
+		var err error
+
+		credentialOfferResponse, err = f.parseCredentialOfferURI(f.credentialOffer)
 		if err != nil {
 			return err
 		}
@@ -208,6 +217,38 @@ func (f *Flow) Run(ctx context.Context) error {
 	openIDConfig, err := f.wellKnownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
 	if err != nil {
 		return err
+	}
+
+	if f.trustRegistryURL != "" {
+		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
+			return fmt.Errorf("credential offer is empty")
+		}
+
+		slog.Info("validate issuer", "url", f.trustRegistryURL)
+
+		credentialOffer := credentialOfferResponse.Credentials[0]
+
+		var credentialType string
+
+		for _, t := range credentialOffer.Types {
+			if t != "VerifiableCredential" {
+				credentialType = t
+				break
+			}
+		}
+
+		credentialFormat := string(credentialOffer.Format)
+
+		if err = trustregistry.NewClient(f.httpClient, f.trustRegistryURL).
+			ValidateIssuer(
+				credentialOfferResponse.CredentialIssuer,
+				"",
+				credentialType,
+				credentialFormat,
+				lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
+			); err != nil {
+			return fmt.Errorf("validate issuer: %w", err)
+		}
 	}
 
 	var token *oauth2.Token
@@ -257,6 +298,11 @@ func (f *Flow) Run(ctx context.Context) error {
 			}
 
 			tokenValues.Add("user_pin", f.pin)
+		}
+
+		if f.attestationVP != "" {
+			tokenValues.Add("client_assertion_type", attestJWTClientAuthType)
+			tokenValues.Add("client_assertion", f.attestationVP)
 		}
 
 		var resp *http.Response
@@ -490,9 +536,19 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 		"token_endpoint", oauthClient.Endpoint.TokenURL,
 	)
 
-	token, err := oauthClient.Exchange(ctx, authCode,
+	authCodeOptions := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
-	)
+	}
+
+	// TODO: Resolve issue with unknown "client_assertion_type" parameter
+	if f.attestationVP != "" {
+		authCodeOptions = append(authCodeOptions,
+			oauth2.SetAuthURLParam("client_assertion_type", attestJWTClientAuthType),
+			oauth2.SetAuthURLParam("client_assertion", f.attestationVP),
+		)
+	}
+
+	token, err := oauthClient.Exchange(ctx, authCode, authCodeOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("exchange code for token: %w", err)
 	}
@@ -601,7 +657,6 @@ func (f *Flow) getVC(
 	return parsedVC, nil
 }
 
-
 func (f *Flow) handleIssuanceAck(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credResponse *CredentialResponse,
@@ -658,7 +713,6 @@ func (f *Flow) handleIssuanceAck(
 	return nil
 }
 
-
 func waitForEnter(
 	done chan<- struct{},
 ) {
@@ -714,6 +768,8 @@ type options struct {
 	walletDID                  string
 	walletKMSKeyID             string
 	walletSignatureType        vcs.SignatureType
+	trustRegistryURL           string
+	attestationVP              string
 }
 
 type Opt func(opts *options)
@@ -805,5 +861,17 @@ func WithWalletKMSKeyID(keyID string) Opt {
 func WithWalletSignatureType(walletSignatureType vcs.SignatureType) Opt {
 	return func(opts *options) {
 		opts.walletSignatureType = walletSignatureType
+	}
+}
+
+func WithTrustRegistryURL(url string) Opt {
+	return func(opts *options) {
+		opts.trustRegistryURL = url
+	}
+}
+
+func WithAttestationVP(jwtVP string) Opt {
+	return func(opts *options) {
+		opts.attestationVP = jwtVP
 	}
 }
