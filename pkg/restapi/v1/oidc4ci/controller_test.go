@@ -2201,6 +2201,40 @@ func TestController_Ack(t *testing.T) {
 		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
 		assert.ErrorContains(t, err, "missing access token")
 	})
+
+	t.Run("ack expired", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		ackMock := NewMockAckService(gomock.NewController(t))
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			AckService:     ackMock,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
+			Return(oidc4cisrv.ErrAckExpired)
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer xxxx")
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var bd oidc4ci.AckErrorResponse
+		b, _ := io.ReadAll(rec.Body)
+
+		assert.NoError(t, json.Unmarshal(b, &bd))
+		assert.Equal(t, "expired_ack_id", bd.Error)
+	})
 }
 
 func TestController_OidcRegisterClient(t *testing.T) {

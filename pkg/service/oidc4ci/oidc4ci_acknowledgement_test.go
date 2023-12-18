@@ -106,7 +106,8 @@ func TestAckFallback(t *testing.T) {
 			ErrorText:        "some-random-text",
 			IssuerIdentifier: "https://someurl/some_issuer/v1.0",
 		})
-		assert.ErrorContains(t, err, "ack expired")
+		assert.ErrorIs(t, err, oidc4ci.ErrAckExpired)
+		assert.Equal(t, err.Error(), "expired_ack_id") // do not change this error code. wallet-sdk.
 	})
 
 	t.Run("success with short identifier", func(t *testing.T) {
@@ -157,7 +158,7 @@ func TestAckFallback(t *testing.T) {
 			ErrorText:        "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
 		})
-		assert.ErrorContains(t, err, "ack expired")
+		assert.ErrorContains(t, err, "expired_ack_id")
 	})
 
 	t.Run("no store", func(t *testing.T) {
