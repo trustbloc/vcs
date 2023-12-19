@@ -57,6 +57,23 @@ with the key type ED25519 (EdDSA signature type).
 ./wallet-cli create --mongodb-connection-string "mongodb://localhost:27017" --did-method ion --did-key-type ECDSAP384DER
 ```
 
+### Adding attestation VC to the Wallet
+
+To add attestation VC to the Wallet, use the `attest` command. The following CLI arguments are supported:
+```bash
+      --attestation-url string             attestation url with profile id and profile version, i.e. <host>/profiles/{profileID}/{profileVersion}/wallet/attestation
+      --context-provider-url string        json-ld context provider url
+  -h, --help                               help for attest
+      --leveldb-path string                leveldb path
+      --mongodb-connection-string string   mongodb connection string
+      --wallet-did-index int               index of wallet did, if not set the most recently created DID is used (default -1)
+```
+
+Example:
+```bash
+./wallet-cli attest --leveldb-path "/mnt/wallet.db" --attestation-url "https://<host>/profiles/{profileID}/{profileVersion}/wallet/attestation"
+```
+
 ### Receiving Verifiable Credential using OIDC4VCI exchange protocol
 
 Once the Wallet is created, it can be used to receive Verifiable Credentials from the Issuer. The `oidc4vci` command is

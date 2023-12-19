@@ -24,14 +24,14 @@ var (
 )
 
 type Client struct {
-	httpClient       *http.Client
-	trustRegistryURL string
+	httpClient *http.Client
+	policyURL  string
 }
 
 func NewClient(httpClient *http.Client, policyURL string) *Client {
 	return &Client{
-		httpClient:       httpClient,
-		trustRegistryURL: policyURL,
+		httpClient: httpClient,
+		policyURL:  policyURL,
 	}
 }
 
@@ -57,7 +57,7 @@ func (c *Client) ValidateIssuer(
 		return fmt.Errorf("marshal wallet issuance request: %w", err)
 	}
 
-	resp, err := c.doRequest(context.Background(), c.trustRegistryURL, body)
+	resp, err := c.doRequest(context.Background(), c.policyURL, body)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (c *Client) ValidateVerifier(
 		return fmt.Errorf("marshal wallet presentation request: %w", err)
 	}
 
-	resp, err := c.doRequest(context.Background(), c.trustRegistryURL, body)
+	resp, err := c.doRequest(context.Background(), c.policyURL, body)
 	if err != nil {
 		return err
 	}
