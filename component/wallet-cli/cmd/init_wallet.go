@@ -22,12 +22,64 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/ldutil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 )
 
-type serviceFlags struct {
+type walletFlags struct {
 	levelDBPath             string
 	mongoDBConnectionString string
 	contextProviderURL      string
+	walletDIDIndex          int
+}
+
+func initWallet(flags *walletFlags) (*wallet.Wallet, *services, error) {
+	svc, err := initServices(
+		flags.levelDBPath,
+		flags.mongoDBConnectionString,
+		flags.contextProviderURL,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	keyCreator, err := svc.CryptoSuite().RawKeyCreator()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	w, err := wallet.New(
+		&walletProvider{
+			storageProvider: svc.StorageProvider(),
+			documentLoader:  svc.DocumentLoader(),
+			vdrRegistry:     svc.VDR(),
+			keyCreator:      keyCreator,
+		},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(w.DIDs()) == 0 {
+		return nil, nil, fmt.Errorf("wallet not initialized, please run 'create' command")
+	}
+
+	if len(w.DIDs()) < flags.walletDIDIndex {
+		return nil, nil, fmt.Errorf("--wallet-did-index is out of range")
+	}
+
+	if len(w.DIDs()) > 1 && flags.walletDIDIndex == -1 {
+		var dids []any
+
+		for i, did := range w.DIDs() {
+			dids = append(dids, fmt.Sprintf("%d", i), did.ID)
+		}
+
+		slog.Warn("wallet supports multiple DIDs",
+			slog.Group("did", dids...),
+		)
+	}
+
+	return w, svc, nil
 }
 
 type services struct {
@@ -35,20 +87,25 @@ type services struct {
 	documentLoader  ld.DocumentLoader
 	vdrRegistry     vdrapi.Registry
 	cryptoSuite     api.Suite
+	tlsConfig       *tls.Config
 }
 
-func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error) {
+func initServices(
+	levelDBPath,
+	mongoDBConnectionString,
+	contextProviderURL string,
+) (*services, error) {
 	var (
 		storageType string
 		opts        []storage.Opt
 	)
 
-	if flags.levelDBPath != "" {
+	if levelDBPath != "" {
 		storageType = "leveldb"
-		opts = append(opts, storage.WithDBPath(flags.levelDBPath))
-	} else if flags.mongoDBConnectionString != "" {
+		opts = append(opts, storage.WithDBPath(levelDBPath))
+	} else if mongoDBConnectionString != "" {
 		storageType = "mongodb"
-		opts = append(opts, storage.WithConnectionString(flags.mongoDBConnectionString))
+		opts = append(opts, storage.WithConnectionString(mongoDBConnectionString))
 	} else {
 		return nil, fmt.Errorf("either --leveldb-path or --mongodb-connection-string must be specified")
 	}
@@ -64,13 +121,17 @@ func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error)
 
 	var ldOpts []ldutil.Opt
 
-	if flags.contextProviderURL != "" {
-		ldOpts = append(ldOpts, ldutil.WithRemoteProviderURL(flags.contextProviderURL))
+	if contextProviderURL != "" {
+		ldOpts = append(ldOpts, ldutil.WithRemoteProviderURL(contextProviderURL))
 	}
 
 	documentLoader, err := ldutil.DocumentLoader(storageProvider, ldOpts...)
 	if err != nil {
 		return nil, err
+	}
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
 	}
 
 	vdr, err := vdrutil.NewRegistry(tlsConfig)
@@ -93,6 +154,7 @@ func initServices(flags *serviceFlags, tlsConfig *tls.Config) (*services, error)
 		documentLoader:  documentLoader,
 		vdrRegistry:     vdr,
 		cryptoSuite:     suite,
+		tlsConfig:       tlsConfig,
 	}, nil
 }
 
@@ -110,4 +172,8 @@ func (p *services) VDR() vdrapi.Registry {
 
 func (p *services) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *services) TLSConfig() *tls.Config {
+	return p.tlsConfig
 }

@@ -8,9 +8,7 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,7 +26,7 @@ import (
 )
 
 type oidc4vpCommandFlags struct {
-	serviceFlags                   *serviceFlags
+	serviceFlags                   *walletFlags
 	qrCodePath                     string
 	authorizationRequestURI        string
 	walletDIDIndex                 int
@@ -42,61 +40,20 @@ type oidc4vpCommandFlags struct {
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
 func NewOIDC4VPCommand() *cobra.Command {
 	flags := &oidc4vpCommandFlags{
-		serviceFlags: &serviceFlags{},
+		serviceFlags: &walletFlags{},
 	}
 
 	cmd := &cobra.Command{
 		Use:   "oidc4vp",
 		Short: "presents credential using OIDC4VP flow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tlsConfig := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-
-			svc, err := initServices(flags.serviceFlags, tlsConfig)
+			w, svc, err := initWallet(flags.serviceFlags)
 			if err != nil {
-				return err
-			}
-
-			keyCreator, err := svc.CryptoSuite().RawKeyCreator()
-			if err != nil {
-				return err
-			}
-
-			w, err := wallet.New(
-				&walletProvider{
-					storageProvider: svc.StorageProvider(),
-					documentLoader:  svc.DocumentLoader(),
-					vdrRegistry:     svc.VDR(),
-					keyCreator:      keyCreator,
-				},
-			)
-			if err != nil {
-				return err
-			}
-
-			if len(w.DIDs()) == 0 {
-				return fmt.Errorf("wallet is not initialized, please run 'create' command")
-			}
-
-			if len(w.DIDs()) < flags.walletDIDIndex {
-				return fmt.Errorf("--wallet-did-index is out of range")
-			}
-
-			if len(w.DIDs()) > 1 && flags.walletDIDIndex == -1 {
-				var dids []any
-
-				for i, did := range w.DIDs() {
-					dids = append(dids, fmt.Sprintf("%d", i), did)
-				}
-
-				slog.Warn("wallet supports multiple DIDs",
-					slog.Group("did", dids...),
-				)
+				return fmt.Errorf("init wallet: %w", err)
 			}
 
 			httpTransport := &http.Transport{
-				TLSClientConfig: tlsConfig,
+				TLSClientConfig: svc.TLSConfig(),
 			}
 
 			if flags.proxyURL != "" {

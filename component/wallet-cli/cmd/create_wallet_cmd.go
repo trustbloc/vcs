@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package cmd
 
 import (
-	"crypto/tls"
 	"fmt"
 	"log/slog"
 
@@ -22,26 +21,25 @@ import (
 )
 
 type createCommandFlags struct {
-	serviceFlags     *serviceFlags
-	didMethod        string
-	didKeyType       string
-	trustRegistryURL string
+	walletFlags *walletFlags
+	didMethod   string
+	didKeyType  string
 }
 
 func NewCreateWalletCommand() *cobra.Command {
 	flags := &createCommandFlags{
-		serviceFlags: &serviceFlags{},
+		walletFlags: &walletFlags{},
 	}
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "creates local wallet",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tlsConfig := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-
-			svc, err := initServices(flags.serviceFlags, tlsConfig)
+			svc, err := initServices(
+				flags.walletFlags.levelDBPath,
+				flags.walletFlags.mongoDBConnectionString,
+				flags.walletFlags.contextProviderURL,
+			)
 			if err != nil {
 				return err
 			}
@@ -86,9 +84,9 @@ func NewCreateWalletCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flags.serviceFlags.levelDBPath, "leveldb-path", "", "leveldb path")
-	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
-	cmd.Flags().StringVar(&flags.serviceFlags.contextProviderURL, "context-provider-url", "", "json-ld context provider url")
+	cmd.Flags().StringVar(&flags.walletFlags.levelDBPath, "leveldb-path", "", "leveldb path")
+	cmd.Flags().StringVar(&flags.walletFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
+	cmd.Flags().StringVar(&flags.walletFlags.contextProviderURL, "context-provider-url", "", "json-ld context provider url")
 	cmd.Flags().StringVar(&flags.didMethod, "did-method", "ion", "wallet did methods supported: ion,jwk,key")
 	cmd.Flags().StringVar(&flags.didKeyType, "did-key-type", "ED25519", "did key types supported: ED25519,ECDSAP256DER,ECDSAP384DER")
 

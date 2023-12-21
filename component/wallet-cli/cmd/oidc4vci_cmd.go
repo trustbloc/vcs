@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 )
 
@@ -37,7 +35,7 @@ const (
 )
 
 type oidc4vciCommandFlags struct {
-	serviceFlags               *serviceFlags
+	serviceFlags               *walletFlags
 	grantType                  string
 	qrCodePath                 string
 	credentialOffer            string
@@ -62,57 +60,16 @@ type oidc4vciCommandFlags struct {
 
 func NewOIDC4VCICommand() *cobra.Command {
 	flags := &oidc4vciCommandFlags{
-		serviceFlags: &serviceFlags{},
+		serviceFlags: &walletFlags{},
 	}
 
 	cmd := &cobra.Command{
 		Use:   "oidc4vci",
 		Short: "requests credential with OIDC4VCI authorization or pre-authorized code flows",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tlsConfig := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-
-			svc, err := initServices(flags.serviceFlags, tlsConfig)
+			w, svc, err := initWallet(flags.serviceFlags)
 			if err != nil {
-				return err
-			}
-
-			keyCreator, err := svc.CryptoSuite().RawKeyCreator()
-			if err != nil {
-				return err
-			}
-
-			w, err := wallet.New(
-				&walletProvider{
-					storageProvider: svc.StorageProvider(),
-					documentLoader:  svc.DocumentLoader(),
-					vdrRegistry:     svc.VDR(),
-					keyCreator:      keyCreator,
-				},
-			)
-			if err != nil {
-				return err
-			}
-
-			if len(w.DIDs()) == 0 {
-				return fmt.Errorf("wallet not initialized, please run 'create' command")
-			}
-
-			if len(w.DIDs()) < flags.walletDIDIndex {
-				return fmt.Errorf("--wallet-did-index is out of range")
-			}
-
-			if len(w.DIDs()) > 1 && flags.walletDIDIndex == -1 {
-				var dids []any
-
-				for i, did := range w.DIDs() {
-					dids = append(dids, fmt.Sprintf("%d", i), did.ID)
-				}
-
-				slog.Warn("wallet supports multiple DIDs",
-					slog.Group("did", dids...),
-				)
+				return fmt.Errorf("init wallet: %w", err)
 			}
 
 			emptyCredentialOffer := flags.credentialOffer == "" && flags.qrCodePath == "" && flags.demoIssuerURL == ""
@@ -137,7 +94,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 			}
 
 			httpTransport := &http.Transport{
-				TLSClientConfig: tlsConfig,
+				TLSClientConfig: svc.TLSConfig(),
 			}
 
 			if flags.proxyURL != "" {

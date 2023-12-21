@@ -25,6 +25,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(cmd.NewCreateWalletCommand())
+	rootCmd.AddCommand(cmd.NewAttestWalletCommand())
 	rootCmd.AddCommand(cmd.NewOIDC4VCICommand())
 	rootCmd.AddCommand(cmd.NewOIDC4VPCommand())
 
