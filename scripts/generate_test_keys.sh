@@ -26,6 +26,7 @@ DNS.5 = oidc-provider.example.com
 DNS.6 = mock-login-consent.example.com
 DNS.7 = api-gateway.trustbloc.local
 DNS.8 = mock-trustregistry.trustbloc.local
+DNS.9 = mock-attestation.trustbloc.local
 " >> "$tmp"
 
 #create CA
