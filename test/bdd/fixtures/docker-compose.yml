@@ -238,6 +238,20 @@ services:
     networks:
       - bdd_net
 
+  mock-attestation.trustbloc.local: # mock for Attestation Service
+    container_name: mock-attestation.trustbloc.local
+    image: vcs/mock-attestation:latest
+    environment:
+      - LISTEN_ADDR=:8097
+      - TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
+      - TLS_KEY_PATH=/etc/tls/ec-key.pem
+    ports:
+      - "8097:8097"
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
   oidc4vp-store.example.com: # oidc4vp request object public store
     container_name: oidc4vp-store.example.com
     image: nginx:latest
