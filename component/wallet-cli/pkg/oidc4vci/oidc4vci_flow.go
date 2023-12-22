@@ -28,6 +28,7 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
@@ -40,7 +41,6 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
-	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -85,6 +85,8 @@ type Flow struct {
 	issuerState                string
 	pin                        string
 	vc                         *verifiable.Credential
+	walletKeyID                string
+	walletKeyType              kms.KeyType
 }
 
 type provider interface {
@@ -129,10 +131,16 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 			return nil, fmt.Errorf("issuer state not set")
 		}
 	default:
-		return nil, fmt.Errorf("unsupported flow type: %d", o.flowType)
+		return nil, fmt.Errorf("unsupported flow type: %s", o.flowType)
 	}
 
-	walletDID, err := did.Parse(o.walletDID)
+	if o.walletDIDIndex < 0 || o.walletDIDIndex >= len(p.Wallet().DIDs()) {
+		return nil, fmt.Errorf("invalid wallet did index: %d", o.walletDIDIndex)
+	}
+
+	walletDIDInfo := p.Wallet().DIDs()[o.walletDIDIndex]
+
+	walletDID, err := did.Parse(walletDIDInfo.ID)
 	if err != nil {
 		return nil, fmt.Errorf("parse wallet did: %w", err)
 	}
@@ -142,15 +150,17 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		return nil, fmt.Errorf("resolve wallet did: %w", err)
 	}
 
-	signer, err := p.CryptoSuite().FixedKeyMultiSigner(o.walletKMSKeyID)
+	signer, err := p.CryptoSuite().FixedKeyMultiSigner(walletDIDInfo.KeyID)
 	if err != nil {
-		return nil, fmt.Errorf("get signer for key %s: %w", o.walletKMSKeyID, err)
+		return nil, fmt.Errorf("get signer for key %s: %w", walletDIDInfo.KeyID, err)
 	}
+
+	signatureType := p.Wallet().SignatureType()
 
 	jwsSigner := jwssigner.NewJWSSigner(
 		docResolution.DIDDocument.VerificationMethod[0].ID,
-		string(o.walletSignatureType),
-		kmssigner.NewKMSSigner(signer, o.walletSignatureType, nil),
+		string(signatureType),
+		kmssigner.NewKMSSigner(signer, signatureType, nil),
 	)
 
 	return &Flow{
@@ -160,6 +170,8 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		signer:                     jwsSigner,
 		wallet:                     p.Wallet(),
 		wellKnownService:           p.WellKnownService(),
+		walletKeyID:                walletDIDInfo.KeyID,
+		walletKeyType:              walletDIDInfo.KeyType,
 		flowType:                   o.flowType,
 		credentialOffer:            o.credentialOffer,
 		credentialType:             o.credentialType,
@@ -181,7 +193,7 @@ func (f *Flow) GetVC() *verifiable.Credential {
 }
 
 func (f *Flow) Run(ctx context.Context) error {
-	slog.Info("running OIDC4VCI flow",
+	slog.Info("Running OIDC4VCI flow",
 		"flow_type", f.flowType,
 		"credential_offer_uri", f.credentialOffer,
 		"credential_type", f.credentialType,
@@ -230,7 +242,7 @@ func (f *Flow) Run(ctx context.Context) error {
 			return fmt.Errorf("credential offer is empty")
 		}
 
-		slog.Info("validate issuer", "url", f.trustRegistryURL)
+		slog.Info("Validating issuer", "url", f.trustRegistryURL)
 
 		credentialOffer := credentialOfferResponse.Credentials[0]
 
@@ -277,12 +289,14 @@ func (f *Flow) Run(ctx context.Context) error {
 			return err
 		}
 
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, f.httpClient)
+
 		token, err = f.exchangeAuthorizationCodeForAccessToken(ctx, oauthClient, authCode)
 		if err != nil {
 			return err
 		}
 	} else if f.flowType == FlowTypePreAuthorizedCode {
-		slog.Info("getting access token",
+		slog.Info("Getting access token",
 			"grant_type", preAuthorizedCodeGrantType,
 			"client_id", f.clientID,
 			"pre-authorized_code", preAuthorizationGrant.PreAuthorizedCode,
@@ -368,7 +382,7 @@ func (f *Flow) Run(ctx context.Context) error {
 }
 
 func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResponse, error) {
-	slog.Info("parsing credential offer URI",
+	slog.Info("Parsing credential offer URI",
 		"uri", uri,
 	)
 
@@ -386,7 +400,7 @@ func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResp
 }
 
 func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState string) (string, error) {
-	slog.Info("getting authorization code",
+	slog.Info("Getting authorization code",
 		"client_id", oauthClient.ClientID,
 		"scopes", oauthClient.Scopes,
 		"redirect_uri", oauthClient.RedirectURL,
@@ -542,7 +556,7 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 	oauthClient *oauth2.Config,
 	authCode string,
 ) (*oauth2.Token, error) {
-	slog.Info("exchanging authorization code for access token",
+	slog.Info("Exchanging authorization code for access token",
 		"grant_type", "authorization_code",
 		"client_id", oauthClient.ClientID,
 		"auth_code", authCode,
@@ -610,6 +624,8 @@ func (f *Flow) getAttestationVP() (string, error) {
 		return "", fmt.Errorf("create vp: %w", err)
 	}
 
+	attestationVP.ID = uuid.New().String()
+
 	claims, err := attestationVP.JWTClaims([]string{}, false)
 	if err != nil {
 		return "", fmt.Errorf("get attestation claims: %w", err)
@@ -638,7 +654,8 @@ func (f *Flow) getVC(
 	credentialIssuer string,
 ) (*verifiable.Credential, error) {
 	credentialEndpoint := wellKnown.CredentialEndpoint
-	slog.Info("getting credential",
+
+	slog.Info("Getting credential",
 		"credential_endpoint", credentialEndpoint,
 		"credential_issuer", credentialIssuer,
 	)
@@ -725,6 +742,10 @@ func (f *Flow) getVC(
 	if err != nil {
 		return nil, fmt.Errorf("parse credential: %w", err)
 	}
+
+	slog.Info("Credential received",
+		"vc", string(vcBytes),
+	)
 
 	if err = f.handleIssuanceAck(wellKnown, &credentialResp, token); err != nil {
 		return nil, err
@@ -841,11 +862,8 @@ type options struct {
 	userPassword               string
 	issuerState                string
 	pin                        string
-	walletDID                  string
-	walletKMSKeyID             string
-	walletSignatureType        vcs.SignatureType
 	trustRegistryURL           string
-	attestationVP              string
+	walletDIDIndex             int
 }
 
 type Opt func(opts *options)
@@ -922,32 +940,14 @@ func WithPin(pin string) Opt {
 	}
 }
 
-func WithWalletDID(walletDID string) Opt {
-	return func(opts *options) {
-		opts.walletDID = walletDID
-	}
-}
-
-func WithWalletKMSKeyID(keyID string) Opt {
-	return func(opts *options) {
-		opts.walletKMSKeyID = keyID
-	}
-}
-
-func WithWalletSignatureType(walletSignatureType vcs.SignatureType) Opt {
-	return func(opts *options) {
-		opts.walletSignatureType = walletSignatureType
-	}
-}
-
 func WithTrustRegistryURL(url string) Opt {
 	return func(opts *options) {
 		opts.trustRegistryURL = url
 	}
 }
 
-func WithAttestationVP(jwtVP string) Opt {
+func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
-		opts.attestationVP = jwtVP
+		opts.walletDIDIndex = idx
 	}
 }

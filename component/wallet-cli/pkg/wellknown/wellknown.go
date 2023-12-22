@@ -31,7 +31,7 @@ type Service struct {
 func (s *Service) GetWellKnownOpenIDConfiguration(
 	issuerURL string,
 ) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
-	slog.Info("getting OpenID credential issuer configuration",
+	slog.Info("Getting OpenID credential issuer configuration",
 		"url", issuerURL+"/.well-known/openid-credential-issuer",
 	)
 

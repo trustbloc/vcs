@@ -23,7 +23,6 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vc"
-	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vp"
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
 	vc_devapi "github.com/trustbloc/vcs/test/bdd/pkg/vc-devapi"
 	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
@@ -155,7 +154,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		common.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
 		oidc4vcSteps,
-		oidc4vp.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 		vc_devapi.NewSteps(bddContext),
 		vc_version.NewSteps(bddContext),

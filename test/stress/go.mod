@@ -16,7 +16,7 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734
-	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231003142611-b9399c5814c2
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231222131742-742a7ae591ba
 	github.com/trustbloc/vcs/test/bdd v0.0.0-00010101000000-000000000000
 	golang.org/x/oauth2 v0.7.0
 )

@@ -274,6 +274,11 @@ func (s *Service) requestPolicyEvaluation(
 	policyURL string,
 	payload []byte,
 ) (*PolicyEvaluationResponse, error) {
+	logger.Debugc(ctx, "request policy evaluation",
+		zap.String("url", policyURL),
+		zap.String("payload", string(payload)),
+	)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, policyURL, bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)

@@ -38,8 +38,9 @@ const (
 )
 
 type DIDInfo struct {
-	ID    string `json:"id"`
-	KeyID string `json:"key_id"`
+	ID      string         `json:"id"`
+	KeyID   string         `json:"key_id"`
+	KeyType kmsapi.KeyType `json:"key_type"`
 }
 
 type Wallet struct {
@@ -148,8 +149,9 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 		}
 
 		dids = append(dids, &DIDInfo{
-			ID:    res.DidID,
-			KeyID: strings.Split(res.KeyID, "#")[1],
+			ID:      res.DidID,
+			KeyID:   strings.Split(res.KeyID, "#")[1],
+			KeyType: keyType,
 		})
 
 		updateDIDs = true

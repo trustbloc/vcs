@@ -17,16 +17,17 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/ory/fosite v0.44.0
+	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/samber/lo v1.38.1
-	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/did-go v1.0.2-0.20231117120416-ed019bda587f
+	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
-	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231003142611-b9399c5814c2
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231222131742-742a7ae591ba
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
@@ -62,7 +63,6 @@ require (
 	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
 	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
 	github.com/dave/jennifer v1.6.1 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.11.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
@@ -94,6 +94,7 @@ require (
 	github.com/henvic/httpretty v0.1.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
@@ -123,9 +124,7 @@ require (
 	github.com/ory/x v0.0.573 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
-	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
@@ -145,7 +144,6 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.1 // indirect
-	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a // indirect
 	github.com/trustbloc/sidetree-go v0.0.0-20231117115139-d71ec9786d12 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
