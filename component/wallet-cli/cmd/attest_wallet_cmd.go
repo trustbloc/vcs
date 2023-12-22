@@ -64,7 +64,7 @@ func NewAttestWalletCommand() *cobra.Command {
 			}
 
 			jwsSigner := jwssigner.NewJWSSigner(
-				didInfo.KeyID,
+				fmt.Sprintf("%s#%s", didInfo.ID, didInfo.KeyID),
 				string(w.SignatureType()),
 				kmssigner.NewKMSSigner(signer, w.SignatureType(), nil),
 			)

@@ -26,6 +26,7 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 )
 
@@ -166,6 +167,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 				documentLoader:   svc.DocumentLoader(),
 				vdrRegistry:      svc.VDR(),
 				cryptoSuite:      svc.CryptoSuite(),
+				wallet:           w,
 				wellKnownService: wellKnownService,
 			}
 
@@ -319,6 +321,7 @@ type oidc4vciProvider struct {
 	documentLoader   ld.DocumentLoader
 	vdrRegistry      vdrapi.Registry
 	cryptoSuite      api.Suite
+	wallet           *wallet.Wallet
 	wellKnownService *wellknown.Service
 }
 
@@ -340,6 +343,10 @@ func (p *oidc4vciProvider) VDRegistry() vdrapi.Registry {
 
 func (p *oidc4vciProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *oidc4vciProvider) Wallet() *wallet.Wallet {
+	return p.wallet
 }
 
 func (p *oidc4vciProvider) WellKnownService() *wellknown.Service {

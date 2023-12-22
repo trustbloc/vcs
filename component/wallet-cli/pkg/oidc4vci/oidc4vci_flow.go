@@ -30,12 +30,14 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -67,6 +69,7 @@ type Flow struct {
 	documentLoader             ld.DocumentLoader
 	vdrRegistry                vdrapi.Registry
 	signer                     jose.Signer
+	wallet                     *wallet.Wallet
 	wellKnownService           *wellknown.Service
 	trustRegistryURL           string
 	flowType                   FlowType
@@ -82,7 +85,6 @@ type Flow struct {
 	issuerState                string
 	pin                        string
 	vc                         *verifiable.Credential
-	attestationVP              string
 }
 
 type provider interface {
@@ -90,6 +92,7 @@ type provider interface {
 	DocumentLoader() ld.DocumentLoader
 	VDRegistry() vdrapi.Registry
 	CryptoSuite() api.Suite
+	Wallet() *wallet.Wallet
 	WellKnownService() *wellknown.Service
 }
 
@@ -155,6 +158,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		documentLoader:             p.DocumentLoader(),
 		vdrRegistry:                p.VDRegistry(),
 		signer:                     jwsSigner,
+		wallet:                     p.Wallet(),
 		wellKnownService:           p.WellKnownService(),
 		flowType:                   o.flowType,
 		credentialOffer:            o.credentialOffer,
@@ -169,7 +173,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
 		trustRegistryURL:           o.trustRegistryURL,
-		attestationVP:              o.attestationVP,
 	}, nil
 }
 
@@ -218,6 +221,9 @@ func (f *Flow) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	requireWalletAttestation := openIDConfig.TokenEndpointAuthMethodsSupported != nil &&
+		lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
 
 	if f.trustRegistryURL != "" {
 		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
@@ -300,9 +306,16 @@ func (f *Flow) Run(ctx context.Context) error {
 			tokenValues.Add("user_pin", f.pin)
 		}
 
-		if f.attestationVP != "" {
+		if requireWalletAttestation {
+			var jwtVP string
+
+			jwtVP, err = f.getAttestationVP()
+			if err != nil {
+				return fmt.Errorf("get attestation vp: %w", err)
+			}
+
 			tokenValues.Add("client_assertion_type", attestJWTClientAuthType)
-			tokenValues.Add("client_assertion", f.attestationVP)
+			tokenValues.Add("client_assertion", jwtVP)
 		}
 
 		var resp *http.Response
@@ -540,13 +553,7 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
 	}
 
-	// TODO: Resolve issue with unknown "client_assertion_type" parameter
-	if f.attestationVP != "" {
-		authCodeOptions = append(authCodeOptions,
-			oauth2.SetAuthURLParam("client_assertion_type", attestJWTClientAuthType),
-			oauth2.SetAuthURLParam("client_assertion", f.attestationVP),
-		)
-	}
+	// TODO: Implement client attestation support for authorization code flow
 
 	token, err := oauthClient.Exchange(ctx, authCode, authCodeOptions...)
 	if err != nil {
@@ -554,6 +561,75 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 	}
 
 	return token, nil
+}
+
+func (f *Flow) getAttestationVP() (string, error) {
+	pd := &presexch.PresentationDefinition{
+		ID: uuid.New().String(),
+		InputDescriptors: []*presexch.InputDescriptor{
+			{
+				ID:      uuid.New().String(),
+				Name:    "type",
+				Purpose: "wallet attestation vc requested",
+				Constraints: &presexch.Constraints{
+					Fields: []*presexch.Field{
+						{
+							ID:   uuid.New().String(),
+							Path: []string{"$.type"},
+							Filter: &presexch.Filter{
+								Type: lo.ToPtr("array"),
+								Contains: map[string]interface{}{
+									"pattern": "WalletAttestationCredential",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b, err := json.Marshal(pd)
+	if err != nil {
+		return "", fmt.Errorf("marshal presentation definition: %w", err)
+	}
+
+	presentations, err := f.wallet.Query(b)
+	if err != nil {
+		return "", fmt.Errorf("query wallet: %w", err)
+	}
+
+	if len(presentations) == 0 || len(presentations[0].Credentials()) == 0 {
+		return "", fmt.Errorf("no attestation vc found")
+	}
+
+	attestationVC := presentations[0].Credentials()[0]
+
+	attestationVP, err := verifiable.NewPresentation(verifiable.WithCredentials(attestationVC))
+	if err != nil {
+		return "", fmt.Errorf("create vp: %w", err)
+	}
+
+	claims, err := attestationVP.JWTClaims([]string{}, false)
+	if err != nil {
+		return "", fmt.Errorf("get attestation claims: %w", err)
+	}
+
+	headers := map[string]interface{}{
+		jose.HeaderType: jwtProofTypeHeader,
+	}
+
+	signedJWT, err := jwt.NewJoseSigned(claims, headers, f.signer)
+	if err != nil {
+		return "", fmt.Errorf("create signed jwt: %w", err)
+	}
+
+	jws, err := signedJWT.Serialize(false)
+	if err != nil {
+		return "", fmt.Errorf("serialize signed jwt: %w", err)
+	}
+
+	return jws, nil
 }
 
 func (f *Flow) getVC(
