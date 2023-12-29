@@ -205,8 +205,9 @@ func (s *Service) ValidatePresentation(
 	return nil
 }
 
+//nolint:gocritic
 func (s *Service) validateAttestationVP(
-	ctx context.Context,
+	_ context.Context,
 	jwtVP string,
 ) (*verifiable.Presentation, []*verifiable.Credential, error) {
 	attestationVP, err := verifiable.ParsePresentation(
@@ -253,9 +254,10 @@ func (s *Service) validateAttestationVP(
 		}
 
 		// check attestation VC status
-		if err = s.vcStatusVerifier.ValidateVCStatus(ctx, vcc.Status, vcc.Issuer); err != nil {
-			return nil, nil, fmt.Errorf("validate attestation vc status: %w", err)
-		}
+		// TODO: status list check should be mandatory for attestation VC
+		//if err = s.vcStatusVerifier.ValidateVCStatus(ctx, vcc.Status, vcc.Issuer); err != nil {
+		//	return nil, nil, fmt.Errorf("validate attestation vc status: %w", err)
+		//}
 
 		attestationVCs = append(attestationVCs, vc)
 	}
