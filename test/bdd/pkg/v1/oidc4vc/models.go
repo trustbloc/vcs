@@ -8,10 +8,11 @@ package oidc4vc
 
 import (
 	util "github.com/trustbloc/did-go/doc/util/time"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
-type initiateOIDC4CIRequest struct {
+type initiateOIDC4VCIRequest struct {
 	ClaimData                 *map[string]interface{} `json:"claim_data,omitempty"`
 	ClaimEndpoint             string                  `json:"claim_endpoint,omitempty"`
 	ClientInitiateIssuanceUrl string                  `json:"client_initiate_issuance_url,omitempty"`
@@ -24,10 +25,25 @@ type initiateOIDC4CIRequest struct {
 	UserPinRequired           bool                    `json:"user_pin_required,omitempty"`
 }
 
-type initiateOIDC4CIResponse struct {
+type initiateOIDC4VCIResponse struct {
 	OfferCredentialURL string  `json:"offer_credential_url"`
 	TxId               string  `json:"tx_id"`
 	UserPin            *string `json:"user_pin"`
+}
+
+type initiateOIDC4VPRequest struct {
+	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
+	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
+	Scopes                        []string                       `json:"scopes,omitempty"`
+}
+
+type presentationDefinitionFilters struct {
+	Fields *[]string `json:"fields,omitempty"`
+}
+
+type initiateOIDC4VPResponse struct {
+	AuthorizationRequest string `json:"authorizationRequest"`
+	TxId                 string `json:"txID"`
 }
 
 type clientRegistrationRequest struct {
@@ -98,12 +114,14 @@ type credentialIssuanceHistoryData struct {
 	TransactionId   string   `json:"transaction_id,omitempty"`
 }
 
-type retrievedCredentialsClaims struct {
+type credentialMetadata struct {
 	Format         vcsverifiable.Format              `json:"format,omitempty"`
 	Type           []string                          `json:"type,omitempty"`
-	SubjectData    []map[string]interface{}          `json:"subjectData,omitempty"`
-	Issuer         map[string]interface{}            `json:"issuer,omitempty"`
+	SubjectData    interface{}                       `json:"subjectData,omitempty"`
+	Issuer         interface{}                       `json:"issuer,omitempty"`
 	IssuanceDate   *util.TimeWrapper                 `json:"issuanceDate,omitempty"`
 	ExpirationDate *util.TimeWrapper                 `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]map[string]interface{} `json:"customClaims,omitempty"`
 }
+
+type retrievedCredentialClaims map[string]credentialMetadata

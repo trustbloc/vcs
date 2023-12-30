@@ -12,6 +12,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
+	github.com/jinzhu/copier v0.3.5
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
@@ -22,10 +23,12 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/trustbloc/did-go v1.0.2-0.20231117120416-ed019bda587f
 	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a
+	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.3
 	go.mongodb.org/mongo-driver v1.11.4
+	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
 )
 
@@ -148,7 +151,6 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.1 // indirect
-	github.com/trustbloc/logutil-go v1.0.0-rc1 // indirect
 	github.com/trustbloc/sidetree-go v0.0.0-20231117115139-d71ec9786d12 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
@@ -164,7 +166,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/mod v0.12.0 // indirect

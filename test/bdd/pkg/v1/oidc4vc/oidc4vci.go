@@ -22,13 +22,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
+	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
@@ -48,32 +54,32 @@ func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, passwor
 	if err := s.ResetAndSetup(); err != nil {
 		return err
 	}
-	issuerProfile, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 
+	issuerProfile, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
 
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
-		username, password, []string{"org_admin"})
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL, username, password,
+		[]string{"org_admin"})
 	if err != nil {
 		return err
 	}
 
 	s.bddContext.Args[getOrgAuthTokenKey(issuerProfile.ID+"/"+issuerProfile.Version)] = accessToken
-
 	s.issuerProfile = issuerProfile
+
 	return nil
 }
 
-func (s *Steps) initiateCredentialIssuance(initiateOIDC4CIRequest initiateOIDC4CIRequest) (*initiateOIDC4CIResponse, error) {
+func (s *Steps) initiateCredentialIssuance(req initiateOIDC4VCIRequest) (*initiateOIDC4VCIResponse, error) {
 	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID, s.issuerProfile.Version)
 
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.ID+"/"+s.issuerProfile.Version)]
 
-	reqBody, err := json.Marshal(initiateOIDC4CIRequest)
+	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal initiate oidc4vc req: %w", err)
+		return nil, fmt.Errorf("marshal initiate oidc4vci req: %w", err)
 	}
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, bytes.NewReader(reqBody),
@@ -93,10 +99,10 @@ func (s *Steps) initiateCredentialIssuance(initiateOIDC4CIRequest initiateOIDC4C
 		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
 	}
 
-	var r *initiateOIDC4CIResponse
+	var r *initiateOIDC4VCIResponse
 
 	if err = json.Unmarshal(b, &r); err != nil {
-		return nil, fmt.Errorf("unmarshal initiate oidc4vc resp: %w", err)
+		return nil, fmt.Errorf("unmarshal initiate oidc4vci resp: %w", err)
 	}
 
 	if err = s.checkInitiateIssuanceURL(r.OfferCredentialURL); err != nil {
@@ -118,28 +124,41 @@ func (s *Steps) checkInitiateIssuanceURL(initiateIssuanceURL string) error {
 	return nil
 }
 
-func (s *Steps) runOIDC4CIPreAuth(initiateOIDC4CIRequest initiateOIDC4CIRequest) error {
+func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIRequest) error {
 	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(initiateOIDC4CIRequest)
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("init credential issuance: %w", err)
 	}
 
-	_, err = s.walletRunner.RunOIDC4CIPreAuth(
-		&walletrunner.OIDC4VCIConfig{
-			CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-			CredentialType:     s.issuedCredentialType,
-			CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-			Pin:                *initiateOIDC4CIResponseData.UserPin,
-		}, nil)
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
+		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
+	)
 	if err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
+		return fmt.Errorf("init pre-auth flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run pre-auth flow: %w", err)
+	}
+
+	vcBytes, err := json.Marshal(flow.GetVC())
+	if err != nil {
+		return fmt.Errorf("marshal vc: %w", err)
+	}
+
+	if err = s.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Steps) runOIDC4CIPreAuthWithInvalidClaims() error {
-	initiateIssuanceRequest := initiateOIDC4CIRequest{
+func (s *Steps) runOIDC4VCIPreAuthWithInvalidClaims() error {
+	initiateIssuanceRequest := initiateOIDC4VCIRequest{
 		CredentialTemplateId: "universityDegreeTemplateID",
 		ClaimData: &map[string]interface{}{
 			"degree": map[string]string{
@@ -153,7 +172,7 @@ func (s *Steps) runOIDC4CIPreAuthWithInvalidClaims() error {
 		UserPinRequired: true,
 	}
 
-	err := s.runOIDC4CIPreAuth(initiateIssuanceRequest)
+	err := s.runOIDC4VCIPreAuth(initiateIssuanceRequest)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -166,7 +185,7 @@ func (s *Steps) runOIDC4CIPreAuthWithInvalidClaims() error {
 }
 
 func (s *Steps) initiateCredentialIssuanceWithClaimsSchemaValidationError() error {
-	initiateIssuanceRequest := initiateOIDC4CIRequest{
+	initiateIssuanceRequest := initiateOIDC4VCIRequest{
 		CredentialTemplateId: "universityDegreeTemplateID",
 		ClaimData: &map[string]interface{}{
 			"degree": map[string]string{
@@ -223,20 +242,16 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 		return fmt.Errorf("fetchClaimData: %w", err)
 	}
 
-	initiateIssuanceRequest := initiateOIDC4CIRequest{
+	initiateIssuanceRequest := initiateOIDC4VCIRequest{
 		CredentialTemplateId: s.issuedCredentialTemplateID,
 		ClaimData:            &claims,
 		UserPinRequired:      true,
 	}
 
-	return s.runOIDC4CIPreAuth(initiateIssuanceRequest)
+	return s.runOIDC4VCIPreAuth(initiateIssuanceRequest)
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
-	if err := s.walletRunner.CreateWallet(); err != nil {
-		return fmt.Errorf("create wallet: %w", err)
-	}
-
 	if err := s.addAttestationVC(); err != nil {
 		return fmt.Errorf("add attestation vc to wallet: %w", err)
 	}
@@ -246,27 +261,39 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		return fmt.Errorf("fetchClaimData: %w", err)
 	}
 
-	initiateIssuanceRequest := initiateOIDC4CIRequest{
+	req := initiateOIDC4VCIRequest{
 		CredentialTemplateId: s.issuedCredentialTemplateID,
 		ClaimData:            &claims,
 		UserPinRequired:      true,
 	}
 
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(initiateIssuanceRequest)
+	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(req)
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	_, err = s.walletRunner.RunOIDC4CIPreAuth(
-		&walletrunner.OIDC4VCIConfig{
-			CredentialOfferURI:      initiateOIDC4CIResponseData.OfferCredentialURL,
-			CredentialType:          s.issuedCredentialType,
-			CredentialFormat:        s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-			Pin:                     *initiateOIDC4CIResponseData.UserPin,
-			EnableClientAttestation: true,
-		}, nil)
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
+		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
+	)
 	if err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4CIPreAuth: %w", err)
+		return fmt.Errorf("init pre-auth flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run pre-auth flow: %w", err)
+	}
+
+	vcBytes, err := json.Marshal(flow.GetVC())
+	if err != nil {
+		return fmt.Errorf("marshal vc: %w", err)
+	}
+
+	if err = s.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
@@ -285,11 +312,11 @@ func (s *Steps) addAttestationVC() error {
 		},
 		Subject: []verifiable.Subject{
 			{
-				ID: s.walletRunner.GetVCProviderConf().WalletParams.DidID[0],
+				ID: s.wallet.DIDs()[0].ID,
 			},
 		},
 		Issuer: &verifiable.Issuer{
-			ID: s.walletRunner.GetVCProviderConf().WalletParams.DidID[0],
+			ID: s.wallet.DIDs()[0].ID,
 		},
 		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
@@ -352,7 +379,7 @@ func (s *Steps) addAttestationVC() error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBody)
 	}
 
-	return s.walletRunner.SaveCredentialInWallet(respBody)
+	return s.wallet.Add(respBody)
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithError(errorContains string) error {
@@ -376,26 +403,27 @@ func (s *Steps) credentialTypeTemplateID(issuedCredentialType, issuedCredentialT
 }
 
 func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorContains string) error {
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:           "oidc4vc_client",
-		Scopes:             []string{"openid", "profile"},
-		RedirectURI:        "http://127.0.0.1/callback",
-		CredentialType:     s.issuedCredentialType,
-		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:              "bdd-test",
-		Password:           "bdd-test-pass",
-	}, &walletrunner.Hooks{
-		BeforeTokenRequest: []walletrunner.OauthClientOpt{
-			walletrunner.WithClientID(updatedClientID),
-		}})
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithClientID(updatedClientID),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+	)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
 
-	if err == nil {
+	if err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -426,53 +454,47 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
-	return s.runOIDC4CIAuthWithErrorInvalidSignature(
-		[]walletrunner.CredentialRequestOpt{
-			walletrunner.WithSignerKeyID("didID#keyID"),
-		},
-		errorContains,
-	)
+func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
+	// TODO: Add support for customizing token request in oidc4vci flow
+	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithErrorInvalidSignatureValue(errorContains string) error {
-	return s.runOIDC4CIAuthWithErrorInvalidSignature(
-		[]walletrunner.CredentialRequestOpt{
-			walletrunner.WithSignatureValue(uuid.NewString()),
-		},
-		errorContains,
-	)
+func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains string) error {
+	// TODO: Add support for customizing token request in oidc4vci flow
+	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithErrorInvalidNonce(errorContains string) error {
-	return s.runOIDC4CIAuthWithErrorInvalidSignature(
-		[]walletrunner.CredentialRequestOpt{
-			walletrunner.WithNonce(uuid.NewString()),
-		},
-		errorContains,
-	)
+func (s *Steps) runOIDC4VCIAuthWithErrorInvalidNonce(errorContains string) error {
+	// TODO: Add support for customizing token request in oidc4vci flow
+	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithErrorInvalidSignature(beforeCredentialRequestOpts []walletrunner.CredentialRequestOpt, errorContains string) error {
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...oidc4vci.Opt) error {
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:           "oidc4vc_client",
-		Scopes:             []string{"openid", "profile"},
-		RedirectURI:        "http://127.0.0.1/callback",
-		CredentialType:     s.issuedCredentialType,
-		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:              "bdd-test",
-		Password:           "bdd-test-pass",
-	}, &walletrunner.Hooks{
-		BeforeCredentialRequest: beforeCredentialRequestOpts,
-	})
+	opts := []oidc4vci.Opt{
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+	}
 
-	if err == nil {
+	opts = append(opts, overrideOpts...)
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider, opts...)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -483,48 +505,76 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidSignature(beforeCredentialRequestO
 	return nil
 }
 
-func (s *Steps) runOIDC4CIAuth() error {
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+func (s *Steps) runOIDC4VCIAuth() error {
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:           "oidc4vc_client",
-		Scopes:             []string{"openid", "profile"},
-		RedirectURI:        "http://127.0.0.1/callback",
-		CredentialType:     s.issuedCredentialType,
-		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:              "bdd-test",
-		Password:           "bdd-test-pass",
-	}, nil)
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+	)
 	if err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4VCI: %w", err)
+		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	return nil
-}
+	if err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run auth flow: %w", err)
+	}
 
-func (s *Steps) runOIDC4CIAuthWalletInitiatedFlow() error {
-	err := s.walletRunner.RunOIDC4CIWalletInitiated(&walletrunner.OIDC4VCIConfig{
-		ClientID:         "oidc4vc_client",
-		Scopes:           []string{"openid", "profile"},
-		RedirectURI:      "http://127.0.0.1/callback",
-		CredentialType:   s.issuedCredentialType,
-		CredentialFormat: s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:            "bdd-test",
-		Password:         "bdd-test-pass",
-		IssuerState:      fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version),
-	}, nil)
+	vcBytes, err := json.Marshal(flow.GetVC())
 	if err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4CIWalletInitiated: %w", err)
+		return fmt.Errorf("marshal vc: %w", err)
+	}
+
+	if err = s.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Steps) runOIDC4CIAuthWithInvalidClaims() error {
+func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeWalletInitiated),
+		oidc4vci.WithIssuerState(fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version)),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+	)
+	if err != nil {
+		return fmt.Errorf("init wallet-initiated auth flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run wallet-initiated auth flow: %w", err)
+	}
+
+	vcBytes, err := json.Marshal(flow.GetVC())
+	if err != nil {
+		return fmt.Errorf("marshal vc: %w", err)
+	}
+
+	if err = s.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add vc to wallet: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 	s.issuedCredentialType = "UniversityDegreeCredential"
 	s.issuedCredentialTemplateID = "universityDegreeTemplateID"
 
@@ -543,22 +593,27 @@ func (s *Steps) runOIDC4CIAuthWithInvalidClaims() error {
 	issuanceReq := s.getInitiateIssuanceRequest()
 	issuanceReq.ClaimEndpoint += fmt.Sprintf("&claim_data=%s", base64.URLEncoding.EncodeToString(claimsDataBytes))
 
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(issuanceReq)
+	resp, err := s.initiateCredentialIssuance(issuanceReq)
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	err = s.walletRunner.RunOIDC4VCI(&walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-		ClientID:           "oidc4vc_client",
-		Scopes:             []string{"openid", "profile"},
-		RedirectURI:        "http://127.0.0.1/callback",
-		CredentialType:     s.issuedCredentialType,
-		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:              "bdd-test",
-		Password:           "bdd-test-pass",
-	}, nil)
-	if err == nil {
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+	)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -570,39 +625,55 @@ func (s *Steps) runOIDC4CIAuthWithInvalidClaims() error {
 }
 
 func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error {
-	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
 	if err != nil {
-		return fmt.Errorf("initiateCredentialIssuance: %w", err)
+		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
-	config := &walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: initiateOIDC4CIResponseData.OfferCredentialURL,
-		Scopes:             []string{"openid", "profile"},
-		RedirectURI:        "http://127.0.0.1/callback",
-		CredentialType:     s.issuedCredentialType,
-		CredentialFormat:   s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string),
-		Login:              "bdd-test",
-		Password:           "bdd-test-pass",
+
+	opts := []oidc4vci.Opt{
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+		oidc4vci.WithCredentialType(s.issuedCredentialType),
+		oidc4vci.WithCredentialFormat(s.issuerProfile.CredentialMetaData.CredentialsSupported[0]["format"].(string)),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
 
 	switch method {
 	case "pre-registered":
-		config.ClientID = "oidc4vc_client"
+		opts = append(opts, oidc4vci.WithClientID("oidc4vc_client"))
 	case "dynamic":
-		clientID, regErr := s.registerOAuthClient(initiateOIDC4CIResponseData.OfferCredentialURL)
+		clientID, regErr := s.registerOAuthClient(resp.OfferCredentialURL)
 		if regErr != nil {
 			return fmt.Errorf("register oauth client: %w", err)
 		}
 
-		config.ClientID = clientID
+		opts = append(opts, oidc4vci.WithClientID(clientID))
 	case "discoverable":
-		config.ClientID = "https://file-server.trustbloc.local:10096"
-		config.EnableDiscoverableClientID = true
+		opts = append(opts, oidc4vci.WithClientID("https://file-server.trustbloc.local:10096"))
+		opts = append(opts, oidc4vci.WithEnableDiscoverableClientID())
 	default:
 		return fmt.Errorf("unsupported client registration method: %s", method)
 	}
 
-	if err = s.walletRunner.RunOIDC4VCI(config, nil); err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4VCI: %w", err)
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider, opts...)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run auth flow: %w", err)
+	}
+
+	vcBytes, err := json.Marshal(flow.GetVC())
+	if err != nil {
+		return fmt.Errorf("marshal vc: %w", err)
+	}
+
+	if err = s.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
@@ -625,7 +696,7 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 		return "", fmt.Errorf("unmarshal credential offer: %w", err)
 	}
 
-	openIDConfig, err := s.walletRunner.GetWellKnownOpenIDConfiguration(offer.CredentialIssuer)
+	openIDConfig, err := s.wellKnownService.GetWellKnownOpenIDConfiguration(offer.CredentialIssuer)
 	if err != nil {
 		return "", fmt.Errorf("get openid well-known config: %w", err)
 	}
@@ -665,8 +736,8 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 	return r.ClientId, nil
 }
 
-func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4CIRequest {
-	return initiateOIDC4CIRequest{
+func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4VCIRequest {
+	return initiateOIDC4VCIRequest{
 		ClaimEndpoint:        claimDataURL + "?credentialType=" + s.issuedCredentialType,
 		CredentialTemplateId: s.issuedCredentialTemplateID,
 		GrantType:            "authorization_code",
@@ -682,7 +753,7 @@ func getOrgAuthTokenKey(org string) string {
 }
 
 func (s *Steps) checkIssuedCredential() error {
-	credentialMap, err := s.walletRunner.GetWallet().GetAll()
+	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
 		return fmt.Errorf("wallet.GetAll(): %w", err)
 	}
@@ -692,7 +763,7 @@ func (s *Steps) checkIssuedCredential() error {
 	for _, vcBytes := range credentialMap {
 		vcParsed, err = verifiable.ParseCredential(vcBytes,
 			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(s.dl))
+			verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 		if err != nil {
 			return fmt.Errorf("parse credential from wallet: %w", err)
 		}
@@ -784,7 +855,7 @@ func (s *Steps) checkIssuedCredentialHistory(credential *verifiable.Credential, 
 func (s *Steps) checkIssuedCredentialHistoryStep() error {
 	vcParsed, err := verifiable.ParseCredential(s.bddContext.CreatedCredential,
 		verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(s.dl))
+		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 	if err != nil {
 		return fmt.Errorf("checkIssuedCredentialHistoryStep: %w", err)
 	}
@@ -854,9 +925,8 @@ func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
 
 func (s *Steps) saveCredentials() error {
 	for _, cred := range s.bddContext.CreatedCredentialsSet {
-		err := s.walletRunner.SaveCredentialInWallet(cred)
-		if err != nil {
-			return fmt.Errorf("wallet add credential failed: %w", err)
+		if err := s.wallet.Add(cred); err != nil {
+			return fmt.Errorf("add credential to wallet: %w", err)
 		}
 	}
 
@@ -865,9 +935,8 @@ func (s *Steps) saveCredentials() error {
 
 func (s *Steps) saveCredentialsInWallet() error {
 	for _, cred := range s.bddContext.CreatedCredentialsSet {
-		err := s.walletRunner.SaveCredentialInWallet(cred)
-		if err != nil {
-			return fmt.Errorf("wallet add credential failed: %w", err)
+		if err := s.wallet.Add(cred); err != nil {
+			return fmt.Errorf("add credential to wallet: %w", err)
 		}
 	}
 
@@ -898,4 +967,42 @@ func checkIssuer(vc *verifiable.Credential, expected string) error {
 	}
 
 	return nil
+}
+
+type oidc4vciProvider struct {
+	storageProvider  storageapi.Provider
+	httpClient       *http.Client
+	documentLoader   ld.DocumentLoader
+	vdrRegistry      vdrapi.Registry
+	cryptoSuite      api.Suite
+	wallet           *wallet.Wallet
+	wellKnownService *wellknown.Service
+}
+
+func (p *oidc4vciProvider) StorageProvider() storageapi.Provider {
+	return p.storageProvider
+}
+
+func (p *oidc4vciProvider) HTTPClient() *http.Client {
+	return p.httpClient
+}
+
+func (p *oidc4vciProvider) DocumentLoader() ld.DocumentLoader {
+	return p.documentLoader
+}
+
+func (p *oidc4vciProvider) VDRegistry() vdrapi.Registry {
+	return p.vdrRegistry
+}
+
+func (p *oidc4vciProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
+}
+
+func (p *oidc4vciProvider) Wallet() *wallet.Wallet {
+	return p.wallet
+}
+
+func (p *oidc4vciProvider) WellKnownService() *wellknown.Service {
+	return p.wellKnownService
 }

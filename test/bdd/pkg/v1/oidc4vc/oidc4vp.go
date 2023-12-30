@@ -17,11 +17,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/piprate/json-gold/ld"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
-	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -36,11 +40,11 @@ const (
 
 	oidc4vpWebhookURL = "http://localhost:8180/checktopics"
 
-	credentialServiceURL               = "https://api-gateway.trustbloc.local:5566"
-	verifierProfileURL                 = credentialServiceURL + "/verifier/profiles"
-	verifierProfileURLFormat           = verifierProfileURL + "/%s/%s"
-	InitiateOidcInteractionURLFormat   = verifierProfileURLFormat + "/interactions/initiate-oidc"
-	RetrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
+	credentialServiceURL             = "https://api-gateway.trustbloc.local:5566"
+	verifierProfileURL               = credentialServiceURL + "/verifier/profiles"
+	verifierProfileURLFormat         = verifierProfileURL + "/%s/%s"
+	initiateOidcInteractionURLFormat = verifierProfileURLFormat + "/interactions/initiate-oidc"
+	interactionsClaimURLFormat       = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
 
 func (s *Steps) authorizeVerifierProfileUser(profileVersionedID, username, password string) error {
@@ -62,71 +66,173 @@ func (s *Steps) authorizeVerifierProfileUser(profileVersionedID, username, passw
 	return nil
 }
 
-type initiateOIDCVPFlowOpt func(d *initiateOIDC4VPData)
+func (s *Steps) initiateOIDC4VPInteraction(req *initiateOIDC4VPRequest) (*initiateOIDC4VPResponse, error) {
+	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, s.verifierProfile.ID, s.verifierProfile.Version)
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
 
-func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
-	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields)
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal initiate oidc4vp req: %w", err)
+	}
+
+	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, bytes.NewReader(reqBody),
+		s.bddContext.TLSConfig)
+	if err != nil {
+		return nil, fmt.Errorf("https do: %w", err)
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
+	}
+
+	var r *initiateOIDC4VPResponse
+
+	if err = json.Unmarshal(b, &r); err != nil {
+		return nil, fmt.Errorf("unmarshal initiate oidc4vp resp: %w", err)
+	}
+
+	return r, nil
 }
 
-func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, opts ...initiateOIDCVPFlowOpt) error {
-	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
-	s.presentationDefinitionID = pdID
-
-	providerConf := s.walletRunner.GetConfig()
-	providerConf.WalletUserId = providerConf.WalletParams.UserID
-	providerConf.WalletPassPhrase = providerConf.WalletParams.Passphrase
-	providerConf.WalletDidID = providerConf.WalletParams.DidID[0]
-	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID[0]
-	providerConf.SkipSchemaValidation = true
-
-	fieldsArr := strings.Split(fields, ",")
-
-	d := &initiateOIDC4VPData{
-		PresentationDefinitionId: pdID,
-		PresentationDefinitionFilters: &presentationDefinitionFilters{
-			Fields: &fieldsArr,
-		},
+func (s *Steps) retrieveInteractionsClaim(profile string) error {
+	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
+		return err
 	}
 
-	for _, f := range opts {
-		f(d)
-	}
-
-	reqBody, err := json.Marshal(d)
+	claims, err := s.retrieveCredentialClaims(s.vpClaimsTransactionID)
 	if err != nil {
 		return err
 	}
 
-	chunks := strings.Split(profileVersionedID, "/")
-	if len(chunks) != 2 {
-		return errors.New("runOIDC4VPFlow - invalid profileVersionedID field")
+	return s.validateRetrievedCredentialClaims(claims)
+}
+
+func (s *Steps) retrieveInteractionsClaimWithCustomScopes(profile, customScopes string) error {
+	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
+		return err
 	}
 
-	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, chunks[0], chunks[1])
-	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
-	vpFlowExecutor := s.walletRunner.NewVPFlowExecutor(true)
-
-	initiateInteractionResult, err := vpFlowExecutor.InitiateInteraction(endpointURL, token, bytes.NewBuffer(reqBody))
+	claims, err := s.retrieveCredentialClaims(s.vpClaimsTransactionID)
 	if err != nil {
-		return fmt.Errorf("OIDC4Vp fetch authorization request: %w", err)
+		return err
 	}
 
-	err = s.walletRunner.RunOIDC4VPFlow(context.TODO(), initiateInteractionResult.AuthorizationRequest, s.oidc4vpHooks)
-	if err != nil {
-		return fmt.Errorf("s.walletRunner.RunOIDC4VPFlow: %w", err)
+	scopeClaims, ok := claims["_scope"]
+	if !ok {
+		return errors.New("_scope claim expected")
+	}
+
+	for _, scope := range strings.Split(customScopes, ",") {
+		customScopeClaims, ok := scopeClaims.CustomClaims[scope]
+		if !ok || len(customScopeClaims) == 0 {
+			return fmt.Errorf("no additional claims supplied for custom scope %s", scope)
+		}
+	}
+
+	delete(claims, "_scope")
+
+	return s.validateRetrievedCredentialClaims(claims)
+}
+
+func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(profile string) error {
+	if _, err := s.retrieveCredentialClaims(s.vpClaimsTransactionID); err == nil {
+		return fmt.Errorf("error expected, but got nil")
 	}
 
 	return nil
 }
 
+func (s *Steps) retrieveCredentialClaims(txID string) (retrievedCredentialClaims, error) {
+	endpointURL := fmt.Sprintf(interactionsClaimURLFormat, txID)
+	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
+
+	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "application/json", token, nil, s.bddContext.TLSConfig)
+	if err != nil {
+		return nil, fmt.Errorf("https do: %w", err)
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
+	}
+
+	var claims retrievedCredentialClaims
+
+	if err = json.Unmarshal(b, &claims); err != nil {
+		return nil, fmt.Errorf("unmarshal credential claims: %w", err)
+	}
+
+	return claims, nil
+}
+
+func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClaims) error {
+	var pd *presexch.PresentationDefinition
+	for _, verifierPD := range s.verifierProfile.PresentationDefinitions {
+		if verifierPD.ID == s.presentationDefinitionID {
+			pd = verifierPD
+			break
+		}
+	}
+
+	if len(claims) != len(pd.InputDescriptors) {
+		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
+			len(pd.InputDescriptors),
+			len(claims),
+		)
+	}
+
+	// Check whether credentials are known.
+	credentialMap, err := s.wallet.GetAll()
+	if err != nil {
+		return fmt.Errorf("wallet.GetAll(): %w", err)
+	}
+
+	issuedVCID := make(map[string]struct{}, len(credentialMap))
+	for _, vcBytes := range credentialMap {
+		var vcParsed *verifiable.Credential
+		vcParsed, err = verifiable.ParseCredential(vcBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+		if err != nil {
+			return fmt.Errorf("parse credential from wallet: %w", err)
+		}
+
+		issuedVCID[vcParsed.Contents().ID] = struct{}{}
+	}
+
+	for retrievedVCID := range claims {
+		_, exist := issuedVCID[retrievedVCID]
+		if !exist {
+			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
+		}
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil)
+}
+
 func (s *Steps) runOIDC4VPFlowWithCustomScopes(profileVersionedID, pdID, fields, customScopes string) error {
-	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, func(d *initiateOIDC4VPData) {
-		d.Scopes = strings.Split(customScopes, ",")
-	})
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, strings.Split(customScopes, ","))
 }
 
 func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorContains string) error {
-	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields)
+	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -138,12 +244,52 @@ func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorC
 	return nil
 }
 
-func (s *Steps) setHardcodedVPTokenFormat(vpTokenFormat string) error {
-	s.oidc4vpHooks = &walletrunner.OIDC4VPHooks{
-		CreateAuthorizedResponse: []walletrunner.RPConfigOverride{
-			walletrunner.WithSupportedVPFormat(vcs.Format(vpTokenFormat)),
+func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, scopes []string) error {
+	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
+	s.presentationDefinitionID = pdID
+
+	fieldsArr := strings.Split(fields, ",")
+
+	req := &initiateOIDC4VPRequest{
+		PresentationDefinitionId: pdID,
+		PresentationDefinitionFilters: &presentationDefinitionFilters{
+			Fields: &fieldsArr,
 		},
 	}
+
+	if len(scopes) > 0 {
+		req.Scopes = scopes
+	}
+
+	initiateInteractionResult, err := s.initiateOIDC4VPInteraction(req)
+	if err != nil {
+		return fmt.Errorf("init oidc4vp interaction: %w", err)
+	}
+
+	requestURI := strings.TrimPrefix(initiateInteractionResult.AuthorizationRequest, "openid-vc://?request_uri=")
+
+	flow, err := oidc4vp.NewFlow(s.oidc4vpProvider,
+		oidc4vp.WithRequestURI(requestURI),
+		oidc4vp.WithDomainMatchingDisabled(),
+		oidc4vp.WithSchemaValidationDisabled(),
+	)
+	if err != nil {
+		return fmt.Errorf("init flow: %w", err)
+	}
+
+	if err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run vp flow: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) setHardcodedVPTokenFormat(vpTokenFormat string) error {
+	//s.oidc4vpHooks = &walletrunner.OIDC4VPHooks{
+	//	CreateAuthorizedResponse: []walletrunner.RPConfigOverride{
+	//		walletrunner.WithSupportedVPFormat(vcs.Format(vpTokenFormat)),
+	//	},
+	//}
 
 	return nil
 }
@@ -155,120 +301,6 @@ func (s *Steps) waitForOIDCInteractionSucceededEvent(profile string) error {
 	}
 
 	s.vpClaimsTransactionID = txID
-
-	return nil
-}
-
-func (s *Steps) retrieveInteractionsClaim(profile string) error {
-	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
-		return err
-	}
-
-	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
-	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
-
-	claims, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
-	if err != nil {
-		return err
-	}
-
-	var credentialClaims map[string]retrievedCredentialsClaims
-	if err = json.Unmarshal(claims, &credentialClaims); err != nil {
-		return err
-	}
-
-	return s.validateRetrievedInteractionsClaim(credentialClaims)
-}
-
-func (s *Steps) retrieveInteractionsClaimWithCustomScopes(profile, customScopes string) error {
-	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
-		return err
-	}
-
-	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
-	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
-
-	claims, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
-	if err != nil {
-		return err
-	}
-
-	var credentialClaims map[string]retrievedCredentialsClaims
-	if err = json.Unmarshal(claims, &credentialClaims); err != nil {
-		return err
-	}
-
-	customClaimsMetadata, ok := credentialClaims["_scope"]
-	if !ok {
-		return errors.New("_scope claim expected")
-	}
-
-	for _, scope := range strings.Split(customScopes, ",") {
-		customScopeClaims, ok := customClaimsMetadata.CustomClaims[scope]
-		if !ok || len(customScopeClaims) == 0 {
-			return fmt.Errorf("no additional claims supplied for custom scope %s", scope)
-		}
-	}
-
-	delete(credentialClaims, "_scope")
-
-	return s.validateRetrievedInteractionsClaim(credentialClaims)
-}
-
-func (s *Steps) validateRetrievedInteractionsClaim(credentialClaims map[string]retrievedCredentialsClaims) error {
-	// Check amount.
-	var pd *presexch.PresentationDefinition
-	for _, verifierPD := range s.verifierProfile.PresentationDefinitions {
-		if verifierPD.ID == s.presentationDefinitionID {
-			pd = verifierPD
-			break
-		}
-	}
-
-	if len(credentialClaims) != len(pd.InputDescriptors) {
-		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
-			len(pd.InputDescriptors),
-			len(credentialClaims),
-		)
-	}
-
-	// Check whether credentials are known.
-	credentialMap, err := s.walletRunner.GetWallet().GetAll()
-	if err != nil {
-		return fmt.Errorf("wallet.GetAll(): %w", err)
-	}
-
-	issuedVCID := make(map[string]struct{}, len(credentialMap))
-	for _, vcBytes := range credentialMap {
-		var vcParsed *verifiable.Credential
-		vcParsed, err = verifiable.ParseCredential(vcBytes,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(s.dl))
-		if err != nil {
-			return fmt.Errorf("parse credential from wallet: %w", err)
-		}
-
-		issuedVCID[vcParsed.Contents().ID] = struct{}{}
-	}
-
-	for retrievedVCID := range credentialClaims {
-		_, exist := issuedVCID[retrievedVCID]
-		if !exist {
-			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
-		}
-	}
-
-	return nil
-}
-
-func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(profile string) error {
-	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
-
-	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
-
-	if _, err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token); err == nil {
-		return fmt.Errorf("error expected, but got nil")
-	}
 
 	return nil
 }
@@ -308,13 +340,35 @@ func (s *Steps) waitForEvent(eventType string) (string, error) {
 	return "", errors.New("webhook waiting timeout exited")
 }
 
-type initiateOIDC4VPData struct {
-	// Custom scopes that defines additional claims requested from Holder to Verifier.
-	Scopes                        []string                       `json:"scopes,omitempty"`
-	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
-	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
+type oidc4vpProvider struct {
+	storageProvider storageapi.Provider
+	httpClient      *http.Client
+	documentLoader  ld.DocumentLoader
+	vdrRegistry     vdrapi.Registry
+	cryptoSuite     api.Suite
+	wallet          *wallet.Wallet
 }
 
-type presentationDefinitionFilters struct {
-	Fields *[]string `json:"fields,omitempty"`
+func (p *oidc4vpProvider) StorageProvider() storageapi.Provider {
+	return p.storageProvider
+}
+
+func (p *oidc4vpProvider) HTTPClient() *http.Client {
+	return p.httpClient
+}
+
+func (p *oidc4vpProvider) DocumentLoader() ld.DocumentLoader {
+	return p.documentLoader
+}
+
+func (p *oidc4vpProvider) VDRegistry() vdrapi.Registry {
+	return p.vdrRegistry
+}
+
+func (p *oidc4vpProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
+}
+
+func (p *oidc4vpProvider) Wallet() *wallet.Wallet {
+	return p.wallet
 }

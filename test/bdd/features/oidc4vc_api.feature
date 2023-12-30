@@ -186,7 +186,7 @@ Feature: OIDC4VC REST API
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
     Then credential is issued
-    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "query vc using presentation definition: no result found" error
+    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "no matching credentials found" error
     Then we wait 15 seconds
     And Verifier with profile "<verifierProfile>" requests expired interactions claims
 
@@ -205,14 +205,14 @@ Feature: OIDC4VC REST API
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
     Then credential is issued
     And wallet configured to use hardcoded vp_token format "jwt" for OIDC4VP interaction
-    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "profile does not support jwt vp_token format" error
+    And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "no matching credentials found" error
     Then we wait 15 seconds
     And Verifier with profile "<verifierProfile>" requests expired interactions claims
 
     Examples:
       | issuerProfile                  | credentialType         | credentialTemplate               | verifierProfile      | presentationDefinitionID | fields    |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
-      | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match    | schema_id |
+      | i_myprofile_ud_es256k_jwt/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
 
 
   Scenario Outline: OIDC credential issuance without required role
