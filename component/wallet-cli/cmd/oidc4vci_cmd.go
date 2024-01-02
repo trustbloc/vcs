@@ -8,17 +8,14 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"strings"
 
 	"github.com/henvic/httpretty"
 	"github.com/piprate/json-gold/ld"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
@@ -249,34 +246,6 @@ func NewOIDC4VCICommand() *cobra.Command {
 			default:
 				return fmt.Errorf("unsupported grant-type: %s", flags.grantType)
 			}
-
-			vc := flow.GetVC()
-
-			var vcBytes []byte
-
-			if vcBytes, err = json.Marshal(vc); err != nil {
-				return fmt.Errorf("marshal vc: %w", err)
-			}
-
-			if err = w.Add(vcBytes); err != nil {
-				return fmt.Errorf("add credential to wallet: %w", err)
-			}
-
-			var cslURL, statusListIndex, statusListType string
-			if vcc := vc.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
-				cslURL = vcc.Status.CustomFields["statusListCredential"].(string)
-				statusListIndex = vcc.Status.CustomFields["statusListIndex"].(string)
-				statusListType = vcc.Status.Type
-			}
-
-			slog.Info("credential added to wallet",
-				"credential_id", vc.Contents().ID,
-				"credential_type", strings.Join(lo.Filter(vc.Contents().Types, func(item string, i int) bool { return !strings.EqualFold(item, "VerifiableCredential") }), ","),
-				"issuer_id", vc.Contents().Issuer.ID,
-				"csl_url", cslURL,
-				"status_list_index", statusListIndex,
-				"status_list_type", statusListType,
-			)
 
 			return nil
 		},
