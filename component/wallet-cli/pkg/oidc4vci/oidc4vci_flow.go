@@ -69,6 +69,7 @@ type Flow struct {
 	documentLoader             ld.DocumentLoader
 	vdrRegistry                vdrapi.Registry
 	signer                     jose.Signer
+	proofBuilder               JWTProofBuilder
 	wallet                     *wallet.Wallet
 	wellKnownService           *wellknown.Service
 	trustRegistryURL           string
@@ -84,7 +85,6 @@ type Flow struct {
 	userPassword               string
 	issuerState                string
 	pin                        string
-	vc                         *verifiable.Credential
 	walletKeyID                string
 	walletKeyType              kms.KeyType
 }
@@ -97,6 +97,8 @@ type provider interface {
 	Wallet() *wallet.Wallet
 	WellKnownService() *wellknown.Service
 }
+
+type JWTProofBuilder func(claims *JWTProofClaims, headers map[string]interface{}, signer jose.Signer) (string, error)
 
 func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	o := &options{
@@ -163,11 +165,34 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		kmssigner.NewKMSSigner(signer, signatureType, nil),
 	)
 
+	proofBuilder := o.proofBuilder
+
+	if proofBuilder == nil {
+		proofBuilder = func(
+			claims *JWTProofClaims,
+			headers map[string]interface{},
+			signer jose.Signer,
+		) (string, error) {
+			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, jwsSigner)
+			if jwtErr != nil {
+				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+			}
+
+			jws, jwtErr := signedJWT.Serialize(false)
+			if jwtErr != nil {
+				return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+			}
+
+			return jws, nil
+		}
+	}
+
 	return &Flow{
 		httpClient:                 p.HTTPClient(),
 		documentLoader:             p.DocumentLoader(),
 		vdrRegistry:                p.VDRegistry(),
 		signer:                     jwsSigner,
+		proofBuilder:               proofBuilder,
 		wallet:                     p.Wallet(),
 		wellKnownService:           p.WellKnownService(),
 		walletKeyID:                walletDIDInfo.KeyID,
@@ -186,10 +211,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		pin:                        o.pin,
 		trustRegistryURL:           o.trustRegistryURL,
 	}, nil
-}
-
-func (f *Flow) GetVC() *verifiable.Credential {
-	return f.vc
 }
 
 func (f *Flow) Run(ctx context.Context) error {
@@ -371,12 +392,9 @@ func (f *Flow) Run(ctx context.Context) error {
 		)
 	}
 
-	vc, err := f.getVC(token, openIDConfig, credentialIssuer)
-	if err != nil {
+	if err = f.receiveVC(token, openIDConfig, credentialIssuer); err != nil {
 		return err
 	}
-
-	f.vc = vc
 
 	return nil
 }
@@ -648,11 +666,11 @@ func (f *Flow) getAttestationVP() (string, error) {
 	return jws, nil
 }
 
-func (f *Flow) getVC(
+func (f *Flow) receiveVC(
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialIssuer string,
-) (*verifiable.Credential, error) {
+) error {
 	credentialEndpoint := wellKnown.CredentialEndpoint
 
 	slog.Info("Getting credential",
@@ -671,14 +689,9 @@ func (f *Flow) getVC(
 		jose.HeaderType: jwtProofTypeHeader,
 	}
 
-	signedJWT, err := jwt.NewJoseSigned(claims, headers, f.signer)
+	jws, err := f.proofBuilder(claims, headers, f.signer)
 	if err != nil {
-		return nil, fmt.Errorf("create signed jwt: %w", err)
-	}
-
-	jws, err := signedJWT.Serialize(false)
-	if err != nil {
-		return nil, fmt.Errorf("serialize signed jwt: %w", err)
+		return fmt.Errorf("build proof: %w", err)
 	}
 
 	b, err := json.Marshal(CredentialRequest{
@@ -690,12 +703,12 @@ func (f *Flow) getVC(
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal credential request: %w", err)
+		return fmt.Errorf("marshal credential request: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, credentialEndpoint, bytes.NewBuffer(b))
 	if err != nil {
-		return nil, fmt.Errorf("new credential request: %w", err)
+		return fmt.Errorf("new credential request: %w", err)
 	}
 
 	req.Header.Add("content-type", "application/json")
@@ -703,7 +716,7 @@ func (f *Flow) getVC(
 
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("post to credential endpoint: %w", err)
+		return fmt.Errorf("post to credential endpoint: %w", err)
 	}
 
 	defer func() {
@@ -714,10 +727,10 @@ func (f *Flow) getVC(
 
 	if resp.StatusCode != http.StatusOK {
 		if b, err = io.ReadAll(resp.Body); err != nil {
-			return nil, err
+			return err
 		}
 
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			"get credential: status %s and body %s",
 			resp.Status,
 			string(b),
@@ -727,12 +740,12 @@ func (f *Flow) getVC(
 	var credentialResp CredentialResponse
 
 	if err = json.NewDecoder(resp.Body).Decode(&credentialResp); err != nil {
-		return nil, fmt.Errorf("decode credential response: %w", err)
+		return fmt.Errorf("decode credential response: %w", err)
 	}
 
 	vcBytes, err := json.Marshal(credentialResp.Credential)
 	if err != nil {
-		return nil, fmt.Errorf("marshal credential response: %w", err)
+		return fmt.Errorf("marshal credential response: %w", err)
 	}
 
 	parsedVC, err := verifiable.ParseCredential(vcBytes,
@@ -740,18 +753,47 @@ func (f *Flow) getVC(
 		verifiable.WithDisabledProofCheck(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("parse credential: %w", err)
+		return fmt.Errorf("parse credential: %w", err)
 	}
 
-	slog.Info("Credential received",
-		"vc", string(vcBytes),
+	if err = f.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add credential to wallet: %w", err)
+	}
+
+	var cslURL, statusListIndex, statusListType string
+
+	if vcc := parsedVC.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
+		statusListType = vcc.Status.Type
+
+		u, ok := vcc.Status.CustomFields["statusListCredential"].(string)
+		if ok {
+			cslURL = u
+		}
+
+		i, ok := vcc.Status.CustomFields["statusListIndex"].(string)
+		if ok {
+			statusListIndex = i
+		}
+	}
+
+	predicate := func(item string, i int) bool {
+		return !strings.EqualFold(item, "VerifiableCredential")
+	}
+
+	slog.Info("credential added to wallet",
+		"credential_id", parsedVC.Contents().ID,
+		"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
+		"issuer_id", parsedVC.Contents().Issuer.ID,
+		"csl_url", cslURL,
+		"status_list_index", statusListIndex,
+		"status_list_type", statusListType,
 	)
 
 	if err = f.handleIssuanceAck(wellKnown, &credentialResp, token); err != nil {
-		return nil, err
+		return err
 	}
 
-	return parsedVC, nil
+	return nil
 }
 
 func (f *Flow) handleIssuanceAck(
@@ -851,6 +893,7 @@ func (s *callbackServer) ServeHTTP(
 
 type options struct {
 	flowType                   FlowType
+	proofBuilder               JWTProofBuilder
 	credentialOffer            string
 	credentialType             string
 	credentialFormat           string
@@ -871,6 +914,12 @@ type Opt func(opts *options)
 func WithFlowType(flowType FlowType) Opt {
 	return func(opts *options) {
 		opts.flowType = flowType
+	}
+}
+
+func WithProofBuilder(proofBuilder JWTProofBuilder) Opt {
+	return func(opts *options) {
+		opts.proofBuilder = proofBuilder
 	}
 }
 

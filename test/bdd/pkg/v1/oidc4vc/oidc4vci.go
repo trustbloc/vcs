@@ -26,8 +26,10 @@ import (
 	"github.com/samber/lo"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/kms-go/doc/jose"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
@@ -143,15 +145,6 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 
 	if err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run pre-auth flow: %w", err)
-	}
-
-	vcBytes, err := json.Marshal(flow.GetVC())
-	if err != nil {
-		return fmt.Errorf("marshal vc: %w", err)
-	}
-
-	if err = s.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
@@ -285,15 +278,6 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 
 	if err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run pre-auth flow: %w", err)
-	}
-
-	vcBytes, err := json.Marshal(flow.GetVC())
-	if err != nil {
-		return fmt.Errorf("marshal vc: %w", err)
-	}
-
-	if err = s.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
@@ -455,18 +439,76 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 }
 
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
-	// TODO: Add support for customizing token request in oidc4vci flow
-	return nil
+	proofBuilder := func(
+		claims *oidc4vci.JWTProofClaims,
+		headers map[string]interface{},
+		signer jose.Signer,
+	) (string, error) {
+		headers[jose.HeaderKeyID] = "invalid-key-id"
+
+		signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+		if jwtErr != nil {
+			return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+		}
+
+		jws, jwtErr := signedJWT.Serialize(false)
+		if jwtErr != nil {
+			return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+		}
+
+		return jws, nil
+	}
+
+	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(proofBuilder))
 }
 
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains string) error {
-	// TODO: Add support for customizing token request in oidc4vci flow
-	return nil
+	proofBuilder := func(
+		claims *oidc4vci.JWTProofClaims,
+		headers map[string]interface{},
+		signer jose.Signer,
+	) (string, error) {
+		signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+		if jwtErr != nil {
+			return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+		}
+
+		jws, jwtErr := signedJWT.Serialize(false)
+		if jwtErr != nil {
+			return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+		}
+
+		parts := strings.Split(jws, ".")
+		jws = strings.Join([]string{parts[0], parts[1], "invalid-signature"}, ".")
+
+		return jws, nil
+	}
+
+	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(proofBuilder))
 }
 
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidNonce(errorContains string) error {
-	// TODO: Add support for customizing token request in oidc4vci flow
-	return nil
+	proofBuilder := func(
+		claims *oidc4vci.JWTProofClaims,
+		headers map[string]interface{},
+		signer jose.Signer,
+	) (string, error) {
+		claims.Nonce = "invalid-nonce"
+
+		signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+		if jwtErr != nil {
+			return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+		}
+
+		jws, jwtErr := signedJWT.Serialize(false)
+		if jwtErr != nil {
+			return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+		}
+
+		return jws, nil
+	}
+
+	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(proofBuilder))
 }
 
 func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...oidc4vci.Opt) error {
@@ -530,15 +572,6 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
-	vcBytes, err := json.Marshal(flow.GetVC())
-	if err != nil {
-		return fmt.Errorf("marshal vc: %w", err)
-	}
-
-	if err = s.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add vc to wallet: %w", err)
-	}
-
 	return nil
 }
 
@@ -560,15 +593,6 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 
 	if err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run wallet-initiated auth flow: %w", err)
-	}
-
-	vcBytes, err := json.Marshal(flow.GetVC())
-	if err != nil {
-		return fmt.Errorf("marshal vc: %w", err)
-	}
-
-	if err = s.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
@@ -665,15 +689,6 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 
 	if err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
-	}
-
-	vcBytes, err := json.Marshal(flow.GetVC())
-	if err != nil {
-		return fmt.Errorf("marshal vc: %w", err)
-	}
-
-	if err = s.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add vc to wallet: %w", err)
 	}
 
 	return nil
