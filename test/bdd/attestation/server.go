@@ -7,22 +7,35 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-
+	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/verifiable"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 const (
-	attestationVCJWT = "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDppb246RWlDSkhLS3h6ekU2WmpLOWpBRkRoRk1tWE5RZVFwWDZGUFVweDBjdjBtZTZ4UTpleUprWld4MFlTSTZleUp3WVhSamFHVnpJanBiZXlKaFkzUnBiMjRpT2lKaFpHUXRjSFZpYkdsakxXdGxlWE1pTENKd2RXSnNhV05MWlhseklqcGJleUpwWkNJNklqQmxNamcwT1dObExURTBNMlV0TkdGa01TMWlZalF6TFRVeFl6QTVPR1EyTldVNVl5SXNJbkIxWW14cFkwdGxlVXAzYXlJNmV5SmpjbllpT2lKUUxUSTFOaUlzSW10cFpDSTZJakJsTWpnME9XTmxMVEUwTTJVdE5HRmtNUzFpWWpRekxUVXhZekE1T0dRMk5XVTVZeUlzSW10MGVTSTZJa1ZESWl3aWVDSTZJa2hQTW5ObWN6QnhaR05ZZEVkbmJWSnpiREJSWDJKNFQzcHNaMFpIU2tKUWNEUlFkM05JV1RKdFoyTWlMQ0o1SWpvaVdVeFVRMUpTZVhreFJrRjVSV2RFY2pCRWVsZDFjekZFYkY5UFgyWk5iR1paU25keVRYQk1TMWxSUlNKOUxDSndkWEp3YjNObGN5STZXeUpoZFhSb1pXNTBhV05oZEdsdmJpSXNJbUZ6YzJWeWRHbHZiazFsZEdodlpDSmRMQ0owZVhCbElqb2lTbk52YmxkbFlrdGxlVEl3TWpBaWZWMTlYU3dpZFhCa1lYUmxRMjl0YldsMGJXVnVkQ0k2SWtWcFF6QklTSEIyTjB0VmJVbHlkVUZaTmtKbU1XUXROV3BXU1UxT1JIcG1lbEpUWkUwMFYwaDZiRWQxWDFFaWZTd2ljM1ZtWm1sNFJHRjBZU0k2ZXlKa1pXeDBZVWhoYzJnaU9pSkZhVVJsUkhGVlUyOVZRMnAxWkZVNE9URmtZM0JoVDJaWU1VeHZhRXRVVFVwZldqUlVUbXR6VUdGWmVHUlJJaXdpY21WamIzWmxjbmxEYjIxdGFYUnRaVzUwSWpvaVJXbEVNWGszUVd0TmJIWnJNSGg1UWpoYVRrcEpRbk53TmpWR1luRjNibEpvWkZsM1pHcEVjMHhuU214NFFTSjlMQ0owZVhCbElqb2lZM0psWVhSbEluMCMwZTI4NDljZS0xNDNlLTRhZDEtYmI0My01MWMwOThkNjVlOWMifQ.eyJpYXQiOjE3MDAyMTkyMjEsImlzcyI6ImRpZDppb246RWlDSkhLS3h6ekU2WmpLOWpBRkRoRk1tWE5RZVFwWDZGUFVweDBjdjBtZTZ4UTpleUprWld4MFlTSTZleUp3WVhSamFHVnpJanBiZXlKaFkzUnBiMjRpT2lKaFpHUXRjSFZpYkdsakxXdGxlWE1pTENKd2RXSnNhV05MWlhseklqcGJleUpwWkNJNklqQmxNamcwT1dObExURTBNMlV0TkdGa01TMWlZalF6TFRVeFl6QTVPR1EyTldVNVl5SXNJbkIxWW14cFkwdGxlVXAzYXlJNmV5SmpjbllpT2lKUUxUSTFOaUlzSW10cFpDSTZJakJsTWpnME9XTmxMVEUwTTJVdE5HRmtNUzFpWWpRekxUVXhZekE1T0dRMk5XVTVZeUlzSW10MGVTSTZJa1ZESWl3aWVDSTZJa2hQTW5ObWN6QnhaR05ZZEVkbmJWSnpiREJSWDJKNFQzcHNaMFpIU2tKUWNEUlFkM05JV1RKdFoyTWlMQ0o1SWpvaVdVeFVRMUpTZVhreFJrRjVSV2RFY2pCRWVsZDFjekZFYkY5UFgyWk5iR1paU25keVRYQk1TMWxSUlNKOUxDSndkWEp3YjNObGN5STZXeUpoZFhSb1pXNTBhV05oZEdsdmJpSXNJbUZ6YzJWeWRHbHZiazFsZEdodlpDSmRMQ0owZVhCbElqb2lTbk52YmxkbFlrdGxlVEl3TWpBaWZWMTlYU3dpZFhCa1lYUmxRMjl0YldsMGJXVnVkQ0k2SWtWcFF6QklTSEIyTjB0VmJVbHlkVUZaTmtKbU1XUXROV3BXU1UxT1JIcG1lbEpUWkUwMFYwaDZiRWQxWDFFaWZTd2ljM1ZtWm1sNFJHRjBZU0k2ZXlKa1pXeDBZVWhoYzJnaU9pSkZhVVJsUkhGVlUyOVZRMnAxWkZVNE9URmtZM0JoVDJaWU1VeHZhRXRVVFVwZldqUlVUbXR6VUdGWmVHUlJJaXdpY21WamIzWmxjbmxEYjIxdGFYUnRaVzUwSWpvaVJXbEVNWGszUVd0TmJIWnJNSGg1UWpoYVRrcEpRbk53TmpWR1luRjNibEpvWkZsM1pHcEVjMHhuU214NFFTSjlMQ0owZVhCbElqb2lZM0psWVhSbEluMCIsImp0aSI6InVybjp1dWlkOmYxMmEwMDYxLTY1NzctNDk5MC05ZDc4LTA3NjM5MDg3YzE5NCIsIm5iZiI6MTcwMDIxOTIyMSwic3ViIjoiZGlkOlx1MDAzY3dhbGxldF9kaWRcdTAwM2UiLCJ2YyI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJhc3N1cmFuY2VfbGV2ZWwiOiJsb3ciLCJjb21wbGlhbmNlIjp7IlRCRCI6IlRCRCJ9LCJpZCI6ImRpZDpcdTAwM2N3YWxsZXRfZGlkXHUwMDNlIiwia2V5X3R5cGUiOiJcdTAwM2NUQkRcdTAwM2UiLCJ1c2VyX2F1dGhlbnRpY2F0aW9uIjoiXHUwMDNjVEJEXHUwMDNlIiwid2FsbGV0X2F1dGhlbnRpY2F0aW9uIjp7ImR0c19hdXRoX3N0cmluZzEiOiJzb21lX3ZhbHVlIiwiZHRzX2F1dGhfc3RyaW5nMiI6InNvbWVfdmFsdWUyIn0sIndhbGxldF9tZXRhZGF0YSI6eyJ3YWxsZXRfbmFtZSI6IkF3ZXNvbWUgV2FsbGV0Iiwid2FsbGV0X3ZlcnNpb24iOiIyLjAuMCJ9fSwiaWQiOiJ1cm46dXVpZDpmMTJhMDA2MS02NTc3LTQ5OTAtOWQ3OC0wNzYzOTA4N2MxOTQiLCJpc3N1YW5jZURhdGUiOiIyMDIzLTExLTE3VDExOjA3OjAxLjgxMjc4OTAwNFoiLCJpc3N1ZXIiOiJkaWQ6aW9uOkVpQ0pIS0t4enpFNlpqSzlqQUZEaEZNbVhOUWVRcFg2RlBVcHgwY3YwbWU2eFE6ZXlKa1pXeDBZU0k2ZXlKd1lYUmphR1Z6SWpwYmV5SmhZM1JwYjI0aU9pSmhaR1F0Y0hWaWJHbGpMV3RsZVhNaUxDSndkV0pzYVdOTFpYbHpJanBiZXlKcFpDSTZJakJsTWpnME9XTmxMVEUwTTJVdE5HRmtNUzFpWWpRekxUVXhZekE1T0dRMk5XVTVZeUlzSW5CMVlteHBZMHRsZVVwM2F5STZleUpqY25ZaU9pSlFMVEkxTmlJc0ltdHBaQ0k2SWpCbE1qZzBPV05sTFRFME0yVXROR0ZrTVMxaVlqUXpMVFV4WXpBNU9HUTJOV1U1WXlJc0ltdDBlU0k2SWtWRElpd2llQ0k2SWtoUE1uTm1jekJ4WkdOWWRFZG5iVkp6YkRCUlgySjRUM3BzWjBaSFNrSlFjRFJRZDNOSVdUSnRaMk1pTENKNUlqb2lXVXhVUTFKU2VYa3hSa0Y1UldkRWNqQkVlbGQxY3pGRWJGOVBYMlpOYkdaWlNuZHlUWEJNUzFsUlJTSjlMQ0p3ZFhKd2IzTmxjeUk2V3lKaGRYUm9aVzUwYVdOaGRHbHZiaUlzSW1GemMyVnlkR2x2YmsxbGRHaHZaQ0pkTENKMGVYQmxJam9pU25OdmJsZGxZa3RsZVRJd01qQWlmVjE5WFN3aWRYQmtZWFJsUTI5dGJXbDBiV1Z1ZENJNklrVnBRekJJU0hCMk4wdFZiVWx5ZFVGWk5rSm1NV1F0TldwV1NVMU9SSHBtZWxKVFpFMDBWMGg2YkVkMVgxRWlmU3dpYzNWbVptbDRSR0YwWVNJNmV5SmtaV3gwWVVoaGMyZ2lPaUpGYVVSbFJIRlZVMjlWUTJwMVpGVTRPVEZrWTNCaFQyWllNVXh2YUV0VVRVcGZXalJVVG10elVHRlplR1JSSWl3aWNtVmpiM1psY25sRGIyMXRhWFJ0Wlc1MElqb2lSV2xFTVhrM1FXdE5iSFpyTUhoNVFqaGFUa3BKUW5Od05qVkdZbkYzYmxKb1pGbDNaR3BFYzB4blNteDRRU0o5TENKMGVYQmxJam9pWTNKbFlYUmxJbjAiLCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiV2FsbGV0QXR0ZXN0YXRpb25DcmVkZW50aWFsIl19fQ."
+	vcsAPIGateway        = "https://api-gateway.trustbloc.local:8080"
+	issueCredentialURL   = vcsAPIGateway + "/issuer/profiles/i_myprofile_jwt_client_attestation/v1.0/credentials/issue"
+	oidcProviderURL      = "http://cognito-auth.local:8094/cognito"
+	oidcProviderUsername = "profile-user-issuer-1"
+	oidcProviderPassword = "profile-user-issuer-1-pwd"
 )
 
 type sessionMetadata struct {
@@ -31,15 +44,31 @@ type sessionMetadata struct {
 }
 
 type server struct {
-	router   *mux.Router
-	sessions sync.Map //sessionID -> sessionMetadata
+	router     *mux.Router
+	httpClient *http.Client
+	sessions   sync.Map // sessionID -> sessionMetadata
 }
 
 func newServer() *server {
 	router := mux.NewRouter()
 
+	rootCAs, err := tlsutils.GetCertPool(false, []string{os.Getenv("ROOT_CA_CERTS_PATH")})
+	if err != nil {
+		panic(err)
+	}
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:    rootCAs,
+				MinVersion: tls.VersionTLS12,
+			},
+		},
+	}
+
 	srv := &server{
-		router: router,
+		router:     router,
+		httpClient: httpClient,
 	}
 
 	router.HandleFunc("/profiles/profileID/profileVersion/wallet/attestation/init", srv.evaluateWalletAttestationInitRequest).Methods(http.MethodPost)
@@ -140,15 +169,22 @@ func (s *server) evaluateWalletAttestationCompleteRequest(w http.ResponseWriter,
 		return
 	}
 
-	err = s.evaluateWalletAttestationJWT(request.SessionID, request.Proof.Jwt)
+	walletDID, err := s.evaluateWalletProofJWT(request.SessionID, request.Proof.Jwt)
 	if err != nil {
 		s.writeResponse(w, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
+	attestationVC, err := s.attestationVC(context.Background(), walletDID)
+	if err != nil {
+		s.writeResponse(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
 	response := &AttestWalletCompleteResponse{
-		WalletAttestationVC: attestationVCJWT,
+		WalletAttestationVC: attestationVC,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -160,18 +196,18 @@ func (s *server) evaluateWalletAttestationCompleteRequest(w http.ResponseWriter,
 	}
 }
 
-func (s *server) evaluateWalletAttestationJWT(
-	sessionID, attestationJWT string,
-) error {
-	jwtParsed, _, err := jwt.Parse(attestationJWT)
+func (s *server) evaluateWalletProofJWT(
+	sessionID, proofJWT string,
+) (string, error) {
+	jwtParsed, _, err := jwt.Parse(proofJWT)
 	if err != nil {
-		return fmt.Errorf("parse request.Proof.Jwt: %s", err.Error())
+		return "", fmt.Errorf("parse request.Proof.Jwt: %s", err.Error())
 	}
 
 	var jwtProofClaims JwtProofClaims
 	err = jwtParsed.DecodeClaims(&jwtProofClaims)
 	if err != nil {
-		return fmt.Errorf("decode request.Proof.Jwt: %s", err.Error())
+		return "", fmt.Errorf("decode request.Proof.Jwt: %s", err.Error())
 	}
 
 	var sessionData sessionMetadata
@@ -181,31 +217,136 @@ func (s *server) evaluateWalletAttestationJWT(
 	}
 
 	if !ok {
-		return fmt.Errorf("session %s is unknown", sessionID)
+		return "", fmt.Errorf("session %s is unknown", sessionID)
 	}
 
 	if jwtProofClaims.Issuer != sessionData.walletDID {
-		return fmt.Errorf("jwtProofClaims.Issuer is invalid, got: %s, want: %s", jwtProofClaims.Issuer, sessionData.walletDID)
+		return "", fmt.Errorf("jwtProofClaims.Issuer is invalid, got: %s, want: %s", jwtProofClaims.Issuer, sessionData.walletDID)
 	}
 
 	if jwtProofClaims.Audience == "" {
-		return fmt.Errorf("jwtProofClaims.Audience is empty")
+		return "", fmt.Errorf("jwtProofClaims.Audience is empty")
 	}
 
 	now := time.Now()
 	if now.Before(time.Unix(jwtProofClaims.IssuedAt, 0)) {
-		return fmt.Errorf("jwtProofClaims.IssuedAt is invalid")
+		return "", fmt.Errorf("jwtProofClaims.IssuedAt is invalid")
 	}
 
 	if now.After(time.Unix(jwtProofClaims.Exp, 0)) {
-		return fmt.Errorf("jwtProofClaims.Exp is invalid")
+		return "", fmt.Errorf("jwtProofClaims.Exp is invalid")
 	}
 
 	if jwtProofClaims.Nonce != sessionData.challenge {
-		return fmt.Errorf("jwtProofClaims.Nonce is invalid, got: %s, want: %s", jwtProofClaims.Nonce, sessionData.challenge)
+		return "", fmt.Errorf("jwtProofClaims.Nonce is invalid, got: %s, want: %s", jwtProofClaims.Nonce, sessionData.challenge)
 	}
 
-	return nil
+	return jwtProofClaims.Issuer, nil
+}
+
+func (s *server) attestationVC(ctx context.Context, walletDID string) (string, error) {
+	vcc := verifiable.CredentialContents{
+		Context: []string{
+			verifiable.ContextURI,
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		},
+		ID: uuid.New().String(),
+		Types: []string{
+			verifiable.VCType,
+			"WalletAttestationCredential",
+		},
+		Subject: []verifiable.Subject{
+			{
+				ID: walletDID,
+			},
+		},
+		Issuer: &verifiable.Issuer{
+			ID: walletDID,
+		},
+		Issued: &utiltime.TimeWrapper{
+			Time: time.Now(),
+		},
+		Expired: &utiltime.TimeWrapper{
+			Time: time.Now().Add(time.Hour),
+		},
+	}
+
+	vc, err := verifiable.CreateCredential(vcc, nil)
+	if err != nil {
+		return "", fmt.Errorf("create attestation vc: %w", err)
+	}
+
+	claims, err := vc.JWTClaims(false)
+	if err != nil {
+		return "", fmt.Errorf("get jwt claims: %w", err)
+	}
+
+	unsecuredJWT, err := claims.MarshalUnsecuredJWT()
+	if err != nil {
+		return "", fmt.Errorf("marshal unsecured jwt: %w", err)
+	}
+
+	issueCredentialData := &IssueCredentialData{
+		Credential: unsecuredJWT,
+	}
+
+	body, err := json.Marshal(issueCredentialData)
+	if err != nil {
+		return "", fmt.Errorf("marshal issue credential request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, issueCredentialURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+
+	token, err := s.issueAccessToken(ctx)
+	if err != nil {
+		return "", fmt.Errorf("issue access token: %w", err)
+	}
+
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("send request: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d; response: %s", resp.StatusCode, string(b))
+	}
+
+	return string(b), nil
+}
+
+func (s *server) issueAccessToken(ctx context.Context) (string, error) {
+	conf := clientcredentials.Config{
+		TokenURL:     oidcProviderURL + "/oauth2/token",
+		ClientID:     oidcProviderUsername,
+		ClientSecret: oidcProviderPassword,
+		Scopes:       []string{"org_admin"},
+		AuthStyle:    oauth2.AuthStyleInHeader,
+	}
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
+	token, err := conf.Token(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get access token: %w", err)
+	}
+
+	fmt.Printf("token: %v\n", token)
+
+	return token.Extra("id_token").(string), nil
 }
 
 // writeResponse writes interface value to response

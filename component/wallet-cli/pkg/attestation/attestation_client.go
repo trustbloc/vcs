@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -191,7 +192,8 @@ func (c *Client) doRequest(ctx context.Context, policyURL string, body []byte, r
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d; response: %s", resp.StatusCode, string(b))
 	}
 
 	if err = json.NewDecoder(resp.Body).Decode(response); err != nil {

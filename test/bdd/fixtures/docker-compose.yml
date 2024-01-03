@@ -245,6 +245,7 @@ services:
       - LISTEN_ADDR=:8097
       - TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
       - TLS_KEY_PATH=/etc/tls/ec-key.pem
+      - ROOT_CA_CERTS_PATH=/etc/tls/ec-cacert.pem
     ports:
       - "8097:8097"
     volumes:
