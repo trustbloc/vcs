@@ -24,7 +24,6 @@ import (
 	"github.com/ory/fosite"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
-	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
@@ -33,13 +32,14 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
+	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 const (
@@ -50,6 +50,7 @@ const (
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
 	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
+	attestationServiceURL               = "https://mock-attestation.trustbloc.local:8097/profiles/profileID/profileVersion/wallet/attestation"
 )
 
 func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {
@@ -143,7 +144,7 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 		return fmt.Errorf("init pre-auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err != nil {
+	if _, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run pre-auth flow: %w", err)
 	}
 
@@ -245,8 +246,8 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
-	if err := s.addAttestationVC(); err != nil {
-		return fmt.Errorf("add attestation vc to wallet: %w", err)
+	if err := s.requestAttestationVC(); err != nil {
+		return fmt.Errorf("request attestation vc: %w", err)
 	}
 
 	claims, err := s.fetchClaimData(s.issuedCredentialType)
@@ -276,94 +277,50 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		return fmt.Errorf("init pre-auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err != nil {
+	if _, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run pre-auth flow: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Steps) addAttestationVC() error {
-	vcc := verifiable.CredentialContents{
-		Context: []string{
-			verifiable.ContextURI,
-			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
-		},
-		ID: uuid.New().String(),
-		Types: []string{
-			verifiable.VCType,
-			"WalletAttestationCredential",
-		},
-		Subject: []verifiable.Subject{
-			{
-				ID: s.wallet.DIDs()[0].ID,
-			},
-		},
-		Issuer: &verifiable.Issuer{
-			ID: s.wallet.DIDs()[0].ID,
-		},
-		Issued: &utiltime.TimeWrapper{
-			Time: time.Now(),
-		},
-		Expired: &utiltime.TimeWrapper{
-			Time: time.Now().Add(time.Hour),
-		},
-	}
+func (s *Steps) requestAttestationVC() error {
+	didInfo := s.wallet.DIDs()[0]
 
-	vc, err := verifiable.CreateCredential(vcc, nil)
+	signer, err := s.oidc4vpProvider.cryptoSuite.FixedKeyMultiSigner(didInfo.KeyID)
 	if err != nil {
-		return fmt.Errorf("create attestation vc: %w", err)
+		return fmt.Errorf("create signer: %w", err)
 	}
 
-	var vcOIDCFormat vcsverifiable.OIDCFormat
-
-	switch s.issuerProfile.VCConfig.Format {
-	case vcsverifiable.Jwt:
-		vcOIDCFormat = vcsverifiable.JwtVCJson
-	case vcsverifiable.Ldp:
-		vcOIDCFormat = vcsverifiable.LdpVC
-	default:
-		return fmt.Errorf("unsupported vc format: %s", s.issuerProfile.VCConfig.Format)
-	}
-
-	reqData, err := vcprovider.GetIssueCredentialRequestData(vc, vcOIDCFormat)
-	if err != nil {
-		return fmt.Errorf("get issue credential request data: %w", err)
-	}
-
-	req := &model.IssueCredentialData{
-		Credential: reqData,
-	}
-
-	body, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-
-	resp, err := bddutil.HTTPSDo(
-		http.MethodPost,
-		fmt.Sprintf(issueCredentialURLFormat, s.issuerProfile.ID, s.issuerProfile.Version),
-		"application/json",
-		s.bddContext.Args[getOrgAuthTokenKey(fmt.Sprintf("%s/%s", s.issuerProfile.ID, s.issuerProfile.Version))],
-		bytes.NewBuffer(body),
-		s.tlsConfig,
+	jwsSigner := jwssigner.NewJWSSigner(
+		fmt.Sprintf("%s#%s", didInfo.ID, didInfo.KeyID),
+		string(s.wallet.SignatureType()),
+		kmssigner.NewKMSSigner(signer, s.wallet.SignatureType(), nil),
 	)
+
+	attestationVC, err := attestation.NewClient(
+		&attestation.Config{
+			HTTPClient:     s.oidc4vpProvider.httpClient,
+			DocumentLoader: s.oidc4vpProvider.documentLoader,
+			Signer:         jwsSigner,
+			WalletDID:      didInfo.ID,
+			AttestationURL: attestationServiceURL,
+		},
+	).GetAttestationVC(context.Background())
 	if err != nil {
-		return err
+		return fmt.Errorf("get attestation vc: %w", err)
 	}
 
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	respBody, err := io.ReadAll(resp.Body)
+	vcBytes, err := json.Marshal(attestationVC)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal attestation vc: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBody)
+	if err = s.wallet.Add(vcBytes); err != nil {
+		return fmt.Errorf("add attestation vc to wallet: %w", err)
 	}
 
-	return s.wallet.Add(respBody)
+	return nil
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithError(errorContains string) error {
@@ -407,7 +364,7 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err == nil {
+	if _, err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -536,7 +493,7 @@ func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...o
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err == nil {
+	if _, err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -568,7 +525,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err != nil {
+	if _, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -591,7 +548,7 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 		return fmt.Errorf("init wallet-initiated auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err != nil {
+	if _, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run wallet-initiated auth flow: %w", err)
 	}
 
@@ -637,7 +594,7 @@ func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err == nil {
+	if _, err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -687,7 +644,7 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if err = flow.Run(context.Background()); err != nil {
+	if _, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 

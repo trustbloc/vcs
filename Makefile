@@ -135,7 +135,7 @@ mock-trustregistry-docker:
 
 .PHONY: mock-attestation-docker
 mock-attestation-docker:
-	@echo "Building mock Trust Registry server"
+	@echo "Building mock attestation server"
 	@docker build -f ./images/mocks/attestation/Dockerfile --no-cache -t  vcs/mock-attestation:latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \

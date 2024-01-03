@@ -213,7 +213,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	}, nil
 }
 
-func (f *Flow) Run(ctx context.Context) error {
+func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 	slog.Info("Running OIDC4VCI flow",
 		"flow_type", f.flowType,
 		"credential_offer_uri", f.credentialOffer,
@@ -233,7 +233,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 		credentialOfferResponse, err = f.parseCredentialOfferURI(f.credentialOffer)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		credentialIssuer = credentialOfferResponse.CredentialIssuer
@@ -252,7 +252,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 	openIDConfig, err := f.wellKnownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	requireWalletAttestation := openIDConfig.TokenEndpointAuthMethodsSupported != nil &&
@@ -260,7 +260,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 	if f.trustRegistryURL != "" {
 		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
-			return fmt.Errorf("credential offer is empty")
+			return nil, fmt.Errorf("credential offer is empty")
 		}
 
 		slog.Info("Validating issuer", "url", f.trustRegistryURL)
@@ -286,7 +286,7 @@ func (f *Flow) Run(ctx context.Context) error {
 				credentialFormat,
 				lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
 			); err != nil {
-			return fmt.Errorf("validate issuer: %w", err)
+			return nil, fmt.Errorf("validate issuer: %w", err)
 		}
 	}
 
@@ -307,14 +307,14 @@ func (f *Flow) Run(ctx context.Context) error {
 
 		authCode, err = f.getAuthorizationCode(oauthClient, issuerState)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		ctx = context.WithValue(ctx, oauth2.HTTPClient, f.httpClient)
 
 		token, err = f.exchangeAuthorizationCodeForAccessToken(ctx, oauthClient, authCode)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else if f.flowType == FlowTypePreAuthorizedCode {
 		slog.Info("Getting access token",
@@ -346,7 +346,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 			jwtVP, err = f.getAttestationVP()
 			if err != nil {
-				return fmt.Errorf("get attestation vp: %w", err)
+				return nil, fmt.Errorf("get attestation vp: %w", err)
 			}
 
 			tokenValues.Add("client_assertion_type", attestJWTClientAuthType)
@@ -356,16 +356,16 @@ func (f *Flow) Run(ctx context.Context) error {
 		var resp *http.Response
 
 		if resp, err = f.httpClient.PostForm(openIDConfig.TokenEndpoint, tokenValues); err != nil {
-			return err
+			return nil, err
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			b, readErr := io.ReadAll(resp.Body)
 			if readErr != nil {
-				return readErr
+				return nil, readErr
 			}
 
-			return fmt.Errorf(
+			return nil, fmt.Errorf(
 				"get access token: status %s and body %s",
 				resp.Status,
 				string(b),
@@ -375,7 +375,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		var tokenResp oidc4civ1.AccessTokenResponse
 
 		if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-			return err
+			return nil, err
 		}
 		_ = resp.Body.Close()
 
@@ -392,11 +392,16 @@ func (f *Flow) Run(ctx context.Context) error {
 		)
 	}
 
-	if err = f.receiveVC(token, openIDConfig, credentialIssuer); err != nil {
-		return err
+	vc, err := f.receiveVC(token, openIDConfig, credentialIssuer)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return vc, nil
+}
+
+func (f *Flow) Signer() jose.Signer {
+	return f.signer
 }
 
 func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResponse, error) {
@@ -670,7 +675,7 @@ func (f *Flow) receiveVC(
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialIssuer string,
-) error {
+) (*verifiable.Credential, error) {
 	credentialEndpoint := wellKnown.CredentialEndpoint
 
 	slog.Info("Getting credential",
@@ -691,7 +696,7 @@ func (f *Flow) receiveVC(
 
 	jws, err := f.proofBuilder(claims, headers, f.signer)
 	if err != nil {
-		return fmt.Errorf("build proof: %w", err)
+		return nil, fmt.Errorf("build proof: %w", err)
 	}
 
 	b, err := json.Marshal(CredentialRequest{
@@ -703,12 +708,12 @@ func (f *Flow) receiveVC(
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("marshal credential request: %w", err)
+		return nil, fmt.Errorf("marshal credential request: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, credentialEndpoint, bytes.NewBuffer(b))
 	if err != nil {
-		return fmt.Errorf("new credential request: %w", err)
+		return nil, fmt.Errorf("new credential request: %w", err)
 	}
 
 	req.Header.Add("content-type", "application/json")
@@ -716,7 +721,7 @@ func (f *Flow) receiveVC(
 
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("post to credential endpoint: %w", err)
+		return nil, fmt.Errorf("post to credential endpoint: %w", err)
 	}
 
 	defer func() {
@@ -727,10 +732,10 @@ func (f *Flow) receiveVC(
 
 	if resp.StatusCode != http.StatusOK {
 		if b, err = io.ReadAll(resp.Body); err != nil {
-			return err
+			return nil, err
 		}
 
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"get credential: status %s and body %s",
 			resp.Status,
 			string(b),
@@ -740,12 +745,12 @@ func (f *Flow) receiveVC(
 	var credentialResp CredentialResponse
 
 	if err = json.NewDecoder(resp.Body).Decode(&credentialResp); err != nil {
-		return fmt.Errorf("decode credential response: %w", err)
+		return nil, fmt.Errorf("decode credential response: %w", err)
 	}
 
 	vcBytes, err := json.Marshal(credentialResp.Credential)
 	if err != nil {
-		return fmt.Errorf("marshal credential response: %w", err)
+		return nil, fmt.Errorf("marshal credential response: %w", err)
 	}
 
 	parsedVC, err := verifiable.ParseCredential(vcBytes,
@@ -753,11 +758,11 @@ func (f *Flow) receiveVC(
 		verifiable.WithDisabledProofCheck(),
 	)
 	if err != nil {
-		return fmt.Errorf("parse credential: %w", err)
+		return nil, fmt.Errorf("parse credential: %w", err)
 	}
 
 	if err = f.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add credential to wallet: %w", err)
+		return nil, fmt.Errorf("add credential to wallet: %w", err)
 	}
 
 	var cslURL, statusListIndex, statusListType string
@@ -790,10 +795,10 @@ func (f *Flow) receiveVC(
 	)
 
 	if err = f.handleIssuanceAck(wellKnown, &credentialResp, token); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return parsedVC, nil
 }
 
 func (f *Flow) handleIssuanceAck(

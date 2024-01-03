@@ -227,7 +227,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 					return err
 				}
 
-				if err = flow.Run(context.Background()); err != nil {
+				if _, err = flow.Run(context.Background()); err != nil {
 					return err
 				}
 			case preAuthorizedCodeGrantType:
@@ -240,7 +240,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 					return err
 				}
 
-				if err = flow.Run(context.Background()); err != nil {
+				if _, err = flow.Run(context.Background()); err != nil {
 					return err
 				}
 			default:

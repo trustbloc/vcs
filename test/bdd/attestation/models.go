@@ -40,3 +40,7 @@ type JwtProofClaims struct {
 type AttestWalletCompleteResponse struct {
 	WalletAttestationVC string `json:"wallet_attestation_vc"`
 }
+
+type IssueCredentialData struct {
+	Credential interface{} `json:"credential"`
+}
