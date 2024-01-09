@@ -56,18 +56,20 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 		return errors.New("CLAIM_DATA should not be empty")
 	}
 	run := stress.NewStressRun(&stress.Config{
-		TLSConfig:            s.tlsConfig,
-		ApiURL:               os.Getenv("VCS_API_URL"),
-		TokenClientID:        os.Getenv("TOKEN_CLIENT_ID"),
-		TokenClientSecret:    os.Getenv("TOKEN_CLIENT_SECRET"),
-		UserCount:            s.usersNum,
-		ConcurrentRequests:   s.concurrentReq,
-		IssuerProfileID:      os.Getenv("ISSUER_PROFILE_ID"),
-		IssuerProfileVersion: os.Getenv("ISSUER_PROFILE_VERSION"),
-		VerifierProfileID:    os.Getenv("VERIFIER_PROFILE_ID"),
-		CredentialTemplateID: os.Getenv("CREDENTIAL_TEMPLATE_ID"),
-		CredentialType:       os.Getenv("CREDENTIAL_TYPE"),
-		ClaimData:            targetClaimData,
+		TLSConfig:              s.tlsConfig,
+		ApiURL:                 os.Getenv("VCS_API_URL"),
+		TokenClientID:          os.Getenv("TOKEN_CLIENT_ID"),
+		TokenClientSecret:      os.Getenv("TOKEN_CLIENT_SECRET"),
+		UserCount:              s.usersNum,
+		ConcurrentRequests:     s.concurrentReq,
+		IssuerProfileID:        os.Getenv("ISSUER_PROFILE_ID"),
+		IssuerProfileVersion:   os.Getenv("ISSUER_PROFILE_VERSION"),
+		VerifierProfileID:      os.Getenv("VERIFIER_PROFILE_ID"),
+		VerifierProfileVersion: os.Getenv("VERIFIER_PROFILE_VERSION"),
+		VerifierPresentationID: os.Getenv("VERIFIER_PRESENTATION_ID"),
+		CredentialTemplateID:   os.Getenv("CREDENTIAL_TEMPLATE_ID"),
+		CredentialType:         os.Getenv("CREDENTIAL_TYPE"),
+		ClaimData:              targetClaimData,
 	})
 
 	result, err := run.Run(ctx)

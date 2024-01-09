@@ -18,7 +18,6 @@ import (
 
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
@@ -100,7 +99,7 @@ func (e *Steps) createCredential(
 	issuerVCFormat := e.bddContext.IssuerProfiles[fmt.Sprintf("%s/%s", profileID, profileVersion)].VCConfig.Format
 	oidcVCFormat := vcsFormatToOIDC4CI[issuerVCFormat]
 
-	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, oidcVCFormat)
+	reqData, err := getIssueCredentialRequestData(cred, oidcVCFormat)
 	if err != nil {
 		return cred.Contents().ID, fmt.Errorf("unable to get issue credential request data: %w", err)
 	}
@@ -138,6 +137,23 @@ func (e *Steps) createCredential(
 	e.Unlock()
 
 	return cred.Contents().ID, nil
+}
+
+func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat vcsverifiable.OIDCFormat) (interface{}, error) {
+	switch desiredFormat {
+	case vcsverifiable.JwtVCJsonLD, vcsverifiable.JwtVCJson:
+		claims, err := vc.JWTClaims(false)
+		if err != nil {
+			return nil, err
+		}
+
+		return claims.MarshalUnsecuredJWT()
+	case vcsverifiable.LdpVC:
+		return vc, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported format %s", desiredFormat)
+	}
 }
 
 func (e *Steps) verifyVC(profileVersionedID string) error {
