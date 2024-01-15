@@ -17,7 +17,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/consent"
 )
 
 func TestCognitoConsent(t *testing.T) {

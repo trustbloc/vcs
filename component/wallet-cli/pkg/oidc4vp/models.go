@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"time"
+
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -70,4 +72,12 @@ type VPTokenClaims struct {
 	Nbf   int64                    `json:"nbf"`
 	Iat   int64                    `json:"iat"`
 	Jti   string                   `json:"jti"`
+}
+
+type PerfInfo struct {
+	FetchRequestObject         time.Duration `json:"vp_fetch_request_object"`
+	VerifyAuthorizationRequest time.Duration `json:"vp_verify_authorization_request"`
+	QueryCredentialFromWallet  time.Duration `json:"vp_query_credential_from_wallet"`
+	CreateAuthorizedResponse   time.Duration `json:"vp_create_authorized_response"`
+	SendAuthorizedResponse     time.Duration `json:"vp_send_authorized_response"`
 }

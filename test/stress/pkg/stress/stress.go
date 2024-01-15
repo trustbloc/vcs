@@ -1,3 +1,9 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package stress
 
 import (
@@ -13,7 +19,6 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -115,9 +120,6 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 	st := time.Now()
 	for i := 0; i < r.cfg.UserCount; i++ {
 		testCase, err := NewTestCase(
-			WithVCProviderOption(func(c *vcprovider.Config) {
-				c.KeepWalletOpen = true
-			}),
 			WithVCSAPIURL(vcsAPIURL),
 			WithIssuerProfileID(r.cfg.IssuerProfileID),
 			WithIssuerProfileVersion(r.cfg.IssuerProfileVersion),

@@ -27,7 +27,7 @@ require (
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
-	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20231222131742-742a7ae591ba
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
@@ -91,7 +91,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/henvic/httpretty v0.1.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
@@ -138,7 +137,6 @@ require (
 	github.com/spf13/viper v1.16.0 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

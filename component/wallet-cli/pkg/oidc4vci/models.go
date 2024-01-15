@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4vci
 
-import "github.com/trustbloc/vcs/pkg/doc/verifiable"
+import (
+	"time"
+
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
+)
 
 type JWTProofClaims struct {
 	Issuer   string `json:"iss,omitempty"`
@@ -33,4 +37,11 @@ type CredentialResponse struct {
 	Credential      interface{}           `json:"credential"`
 	Format          verifiable.OIDCFormat `json:"format"`
 	AckID           *string               `json:"ack_id"`
+}
+
+type PerfInfo struct {
+	GetIssuerCredentialsOIDCConfig time.Duration `json:"vci_get_issuer_credentials_oidc_config"`
+	GetAccessToken                 time.Duration `json:"vci_get_access_token"`
+	GetCredential                  time.Duration `json:"vci_get_credential"`
+	CredentialsAck                 time.Duration `json:"vci_credentials_ack"`
 }

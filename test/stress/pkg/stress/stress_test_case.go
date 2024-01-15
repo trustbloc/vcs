@@ -14,19 +14,33 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/trustbloc/did-go/legacy/mem"
+	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/did-go/method/key"
+	longform "github.com/trustbloc/did-go/method/sidetreelongform"
+	"github.com/trustbloc/did-go/method/web"
+	"github.com/trustbloc/did-go/vdr"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 type TestCase struct {
-	walletRunner           *walletrunner.Service
+	oidc4vciProvider       *oidc4vciProvider
+	oidc4vpProvider        *oidc4vpProvider
+	wallet                 *wallet.Wallet
 	httpClient             *http.Client
 	vcsAPIURL              string
 	issuerProfileID        string
@@ -44,7 +58,6 @@ type TestCase struct {
 }
 
 type TestCaseOptions struct {
-	vcProviderOptions      []vcprovider.ConfigOption
 	httpClient             *http.Client
 	vcsAPIURL              string
 	issuerProfileID        string
@@ -93,13 +106,83 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		return nil, fmt.Errorf("credential type is empty")
 	}
 
-	runner, err := walletrunner.New(vcprovider.ProviderVCS, opts.vcProviderOptions...)
+	documentLoader, err := bddutil.DocumentLoader()
 	if err != nil {
-		return nil, fmt.Errorf("create wallet runner: %w", err)
+		return nil, fmt.Errorf("init document loader: %w", err)
+	}
+
+	longForm, err := longform.New()
+	if err != nil {
+		return nil, fmt.Errorf("init ion vdr: %w", err)
+	}
+
+	vdRegistry := vdr.New(
+		vdr.WithVDR(longForm),
+		vdr.WithVDR(key.New()),
+		vdr.WithVDR(jwk.New()),
+		vdr.WithVDR(
+			&webVDR{
+				httpClient: opts.httpClient,
+				VDR:        web.New(),
+			},
+		),
+	)
+
+	storageProvider := mem.NewProvider()
+
+	kmsStore, err := kms.NewAriesProviderWrapper(storageProvider)
+	if err != nil {
+		return nil, fmt.Errorf("init kms store: %w", err)
+	}
+
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://wallet-cli", kmsStore, &noop.NoLock{})
+	if err != nil {
+		return nil, fmt.Errorf("init local crypto suite: %w", err)
+	}
+
+	keyCreator, err := suite.RawKeyCreator()
+	if err != nil {
+		return nil, fmt.Errorf("init key creator: %w", err)
+	}
+
+	w, err := wallet.New(
+		&walletProvider{
+			storageProvider: storageProvider,
+			documentLoader:  documentLoader,
+			vdRegistry:      vdRegistry,
+			keyCreator:      keyCreator,
+		},
+		wallet.WithNewDID("ion"),
+		wallet.WithKeyType("ECDSAP384DER"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("init wallet: %w", err)
+	}
+
+	wellKnownService := &wellknown.Service{
+		HTTPClient:  opts.httpClient,
+		VDRRegistry: vdRegistry,
 	}
 
 	return &TestCase{
-		walletRunner:           runner,
+		oidc4vciProvider: &oidc4vciProvider{
+			storageProvider:  storageProvider,
+			httpClient:       opts.httpClient,
+			documentLoader:   documentLoader,
+			vdrRegistry:      vdRegistry,
+			cryptoSuite:      suite,
+			wallet:           w,
+			wellKnownService: wellKnownService,
+		},
+		oidc4vpProvider: &oidc4vpProvider{
+			storageProvider: storageProvider,
+			httpClient:      opts.httpClient,
+			documentLoader:  documentLoader,
+			vdrRegistry:     vdRegistry,
+			cryptoSuite:     suite,
+			wallet:          w,
+		},
+		wallet:                 w,
 		httpClient:             opts.httpClient,
 		vcsAPIURL:              opts.vcsAPIURL,
 		issuerProfileID:        opts.issuerProfileID,
@@ -115,12 +198,6 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		disableVPTestCase:      opts.disableVPTestCase,
 		verifierPresentationID: opts.verifierPresentationID,
 	}, nil
-}
-
-func WithVCProviderOption(opt vcprovider.ConfigOption) TestCaseOption {
-	return func(opts *TestCaseOptions) {
-		opts.vcProviderOptions = append(opts.vcProviderOptions, opt)
-	}
 }
 
 func WithDisableRevokeTestCase(disableRevokeTestCase bool) TestCaseOption {
@@ -210,55 +287,94 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	}
 
 	// run pre-auth flow and save credential in the wallet
-	credentials, err := c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4VCIConfig{
-		CredentialOfferURI: credentialOfferURL,
-		CredentialType:     c.credentialType,
-		CredentialFormat:   c.credentialFormat,
-		Pin:                pin,
-	}, nil)
+	vciFlow, err := oidc4vci.NewFlow(c.oidc4vciProvider,
+		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
+		oidc4vci.WithCredentialOffer(credentialOfferURL),
+		oidc4vci.WithCredentialType(c.credentialType),
+		oidc4vci.WithCredentialFormat(c.credentialFormat),
+		oidc4vci.WithPin(pin),
+	)
+	if err != nil {
+		return "", nil, fmt.Errorf("init pre-auth flow: %w", err)
+	}
+
+	credentials, err := vciFlow.Run(context.Background())
+	if err != nil {
+		return "", nil, fmt.Errorf("run pre-auth flow: %w", err)
+	}
 
 	credID := ""
+
 	if credentials != nil {
 		credID = credentials.Contents().ID
 	}
+
 	if err != nil {
-		return credID, nil, fmt.Errorf("CredId [%v]. run pre-auth issuance: %w", credID, err)
+		return credID, nil, fmt.Errorf("cred id [%v]; run pre-auth issuance: %w", credID, err)
 	}
 
-	providerConf := c.walletRunner.GetConfig()
-	providerConf.WalletUserId = providerConf.WalletParams.UserID
-	providerConf.WalletPassPhrase = providerConf.WalletParams.Passphrase
-	providerConf.WalletDidID = providerConf.WalletParams.DidID[0]
-	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID[0]
-	providerConf.SkipSchemaValidation = true
+	perfInfo := make(stressTestPerfInfo)
 
 	if !c.disableVPTestCase {
-		authorizationRequest, err := c.fetchAuthorizationRequest()
+		var (
+			authorizationRequest string
+			vpFlow               *oidc4vp.Flow
+			b                    []byte
+		)
+
+		authorizationRequest, err = c.fetchAuthorizationRequest()
 		if err != nil {
-			return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
+			return credID, nil, fmt.Errorf("cred id [%v]; fetch authorization request: %w", credID, err)
 		}
 
-		err = c.walletRunner.RunOIDC4VPFlow(context.TODO(), authorizationRequest, nil)
+		vpFlow, err = oidc4vp.NewFlow(c.oidc4vpProvider,
+			oidc4vp.WithRequestURI(strings.TrimPrefix(authorizationRequest, "openid-vc://?request_uri=")),
+			oidc4vp.WithDomainMatchingDisabled(),
+			oidc4vp.WithSchemaValidationDisabled(),
+		)
 		if err != nil {
-			return credID, nil, fmt.Errorf("CredId [%v]. run vp: %w", credID, err)
+			return "", nil, fmt.Errorf("cred id [%v]; init flow: %w", credID, err)
+		}
+
+		if err = vpFlow.Run(context.Background()); err != nil {
+			return "", nil, fmt.Errorf("cred id [%v]; run vp flow: %w", credID, err)
+		}
+
+		var vpPerfInfo map[string]time.Duration
+
+		b, err = json.Marshal(vpFlow.PerfInfo())
+		if err != nil {
+			return credID, nil, fmt.Errorf("cred id [%v]; marshal vp perf info: %w", credID, err)
+		}
+
+		if err = json.Unmarshal(b, &vpPerfInfo); err != nil {
+			return credID, nil, fmt.Errorf("unmarshal vp perf info into stressTestPerfInfo: %w", err)
+		}
+
+		for k, v := range vpPerfInfo {
+			perfInfo[k] = v
 		}
 	}
 
-	b, err := json.Marshal(c.walletRunner.GetPerfInfo())
+	var vciPerfInfo map[string]time.Duration
+
+	b, err := json.Marshal(vciFlow.PerfInfo())
 	if err != nil {
-		return credID, nil, fmt.Errorf("CredId [%v]. marshal perf info: %w", credID, err)
+		return credID, nil, fmt.Errorf("cred id [%v]; marshal vci perf info: %w", credID, err)
 	}
 
-	var perfInfo stressTestPerfInfo
+	if err = json.Unmarshal(b, &vciPerfInfo); err != nil {
+		return credID, nil, fmt.Errorf("unmarshal vci perf info into stressTestPerfInfo: %w", err)
+	}
 
-	if err = json.Unmarshal(b, &perfInfo); err != nil {
-		return credID, nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
+	for k, v := range vciPerfInfo {
+		perfInfo[k] = v
 	}
 
 	if !c.disableRevokeTestCase && credentials.Contents().Status != nil && credentials.Contents().Status.Type != "" {
 		st := time.Now()
 		if err = c.revokeVC(credentials); err != nil {
-			return credID, nil, fmt.Errorf("CredId [%v]. can not revokeVc; %w", credID, err)
+			return credID, nil, fmt.Errorf("cred id [%v]; can not revokeVc; %w", credID, err)
 		}
 
 		perfInfo["_vp_revoke_credentials"] = time.Since(st)
@@ -274,6 +390,8 @@ func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
 			Status: "true",
 			Type:   cred.Contents().Status.Type,
 		},
+		ProfileID:      c.issuerProfileID,
+		ProfileVersion: c.issuerProfileVersion,
 	}
 
 	requestBytes, err := json.Marshal(req)
@@ -281,8 +399,7 @@ func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf("%s/issuer/profiles/%v/credentials/status",
-		c.vcsAPIURL, c.issuerProfileID)
+	endpointURL := fmt.Sprintf("%s/issuer/credentials/status", c.vcsAPIURL)
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", c.token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), &tls.Config{
@@ -336,10 +453,6 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 		return "", "", fmt.Errorf("send initiate oidc4ci request: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("initiate oidc4ci request failed: %v", resp.Status)
-	}
-
 	if resp.Body != nil {
 		defer func() {
 			err = resp.Body.Close()
@@ -347,6 +460,11 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 				logger.Error("failed to close response body", log.WithError(err))
 			}
 		}()
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body) //nolint
+		return "", "", fmt.Errorf("initiate oidc4ci request failed: %v; response: %s", resp.Status, string(body))
 	}
 
 	var parsedResp initiateOIDC4CIResponse

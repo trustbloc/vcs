@@ -35,11 +35,11 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/consent"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/consent"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -87,6 +87,7 @@ type Flow struct {
 	pin                        string
 	walletKeyID                string
 	walletKeyType              kms.KeyType
+	perfInfo                   *PerfInfo
 }
 
 type provider interface {
@@ -210,6 +211,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
 		trustRegistryURL:           o.trustRegistryURL,
+		perfInfo:                   &PerfInfo{},
 	}, nil
 }
 
@@ -250,10 +252,14 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 		issuerState = f.issuerState
 	}
 
+	start := time.Now()
+
 	openIDConfig, err := f.wellKnownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
 	if err != nil {
 		return nil, err
 	}
+
+	f.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(start)
 
 	requireWalletAttestation := openIDConfig.TokenEndpointAuthMethodsSupported != nil &&
 		lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
@@ -291,6 +297,8 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 	}
 
 	var token *oauth2.Token
+
+	start = time.Now()
 
 	if f.flowType == FlowTypeAuthorizationCode || f.flowType == FlowTypeWalletInitiated {
 		oauthClient := &oauth2.Config{
@@ -391,6 +399,8 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			},
 		)
 	}
+
+	f.perfInfo.GetAccessToken = time.Since(start)
 
 	vc, err := f.receiveVC(token, openIDConfig, credentialIssuer)
 	if err != nil {
@@ -678,6 +688,11 @@ func (f *Flow) receiveVC(
 ) (*verifiable.Credential, error) {
 	credentialEndpoint := wellKnown.CredentialEndpoint
 
+	start := time.Now()
+	defer func() {
+		f.perfInfo.GetCredential = time.Since(start)
+	}()
+
 	slog.Info("Getting credential",
 		"credential_endpoint", credentialEndpoint,
 		"credential_issuer", credentialIssuer,
@@ -814,6 +829,11 @@ func (f *Flow) handleIssuanceAck(
 		return nil
 	}
 
+	start := time.Now()
+	defer func() {
+		f.perfInfo.CredentialsAck = time.Since(start)
+	}()
+
 	slog.Info("Sending wallet ACK",
 		"ack_id", credResponse.AckID,
 		"endpoint", wellKnown.CredentialAckEndpoint,
@@ -855,6 +875,10 @@ func (f *Flow) handleIssuanceAck(
 	}
 
 	return nil
+}
+
+func (f *Flow) PerfInfo() *PerfInfo {
+	return f.perfInfo
 }
 
 func waitForEnter(

@@ -66,6 +66,7 @@ type Flow struct {
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
 	trustRegistryURL               string
+	perfInfo                       *PerfInfo
 }
 
 type provider interface {
@@ -131,6 +132,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		disableDomainMatching:          o.disableDomainMatching,
 		disableSchemaValidation:        o.disableSchemaValidation,
 		trustRegistryURL:               o.trustRegistryURL,
+		perfInfo:                       &PerfInfo{},
 	}, nil
 }
 
@@ -211,6 +213,8 @@ func (f *Flow) fetchRequestObject(ctx context.Context) (*RequestObject, error) {
 		"uri", f.requestURI,
 	)
 
+	start := time.Now()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.requestURI, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request object request: %w", err)
@@ -238,6 +242,13 @@ func (f *Flow) fetchRequestObject(ctx context.Context) (*RequestObject, error) {
 	}
 
 	_ = resp.Body.Close()
+
+	f.perfInfo.FetchRequestObject = time.Since(start)
+
+	start = time.Now()
+	defer func() {
+		f.perfInfo.VerifyAuthorizationRequest = time.Since(start)
+	}()
 
 	jwtVerifier := defaults.NewDefaultProofChecker(
 		vermethod.NewVDRResolver(f.vdrRegistry),
@@ -332,6 +343,11 @@ func getServiceType(serviceType interface{}) string {
 func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) (*verifiable.Presentation, error) {
 	slog.Info("Querying wallet")
 
+	start := time.Now()
+	defer func() {
+		f.perfInfo.QueryCredentialFromWallet = time.Since(start)
+	}()
+
 	b, err := json.Marshal(pd)
 	if err != nil {
 		return nil, fmt.Errorf("marshal presentation definition: %w", err)
@@ -370,6 +386,8 @@ func (f *Flow) sendAuthorizationResponse(
 		"redirect_uri", requestObject.RedirectURI,
 	)
 
+	start := time.Now()
+
 	presentationSubmission, ok := vp.CustomFields["presentation_submission"].(*presexch.PresentationSubmission)
 	if !ok {
 		return fmt.Errorf("missing or invalid presentation_submission")
@@ -400,6 +418,8 @@ func (f *Flow) sendAuthorizationResponse(
 		"vp_token": {vpToken},
 		"state":    {requestObject.State},
 	}
+
+	f.perfInfo.CreateAuthorizedResponse = time.Since(start)
 
 	return f.postAuthorizationResponse(ctx, requestObject.RedirectURI, []byte(v.Encode()))
 }
@@ -557,7 +577,7 @@ func (f *Flow) createIDToken(
 	presentationSubmission *presexch.PresentationSubmission,
 	clientID, nonce, requestObjectScope string,
 ) (string, error) {
-	scopeAdditionalClaims, err := ExtractCustomScopeClaims(requestObjectScope)
+	scopeAdditionalClaims, err := extractCustomScopeClaims(requestObjectScope)
 	if err != nil {
 		return "", fmt.Errorf("extractAdditionalClaims: %w", err)
 	}
@@ -594,10 +614,46 @@ func (f *Flow) createIDToken(
 	return idTokenJSON, nil
 }
 
+func extractCustomScopeClaims(requestObjectScope string) (map[string]Claims, error) {
+	chunks := strings.Split(requestObjectScope, "+")
+	if len(chunks) == 1 {
+		return nil, nil
+	}
+
+	claimsData := make(map[string]Claims, len(chunks)-1)
+
+	for _, scope := range chunks {
+		switch scope {
+		case scopeOpenID:
+			// scopeOpenID is a required specification scope, so no additional claims for this case.
+			continue
+		case customScopeTimeDetails:
+			claimsData[scope] = Claims{
+				"timestamp": time.Now().Format(time.RFC3339),
+				"uuid":      uuid.NewString(),
+			}
+		case customScopeWalletDetails:
+			claimsData[scope] = Claims{
+				"wallet_version": "1.0",
+				"uuid":           uuid.NewString(),
+			}
+		default:
+			return nil, fmt.Errorf("unexpected custom scope \"%s\" supplied", chunks[1])
+		}
+	}
+
+	return claimsData, nil
+}
+
 func (f *Flow) postAuthorizationResponse(ctx context.Context, redirectURI string, body []byte) error {
 	slog.Info("Sending authorization response",
 		"redirect_uri", redirectURI,
 	)
+
+	start := time.Now()
+	defer func() {
+		f.perfInfo.SendAuthorizedResponse = time.Since(start)
+	}()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, redirectURI, bytes.NewBuffer(body))
 	if err != nil {
@@ -634,6 +690,10 @@ func (f *Flow) postAuthorizationResponse(ctx context.Context, redirectURI string
 	slog.Info("Credential presented successfully")
 
 	return nil
+}
+
+func (f *Flow) PerfInfo() *PerfInfo {
+	return f.perfInfo
 }
 
 type options struct {
@@ -681,36 +741,4 @@ func WithTrustRegistryURL(url string) Opt {
 	return func(opts *options) {
 		opts.trustRegistryURL = url
 	}
-}
-
-// ExtractCustomScopeClaims returns Claims associated with custom scope.
-func ExtractCustomScopeClaims(requestObjectScope string) (map[string]Claims, error) {
-	chunks := strings.Split(requestObjectScope, "+")
-	if len(chunks) == 1 {
-		return nil, nil
-	}
-
-	claimsData := make(map[string]Claims, len(chunks)-1)
-
-	for _, scope := range chunks {
-		switch scope {
-		case scopeOpenID:
-			// scopeOpenID is a required specification scope, so no additional claims for this case.
-			continue
-		case customScopeTimeDetails:
-			claimsData[scope] = Claims{
-				"timestamp": time.Now().Format(time.RFC3339),
-				"uuid":      uuid.NewString(),
-			}
-		case customScopeWalletDetails:
-			claimsData[scope] = Claims{
-				"wallet_version": "1.0",
-				"uuid":           uuid.NewString(),
-			}
-		default:
-			return nil, fmt.Errorf("unexpected custom scope \"%s\" supplied", chunks[1])
-		}
-	}
-
-	return claimsData, nil
 }
