@@ -26,8 +26,8 @@ func newServer() *server {
 		router: router,
 	}
 
-	router.HandleFunc("/issuer/policies/policyID/policyVersion/interactions/issuance", srv.evaluateIssuerIssuancePolicy).Methods(http.MethodPost)
-	router.HandleFunc("/verifier/policies/policyID/policyVersion/interactions/presentation", srv.evaluateVerifierPresentationPolicy).Methods(http.MethodPost)
+	router.HandleFunc("/issuer/policies/{policyID}/{policyVersion}/interactions/issuance", srv.evaluateIssuerIssuancePolicy).Methods(http.MethodPost)
+	router.HandleFunc("/verifier/policies/{policyID}/{policyVersion}/interactions/presentation", srv.evaluateVerifierPresentationPolicy).Methods(http.MethodPost)
 
 	return srv
 }

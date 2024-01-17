@@ -1402,7 +1402,7 @@
         "active": true,
         "checks": {
           "clientAttestationCheck": {
-            "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/issuer/policies/policyID/policyVersion/interactions/issuance"
+            "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/issuer/policies/i_myprofile_jwt_client_attestation/v1.latest/interactions/issuance"
           }
         },
         "vcConfig": {
@@ -2310,7 +2310,7 @@
             "proof": true
           },
           "clientAttestationCheck": {
-            "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/policyID/policyVersion/interactions/presentation"
+            "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/v_myprofile_jwt_client_attestation/v1.latest/interactions/presentation"
           }
         },
         "oidcConfig": {
