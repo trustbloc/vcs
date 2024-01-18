@@ -96,6 +96,7 @@ used for this purpose. The following CLI arguments are supported:
       --qr-code-path string                path to file with qr code
       --redirect-uri string                callback where the authorization code should be sent (default "http://127.0.0.1/callback")
       --scopes strings                     vcs oauth2 scopes (default [openid])
+      --trust-registry-url string          if supplied, wallet will run issuer verification in trust registry
       --user-login string                  user login on issuer IdP
       --user-password string               user password on issuer IdP
       --wallet-did-index int               index of wallet did, if not set the most recently created DID is used (default -1)
@@ -165,7 +166,7 @@ Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
       --mongodb-connection-string string    mongodb connection string
       --proxy-url string                    proxy url for http client
       --qr-code-path string                 path to file with qr code
-      --trust-registry-url string           Trust Registry URL. If supplied, Wallet will run Verifier verification against Trust Registry
+      --trust-registry-url string           if supplied, wallet will run verifier verification in trust registry
       --wallet-did-index int                index of wallet did, if not set the most recently created DID is used (default -1)
 ```
 
