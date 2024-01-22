@@ -38,7 +38,69 @@
   "credentialMetadata": {
     "credentials_supported": [
       {
-        "id": "VerifiedEmployee_JWT"
+        "id": "VerifiedEmployee_JWT",
+        "types": [
+          "VerifiableCredential",
+          "VerifiedEmployee"
+        ],
+        "format": "ldp_vc",
+        "credentialSubject": {
+          "displayName": {
+            "display": [
+              {
+                "name": "Employee",
+                "locale": "en-US"
+              }
+            ]
+          },
+          "givenName": {
+            "display": [
+              {
+                "name": "Given Name",
+                "locale": "en-US"
+              }
+            ]
+          },
+          "jobTitle": {
+            "display": [
+              {
+                "name": "Job Title",
+                "locale": "en-US"
+              }
+            ]
+          },
+          "surname": {
+            "display": [
+              {
+                "name": "Surname",
+                "locale": "en-US"
+              }
+            ]
+          },
+          "preferredLanguage": {
+            "display": [
+              {
+                "name": "Preferred Language",
+                "locale": "en-US"
+              }
+            ]
+          },
+          "mail": {
+            "display": [
+              {
+                "name": "Mail",
+                "locale": "en-US"
+              }
+            ]
+          },
+          "photo": {
+            "display": [
+              {
+                "name": "Photo"
+              }
+            ]
+          }
+        }
       }
     ],
     "display": [

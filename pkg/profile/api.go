@@ -91,8 +91,16 @@ type CredentialDisplay struct {
 }
 
 type CredentialMetaData struct {
-	CredentialsSupported []map[string]interface{} `json:"credentials_supported"`
-	Display              []*CredentialDisplay     `json:"display"`
+	CredentialsSupported []*CredentialsSupported `json:"credentials_supported"`
+	Display              []*CredentialDisplay    `json:"display"`
+}
+
+type CredentialsSupported struct {
+	ID                string                 `json:"id"`
+	Format            string                 `json:"format"`
+	Types             []string               `json:"types"`
+	CredentialSubject map[string]interface{} `json:"credentialSubject"`
+	Display           []CredentialDisplay    `json:"display"`
 }
 
 // OIDCConfig represents issuer's OIDC configuration.

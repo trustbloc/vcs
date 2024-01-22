@@ -9,6 +9,7 @@ package wellknown
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/samber/lo"
 	"io"
 	"log/slog"
 	"net/http"
@@ -48,21 +49,30 @@ func (s *Service) GetWellKnownOpenIDConfiguration(
 		return nil, fmt.Errorf("get issuer well-known: status code %d", resp.StatusCode)
 	}
 
-	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
+	var oidcConfigUnsigned issuerv1.WellKnownOpenIDIssuerConfiguration
 
 	wellKnownOpenIDIssuerConfigurationPayload, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read issuer configuration payload body: %w", err)
 	}
 
-	if jwt.IsJWS(string(wellKnownOpenIDIssuerConfigurationPayload)) {
-		wellKnownOpenIDIssuerConfigurationPayload, err =
-			getWellKnownOpenIDConfigurationJWTPayload(
-				string(wellKnownOpenIDIssuerConfigurationPayload), s.VDRRegistry)
-		if err != nil {
-			return nil, err
-		}
+	if err = json.Unmarshal(wellKnownOpenIDIssuerConfigurationPayload, &oidcConfigUnsigned); err != nil {
+		return nil, fmt.Errorf("decode issuer well-known: %w", err)
 	}
+
+	signedMetadata := lo.FromPtr(oidcConfigUnsigned.SignedMetadata)
+
+	if !jwt.IsJWS(signedMetadata) {
+		return &oidcConfigUnsigned, nil
+	}
+
+	wellKnownOpenIDIssuerConfigurationPayload, err = getWellKnownOpenIDConfigurationJWTPayload(
+		signedMetadata, s.VDRRegistry)
+	if err != nil {
+		return nil, err
+	}
+
+	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
 
 	if err = json.Unmarshal(wellKnownOpenIDIssuerConfigurationPayload, &oidcConfig); err != nil {
 		return nil, fmt.Errorf("decode issuer well-known: %w", err)

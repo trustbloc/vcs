@@ -443,12 +443,10 @@ func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKno
 	}
 
 	config := &WellKnownOpenIDIssuerConfiguration{
-		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
-		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
+		AuthorizationEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/authorize", host)),
+		ResponseTypesSupported: lo.ToPtr([]string{"code"}),
+		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
+		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/acknowledgement", host)),
 	}
 
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
@@ -457,9 +455,10 @@ func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKno
 	}
 
 	if profile.OIDCConfig != nil {
-		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
-		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
-		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
+		config.GrantTypesSupported = &profile.OIDCConfig.GrantTypesSupported
+		config.ScopesSupported = &profile.OIDCConfig.ScopesSupported
+		config.PreAuthorizedGrantAnonymousAccessSupported =
+			&profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
 
 		if profile.OIDCConfig.EnableDynamicClientRegistration {
 			var regURL string
@@ -469,7 +468,7 @@ func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKno
 				return nil, fmt.Errorf("build registration endpoint: %w", err)
 			}
 
-			config.RegistrationEndpoint = lo.ToPtr(regURL)
+			config.RegistrationEndpoint = &regURL
 		}
 	}
 
@@ -921,7 +920,9 @@ func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, p
 	}
 
 	if jwtSignedConfig != "" {
-		return util.WriteRawOutputWithContentType(ctx)([]byte(jwtSignedConfig), "application/jwt", nil)
+		return util.WriteOutput(ctx)(WellKnownOpenIDIssuerConfiguration{
+			SignedMetadata: &jwtSignedConfig,
+		}, nil)
 	}
 
 	return util.WriteOutput(ctx)(config, nil)
