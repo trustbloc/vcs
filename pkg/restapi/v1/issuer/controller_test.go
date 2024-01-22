@@ -1582,9 +1582,9 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: []map[string]interface{}{
+			CredentialsSupported: []*profileapi.CredentialsSupported{
 				{
-					"id": "VerifiedEmployee_JWT",
+					ID: "VerifiedEmployee_JWT",
 				},
 			},
 		},
@@ -1619,8 +1619,8 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			bodyBytes, err := io.ReadAll(recorder.Body)
 			assert.NoError(t, err)
 
-			assert.Equal(t, "aa.bb.cc", string(bodyBytes))
-			assert.Equal(t, "application/jwt", recorder.Header().Get("Content-Type"))
+			assert.Equal(t, `{"signed_metadata":"aa.bb.cc"}`, string(bodyBytes))
+			assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
 		}
 	})
 
@@ -1628,7 +1628,7 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 		openidIssuerConfigProvider := NewMockOpenIDCredentialIssuerConfigProvider(gomock.NewController(t))
 		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(
 			&WellKnownOpenIDIssuerConfiguration{
-				CredentialIssuer: "https://example.com",
+				CredentialIssuer: lo.ToPtr("https://example.com"),
 			}, "", nil).Times(2)
 
 		profileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1790,10 +1790,20 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	profileSvc.EXPECT().GetProfile("12345", "v0.1").
-		Return(&profileapi.Issuer{}, nil)
+		Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{
+				ScopesSupported:                            []string{"scope1"},
+				GrantTypesSupported:                        []string{"grantType1"},
+				EnableDynamicClientRegistration:            true,
+				PreAuthorizedGrantAnonymousAccessSupported: true,
+			},
+		}, nil)
 	resp, err := ctr.GetOpenIDConfig("12345", "v0.1")
 	assert.NoError(t, err)
-	assert.Equal(t, "/oidc/acknowledgement", resp.CredentialAckEndpoint)
+	assert.Equal(t, "/oidc/acknowledgement", *resp.CredentialAckEndpoint)
+	assert.Equal(t, []string{"grantType1"}, *resp.GrantTypesSupported)
+	assert.Equal(t, []string{"scope1"}, *resp.ScopesSupported)
+	assert.Equal(t, "/oidc/12345/v0.1/register", *resp.RegistrationEndpoint)
 }
 
 func Test_sendFailedEvent(t *testing.T) {
