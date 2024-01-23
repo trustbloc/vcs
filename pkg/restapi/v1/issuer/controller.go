@@ -755,6 +755,10 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return resterr.NewCustomError(resterr.ClaimsValidationErr, err)
 	}
 
+	if err = validateCredentialResponseEncryption(profile, body.RequestedCredentialResponseEncryption); err != nil {
+		return err
+	}
+
 	signedCredential, err := c.signCredential(
 		ctx, result.Credential, profile, issuecredential.WithTransactionID(body.TxId))
 	if err != nil {
@@ -904,6 +908,44 @@ func getCredentialSubjects(subject interface{}) ([]verifiable.Subject, error) {
 	}
 
 	return nil, fmt.Errorf("invalid type for credential subject: %T", subject)
+}
+
+func validateCredentialResponseEncryption(
+	profile *profileapi.Issuer,
+	requested *RequestedCredentialResponseEncryption,
+) error {
+	if profile.OIDCConfig == nil {
+		return nil
+	}
+
+	if profile.OIDCConfig.CredentialResponseEncryptionRequired && requested == nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption",
+			errors.New("credential response encryption is required"))
+	}
+
+	alg := ""
+	if requested != nil {
+		alg = requested.Alg
+	}
+
+	if len(profile.OIDCConfig.CredentialResponseAlgValuesSupported) > 0 &&
+		!lo.Contains(profile.OIDCConfig.CredentialResponseAlgValuesSupported, alg) {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.alg",
+			fmt.Errorf("alg %s not supported", requested.Alg))
+	}
+
+	enc := ""
+	if requested != nil {
+		enc = requested.Enc
+	}
+
+	if len(profile.OIDCConfig.CredentialResponseEncValuesSupported) > 0 &&
+		!lo.Contains(profile.OIDCConfig.CredentialResponseEncValuesSupported, enc) {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.enc",
+			fmt.Errorf("enc %s not supported", requested.Enc))
+	}
+
+	return nil
 }
 
 // OpenidCredentialIssuerConfig request VCS IDP OIDC Configuration.

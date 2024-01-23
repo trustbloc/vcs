@@ -100,7 +100,7 @@ type CredentialIssuanceHistoryData struct {
 }
 
 // Object containing information about whether the Credential Issuer supports encryption of the Credential and Batch Credential Response on top of TLS
-type CredentialResponseEncryption struct {
+type CredentialResponseEncryptionSupported struct {
 	// Array containing a list of the JWE [RFC7516] encryption algorithms (alg values) [RFC7518] supported by the Credential and Batch Credential Endpoint to encode the Credential or Batch Credential Response in a JWT [RFC7519].
 	AlgValuesSupported []string `json:"alg_values_supported"`
 
@@ -296,6 +296,9 @@ type PrepareCredential struct {
 	// Hashed token received from the client.
 	HashedToken string `json:"hashed_token"`
 
+	// Object containing requested information for encrypting the Credential Response.
+	RequestedCredentialResponseEncryption *RequestedCredentialResponseEncryption `json:"requested_credential_response_encryption,omitempty"`
+
 	// Transaction ID.
 	TxId string `json:"tx_id"`
 
@@ -324,6 +327,15 @@ type PushAuthorizationDetailsRequest struct {
 	// Model to convey the details about the Credentials the Client wants to obtain.
 	AuthorizationDetails externalRef0.AuthorizationDetails `json:"authorization_details"`
 	OpState              string                            `json:"op_state"`
+}
+
+// Object containing requested information for encrypting the Credential Response.
+type RequestedCredentialResponseEncryption struct {
+	// JWE alg algorithm for encrypting the Credential Response.
+	Alg string `json:"alg"`
+
+	// JWE enc algorithm for encrypting the Credential Response.
+	Enc string `json:"enc"`
 }
 
 // Model for storing auth code from issuer oauth
@@ -432,7 +444,7 @@ type WellKnownOpenIDIssuerConfiguration struct {
 	CredentialIssuer *string `json:"credential_issuer,omitempty"`
 
 	// Object containing information about whether the Credential Issuer supports encryption of the Credential and Batch Credential Response on top of TLS
-	CredentialResponseEncryption *CredentialResponseEncryption `json:"credential_response_encryption,omitempty"`
+	CredentialResponseEncryption *CredentialResponseEncryptionSupported `json:"credential_response_encryption,omitempty"`
 
 	// URL of the Credential Issuer's Deferred Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path, and query parameter components. If omitted, the Credential Issuer does not support the Deferred Credential Endpoint.
 	DeferredCredentialEndpoint *string `json:"deferred_credential_endpoint,omitempty"`

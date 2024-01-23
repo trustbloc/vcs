@@ -108,6 +108,9 @@ type AckService interface {
 	) error
 }
 
+// JWEEncrypterCreator creates JWE encrypter for given JWK, alg and enc.
+type JWEEncrypterCreator func(jwk gojose.JSONWebKey, alg gojose.KeyAlgorithm, enc gojose.ContentEncryption) (gojose.Encrypter, error) //nolint:lll
+
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider          OAuth2Provider
@@ -122,6 +125,7 @@ type Config struct {
 	IssuerVCSPublicHost     string
 	ExternalHostURL         string
 	AckService              AckService
+	JWEEncrypterCreator     JWEEncrypterCreator
 }
 
 // Controller for OIDC credential issuance API.
@@ -138,6 +142,7 @@ type Controller struct {
 	issuerVCSPublicHost     string
 	internalHostURL         string
 	ackService              AckService
+	jweEncrypterCreator     JWEEncrypterCreator
 }
 
 // NewController creates a new Controller instance.
@@ -155,6 +160,7 @@ func NewController(config *Config) *Controller {
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
 		internalHostURL:         config.ExternalHostURL,
 		ackService:              config.AckService,
+		jweEncrypterCreator:     config.JWEEncrypterCreator,
 	}
 }
 
@@ -622,19 +628,19 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 }
 
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
-func (c *Controller) OidcCredential(e echo.Context) error {
+func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	req := e.Request()
 
 	ctx, span := c.tracer.Start(req.Context(), "OidcCredential")
 	defer span.End()
 
-	var credentialRequest CredentialRequest
+	var credentialReq CredentialRequest
 
-	if err := validateCredentialRequest(e, &credentialRequest); err != nil {
+	if err := validateCredentialRequest(e, &credentialReq); err != nil {
 		return err
 	}
 
-	span.SetAttributes(attributeutil.JSON("oidc_credential_request", credentialRequest))
+	span.SetAttributes(attributeutil.JSON("oidc_credential_request", credentialReq))
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
@@ -648,7 +654,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	jws, rawClaims, err := jwt.ParseAndCheckProof(credentialRequest.Proof.Jwt,
+	jws, rawClaims, err := jwt.ParseAndCheckProof(credentialReq.Proof.Jwt,
 		c.jwtVerifier, false,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
@@ -666,16 +672,23 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 		return err
 	}
 
-	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
-		issuer.PrepareCredentialJSONRequestBody{
-			TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
-			Did:           lo.ToPtr(did),
-			Types:         credentialRequest.Types,
-			Format:        credentialRequest.Format,
-			AudienceClaim: claims.Audience,
-			HashedToken:   hashToken(token),
-		},
-	)
+	prepareCredentialReq := issuer.PrepareCredentialJSONRequestBody{
+		TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
+		Did:           lo.ToPtr(did),
+		Types:         credentialReq.Types,
+		Format:        credentialReq.Format,
+		AudienceClaim: claims.Audience,
+		HashedToken:   hashToken(token),
+	}
+
+	if credentialReq.CredentialResponseEncryption != nil {
+		prepareCredentialReq.RequestedCredentialResponseEncryption = &issuer.RequestedCredentialResponseEncryption{
+			Alg: credentialReq.CredentialResponseEncryption.Alg,
+			Enc: credentialReq.CredentialResponseEncryption.Enc,
+		}
+	}
+
+	resp, err := c.issuerInteractionClient.PrepareCredential(ctx, prepareCredentialReq)
 	if err != nil {
 		return fmt.Errorf("prepare credential: %w", err)
 	}
@@ -715,13 +728,35 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
-	return apiUtil.WriteOutput(e)(CredentialResponse{
+	credentialResp := &CredentialResponse{
 		Credential:      result.Credential,
 		Format:          result.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
 		AckId:           result.AckId,
-	}, nil)
+	}
+
+	if credentialReq.CredentialResponseEncryption != nil {
+		var encryptedResponse string
+
+		if encryptedResponse, err = c.encryptCredentialResponse(
+			credentialResp,
+			credentialReq.CredentialResponseEncryption,
+		); err != nil {
+			return fmt.Errorf("encrypt credential response: %w", err)
+		}
+
+		e.Response().Header().Set("Content-Type", "application/jwt")
+		e.Response().WriteHeader(http.StatusOK)
+
+		if _, err = e.Response().Write([]byte(encryptedResponse)); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return apiUtil.WriteOutput(e)(credentialResp, nil)
 }
 
 func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
@@ -743,6 +778,39 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 	}
 
 	return nil
+}
+
+func (c *Controller) encryptCredentialResponse(
+	resp *CredentialResponse,
+	enc *CredentialResponseEncryption,
+) (string, error) {
+	var jwk gojose.JSONWebKey
+
+	if err := json.Unmarshal([]byte(enc.Jwk), &jwk); err != nil {
+		return "", fmt.Errorf("unmarshal jwk: %w", err)
+	}
+
+	encrypter, err := c.jweEncrypterCreator(jwk, gojose.KeyAlgorithm(enc.Alg), gojose.ContentEncryption(enc.Enc))
+	if err != nil {
+		return "", fmt.Errorf("create encrypter: %w", err)
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return "", fmt.Errorf("marshal credential response: %w", err)
+	}
+
+	encrypted, err := encrypter.Encrypt(b)
+	if err != nil {
+		return "", fmt.Errorf("encrypt credential response: %w", err)
+	}
+
+	jwe, err := encrypted.CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("serialize credential response: %w", err)
+	}
+
+	return jwe, nil
 }
 
 //nolint:gocognit
