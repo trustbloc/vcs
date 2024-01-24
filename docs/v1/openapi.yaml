@@ -900,20 +900,62 @@ components:
         - issuer
       type: object
       properties:
+        credential_issuer:
+          type: string
+          description: The Credential Issuer's identifier.
         authorization_endpoint:
           type: string
           description: URL of the OP's OAuth 2.0 Authorization Endpoint.
+        credential_endpoint:
+          type: string
+          description: 'URL of the Credential Issuer''s Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.'
+        batch_credential_endpoint:
+          type: string
+          description: 'URL of the Credential Issuer''s Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.'
+        deferred_credential_endpoint:
+          type: string
+          description: "URL of the Credential Issuer's Deferred Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path, and query parameter components. If omitted, the Credential Issuer does not support the Deferred Credential Endpoint."
+        notification_endpoint:
+          type: string
+          description: "URL of the Credential Issuer's Notification Endpoint. This URL MUST use the https scheme and MAY contain port, path, and query parameter components. If omitted, the Credential Issuer does not support the Notification Endpoint."
+        credential_response_encryption:
+          $ref: '#/components/schemas/CredentialResponseEncryption'
+        credential_identifiers_supported:
+          type: boolean
+          description: "Boolean value specifying whether the Credential Issuer supports returning credential_identifiers parameter in the authorization_details Token Response parameter, with true indicating support. If omitted, the default value is false."
+        signed_metadata:
+          type: string
+          description: "String that is a signed JWT. This JWT contains Credential Issuer metadata parameters as claims."
+        display:
+          type: array
+          description: 'An array of objects, where each object contains display properties of a Credential Issuer for a certain language.'
+          items:
+            $ref: '#/components/schemas/CredentialDisplay'
+        credential_configurations_supported:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CredentialConfigurationsSupported'
+          description: "An object that describes specifics of the Credential that the Credential Issuer supports issuance of. This object contains a list of name/value pairs, where each name is a unique identifier of the supported credential being described."
+
+        credential_ack_endpoint:
+          type: string
+          description: URL of the acknowledgement endpoint.
+        registration_endpoint:
+          type: string
+          description: URL of the OP's Dynamic Client Registration Endpoint.
         token_endpoint:
           type: string
           description: URL of the OP's OAuth 2.0 Token Endpoint.
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          description: JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
         response_types_supported:
           type: array
           description: JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
           items:
             type: string
-        registration_endpoint:
-          type: string
-          description: URL of the OP's Dynamic Client Registration Endpoint.
         scopes_supported:
           type: array
           items:
@@ -927,44 +969,6 @@ components:
         pre-authorized_grant_anonymous_access_supported:
           type: boolean
           description: JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
-        credential_issuer:
-          type: string
-          description: The Credential Issuer's identifier.
-        credential_endpoint:
-          type: string
-          description: 'URL of the Credential Issuer''s Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.'
-        batch_credential_endpoint:
-          type: string
-          description: 'URL of the Credential Issuer''s Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.'
-        credentials_supported:
-          type: array
-          description: 'A JSON array containing a list of JSON objects, each of them representing metadata about a separate credential type that the Credential Issuer can issue.'
-        display:
-          type: array
-          description: 'An array of objects, where each object contains display properties of a Credential Issuer for a certain language.'
-          items:
-            $ref: '#/components/schemas/CredentialDisplay'
-        token_endpoint_auth_methods_supported:
-          type: array
-          items:
-            type: string
-          description: JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
-        credential_ack_endpoint:
-          type: string
-          description: URL of the acknowledgement endpoint.
-      required:
-        - authorization_endpoint
-        - token_endpoint
-        - response_types_supported
-        - scopes_supported
-        - grant_types_supported
-        - wallet_initiated_auth_flow_supported
-        - pre-authorized_grant_anonymous_access_supported
-        - credential_issuer
-        - credential_endpoint
-        - credentials_supported
-        - token_endpoint_auth_methods_supported
-        - credential_ack_endpoint
       description: WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
     CredentialIssuanceHistoryData:
       title: CredentialIssuanceHistory response
@@ -1037,10 +1041,13 @@ components:
         - issuer
       type: object
       properties:
-        url:
+        uri:
           type: string
+          description: String value that contains a URI where the Wallet can obtain the logo of the Credential Issuer.
         alt_text:
           type: string
+      required:
+        - uri
     CredentialIssuer:
       title: CredentialIssuer
       x-tag:
@@ -1929,4 +1936,82 @@ components:
       required:
         - format
         - credential
+    CredentialConfigurationsSupported:
+      title: CredentialConfigurationsSupported object definition.
+      x-tags:
+        - issuer
+      type: object
+      description: An object that describes specifics of the Credential that the Credential Issuer supports issuance of.
+      properties:
+        format:
+          type: string
+          description: A JSON string identifying the format of this credential, i.e., jwt_vc_json or ldp_vc. Depending on the format value, the object contains further elements defining the type and (optionally) particular claims the credential MAY contain and information about how to display the credential.
+        scope:
+          type: string
+          description: A JSON string identifying the scope value that this Credential Issuer supports for this particular credential.
+        cryptographic_binding_methods_supported:
+          type: array
+          items:
+            type: string
+          description: Array of case sensitive strings that identify how the Credential is bound to the identifier of the End-User who possesses the Credential.
+        cryptographic_suites_supported:
+            type: array
+            items:
+              type: string
+            description: Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
+        credential_definition:
+           $ref: '#/components/schemas/CredentialConfigurationsSupportedDefinition'
+        proof_types:
+              type: array
+              items:
+                type: string
+              description: A JSON array of case sensitive strings, each representing proof_type that the Credential Issuer supports. If omitted, the default value is jwt.
+        display:
+          type: array
+          description: An array of objects, where each object contains the display properties of the supported credential for a certain language.
+          items:
+            $ref: '#/components/schemas/CredentialDisplay'
+      required:
+        - format
+    CredentialConfigurationsSupportedDefinition:
+      title: CredentialSupported.CredentialDefinition object definition.
+      x-tags:
+        - issuer
+      type: object
+      description: Object containing the detailed description of the credential type.
+      properties:
+        type:
+          type: array
+          items:
+            type: string
+          description: Array designating the types a certain credential type supports
+        credentialSubject:
+            type: object
+            description: An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
+      required:
+        - type
+    CredentialResponseEncryption:
+      title: CredentialResponseEncryption object definition.
+      x-tags:
+        - issuer
+      type: object
+      description: Object containing information about whether the Credential Issuer supports encryption of the Credential and Batch Credential Response on top of TLS
+      properties:
+        alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Array containing a list of the JWE [RFC7516] encryption algorithms (alg values) [RFC7518] supported by the Credential and Batch Credential Endpoint to encode the Credential or Batch Credential Response in a JWT [RFC7519].
+        enc_values_supported:
+          type: array
+          items:
+            type: string
+          description: Array containing a list of the JWE [RFC7516] encryption algorithms (enc values) [RFC7518] supported by the Credential and Batch Credential Endpoint to encode the Credential or Batch Credential Response in a JWT [RFC7519].
+        encryption_required:
+          type: boolean
+          description: Boolean value specifying whether the Credential Issuer requires the additional encryption on top of TLS for the Credential Response. If the value is true, the Credential Issuer requires encryption for every Credential Response and therefore the Wallet MUST provide encryption keys in the Credential Request. If the value is false, the Wallet MAY chose whether it provides encryption keys or not.
+      required:
+        - alg_values_supported
+        - enc_values_supported
+        - encryption_required
   securitySchemes: {}

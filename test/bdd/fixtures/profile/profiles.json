@@ -355,6 +355,7 @@
           }
         ],
         "credentialMetadata": {
+          "display": [],
           "credentials_supported": [
             {
               "format": "jwt_vc_json",

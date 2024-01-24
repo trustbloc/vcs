@@ -53,6 +53,28 @@ type Issuer struct {
 	Checks              IssuanceChecks        `json:"checks"`
 }
 
+type CredentialMetaData struct {
+	CredentialsSupported []*CredentialsSupported `json:"credentials_supported"`
+	Display              []*CredentialDisplay    `json:"display"`
+}
+
+type CredentialsSupported struct {
+	ID                string                 `json:"id"`
+	Format            string                 `json:"format"`
+	Types             []string               `json:"types"`
+	CredentialSubject map[string]interface{} `json:"credentialSubject"`
+	Display           []CredentialDisplay    `json:"display"`
+}
+
+type CredentialDisplay struct {
+	Name            string `json:"name"`
+	Locale          string `json:"locale"`
+	URL             string `json:"url"`
+	BackgroundColor string `json:"background_color"`
+	TextColor       string `json:"text_color"`
+	Logo            *Logo  `json:"logo"`
+}
+
 type CredentialTemplate struct {
 	Contexts                            []string                     `json:"contexts"`
 	ID                                  string                       `json:"id"`
@@ -79,20 +101,6 @@ type CredentialTemplateChecks struct {
 type Logo struct {
 	URL             string `json:"url"`
 	AlternativeText string `json:"alt_text"`
-}
-
-type CredentialDisplay struct {
-	Name            string `json:"name"`
-	Locale          string `json:"locale"`
-	URL             string `json:"url"`
-	BackgroundColor string `json:"background_color"`
-	TextColor       string `json:"text_color"`
-	Logo            *Logo  `json:"logo"`
-}
-
-type CredentialMetaData struct {
-	CredentialsSupported []map[string]interface{} `json:"credentials_supported"`
-	Display              []*CredentialDisplay     `json:"display"`
 }
 
 // OIDCConfig represents issuer's OIDC configuration.

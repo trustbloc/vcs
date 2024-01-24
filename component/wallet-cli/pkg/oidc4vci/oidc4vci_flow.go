@@ -261,8 +261,8 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 	f.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(start)
 
-	requireWalletAttestation := openIDConfig.TokenEndpointAuthMethodsSupported != nil &&
-		lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
+	tokenEndpointAuthMethodsSupported := lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported)
+	requireWalletAttestation := lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
 
 	if f.trustRegistryURL != "" {
 		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
@@ -290,7 +290,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 				"",
 				credentialType,
 				credentialFormat,
-				lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
+				lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
 			); err != nil {
 			return nil, fmt.Errorf("validate issuer: %w", err)
 		}
@@ -305,8 +305,8 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			ClientID: f.clientID,
 			Scopes:   f.scopes,
 			Endpoint: oauth2.Endpoint{
-				AuthURL:   openIDConfig.AuthorizationEndpoint,
-				TokenURL:  openIDConfig.TokenEndpoint,
+				AuthURL:   lo.FromPtr(openIDConfig.AuthorizationEndpoint),
+				TokenURL:  lo.FromPtr(openIDConfig.TokenEndpoint),
 				AuthStyle: oauth2.AuthStyleInHeader,
 			},
 		}
@@ -363,7 +363,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		var resp *http.Response
 
-		if resp, err = f.httpClient.PostForm(openIDConfig.TokenEndpoint, tokenValues); err != nil {
+		if resp, err = f.httpClient.PostForm(lo.FromPtr(openIDConfig.TokenEndpoint), tokenValues); err != nil {
 			return nil, err
 		}
 
@@ -686,7 +686,7 @@ func (f *Flow) receiveVC(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialIssuer string,
 ) (*verifiable.Credential, error) {
-	credentialEndpoint := wellKnown.CredentialEndpoint
+	credentialEndpoint := lo.FromPtr(wellKnown.CredentialEndpoint)
 
 	start := time.Now()
 	defer func() {
@@ -714,11 +714,12 @@ func (f *Flow) receiveVC(
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
 
+	// TODO: take configuration from wellKnown.CredentialsSupported[credentialType]
 	b, err := json.Marshal(CredentialRequest{
 		Format: f.credentialFormat,
 		Types:  []string{"VerifiableCredential", f.credentialType},
 		Proof: JWTProof{
-			ProofType: "jwt",
+			ProofType: "jwt", //TODO: take the value from wellKnown.CredentialsSupported[credentialType].ProofTypesSupported
 			JWT:       jws,
 		},
 	})
@@ -825,7 +826,8 @@ func (f *Flow) handleIssuanceAck(
 		return nil
 	}
 
-	if wellKnown.CredentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
+	credentialAckEndpoint := lo.FromPtr(wellKnown.CredentialAckEndpoint)
+	if credentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
 		return nil
 	}
 
@@ -836,7 +838,7 @@ func (f *Flow) handleIssuanceAck(
 
 	slog.Info("Sending wallet ACK",
 		"ack_id", credResponse.AckID,
-		"endpoint", wellKnown.CredentialAckEndpoint,
+		"endpoint", credentialAckEndpoint,
 	)
 
 	b, err := json.Marshal(oidc4civ1.AckRequest{
@@ -845,7 +847,7 @@ func (f *Flow) handleIssuanceAck(
 				AckId:            *credResponse.AckID,
 				ErrorDescription: nil,
 				Status:           "success",
-				IssuerIdentifier: &wellKnown.CredentialIssuer,
+				IssuerIdentifier: wellKnown.CredentialIssuer,
 			},
 		},
 	})
@@ -853,7 +855,7 @@ func (f *Flow) handleIssuanceAck(
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, wellKnown.CredentialAckEndpoint, bytes.NewBuffer(b))
+	req, err := http.NewRequest(http.MethodPost, credentialAckEndpoint, bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("ack credential request: %w", err)
 	}
