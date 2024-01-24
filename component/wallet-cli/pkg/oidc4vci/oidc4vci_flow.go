@@ -714,12 +714,12 @@ func (f *Flow) receiveVC(
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
 
-	// TODO: take configuration from wellKnown.CredentialsSupported[credentialType]
+	// TODO: take configuration from wellKnown.CredentialsConfigurationSupported[credentialType]
 	b, err := json.Marshal(CredentialRequest{
 		Format: f.credentialFormat,
 		Types:  []string{"VerifiableCredential", f.credentialType},
 		Proof: JWTProof{
-			ProofType: "jwt", //TODO: take the value from wellKnown.CredentialsSupported[credentialType].ProofTypesSupported
+			ProofType: "jwt", //TODO: take the value from wellKnown.CredentialsConfigurationSupported[credentialType].ProofTypesSupported
 			JWT:       jws,
 		},
 	})

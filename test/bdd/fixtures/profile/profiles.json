@@ -83,85 +83,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "ldp_vc",
-              "id": "VerifiedEmployee_LDP",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ],
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 }
               }
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -356,85 +358,86 @@
         ],
         "credentialMetadata": {
           "display": [],
-          "credentials_supported": [
-            {
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "jwt_vc_json",
-              "id": "VerifiedEmployee_JWT",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ]
               }
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -692,85 +695,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "ldp_vc",
-              "id": "VerifiedEmployee_LDP",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ]
               }
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -873,85 +878,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "jwt_vc_json-ld",
-              "id": "VerifiedEmployee_JWT",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ],
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                }
+              },
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
-              ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
-              }
+              ]
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -1054,85 +1061,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "jwt_vc_json-ld",
-              "id": "VerifiedEmployee_JWT",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ]
               }
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -1171,85 +1180,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "jwt_vc_json-ld",
-              "id": "VerifiedEmployee_JWT",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ]
               }
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -1309,85 +1320,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "ldp_vc",
-              "id": "VerifiedEmployee_LDP",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ]
               }
             }
-          ]
+          }
         }
       },
       "createDID": true
@@ -1453,85 +1466,87 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployee": {
               "format": "jwt_vc_json-ld",
-              "id": "VerifiedEmployee_JWT",
-              "types": [
-                "VerifiableCredential",
-                "VerifiedEmployee"
-              ],
               "display": [
                 {
                   "name": "Verified Employee",
                   "locale": "en-US",
                   "logo": {
-                    "url": "https://example.com/public/logo.png",
+                    "uri": "https://example.com/public/logo.png",
                     "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
                 }
               ],
-              "credentialSubject": {
-                "displayName": {
-                  "display": [
-                    {
-                      "name": "Employee",
-                      "locale": "en-US"
-                    }
-                  ]
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
                 },
-                "givenName": {
-                  "display": [
-                    {
-                      "name": "Given Name",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "jobTitle": {
-                  "display": [
-                    {
-                      "name": "Job Title",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "surname": {
-                  "display": [
-                    {
-                      "name": "Surname",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "preferredLanguage": {
-                  "display": [
-                    {
-                      "name": "Preferred Language",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "mail": {
-                  "display": [
-                    {
-                      "name": "Mail",
-                      "locale": "en-US"
-                    }
-                  ]
-                },
-                "photo": {
-                  "display": [
-                    {
-                      "name": "Photo"
-                    }
-                  ]
-                }
+                "type": [
+                  "VerifiableCredential",
+                  "VerifiedEmployee"
+                ]
               }
             }
-          ]
+          }
         }
       },
       "createDID": true

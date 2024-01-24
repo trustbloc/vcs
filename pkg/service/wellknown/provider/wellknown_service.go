@@ -201,7 +201,7 @@ func (s *Service) buildCredentialIssuerMetadataDisplay(
 			if d.Logo != nil {
 				credentialDisplay.Logo = &issuer.Logo{
 					AltText: lo.ToPtr(d.Logo.AlternativeText),
-					Uri:     d.Logo.URL,
+					Uri:     d.Logo.URI,
 				}
 			}
 
@@ -224,7 +224,8 @@ func (s *Service) buildCredentialConfigurationsSupported(
 	issuerProfile *profileapi.Issuer,
 ) *issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported {
 	credentialsConfigurationSupported := &issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported{}
-	for _, credentialSupported := range issuerProfile.CredentialMetaData.CredentialsSupported {
+
+	for credentialType, credentialSupported := range issuerProfile.CredentialMetaData.CredentialsConfigurationSupported {
 		var cryptographicBindingMethodsSupported, cryptographicSuitesSupported []string
 
 		if issuerProfile.VCConfig != nil {
@@ -232,18 +233,10 @@ func (s *Service) buildCredentialConfigurationsSupported(
 			cryptographicSuitesSupported = []string{string(issuerProfile.VCConfig.KeyType)}
 		}
 
-		credentialDefinition := &issuer.CredentialConfigurationsSupportedDefinition{
-			CredentialSubject: lo.ToPtr(credentialSupported.CredentialSubject),
-			Type:              credentialSupported.Types,
-		}
-
 		display := s.buildCredentialConfigurationsSupportedDisplay(credentialSupported.Display)
+		credentialDefinition := s.buildCredentialDefinition(credentialSupported.CredentialDefinition)
 
-		key := lo.Filter(credentialSupported.Types, func(item string, index int) bool {
-			return item != "VerifiableCredential"
-		})
-
-		credentialsConfigurationSupported.Set(key[0], issuer.CredentialConfigurationsSupported{
+		credentialsConfigurationSupported.Set(credentialType, issuer.CredentialConfigurationsSupported{
 			Format:                               credentialSupported.Format,
 			Scope:                                nil,
 			CryptographicBindingMethodsSupported: lo.ToPtr(cryptographicBindingMethodsSupported),
@@ -257,21 +250,36 @@ func (s *Service) buildCredentialConfigurationsSupported(
 	return credentialsConfigurationSupported
 }
 
-func (s *Service) buildCredentialConfigurationsSupportedDisplay(
-	profileDisplay []profileapi.CredentialDisplay,
-) []issuer.CredentialDisplay {
-	credentialConfigurationsSupportedDisplay := make([]issuer.CredentialDisplay, 0, len(profileDisplay))
+func (s *Service) buildCredentialDefinition(
+	issuerCredentialDefinition *profileapi.CredentialConfigurationsSupportedDefinition,
+) *issuer.CredentialConfigurationsSupportedDefinition {
+	credentialSubject := make(map[string]interface{}, len(issuerCredentialDefinition.CredentialSubject))
 
-	for _, display := range profileDisplay {
+	for k, v := range issuerCredentialDefinition.CredentialSubject {
+		credentialSubject[k] = v
+	}
+
+	return &issuer.CredentialConfigurationsSupportedDefinition{
+		CredentialSubject: lo.ToPtr(credentialSubject),
+		Type:              issuerCredentialDefinition.Type,
+	}
+}
+
+func (s *Service) buildCredentialConfigurationsSupportedDisplay(
+	credentialSupportedDisplay []*profileapi.CredentialDisplay,
+) []issuer.CredentialDisplay {
+	credentialConfigurationsSupportedDisplay := make([]issuer.CredentialDisplay, 0, len(credentialSupportedDisplay))
+
+	for _, display := range credentialSupportedDisplay {
 		var logo *issuer.Logo
 		if display.Logo != nil {
 			logo = &issuer.Logo{
 				AltText: lo.ToPtr(display.Logo.AlternativeText),
-				Uri:     display.Logo.URL,
+				Uri:     display.Logo.URI,
 			}
 		}
 
-		issuerDisplay := issuer.CredentialDisplay{
+		credentialDisplay := issuer.CredentialDisplay{
 			BackgroundColor: lo.ToPtr(display.BackgroundColor),
 			Locale:          lo.ToPtr(display.Locale),
 			Logo:            logo,
@@ -280,7 +288,7 @@ func (s *Service) buildCredentialConfigurationsSupportedDisplay(
 			Url:             lo.ToPtr(display.URL),
 		}
 
-		credentialConfigurationsSupportedDisplay = append(credentialConfigurationsSupportedDisplay, issuerDisplay)
+		credentialConfigurationsSupportedDisplay = append(credentialConfigurationsSupportedDisplay, credentialDisplay)
 	}
 
 	return credentialConfigurationsSupportedDisplay

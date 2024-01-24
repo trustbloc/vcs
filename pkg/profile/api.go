@@ -54,16 +54,45 @@ type Issuer struct {
 }
 
 type CredentialMetaData struct {
-	CredentialsSupported []*CredentialsSupported `json:"credentials_supported"`
-	Display              []*CredentialDisplay    `json:"display"`
+	CredentialsConfigurationSupported map[string]*CredentialsConfigurationSupported `json:"credential_configurations_supported"` //nolint:lll
+	Display                           []*CredentialDisplay                          `json:"display"`
 }
 
-type CredentialsSupported struct {
-	ID                string                 `json:"id"`
-	Format            string                 `json:"format"`
-	Types             []string               `json:"types"`
-	CredentialSubject map[string]interface{} `json:"credentialSubject"`
-	Display           []CredentialDisplay    `json:"display"`
+// CredentialsConfigurationSupported describes specifics of the Credential that the Issuer supports issuance of.
+type CredentialsConfigurationSupported struct {
+	// Object containing the detailed description of the credential type.
+	CredentialDefinition *CredentialConfigurationsSupportedDefinition `json:"credential_definition"`
+
+	// An array of objects, where each object contains the display properties
+	// of the supported credential for a certain language.
+	Display []*CredentialDisplay `json:"display"`
+
+	// A JSON string identifying the format of this credential, i.e., jwt_vc_json or ldp_vc.
+	Format string `json:"format"`
+}
+
+// CredentialConfigurationsSupportedDefinition containing the detailed description of the credential type.
+type CredentialConfigurationsSupportedDefinition struct {
+	// An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential.
+	// The value can be another such object (nested data structures), or an array of such objects.
+	CredentialSubject map[string]Claim `json:"credentialSubject"`
+
+	// Array designating the types a certain credential type supports
+	Type []string `json:"type"`
+}
+
+type Claim struct {
+	Mandatory bool   `json:"mandatory"`
+	ValueType string `json:"value_type"`
+	Order     int    `json:"order"`
+	Pattern   string `json:"pattern"`
+	Mask      string `json:"mask"`
+	Display   []L10n `json:"display"`
+}
+
+type L10n struct {
+	Name   string `json:"name"`
+	Locale string `json:"locale"`
 }
 
 type CredentialDisplay struct {
@@ -99,7 +128,7 @@ type CredentialTemplateChecks struct {
 }
 
 type Logo struct {
-	URL             string `json:"url"`
+	URI             string `json:"uri"`
 	AlternativeText string `json:"alt_text"`
 }
 
