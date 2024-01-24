@@ -60,6 +60,11 @@ type CredentialMetaData struct {
 
 // CredentialsConfigurationSupported describes specifics of the Credential that the Issuer supports issuance of.
 type CredentialsConfigurationSupported struct {
+	// For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs,
+	// where each name identifies a claim about the subject offered in the Credential.
+	// The value can be another such object (nested data structures), or an array of such objects.
+	Claims map[string]interface{} `json:"claims"`
+
 	// Object containing the detailed description of the credential type.
 	CredentialDefinition *CredentialConfigurationsSupportedDefinition `json:"credential_definition"`
 
@@ -67,12 +72,28 @@ type CredentialsConfigurationSupported struct {
 	// of the supported credential for a certain language.
 	Display []*CredentialDisplay `json:"display"`
 
+	// For mso_mdoc vc only. String identifying the Credential type, as defined in [ISO.18013-5].
+	Doctype string `json:"doctype"`
+
 	// A JSON string identifying the format of this credential, i.e., jwt_vc_json or ldp_vc.
 	Format string `json:"format"`
+
+	// Array of the claim name values that lists them in the order they should be displayed by the Wallet.
+	Order []string `json:"order"`
+
+	// A JSON string identifying the scope value that this Credential Issuer supports for this particular credential.
+	Scope string `json:"scope"`
+
+	// For vc+sd-jwt vc only. String designating the type of a Credential,
+	// as defined in https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc-01
+	Vct string `json:"vct"`
 }
 
 // CredentialConfigurationsSupportedDefinition containing the detailed description of the credential type.
 type CredentialConfigurationsSupportedDefinition struct {
+	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
+	Context []string `json:"@context"`
+
 	// An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential.
 	// The value can be another such object (nested data structures), or an array of such objects.
 	CredentialSubject map[string]Claim `json:"credentialSubject"`
@@ -84,7 +105,6 @@ type CredentialConfigurationsSupportedDefinition struct {
 type Claim struct {
 	Mandatory bool   `json:"mandatory"`
 	ValueType string `json:"value_type"`
-	Order     int    `json:"order"`
 	Pattern   string `json:"pattern"`
 	Mask      string `json:"mask"`
 	Display   []L10n `json:"display"`

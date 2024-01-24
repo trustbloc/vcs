@@ -1961,6 +1961,20 @@ components:
             description: Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
         credential_definition:
            $ref: '#/components/schemas/CredentialConfigurationsSupportedDefinition'
+        order:
+          type: array
+          items:
+            type: string
+          description: Array of the claim name values that lists them in the order they should be displayed by the Wallet.
+        doctype:
+          type: string
+          description: For mso_mdoc vc only. String identifying the Credential type, as defined in [ISO.18013-5].
+        vct:
+          type: string
+          description: For vc+sd-jwt vc only. String designating the type of a Credential, as defined in https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc-01
+        claims:
+          type: object
+          description: For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs, where each name identifies a claim about the subject offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
         proof_types:
               type: array
               items:
@@ -1980,6 +1994,11 @@ components:
       type: object
       description: Object containing the detailed description of the credential type.
       properties:
+        '@context':
+          type: array
+          items:
+            type: string
+          description: For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
         type:
           type: array
           items:
