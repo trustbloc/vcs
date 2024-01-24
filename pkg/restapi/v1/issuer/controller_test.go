@@ -1582,11 +1582,7 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: []*profileapi.CredentialsSupported{
-				{
-					ID: "VerifiedEmployee_JWT",
-				},
-			},
+			CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{},
 		},
 	}
 
