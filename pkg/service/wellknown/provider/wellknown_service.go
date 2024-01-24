@@ -237,13 +237,17 @@ func (s *Service) buildCredentialConfigurationsSupported(
 		credentialDefinition := s.buildCredentialDefinition(credentialSupported.CredentialDefinition)
 
 		credentialsConfigurationSupported.Set(credentialType, issuer.CredentialConfigurationsSupported{
-			Format:                               credentialSupported.Format,
-			Scope:                                nil,
+			Claims:                               lo.ToPtr(credentialSupported.Claims),
+			CredentialDefinition:                 credentialDefinition,
 			CryptographicBindingMethodsSupported: lo.ToPtr(cryptographicBindingMethodsSupported),
 			CryptographicSuitesSupported:         lo.ToPtr(cryptographicSuitesSupported),
-			ProofTypes:                           lo.ToPtr([]string{"jwt"}),
 			Display:                              lo.ToPtr(display),
-			CredentialDefinition:                 credentialDefinition,
+			Doctype:                              lo.ToPtr(credentialSupported.Doctype),
+			Format:                               credentialSupported.Format,
+			Order:                                lo.ToPtr(credentialSupported.Order),
+			ProofTypes:                           lo.ToPtr([]string{"jwt"}),
+			Scope:                                lo.ToPtr(credentialSupported.Scope),
+			Vct:                                  lo.ToPtr(credentialSupported.Vct),
 		})
 	}
 
@@ -260,6 +264,7 @@ func (s *Service) buildCredentialDefinition(
 	}
 
 	return &issuer.CredentialConfigurationsSupportedDefinition{
+		Context:           lo.ToPtr(issuerCredentialDefinition.Context),
 		CredentialSubject: lo.ToPtr(credentialSubject),
 		Type:              issuerCredentialDefinition.Type,
 	}

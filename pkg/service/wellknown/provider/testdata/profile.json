@@ -47,7 +47,20 @@
   "credentialMetadata": {
     "credential_configurations_supported": {
       "VerifiedEmployee": {
+        "claims": {
+          "org.iso.18013.5.1.aamva": {
+            "organ_donor": {}
+          }
+        },
         "format": "ldp_vc",
+        "doctype": "doctype1",
+        "order": [
+          "claimName1",
+          "claimName2",
+          "claimName3"
+        ],
+        "scope": "VerifiedEmployeeCredential",
+        "vct": "vct1",
         "display": [
           {
             "name": "Verified Employee",
@@ -61,6 +74,9 @@
           }
         ],
         "credential_definition": {
+          "@context": [
+            "https://example.com/context/1"
+          ],
           "credentialSubject": {
             "displayName": {
               "display": [
