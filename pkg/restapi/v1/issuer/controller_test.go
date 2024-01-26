@@ -1312,6 +1312,7 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	})
 }
 
+// nolint:lll
 func TestController_PrepareCredential(t *testing.T) {
 	var universityDegreeSchemaDoc map[string]interface{}
 	require.NoError(t, json.Unmarshal(universityDegreeSchema, &universityDegreeSchemaDoc))
@@ -1332,6 +1333,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				VCConfig: &profileapi.VCConfig{
 					Format: vcsverifiable.Ldp,
 				},
+				OIDCConfig: &profileapi.OIDCConfig{},
 			}, nil)
 
 		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
@@ -1376,6 +1378,67 @@ func TestController_PrepareCredential(t *testing.T) {
 		})
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.PrepareCredential(ctx))
+	})
+
+	t.Run("success with requested credential response encryption", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc","requested_credential_response_encryption":{"alg":"ECDH-ES","enc":"A128CBC-HS256"}}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareCredential(ctx))
 	})
@@ -1566,6 +1629,190 @@ func TestController_PrepareCredential(t *testing.T) {
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.EqualError(t, c.PrepareCredential(ctx), "invalid-claims: validation error")
+	})
+
+	t.Run("credential response encryption is required error", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseEncryptionRequired: true,
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "credential response encryption is required")
+	})
+
+	t.Run("alg not supported error", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc","requested_credential_response_encryption":{"alg":"RSA-OAEP-256","enc":"A128CBC-HS256"}}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "alg RSA-OAEP-256 not supported")
+	})
+
+	t.Run("enc not supported error", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc","requested_credential_response_encryption":{"alg":"ECDH-ES","enc":"A192CBC-HS384"}}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "enc A192CBC-HS384 not supported")
 	})
 }
 

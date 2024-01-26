@@ -167,6 +167,9 @@ type OIDCConfig struct {
 	WalletInitiatedAuthFlowSupported           bool     `json:"wallet_initiated_auth_flow_supported"`
 	SignedCredentialOfferSupported             bool     `json:"signed_credential_offer_supported"`
 	SignedIssuerMetadataSupported              bool     `json:"signed_issuer_metadata_supported"`
+	CredentialResponseAlgValuesSupported       []string `json:"credential_response_alg_values_supported"`
+	CredentialResponseEncValuesSupported       []string `json:"credential_response_enc_values_supported"`
+	CredentialResponseEncryptionRequired       bool     `json:"credential_response_encryption_required"`
 	ClaimsEndpoint                             string   `json:"claims_endpoint"`
 }
 

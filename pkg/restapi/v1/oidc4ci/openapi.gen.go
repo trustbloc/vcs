@@ -63,6 +63,9 @@ type AcpRequestItem struct {
 
 // Model for OIDC Credential request.
 type CredentialRequest struct {
+	// Object containing information for encrypting the Credential Response.
+	CredentialResponseEncryption *CredentialResponseEncryption `json:"credential_response_encryption,omitempty"`
+
 	// Format of the credential being issued.
 	Format *string   `json:"format,omitempty"`
 	Proof  *JWTProof `json:"proof,omitempty"`
@@ -88,6 +91,18 @@ type CredentialResponse struct {
 
 	// JSON string denoting the format of the issued Credential.
 	Format string `json:"format"`
+}
+
+// Object containing information for encrypting the Credential Response.
+type CredentialResponseEncryption struct {
+	// JWE alg algorithm for encrypting the Credential Response.
+	Alg string `json:"alg"`
+
+	// JWE enc algorithm for encrypting the Credential Response.
+	Enc string `json:"enc"`
+
+	// Object containing a single public key as a JWK used for encrypting the Credential Response.
+	Jwk string `json:"jwk"`
 }
 
 // JWTProof defines model for JWTProof.
