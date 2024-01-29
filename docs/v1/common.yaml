@@ -102,14 +102,14 @@ components:
         type:
           type: string
           description: String that determines the authorization details type. MUST be set to "openid_credential" for OIDC4VC.
-        types:
-          type: array
-          items:
-            type: string
-          description: String array denoting the types of the requested Credential.
         format:
           type: string
-          description: String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc_json-ld and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+          description: REQUIRED when CredentialConfigurationId parameter is not present. String identifying the format of the Credential the Wallet needs. This Credential format identifier determines further claims in the authorization details object needed to identify the Credential type in the requested format. It MUST NOT be present if credential_configuration_id parameter is present.
+        credential_configuration_id:
+          type: string
+          description: REQUIRED when Format parameter is not present. String specifying a unique identifier of the Credential being described in the credential_configurations_supported map in the Credential Issuer Metadata. The referenced object in the credential_configurations_supported map conveys the details, such as the format, for issuance of the requested Credential. It MUST NOT be present if format parameter is present.
+        credential_definition:
+          $ref: '#/components/schemas/CredentialDefinition'
         locations:
           description: An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
           type: array
@@ -117,4 +117,25 @@ components:
             type: string
       required:
         - type
-        - types
+    CredentialDefinition:
+      title: CredentialDefinition object definition.
+      x-tags:
+        - issuer
+      type: object
+      description: Object containing the detailed description of the credential type.
+      properties:
+        '@context':
+          type: array
+          items:
+            type: string
+          description: 'For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.'
+        type:
+          type: array
+          items:
+            type: string
+          description: Array designating the types a certain credential type supports
+        credentialSubject:
+          type: object
+          description: 'An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.'
+      required:
+        - type

@@ -20,9 +20,9 @@ type JWTProofClaims struct {
 }
 
 type CredentialRequest struct {
-	Format string   `json:"format,omitempty"`
-	Types  []string `json:"types"`
-	Proof  JWTProof `json:"proof,omitempty"`
+	Format verifiable.OIDCFormat `json:"format,omitempty"`
+	Types  []string              `json:"types"`
+	Proof  JWTProof              `json:"proof,omitempty"`
 }
 
 type JWTProof struct {

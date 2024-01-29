@@ -14,7 +14,6 @@ Feature: OIDC4VC REST API
     And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-
     When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
     Then credential is issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
@@ -34,6 +33,24 @@ Feature: OIDC4VC REST API
       | i_myprofile_ud_di_ecdsa-2019/v1.0 | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID  | v_myprofile_ldp/v1.0 | 062759b1-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0    | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
+
+  @oidc4vc_rest_auth_flow_credential_conf_id
+  Scenario Outline: OIDC credential issuance and verification Auth flow
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with credential configuration ID
+    Then credential is issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | credentialType             | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
   @oidc4vc_rest_pre_auth_flow
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow
@@ -210,7 +227,7 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" requests expired interactions claims
 
     Examples:
-      | issuerProfile                  | credentialType         | credentialTemplate               | verifierProfile      | presentationDefinitionID | fields    |
+      | issuerProfile                  | credentialType         | credentialTemplate               | verifierProfile      | presentationDefinitionID                  | fields                                                       |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_ud_es256k_jwt/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
 

@@ -22,6 +22,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
@@ -243,7 +244,7 @@ func (s *Service) buildCredentialConfigurationsSupported(
 			CryptographicSuitesSupported:         lo.ToPtr(cryptographicSuitesSupported),
 			Display:                              lo.ToPtr(display),
 			Doctype:                              lo.ToPtr(credentialSupported.Doctype),
-			Format:                               credentialSupported.Format,
+			Format:                               string(credentialSupported.Format),
 			Order:                                lo.ToPtr(credentialSupported.Order),
 			ProofTypes:                           lo.ToPtr([]string{"jwt"}),
 			Scope:                                lo.ToPtr(credentialSupported.Scope),
@@ -255,15 +256,15 @@ func (s *Service) buildCredentialConfigurationsSupported(
 }
 
 func (s *Service) buildCredentialDefinition(
-	issuerCredentialDefinition *profileapi.CredentialConfigurationsSupportedDefinition,
-) *issuer.CredentialConfigurationsSupportedDefinition {
+	issuerCredentialDefinition *profileapi.CredentialDefinition,
+) *common.CredentialDefinition {
 	credentialSubject := make(map[string]interface{}, len(issuerCredentialDefinition.CredentialSubject))
 
 	for k, v := range issuerCredentialDefinition.CredentialSubject {
 		credentialSubject[k] = v
 	}
 
-	return &issuer.CredentialConfigurationsSupportedDefinition{
+	return &common.CredentialDefinition{
 		Context:           lo.ToPtr(issuerCredentialDefinition.Context),
 		CredentialSubject: lo.ToPtr(credentialSubject),
 		Type:              issuerCredentialDefinition.Type,

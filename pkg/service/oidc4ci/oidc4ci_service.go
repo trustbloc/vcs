@@ -214,7 +214,7 @@ func (s *Service) PushAuthorizationDetails(
 		return fmt.Errorf("find tx by op state: %w", err)
 	}
 
-	return s.updateAuthorizationDetails(ctx, ad, tx)
+	return s.updateTransactionAuthorizationDetails(ctx, ad, tx)
 }
 
 func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
@@ -283,7 +283,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	if req.AuthorizationDetails != nil {
-		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
+		if err = s.updateTransactionAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
 			s.sendFailedTransactionEvent(ctx, tx, err)
 			return nil, err
 		}
@@ -376,24 +376,74 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	}, nil
 }
 
-func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *AuthorizationDetails, tx *Transaction) error {
-	if tx.CredentialTemplate == nil {
-		return resterr.ErrCredentialTemplateNotConfigured
-	}
-
-	targetType := ad.Types[len(ad.Types)-1]
-	if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
-		return resterr.ErrCredentialTypeNotSupported
-	}
-
-	if ad.Format != "" && ad.Format != tx.CredentialFormat {
-		return resterr.ErrCredentialFormatNotSupported
+func (s *Service) updateTransactionAuthorizationDetails(
+	ctx context.Context, ad *AuthorizationDetails, tx *Transaction) error {
+	if err := s.checkTransactionAuthorizationDetails(ad, tx); err != nil {
+		return err
 	}
 
 	tx.AuthorizationDetails = ad
 
 	if err := s.store.Update(ctx, tx); err != nil {
 		return resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+	}
+
+	return nil
+}
+
+//nolint:gocognit,nolintlint
+func (s *Service) checkTransactionAuthorizationDetails(ad *AuthorizationDetails, tx *Transaction) error {
+	if tx.CredentialTemplate == nil {
+		return resterr.ErrCredentialTemplateNotConfigured
+	}
+
+	switch {
+	case ad.CredentialConfigurationID != "": // AuthorizationDetails contains CredentialConfigurationID.
+		profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				return resterr.NewCustomError(resterr.ProfileNotFound,
+					fmt.Errorf("update tx auth details: get profile: %w", err))
+			}
+
+			return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile",
+				fmt.Errorf("update tx auth details: get profile: %w", err))
+		}
+
+		var credentialsConfigurationSupported *profileapi.CredentialsConfigurationSupported
+		if meta := profile.CredentialMetaData; meta != nil {
+			credentialsConfigurationSupported = meta.CredentialsConfigurationSupported[ad.CredentialConfigurationID]
+		}
+
+		if credentialsConfigurationSupported == nil {
+			return resterr.ErrInvalidCredentialConfigurationID
+		}
+
+		if credentialsConfigurationSupported.Format != tx.OIDCCredentialFormat {
+			return resterr.ErrCredentialFormatNotSupported
+		}
+
+		var targetType string
+		if cd := credentialsConfigurationSupported.CredentialDefinition; cd != nil {
+			targetType = cd.Type[len(cd.Type)-1]
+		}
+
+		if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
+			return resterr.ErrCredentialTypeNotSupported
+		}
+	case ad.Format != "": // AuthorizationDetails contains Format.
+		// Compare AuthorizationDetails.Format with tx.CredentialFormat (Issuer's supported credential format)
+		if ad.Format != tx.CredentialFormat {
+			return resterr.ErrCredentialFormatNotSupported
+		}
+
+		// Check credential type.
+		targetType := ad.CredentialDefinition.Type[len(ad.CredentialDefinition.Type)-1]
+		if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
+			return resterr.ErrCredentialTypeNotSupported
+		}
+	default:
+		return errors.New("neither credentialFormat nor credentialConfigurationID supplied")
 	}
 
 	return nil

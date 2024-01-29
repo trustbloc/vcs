@@ -33,6 +33,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -49,7 +50,7 @@ type TestCase struct {
 	verifierProfileVersion string
 	credentialTemplateID   string
 	credentialType         string
-	credentialFormat       string
+	oidcCredentialFormat   vcsverifiable.OIDCFormat
 	token                  string
 	claimData              map[string]interface{}
 	disableRevokeTestCase  bool
@@ -65,7 +66,7 @@ type TestCaseOptions struct {
 	verifierProfileID      string
 	credentialTemplateID   string
 	credentialType         string
-	credentialFormat       string
+	oidcCredentialFormat   vcsverifiable.OIDCFormat
 	token                  string
 	claimData              map[string]interface{}
 	disableRevokeTestCase  bool
@@ -83,7 +84,7 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
 		},
-		credentialFormat: "jwt_vc_json-ld",
+		oidcCredentialFormat: vcsverifiable.JwtVCJsonLD,
 	}
 
 	for _, opt := range options {
@@ -191,7 +192,7 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		verifierProfileVersion: opts.verifierProfileVersion,
 		credentialTemplateID:   opts.credentialTemplateID,
 		credentialType:         opts.credentialType,
-		credentialFormat:       opts.credentialFormat,
+		oidcCredentialFormat:   opts.oidcCredentialFormat,
 		token:                  opts.token,
 		claimData:              opts.claimData,
 		disableRevokeTestCase:  opts.disableRevokeTestCase,
@@ -291,7 +292,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(credentialOfferURL),
 		oidc4vci.WithCredentialType(c.credentialType),
-		oidc4vci.WithCredentialFormat(c.credentialFormat),
+		oidc4vci.WithOIDCCredentialFormat(c.oidcCredentialFormat),
 		oidc4vci.WithPin(pin),
 	)
 	if err != nil {
