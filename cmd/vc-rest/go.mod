@@ -24,7 +24,7 @@ require (
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.1.1-0.20240130162326-c588ba3052a6
+	github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a
 	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000

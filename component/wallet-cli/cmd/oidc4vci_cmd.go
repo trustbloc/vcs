@@ -37,6 +37,7 @@ type oidc4vciCommandFlags struct {
 	grantType                  string
 	qrCodePath                 string
 	credentialOffer            string
+	proofType                  string
 	demoIssuerURL              string
 	vcFormat                   string
 	credentialType             string
@@ -190,6 +191,12 @@ func NewOIDC4VCICommand() *cobra.Command {
 				walletDIDIndex = len(w.DIDs()) - 1
 			}
 
+			if flags.proofType == "cwt" {
+				opts = append(opts, oidc4vci.WithProofBuilder(
+					oidc4vci.NewCWTProofBuilder(),
+				))
+			}
+
 			opts = append(opts, oidc4vci.WithWalletDIDIndex(walletDIDIndex))
 
 			switch flags.grantType {
@@ -260,6 +267,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.demoIssuerURL, "demo-issuer-url", "", "demo issuer url for downloading qr code automatically")
 	cmd.Flags().StringVar(&flags.credentialFormat, "credential-format", "ldp_vc", "supported credential formats: ldp_vc,jwt_vc_json-ld")
 	cmd.Flags().StringVar(&flags.credentialType, "credential-type", "", "credential type")
+	cmd.Flags().StringVar(&flags.proofType, "proof-type", "", "proof-type. jwt or cwt. default jwt")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 	cmd.Flags().StringVar(&flags.clientID, "client-id", "", "vcs oauth2 client")
 	cmd.Flags().StringSliceVar(&flags.scopes, "scopes", []string{"openid"}, "vcs oauth2 scopes")

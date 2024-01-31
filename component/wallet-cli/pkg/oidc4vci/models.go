@@ -12,7 +12,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
-type JWTProofClaims struct {
+type ProofClaims struct {
 	Issuer   string `json:"iss,omitempty"`
 	Audience string `json:"aud,omitempty"`
 	IssuedAt int64  `json:"iat,omitempty"`
@@ -22,11 +22,12 @@ type JWTProofClaims struct {
 type CredentialRequest struct {
 	Format string   `json:"format,omitempty"`
 	Types  []string `json:"types"`
-	Proof  JWTProof `json:"proof,omitempty"`
+	Proof  Proof    `json:"proof,omitempty"`
 }
 
-type JWTProof struct {
+type Proof struct {
 	JWT       string `json:"jwt"`
+	CWT       string `json:"cwt"`
 	ProofType string `json:"proof_type"`
 }
 

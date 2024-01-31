@@ -33,6 +33,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
@@ -667,7 +668,7 @@ func (c *Controller) handleProof(
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt"))
 		}
 
-		_, rawClaims, err := cwt.ParseAndCheckProof(cwtBytes, c.cwtVerifier, false)
+		cwtParsed, rawClaims, err := cwt.ParseAndCheckProof(cwtBytes, c.cwtVerifier, false)
 		if err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse cwt: %w", err))
 		}
@@ -675,6 +676,14 @@ func (c *Controller) handleProof(
 		if err = cbor.Unmarshal(rawClaims, &proofClaims); err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt claims"))
 		}
+
+		proofHeaders.Type = cwtParsed.Headers.Protected[cose.HeaderLabelContentType].(string)
+		cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
+		if !ok {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
+		}
+
+		proofHeaders.KeyID = string(cosKeyBytes.([]byte))
 	}
 
 	did, err := c.validateProofClaims(clientID, &proofClaims, proofHeaders, session)

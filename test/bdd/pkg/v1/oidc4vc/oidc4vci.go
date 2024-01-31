@@ -396,76 +396,79 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 }
 
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
-	proofBuilder := func(
-		claims *oidc4vci.JWTProofClaims,
-		headers map[string]interface{},
-		signer jose.Signer,
-	) (string, error) {
-		headers[jose.HeaderKeyID] = "invalid-key-id"
+	builder := oidc4vci.NewJWTProofBuilder().
+		WithCustomProofFn(func(
+			claims *oidc4vci.ProofClaims,
+			headers map[string]interface{},
+			signer jose.Signer,
+		) (string, error) {
+			headers[jose.HeaderKeyID] = "invalid-key-id"
 
-		signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
-		if jwtErr != nil {
-			return "", fmt.Errorf("create signed jwt: %w", jwtErr)
-		}
+			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			if jwtErr != nil {
+				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+			}
 
-		jws, jwtErr := signedJWT.Serialize(false)
-		if jwtErr != nil {
-			return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
-		}
+			jws, jwtErr := signedJWT.Serialize(false)
+			if jwtErr != nil {
+				return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+			}
 
-		return jws, nil
-	}
+			return jws, nil
+		})
 
-	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(proofBuilder))
+	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(builder))
 }
 
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains string) error {
-	proofBuilder := func(
-		claims *oidc4vci.JWTProofClaims,
-		headers map[string]interface{},
-		signer jose.Signer,
-	) (string, error) {
-		signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
-		if jwtErr != nil {
-			return "", fmt.Errorf("create signed jwt: %w", jwtErr)
-		}
+	builder := oidc4vci.NewJWTProofBuilder().
+		WithCustomProofFn(func(
+			claims *oidc4vci.ProofClaims,
+			headers map[string]interface{},
+			signer jose.Signer,
+		) (string, error) {
+			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			if jwtErr != nil {
+				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+			}
 
-		jws, jwtErr := signedJWT.Serialize(false)
-		if jwtErr != nil {
-			return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
-		}
+			jws, jwtErr := signedJWT.Serialize(false)
+			if jwtErr != nil {
+				return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+			}
 
-		parts := strings.Split(jws, ".")
-		jws = strings.Join([]string{parts[0], parts[1], "invalid-signature"}, ".")
+			parts := strings.Split(jws, ".")
+			jws = strings.Join([]string{parts[0], parts[1], "invalid-signature"}, ".")
 
-		return jws, nil
-	}
+			return jws, nil
+		})
 
-	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(proofBuilder))
+	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(builder))
 }
 
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidNonce(errorContains string) error {
-	proofBuilder := func(
-		claims *oidc4vci.JWTProofClaims,
-		headers map[string]interface{},
-		signer jose.Signer,
-	) (string, error) {
-		claims.Nonce = "invalid-nonce"
+	builder := oidc4vci.NewJWTProofBuilder().
+		WithCustomProofFn(func(
+			claims *oidc4vci.ProofClaims,
+			headers map[string]interface{},
+			signer jose.Signer,
+		) (string, error) {
+			claims.Nonce = "invalid-nonce"
 
-		signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
-		if jwtErr != nil {
-			return "", fmt.Errorf("create signed jwt: %w", jwtErr)
-		}
+			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			if jwtErr != nil {
+				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
+			}
 
-		jws, jwtErr := signedJWT.Serialize(false)
-		if jwtErr != nil {
-			return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
-		}
+			jws, jwtErr := signedJWT.Serialize(false)
+			if jwtErr != nil {
+				return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
+			}
 
-		return jws, nil
-	}
+			return jws, nil
+		})
 
-	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(proofBuilder))
+	return s.runOIDC4VCIAuthWithError(errorContains, oidc4vci.WithProofBuilder(builder))
 }
 
 func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...oidc4vci.Opt) error {

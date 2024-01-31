@@ -442,8 +442,8 @@ github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167 h1:tgzKqzUJRLg0
 github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167/go.mod h1:23chV97aYVcT3ihO8xO9+T0KZn9lFGbk2KXhJNaHbXE=
 github.com/trustbloc/logutil-go v1.0.0 h1:KzNs9TRbnmn+M3oYw9UkrtOjNd3ZGO8aLgfYttMypcE=
 github.com/trustbloc/logutil-go v1.0.0/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
-github.com/trustbloc/vc-go v1.1.1-0.20240130162326-c588ba3052a6 h1:C/kWB+ZQkZxbP3BlLbtkSGun5EvRJHrd0CD42uHp9Uw=
-github.com/trustbloc/vc-go v1.1.1-0.20240130162326-c588ba3052a6/go.mod h1:NhGY+S6cUL2zW00jfN/ED8Ch9oMF9nqlELppAD24hBc=
+github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a h1:wIsZgTBraQcVp8OBzGjiVsw4oqM8kzXK2MIuhARgtEM=
+github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a/go.mod h1:NhGY+S6cUL2zW00jfN/ED8Ch9oMF9nqlELppAD24hBc=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.2.1 h1:TVEnxayobAdVkhQfrfes2IzOB6o+z4roRkPF52WA1u4=

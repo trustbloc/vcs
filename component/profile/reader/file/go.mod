@@ -117,7 +117,7 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4 // indirect
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240117181443-2f0d5acb92b7 // indirect
-	github.com/trustbloc/vc-go v1.1.1-0.20240130162326-c588ba3052a6 // indirect
+	github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/veraison/go-cose v1.1.0 // indirect
