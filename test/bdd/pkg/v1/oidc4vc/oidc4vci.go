@@ -245,6 +245,10 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 	return s.runOIDC4VCIPreAuth(initiateIssuanceRequest)
 }
 
+func (s *Steps) setProofType(proofType string) {
+	s.proofType = proofType
+}
+
 func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 	if err := s.requestAttestationVC(); err != nil {
 		return fmt.Errorf("request attestation vc: %w", err)
@@ -266,12 +270,20 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+	opts := []oidc4vci.Opt{
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
 		oidc4vci.WithCredentialType(s.issuedCredentialType),
 		oidc4vci.WithCredentialFormat(s.getIssuerCredentialFormat()),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
+	}
+
+	if s.proofType == "cwt" {
+		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	}
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("init pre-auth flow: %w", err)
@@ -513,7 +525,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+	opts := []oidc4vci.Opt{
 		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
 		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
 		oidc4vci.WithCredentialType(s.issuedCredentialType),
@@ -523,6 +535,14 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
+	}
+
+	if s.proofType == "cwt" {
+		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	}
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("init auth flow: %w", err)
@@ -536,7 +556,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 }
 
 func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
-	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+	opts := []oidc4vci.Opt{
 		oidc4vci.WithFlowType(oidc4vci.FlowTypeWalletInitiated),
 		oidc4vci.WithIssuerState(fmt.Sprintf(vcsIssuerURL, s.issuerProfile.ID, s.issuerProfile.Version)),
 		oidc4vci.WithCredentialType(s.issuedCredentialType),
@@ -546,6 +566,14 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
+	}
+
+	if s.proofType == "cwt" {
+		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	}
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("init wallet-initiated auth flow: %w", err)

@@ -57,6 +57,7 @@ type Steps struct {
 	usersNum      int
 	concurrentReq int
 	stressResult  *stress.Result
+	proofType     string
 }
 
 // NewSteps returns new Steps context.
@@ -88,7 +89,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow$`, s.runOIDC4CIPreAuthWithValidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema$`, s.runOIDC4VCIAuthWithInvalidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled$`, s.runOIDC4CIPreAuthWithClientAttestation)
-
+	sc.Step(`^proofType is "([^"]*)"$`, s.setProofType)
 	// OIDC4VP
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and custom scopes "([^"]*)"$`, s.runOIDC4VPFlowWithCustomScopes)
@@ -133,6 +134,7 @@ func (s *Steps) ResetAndSetup() error {
 	s.usersNum = 0
 	s.concurrentReq = 0
 	s.stressResult = nil
+	s.proofType = "jwt"
 
 	s.tlsConfig = s.bddContext.TLSConfig
 

@@ -9,6 +9,7 @@ go 1.21
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/cli/browser v1.1.0
+	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
@@ -27,6 +28,7 @@ require (
 	github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.3
+	github.com/veraison/go-cose v1.1.0
 	go.mongodb.org/mongo-driver v1.11.4
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
@@ -77,7 +79,6 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
 	github.com/getkin/kin-openapi v0.94.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
@@ -154,7 +155,6 @@ require (
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240117181443-2f0d5acb92b7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
-	github.com/veraison/go-cose v1.1.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect
