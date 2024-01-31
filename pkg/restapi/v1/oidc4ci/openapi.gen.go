@@ -107,8 +107,11 @@ type CredentialResponseEncryption struct {
 
 // JWTProof defines model for JWTProof.
 type JWTProof struct {
-	// REQUIRED. Signed JWT as proof of key possession.
-	Jwt string `json:"jwt"`
+	// REQUIRED if proof_type equals cwt. Signed CWT as proof of key possession.
+	Cwt *string `json:"cwt,omitempty"`
+
+	// REQUIRED if proof_type equals jwt. Signed JWT as proof of key possession.
+	Jwt *string `json:"jwt,omitempty"`
 
 	// REQUIRED. JSON String denoting the proof type. Currently the only supported proof type is 'jwt'.
 	ProofType string `json:"proof_type"`

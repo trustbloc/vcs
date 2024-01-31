@@ -26,9 +26,9 @@ type AuthorizationDetails struct {
 	Locations *[]string
 }
 
-type JWTProofClaims struct {
-	Issuer   string `json:"iss,omitempty"`
-	Audience string `json:"aud,omitempty"`
-	IssuedAt *int64 `json:"iat,omitempty"`
-	Nonce    string `json:"nonce,omitempty"`
+type ProofClaims struct {
+	Issuer   string `json:"iss,omitempty" cbor:"1,keyasint"`
+	Audience string `json:"aud,omitempty" cbor:"3,keyasint"`
+	IssuedAt *int64 `json:"iat,omitempty" cbor:"6,keyasint"`
+	Nonce    string `json:"nonce,omitempty" cbor:"10,keyasint"`
 }

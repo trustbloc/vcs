@@ -160,7 +160,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	currentTime := time.Now().Unix()
 
-	claims := &oidc4ci.JWTProofClaims{
+	claims := &oidc4ci.ProofClaims{
 		Issuer:   clientID,
 		IssuedAt: &currentTime,
 		Audience: srv.URL,
@@ -180,7 +180,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	})
 	require.NoError(t, err)

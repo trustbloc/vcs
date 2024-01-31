@@ -979,7 +979,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 	currentTime := time.Now().Unix()
 
-	signedJWT, err := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+	signedJWT, err := jwt.NewSigned(&oidc4ci.ProofClaims{
 		Issuer:   clientID,
 		IssuedAt: &currentTime,
 		Nonce:    "c_nonce",
@@ -996,7 +996,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 	credentialReq := oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	}
 
@@ -1148,7 +1148,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
@@ -1188,7 +1188,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr("invalid"),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
@@ -1228,7 +1228,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: ""},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
@@ -1296,7 +1296,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: "invalid jws"},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
@@ -1370,7 +1370,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				credentialReqInvalid := oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				}
 
@@ -1503,7 +1503,7 @@ func TestController_OidcCredential(t *testing.T) {
 				accessToken = "access-token"
 
 				var signedJWTInvalid *jwt.JSONWebToken
-				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.JWTProofClaims{
+				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.ProofClaims{
 					Issuer:   clientID,
 					Nonce:    "c_nonce",
 					Audience: aud,
@@ -1516,7 +1516,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				credentialReqInvalid := oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jwsInvalid},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				}
 
@@ -1550,7 +1550,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
-				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
 					IssuedAt: &currentTime,
@@ -1563,7 +1563,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
@@ -1595,7 +1595,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				accessToken = "access-token"
 
-				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
 					IssuedAt: &currentTime,
@@ -1608,21 +1608,14 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
-
-				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
-					Return(
-						&http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBuffer(requestBody)),
-						}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, rec.Code)
+				// typ is required per spec
+				require.ErrorContains(t, err, "invalid typ")
 			},
 		},
 		{
@@ -1654,7 +1647,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				currentTime := time.Now().Unix()
 
-				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
 					IssuedAt: &currentTime,
@@ -1667,7 +1660,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
@@ -1701,7 +1694,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				currentTime := time.Now().Unix()
 
-				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.JWTProofClaims{
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
 					Issuer:   clientID,
 					Audience: aud,
 					IssuedAt: &currentTime,
@@ -1717,7 +1710,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
@@ -1973,7 +1966,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
@@ -2030,7 +2023,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ED25519),
@@ -2091,7 +2084,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
@@ -2152,7 +2145,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
