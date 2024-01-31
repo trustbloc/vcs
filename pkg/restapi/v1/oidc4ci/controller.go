@@ -67,6 +67,9 @@ const (
 	invalidGrantOIDCErr   = "invalid_grant"
 	invalidTokenOIDCErr   = "invalid_token"
 	invalidClientOIDCErr  = "invalid_client"
+
+	proofTypeCWT = "cwt"
+	proofTypeJWT = "jwt"
 )
 
 var logger = log.New("oidc4ci")
@@ -646,7 +649,7 @@ func (c *Controller) handleProof(
 	}
 
 	switch credentialReq.Proof.ProofType {
-	case "jwt":
+	case proofTypeJWT:
 		jws, rawClaims, err := jwt.ParseAndCheckProof(lo.FromPtr(credentialReq.Proof.Jwt),
 			c.jwtVerifier, false,
 			jwt.WithIgnoreClaimsMapDecoding(true),
@@ -662,7 +665,7 @@ func (c *Controller) handleProof(
 		if err = json.Unmarshal(rawClaims, &proofClaims); err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
 		}
-	case "cwt":
+	case proofTypeCWT:
 		cwtBytes, err := hex.DecodeString(lo.FromPtr(credentialReq.Proof.Cwt))
 		if err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt"))
@@ -677,7 +680,12 @@ func (c *Controller) handleProof(
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt claims"))
 		}
 
-		proofHeaders.Type = cwtParsed.Headers.Protected[cose.HeaderLabelContentType].(string)
+		typ, ok := cwtParsed.Headers.Protected[cose.HeaderLabelContentType].(string)
+		if !ok {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE content type"))
+		}
+		proofHeaders.Type = typ
+
 		cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
 		if !ok {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))

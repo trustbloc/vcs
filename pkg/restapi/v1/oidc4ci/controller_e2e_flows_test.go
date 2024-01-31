@@ -182,8 +182,7 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	proofVal, err := generateProof(t, proofType, claims, proofCreator)
-	require.NoError(t, err)
+	proofVal := generateProof(t, proofType, claims, proofCreator)
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
@@ -202,7 +201,7 @@ func generateProof(
 	proofType string,
 	claims *oidc4ci.ProofClaims,
 	jwtProofCreator *creator.ProofCreator,
-) (*oidc4ci.JWTProof, error) {
+) *oidc4ci.JWTProof {
 	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
 
 	keyID := "any"
@@ -255,7 +254,7 @@ func generateProof(
 		finalProof.Cwt = lo.ToPtr(hex.EncodeToString(finalMsg))
 	}
 
-	return finalProof, nil
+	return finalProof
 }
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
