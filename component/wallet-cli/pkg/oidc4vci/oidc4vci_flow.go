@@ -269,7 +269,13 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			return nil, fmt.Errorf("credential offer is empty")
 		}
 
-		slog.Info("Validating issuer", "url", f.trustRegistryURL)
+		issuerDID := f.wellKnownService.GetIssuerDID()
+
+		if issuerDID == "" {
+			slog.Warn("Issuer DID is empty. Does '/.well-known/openid-credential-issuer' return jwt?")
+		}
+
+		slog.Info("Validating issuer", "did", issuerDID, "url", f.trustRegistryURL)
 
 		credentialOffer := credentialOfferResponse.Credentials[0]
 
@@ -286,7 +292,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		if err = trustregistry.NewClient(f.httpClient, f.trustRegistryURL).
 			ValidateIssuer(
-				credentialOfferResponse.CredentialIssuer,
+				issuerDID,
 				"",
 				credentialType,
 				credentialFormat,
