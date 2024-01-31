@@ -682,7 +682,7 @@ func (f *Flow) receiveVC(
 
 	claims := &ProofClaims{
 		Issuer:   f.clientID,
-		IssuedAt: time.Now().Unix(),
+		IssuedAt: lo.ToPtr(time.Now().Unix()),
 		Audience: credentialIssuer,
 		Nonce:    token.Extra("c_nonce").(string),
 	}
@@ -696,8 +696,7 @@ func (f *Flow) receiveVC(
 	b, err := json.Marshal(CredentialRequest{
 		Format: f.credentialFormat,
 		Types:  []string{"VerifiableCredential", f.credentialType},
-		//TODO: maybe check?  take the value from wellKnown.CredentialsConfigurationSupported[credentialType].ProofTypesSupported
-		Proof: *proof,
+		Proof:  *proof,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal credential request: %w", err)

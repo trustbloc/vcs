@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955
-	github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a
+	github.com/trustbloc/vc-go v1.1.1-0.20240131142342-c5e522292848
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 

@@ -40,7 +40,7 @@ require (
 	github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955
 	github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.1.1-0.20240131121913-f3bbe875df7a
+	github.com/trustbloc/vc-go v1.1.1-0.20240131142342-c5e522292848
 	github.com/valyala/fastjson v1.6.3
 	github.com/veraison/go-cose v1.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0

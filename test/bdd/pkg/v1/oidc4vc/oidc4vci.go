@@ -133,12 +133,20 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 		return fmt.Errorf("init credential issuance: %w", err)
 	}
 
-	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+	opts := []oidc4vci.Opt{
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
 		oidc4vci.WithCredentialType(s.issuedCredentialType),
 		oidc4vci.WithCredentialFormat(s.getIssuerCredentialFormat()),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
+	}
+
+	if s.proofType == "cwt" {
+		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	}
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("init pre-auth flow: %w", err)
