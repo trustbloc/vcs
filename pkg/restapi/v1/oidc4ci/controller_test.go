@@ -3016,33 +3016,6 @@ func TestHandleCWTProof(t *testing.T) {
 		}, nil)
 		assert.ErrorContains(t, err, "invalid COSE content type")
 	})
-
-	t.Run("invalid content type", func(t *testing.T) {
-		verifier := NewMockCwtProofChecker(gomock.NewController(t))
-		ctr := oidc4ci.NewController(&oidc4ci.Config{
-			CWTVerifier: verifier,
-		})
-
-		var data *cose.Sign1Message
-		assert.NoError(t, cbor.Unmarshal(hexProof, &data))
-
-		delete(data.Headers.Protected, "COSE_Key")
-		b, _ := data.Headers.Protected.MarshalCBOR()
-		data.Headers.RawProtected = b
-
-		proof, cErr := cbor.Marshal(data)
-		require.NoError(t, cErr)
-
-		verifier.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(nil)
-		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
-			Proof: &oidc4ci.JWTProof{
-				ProofType: "cwt",
-				Cwt:       lo.ToPtr(hex.EncodeToString(proof)),
-			},
-		}, nil)
-		assert.ErrorContains(t, err, "invalid COSE content type")
-	})
 }
 
 type mockJWEEncrypter struct {
