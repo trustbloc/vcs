@@ -71,7 +71,7 @@ type Flow struct {
 	documentLoader             ld.DocumentLoader
 	vdrRegistry                vdrapi.Registry
 	signer                     jose.Signer
-	proofBuilder               JWTProofBuilder
+	proofBuilder               ProofBuilder
 	wallet                     *wallet.Wallet
 	wellKnownService           *wellknown.Service
 	trustRegistryURL           string
@@ -101,8 +101,6 @@ type provider interface {
 	Wallet() *wallet.Wallet
 	WellKnownService() *wellknown.Service
 }
-
-type JWTProofBuilder func(claims *JWTProofClaims, headers map[string]interface{}, signer jose.Signer) (string, error)
 
 func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	o := &options{
@@ -172,23 +170,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	proofBuilder := o.proofBuilder
 
 	if proofBuilder == nil {
-		proofBuilder = func(
-			claims *JWTProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
-		) (string, error) {
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, jwsSigner)
-			if jwtErr != nil {
-				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
-			}
-
-			jws, jwtErr := signedJWT.Serialize(false)
-			if jwtErr != nil {
-				return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
-			}
-
-			return jws, nil
-		}
+		proofBuilder = NewJWTProofBuilder()
 	}
 
 	return &Flow{
@@ -696,18 +678,14 @@ func (f *Flow) receiveVC(
 		"credential_issuer", credentialIssuer,
 	)
 
-	claims := &JWTProofClaims{
+	claims := &ProofClaims{
 		Issuer:   f.clientID,
-		IssuedAt: time.Now().Unix(),
+		IssuedAt: lo.ToPtr(time.Now().Unix()),
 		Audience: credentialIssuer,
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderType: jwtProofTypeHeader,
-	}
-
-	jws, err := f.proofBuilder(claims, headers, f.signer)
+	proof, err := f.proofBuilder.Build(claims, nil, f.signer)
 	if err != nil {
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
@@ -733,10 +711,7 @@ func (f *Flow) receiveVC(
 	b, err := json.Marshal(CredentialRequest{
 		Format: oidcCredentialFormat,
 		Types:  []string{"VerifiableCredential", f.credentialType},
-		Proof: JWTProof{
-			ProofType: "jwt", //TODO: take the value from wellKnown.CredentialsConfigurationSupported[credentialType].ProofTypesSupported
-			JWT:       jws,
-		},
+		Proof:  *proof,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal credential request: %w", err)
@@ -979,7 +954,7 @@ func (s *callbackServer) ServeHTTP(
 
 type options struct {
 	flowType                   FlowType
-	proofBuilder               JWTProofBuilder
+	proofBuilder               ProofBuilder
 	credentialOffer            string
 	credentialType             string
 	oidcCredentialFormat       vcsverifiable.OIDCFormat
@@ -1004,7 +979,7 @@ func WithFlowType(flowType FlowType) Opt {
 	}
 }
 
-func WithProofBuilder(proofBuilder JWTProofBuilder) Opt {
+func WithProofBuilder(proofBuilder ProofBuilder) Opt {
 	return func(opts *options) {
 		opts.proofBuilder = proofBuilder
 	}

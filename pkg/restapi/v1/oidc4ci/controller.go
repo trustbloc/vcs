@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService,CwtProofChecker
 
 package oidc4ci
 
@@ -24,13 +24,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
@@ -54,6 +58,7 @@ const (
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 	jwtProofTypHeader          = "openid4vci-proof+jwt"
+	cwtProofTypHeader          = "openid4vci-proof+cwt"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
 	cNonceSize                 = 15
@@ -63,6 +68,9 @@ const (
 	invalidGrantOIDCErr   = "invalid_grant"
 	invalidTokenOIDCErr   = "invalid_token"
 	invalidClientOIDCErr  = "invalid_client"
+
+	proofTypeCWT = "cwt"
+	proofTypeJWT = "jwt"
 )
 
 var logger = log.New("oidc4ci")
@@ -101,6 +109,15 @@ type ProfileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
+type CwtProofChecker interface {
+	CheckCWTProof(
+		checkCWTRequest checker.CheckCWTProofRequest,
+		expectedProofIssuer string,
+		msg []byte,
+		signature []byte,
+	) error
+}
+
 type AckService interface {
 	Ack(
 		ctx context.Context,
@@ -121,6 +138,7 @@ type Config struct {
 	ClientManager           ClientManager
 	ClientIDSchemeService   ClientIDSchemeService
 	JWTVerifier             jwt.ProofChecker
+	CWTVerifier             CwtProofChecker
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
 	ExternalHostURL         string
@@ -138,6 +156,7 @@ type Controller struct {
 	clientManager           ClientManager
 	clientIDSchemeService   ClientIDSchemeService
 	jwtVerifier             jwt.ProofChecker
+	cwtVerifier             CwtProofChecker
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
 	internalHostURL         string
@@ -161,6 +180,7 @@ func NewController(config *Config) *Controller {
 		internalHostURL:         config.ExternalHostURL,
 		ackService:              config.AckService,
 		jweEncrypterCreator:     config.JWEEncrypterCreator,
+		cwtVerifier:             config.CWTVerifier,
 	}
 }
 
@@ -628,6 +648,71 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	return e.NoContent(http.StatusNoContent)
 }
 
+func (c *Controller) HandleProof(
+	clientID string,
+	credentialReq *CredentialRequest,
+	session *fosite.DefaultSession,
+) (string, string, error) {
+	var proofClaims ProofClaims
+
+	proofHeaders := ProofHeaders{
+		ProofType: credentialReq.Proof.ProofType,
+	}
+
+	switch credentialReq.Proof.ProofType {
+	case proofTypeJWT:
+		jws, rawClaims, err := jwt.ParseAndCheckProof(lo.FromPtr(credentialReq.Proof.Jwt),
+			c.jwtVerifier, false,
+			jwt.WithIgnoreClaimsMapDecoding(true),
+		)
+		if err != nil {
+			return "", "",
+				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), fmt.Errorf("parse jwt: %w", err))
+		}
+
+		proofHeaders.Type, _ = jws.Headers.Type()
+		proofHeaders.KeyID, _ = jws.Headers.KeyID()
+
+		if err = json.Unmarshal(rawClaims, &proofClaims); err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
+		}
+	case proofTypeCWT:
+		cwtBytes, err := hex.DecodeString(lo.FromPtr(credentialReq.Proof.Cwt))
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt"))
+		}
+
+		cwtParsed, rawClaims, err := cwt.ParseAndCheckProof(cwtBytes, c.cwtVerifier, false)
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse cwt: %w", err))
+		}
+
+		if err = cbor.Unmarshal(rawClaims, &proofClaims); err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt claims"))
+		}
+
+		typ, ok := cwtParsed.Headers.Protected[cose.HeaderLabelContentType].(string)
+		if !ok {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE content type"))
+		}
+		proofHeaders.Type = typ
+
+		cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
+		if !ok {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
+		}
+
+		proofHeaders.KeyID = string(cosKeyBytes.([]byte))
+	}
+
+	did, err := c.validateProofClaims(clientID, &proofClaims, proofHeaders, session)
+	if err != nil {
+		return "", "", err
+	}
+
+	return did, proofClaims.Audience, nil
+}
+
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
 func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	req := e.Request()
@@ -655,30 +740,17 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	jws, rawClaims, err := jwt.ParseAndCheckProof(credentialReq.Proof.Jwt,
-		c.jwtVerifier, false,
-		jwt.WithIgnoreClaimsMapDecoding(true),
-	)
-	if err != nil {
-		return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), fmt.Errorf("parse jwt: %w", err))
-	}
-
-	var claims JWTProofClaims
-	if err = json.Unmarshal(rawClaims, &claims); err != nil {
-		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
-	}
-
-	did, err := c.validateProofClaims(ar.GetClient().GetID(), &claims, jws, session)
+	did, aud, err := c.HandleProof(ar.GetClient().GetID(), &credentialReq, session)
 	if err != nil {
 		return err
 	}
 
 	prepareCredentialReq := issuer.PrepareCredentialJSONRequestBody{
 		TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
-		Did:           lo.ToPtr(did),
+		Did:           &did,
 		Types:         credentialReq.Types,
 		Format:        credentialReq.Format,
-		AudienceClaim: claims.Audience,
+		AudienceClaim: aud,
 		HashedToken:   hashToken(token),
 	}
 
@@ -774,7 +846,16 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing proof type"))
 	}
 
-	if req.Proof.ProofType != "jwt" || req.Proof.Jwt == "" {
+	switch req.Proof.ProofType {
+	case "jwt":
+		if lo.FromPtr(req.Proof.Jwt) == "" {
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
+		}
+	case "cwt":
+		if lo.FromPtr(req.Proof.Cwt) == "" {
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing cwt proof"))
+		}
+	default:
 		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
 	}
 
@@ -817,8 +898,8 @@ func (c *Controller) encryptCredentialResponse(
 //nolint:gocognit
 func (c *Controller) validateProofClaims(
 	clientID string,
-	claims *JWTProofClaims,
-	jws *jwt.JSONWebToken,
+	claims *ProofClaims,
+	headers ProofHeaders,
 	session *fosite.DefaultSession,
 ) (string, error) {
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
@@ -841,16 +922,24 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
 	}
 
-	if typ, ok := jws.Headers.Type(); ok && typ != jwtProofTypHeader {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+	switch headers.ProofType {
+	case "jwt":
+		if headers.Type != jwtProofTypHeader {
+			return "",
+				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+		}
+	case "cwt":
+		if headers.Type != cwtProofTypHeader {
+			return "",
+				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+		}
 	}
 
-	keyID, ok := jws.Headers.KeyID()
-	if !ok {
+	if headers.KeyID == "" {
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid kid"))
 	}
 
-	return strings.Split(keyID, "#")[0], nil
+	return strings.Split(headers.KeyID, "#")[0], nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.

@@ -1905,10 +1905,12 @@ components:
           description: REQUIRED. JSON String denoting the proof type. Currently the only supported proof type is 'jwt'.
         jwt:
           type: string
-          description: REQUIRED. Signed JWT as proof of key possession.
+          description: REQUIRED if proof_type equals jwt. Signed JWT as proof of key possession.
+        cwt:
+          type: string
+          description: REQUIRED if proof_type equals cwt. Signed CWT as proof of key possession.
       required:
         - proof_type
-        - jwt
     AckRequest:
       title: AckRequest
       x-tags:

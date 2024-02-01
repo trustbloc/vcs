@@ -837,6 +837,7 @@ func buildEchoHandler(
 		Tracer:                  conf.Tracer,
 		AckService:              ackService,
 		JWEEncrypterCreator:     jweEncrypterCreator,
+		CWTVerifier:             proofChecker,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{

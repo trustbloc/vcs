@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
@@ -33,8 +35,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/testsupport"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
+	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -52,7 +58,15 @@ const (
 	aud      = "https://server.example.com"
 )
 
-func TestAuthorizeCodeGrantFlow(t *testing.T) {
+func TestAuthorizeCodeGrantFlowWithJWTProof(t *testing.T) {
+	testAuthorizeCodeGrantFlow(t, "jwt")
+}
+
+func TestAuthorizeCodeGrantFlowWithCWTProof(t *testing.T) {
+	testAuthorizeCodeGrantFlow(t, "cwt")
+}
+
+func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	e := echo.New()
 	e.HTTPErrorHandler = resterr.HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))
 
@@ -112,6 +126,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
 		JWTVerifier:             proofChecker,
+		CWTVerifier:             proofChecker,
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 	})
 
@@ -161,27 +176,18 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	currentTime := time.Now().Unix()
 
-	claims := &oidc4ci.JWTProofClaims{
+	claims := &oidc4ci.ProofClaims{
 		Issuer:   clientID,
 		IssuedAt: &currentTime,
 		Audience: srv.URL,
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderType: "openid4vci-proof+jwt",
-	}
-
-	signedJWT, err := jwt.NewSigned(
-		claims, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any", AdditionalHeaders: headers}, proofCreator)
-	require.NoError(t, err)
-
-	jws, err := signedJWT.Serialize(false)
-	require.NoError(t, err)
+	proofVal := generateProof(t, proofType, claims, proofCreator)
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+		Proof:  proofVal,
 		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	})
 	require.NoError(t, err)
@@ -189,6 +195,67 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	resp, err = httpClient.Post(srv.URL+"/oidc/credential", "application/json", bytes.NewBuffer(b))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func generateProof(
+	t *testing.T,
+	proofType string,
+	claims *oidc4ci.ProofClaims,
+	jwtProofCreator *creator.ProofCreator,
+) *oidc4ci.JWTProof {
+	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
+
+	keyID := "any"
+	switch proofType {
+	case "jwt":
+		headers := map[string]interface{}{
+			jose.HeaderType: "openid4vci-proof+jwt",
+		}
+
+		signedJWT, err := jwt.NewSigned(
+			claims, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: keyID, AdditionalHeaders: headers}, jwtProofCreator)
+		require.NoError(t, err)
+
+		jws, err := signedJWT.Serialize(false)
+		require.NoError(t, err)
+
+		finalProof.Jwt = &jws
+	case "cwt":
+		encoded, err := cbor.Marshal(claims)
+		require.NoError(t, err)
+
+		msg := &cose.Sign1Message{
+			Headers: cose.Headers{
+				Protected: cose.ProtectedHeader{
+					cose.HeaderLabelAlgorithm:   cose.AlgorithmEd25519,
+					cose.HeaderLabelContentType: "openid4vci-proof+cwt",
+					"COSE_Key":                  []byte(testsupport.AnyPubKeyID),
+				},
+				Unprotected: map[interface{}]interface{}{
+					int64(4): []byte(testsupport.AnyPubKeyID),
+				},
+			},
+			Payload: encoded,
+		}
+
+		signData, err := cwt2.GetProofValue(msg)
+		assert.NoError(t, err)
+
+		signed, err := jwtProofCreator.SignCWT(cwt.SignParameters{
+			KeyID:  testsupport.AnyPubKeyID,
+			CWTAlg: cose.AlgorithmEd25519,
+		}, signData)
+		assert.NoError(t, err)
+
+		msg.Signature = signed
+
+		finalMsg, err := msg.MarshalCBOR()
+		assert.NoError(t, err)
+
+		finalProof.Cwt = lo.ToPtr(hex.EncodeToString(finalMsg))
+	}
+
+	return finalProof
 }
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
