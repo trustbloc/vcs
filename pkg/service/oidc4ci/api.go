@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
@@ -103,6 +104,27 @@ type AuthorizationDetails struct {
 	Locations                 []string
 	CredentialConfigurationID string
 	CredentialDefinition      *CredentialDefinition
+	CredentialIdentifiers     []string
+}
+
+func (ad *AuthorizationDetails) ToDTO() common.AuthorizationDetails {
+	var credentialDefinition *common.CredentialDefinition
+	if cd := ad.CredentialDefinition; cd != nil {
+		credentialDefinition = &common.CredentialDefinition{
+			Context:           &cd.Context,
+			CredentialSubject: &cd.CredentialSubject,
+			Type:              cd.Type,
+		}
+	}
+
+	return common.AuthorizationDetails{
+		CredentialConfigurationId: &ad.CredentialConfigurationID,
+		CredentialDefinition:      credentialDefinition,
+		CredentialIdentifiers:     lo.ToPtr(ad.CredentialIdentifiers),
+		Format:                    lo.ToPtr(string(ad.Format)),
+		Locations:                 &ad.Locations,
+		Type:                      ad.Type,
+	}
 }
 
 // CredentialDefinition contains the detailed description of the credential type.
@@ -269,7 +291,7 @@ type ServiceInterface interface {
 		clientID,
 		clientAssertionType,
 		clientAssertion string,
-	) (TxID, error)
+	) (*ExchangeAuthorizationCodeResult, error)
 	ValidatePreAuthorizedCodeRequest(
 		ctx context.Context,
 		preAuthorizedCode,
@@ -296,6 +318,11 @@ type AckRemote struct {
 	Status           string `json:"status"`
 	ErrorText        string `json:"error_text"`
 	IssuerIdentifier string `json:"issuer_identifier"`
+}
+
+type ExchangeAuthorizationCodeResult struct {
+	TxID                 TxID
+	AuthorizationDetails *AuthorizationDetails
 }
 
 var ErrDataNotFound = errors.New("data not found")

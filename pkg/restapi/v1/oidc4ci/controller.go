@@ -510,6 +510,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 
 	nonce := mustGenerateNonce()
 	var txID string
+	var authorisationDetails *[]common.AuthorizationDetails
 
 	isPreAuthFlow := strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType)
 	if isPreAuthFlow { //nolint:nestif
@@ -527,6 +528,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		}
 
 		txID = resp.TxId
+		authorisationDetails = resp.AuthorizationDetails
 	} else {
 		exchangeResp, errExchange := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
@@ -556,6 +558,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 			return fmt.Errorf("read exchange auth code response: %w", err)
 		}
 		txID = exchangeResult.TxId
+		authorisationDetails = exchangeResult.AuthorizationDetails
 	}
 
 	c.setCNonceSession(session, nonce, txID, isPreAuthFlow)
@@ -566,6 +569,9 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	c.setCNonce(responder, nonce)
+	if authorisationDetails != nil {
+		c.setAuthorizationDetails(responder, authorisationDetails)
+	}
 
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
 	return nil
@@ -577,6 +583,13 @@ func (c *Controller) setCNonce(
 ) {
 	responder.SetExtra("c_nonce", nonce)
 	responder.SetExtra("c_nonce_expires_in", cNonceTTL.Seconds())
+}
+
+func (c *Controller) setAuthorizationDetails(
+	responder fosite.AccessResponder,
+	authorisationDetails *[]common.AuthorizationDetails,
+) {
+	responder.SetExtra("authorization_details", authorisationDetails)
 }
 
 func (c *Controller) setCNonceSession(
