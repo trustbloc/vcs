@@ -66,7 +66,7 @@ type CredentialsConfigurationSupported struct {
 	Claims map[string]interface{} `json:"claims"`
 
 	// Object containing the detailed description of the credential type.
-	CredentialDefinition *CredentialConfigurationsSupportedDefinition `json:"credential_definition"`
+	CredentialDefinition *CredentialDefinition `json:"credential_definition"`
 
 	// An array of objects, where each object contains the display properties
 	// of the supported credential for a certain language.
@@ -76,7 +76,7 @@ type CredentialsConfigurationSupported struct {
 	Doctype string `json:"doctype"`
 
 	// A JSON string identifying the format of this credential, i.e., jwt_vc_json or ldp_vc.
-	Format string `json:"format"`
+	Format vcsverifiable.OIDCFormat `json:"format"`
 
 	// Array of the claim name values that lists them in the order they should be displayed by the Wallet.
 	Order []string `json:"order"`
@@ -89,8 +89,8 @@ type CredentialsConfigurationSupported struct {
 	Vct string `json:"vct"`
 }
 
-// CredentialConfigurationsSupportedDefinition containing the detailed description of the credential type.
-type CredentialConfigurationsSupportedDefinition struct {
+// CredentialDefinition containing the detailed description of the credential type.
+type CredentialDefinition struct {
 	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
 	Context []string `json:"@context"`
 

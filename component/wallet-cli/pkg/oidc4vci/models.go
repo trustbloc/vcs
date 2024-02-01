@@ -20,9 +20,9 @@ type ProofClaims struct {
 }
 
 type CredentialRequest struct {
-	Format string   `json:"format,omitempty"`
-	Types  []string `json:"types"`
-	Proof  Proof    `json:"proof,omitempty"`
+	Format verifiable.OIDCFormat `json:"format,omitempty"`
+	Types  []string              `json:"types"`
+	Proof  Proof              `json:"proof,omitempty"`
 }
 
 type Proof struct {

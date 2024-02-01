@@ -56,6 +56,30 @@ const (
 	profileVersion = "v1.0"
 )
 
+var (
+	//nolint:gochecknoglobals
+	authorizationDetailsFormatBased = `[{
+    "type": "openid_credential",
+    "format": "ldp_vc",
+    "credential_definition": {
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ],
+      "credentialSubject": {
+        "given_name": {},
+        "family_name": {},
+        "degree": {}
+      }
+    }
+  }]`
+	//nolint:gochecknoglobals
+	authorizationDetailsCredentialConfigurationIDBased = `[{
+		 "type": "openid_credential",
+		 "credential_configuration_id": "UniversityDegreeCredential"
+		}]`
+)
+
 func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
@@ -69,7 +93,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
 	}{
 		{
-			name: "success",
+			name: "success: AuthorizationDetails contains Format field",
 			setup: func() {
 				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
 				mockOAuthProvider.EXPECT().NewPushedAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).Return(&fosite.PushedAuthorizeResponse{}, nil)
@@ -83,7 +107,29 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 
 				q = url.Values{}
 				q.Add("op_state", "opState")
-				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
+				q.Add("authorization_details", authorizationDetailsFormatBased)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "success: AuthorizationDetails contains CredentialConfigurationID field",
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).Return(&fosite.PushedAuthorizeResponse{}, nil)
+				mockOAuthProvider.EXPECT().WritePushedAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+
+				mockInteractionClient.EXPECT().PushAuthorizationDetails(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer(nil)),
+					}, nil)
+
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", authorizationDetailsCredentialConfigurationIDBased)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
@@ -120,7 +166,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 
 				q = url.Values{}
 				q.Add("op_state", "opState")
-				q.Add("authorization_details", `{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
+				q.Add("authorization_details", `[{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}]`)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "type should be 'openid_credential'")
@@ -134,7 +180,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 
 				q = url.Values{}
 				q.Add("op_state", "opState")
-				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
+				q.Add("authorization_details", authorizationDetailsFormatBased)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "push authorization details error")
@@ -153,7 +199,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 
 				q = url.Values{}
 				q.Add("op_state", "opState")
-				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
+				q.Add("authorization_details", authorizationDetailsFormatBased)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "push authorization details: status code")
@@ -173,7 +219,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 
 				q = url.Values{}
 				q.Add("op_state", "opState")
-				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
+				q.Add("authorization_details", authorizationDetailsFormatBased)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "new pushed authorize response error")
@@ -217,7 +263,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
 	}{
 		{
-			name: "success",
+			name: "success format based",
 			setup: func() {
 				state := "state"
 
@@ -225,7 +271,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 					ResponseType:         "code",
 					State:                &state,
 					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -257,6 +303,74 @@ func TestController_OidcAuthorize(t *testing.T) {
 						req issuer.PrepareAuthorizationRequestJSONRequestBody,
 						reqEditors ...issuer.RequestEditorFn,
 					) (*http.Response, error) {
+						var authorizationDetails *[]common.AuthorizationDetails
+						err = json.Unmarshal([]byte(authorizationDetailsFormatBased), &authorizationDetails)
+						assert.NoError(t, err)
+						assert.Equal(t, authorizationDetails, req.AuthorizationDetails)
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).
+					Return(nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusSeeOther, rec.Code)
+				require.NotEmpty(t, rec.Header().Get("Location"))
+			},
+		},
+		{
+			name: "success CredentialConfigurationId based",
+			setup: func() {
+				state := "state"
+
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsCredentialConfigurationIDBased),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
+
+						return &fosite.AuthorizeResponse{}, nil
+					},
+				)
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						var authorizationDetails *[]common.AuthorizationDetails
+						err = json.Unmarshal([]byte(authorizationDetailsCredentialConfigurationIDBased), &authorizationDetails)
+						assert.NoError(t, err)
+						assert.Equal(t, authorizationDetails, req.AuthorizationDetails)
 						assert.Equal(t, params.ResponseType, req.ResponseType)
 						assert.Equal(t, *params.IssuerState, req.OpState)
 						assert.Equal(t, lo.ToPtr(scope), req.Scope)
@@ -285,7 +399,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 					ResponseType:         "code",
 					State:                &state,
 					IssuerState:          lo.ToPtr("https://some.issuer"),
-					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -320,6 +434,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 						req issuer.PrepareAuthorizationRequestJSONRequestBody,
 						reqEditors ...issuer.RequestEditorFn,
 					) (*http.Response, error) {
+						var authorizationDetails *[]common.AuthorizationDetails
+						err = json.Unmarshal([]byte(authorizationDetailsFormatBased), &authorizationDetails)
+						assert.NoError(t, err)
+						assert.Equal(t, authorizationDetails, req.AuthorizationDetails)
 						assert.Equal(t, params.ResponseType, req.ResponseType)
 						assert.Equal(t, *params.IssuerState, req.OpState)
 						assert.Equal(t, lo.ToPtr(scope), req.Scope)
@@ -343,8 +461,9 @@ func TestController_OidcAuthorize(t *testing.T) {
 			name: "success with par",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -380,6 +499,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 						req issuer.PrepareAuthorizationRequestJSONRequestBody,
 						reqEditors ...issuer.RequestEditorFn,
 					) (*http.Response, error) {
+						var authorizationDetails *[]common.AuthorizationDetails
+						err = json.Unmarshal([]byte(authorizationDetailsFormatBased), &authorizationDetails)
+						assert.NoError(t, err)
+						assert.Equal(t, authorizationDetails, req.AuthorizationDetails)
 						assert.Equal(t, params.ResponseType, req.ResponseType)
 						assert.Equal(t, *params.IssuerState, req.OpState)
 						assert.Equal(t, lo.ToPtr(scope), req.Scope)
@@ -400,11 +523,34 @@ func TestController_OidcAuthorize(t *testing.T) {
 			},
 		},
 		{
+			name: "error no AuthorizationDetails supplied",
+			setup: func() {
+				state := "state"
+
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: nil,
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid-value[authorization_details]: not supplied")
+			},
+		},
+		{
 			name: "par error",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -461,8 +607,9 @@ func TestController_OidcAuthorize(t *testing.T) {
 			name: "invalid authorize request",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil,
@@ -478,7 +625,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType:         "code",
 					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr("invalid"),
+					AuthorizationDetails: lo.ToPtr(`{"key":"value"}`),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -499,7 +646,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType:         "code",
 					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"invalid"}`),
+					AuthorizationDetails: lo.ToPtr(`[]`),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -509,15 +656,16 @@ func TestController_OidcAuthorize(t *testing.T) {
 				}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "authorization_details.format")
+				require.ErrorContains(t, err, "only single authorization_details supported")
 			},
 		},
 		{
 			name: "prepare claim data authorization",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -547,8 +695,9 @@ func TestController_OidcAuthorize(t *testing.T) {
 			name: "invalid status code for prepare claim data authorization",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -583,9 +732,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 				state := "state"
 
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					State:        &state,
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -636,9 +786,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 				state := "state"
 
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					State:        &state,
-					IssuerState:  lo.ToPtr("opState"),
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
 				}
 
 				scope := []string{"openid", "profile"}

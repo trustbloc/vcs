@@ -16,25 +16,56 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
-func ValidateAuthorizationDetails(ad *common.AuthorizationDetails) (*oidc4ci.AuthorizationDetails, error) {
+func ValidateAuthorizationDetails(
+	authorizationDetails []common.AuthorizationDetails) (*oidc4ci.AuthorizationDetails, error) {
+	if len(authorizationDetails) != 1 {
+		return nil, resterr.NewOIDCError("invalid_request",
+			errors.New("only single authorization_details supported"))
+	}
+
+	ad := authorizationDetails[0]
+
 	if ad.Type != "openid_credential" {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
 			errors.New("type should be 'openid_credential'"))
 	}
 
+	oidcCredentialFormat := lo.FromPtr(ad.Format)
+	credentialConfigurationID := lo.FromPtr(ad.CredentialConfigurationId)
+
 	mapped := &oidc4ci.AuthorizationDetails{
-		Type:      ad.Type,
-		Types:     ad.Types,
-		Locations: lo.FromPtr(ad.Locations),
+		Type:                      ad.Type,
+		Locations:                 lo.FromPtr(ad.Locations),
+		CredentialConfigurationID: "",
+		Format:                    "",
+		CredentialDefinition:      nil,
 	}
 
-	if ad.Format != nil {
-		vcFormat, err := common.ValidateVCFormat(common.VCFormat(*ad.Format))
+	switch {
+	case credentialConfigurationID != "": // Priority 1. Based on credentialConfigurationID.
+		mapped.CredentialConfigurationID = credentialConfigurationID
+	case oidcCredentialFormat != "": // Priority 2. Based on credentialFormat.
+		vcsCredentialFormat, err := common.ValidateVCFormat(common.VCFormat(oidcCredentialFormat))
 		if err != nil {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
 		}
 
-		mapped.Format = vcFormat
+		mapped.Format = vcsCredentialFormat
+
+		if ad.CredentialDefinition == nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue,
+				"authorization_details.credential_definition", errors.New("not supplied"))
+		}
+
+		mapped.CredentialDefinition = &oidc4ci.CredentialDefinition{
+			Context:           lo.FromPtr(ad.CredentialDefinition.Context),
+			CredentialSubject: lo.FromPtr(ad.CredentialDefinition.CredentialSubject),
+			Type:              ad.CredentialDefinition.Type,
+		}
+	default:
+		return nil, resterr.NewValidationError(resterr.InvalidValue,
+			"authorization_details.credential_configuration_id",
+			errors.New("neither credentialFormat nor credentialConfigurationID supplied"))
 	}
 
 	return mapped, nil

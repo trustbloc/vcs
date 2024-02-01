@@ -97,8 +97,11 @@ func TestStore(t *testing.T) {
 			ResponseType:                       "123",
 			Scope:                              []string{"213", "321"},
 			AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-				Type:      "321",
-				Types:     []string{"fdsfsd"},
+				Type:                      "321",
+				CredentialConfigurationID: "CredentialConfigurationID",
+				CredentialDefinition: &oidc4ci.CredentialDefinition{
+					Type: []string{"fdsfsd"},
+				},
 				Format:    "vxcxzcz",
 				Locations: []string{"loc1", "loc2"},
 			},

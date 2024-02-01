@@ -269,7 +269,7 @@ type OidcAuthorizeParams struct {
 	// An opaque value used by the client to maintain state between the request and callback. The authorization server includes this value when redirecting the user-agent back to the client. The parameter SHOULD be used for preventing cross-site request forgery.
 	State *string `form:"state,omitempty" json:"state,omitempty"`
 
-	// The authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
+	// Encoded array of the authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
 	AuthorizationDetails *string `form:"authorization_details,omitempty" json:"authorization_details,omitempty"`
 
 	// Wallet's OpenID Connect Issuer URL. The Issuer will use the discovery process to determine the wallet's capabilities and endpoints. RECOMMENDED in Dynamic Credential Request.

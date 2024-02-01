@@ -33,28 +33,29 @@ const (
 	OIDCClientAuthenticationFailed   ErrorCode = "oidc-client-authentication-failed"
 	InvalidOrMissingProofOIDCErr     ErrorCode = "invalid_or_missing_proof"
 
-	ProfileNotFound                 ErrorCode = "profile-not-found"
-	ProfileInactive                 ErrorCode = "profile-inactive"
-	TransactionNotFound             ErrorCode = "transaction-not-found"
-	CredentialTemplateNotFound      ErrorCode = "credential-template-not-found"
-	PresentationVerificationFailed  ErrorCode = "presentation-verification-failed"
-	DuplicatePresentationID         ErrorCode = "duplicate-presentation-id"
-	PresentationDefinitionMismatch  ErrorCode = "presentation-definition-mismatch"
-	ClaimsNotReceived               ErrorCode = "claims-not-received"
-	ClaimsNotFound                  ErrorCode = "claims-not-found"
-	ClaimsValidationErr             ErrorCode = "invalid-claims"
-	DataNotFound                    ErrorCode = "data-not-found"
-	OpStateKeyDuplication           ErrorCode = "op-state-key-duplication"
-	CredentialTemplateNotConfigured ErrorCode = "credential-template-not-configured"
-	CredentialTemplateIDRequired    ErrorCode = "credential-template-id-required"
-	AuthorizedCodeFlowNotSupported  ErrorCode = "authorized-code-flow-not-supported"
-	ResponseTypeMismatch            ErrorCode = "response-type-mismatch"
-	InvalidScope                    ErrorCode = "invalid-scope"
-	CredentialTypeNotSupported      ErrorCode = "credential-type-not-supported"
-	CredentialFormatNotSupported    ErrorCode = "credential-format-not-supported"
-	VCOptionsNotConfigured          ErrorCode = "vc-options-not-configured"
-	InvalidIssuerURL                ErrorCode = "invalid-issuer-url"
-	InvalidStateTransition          ErrorCode = "invalid-state-transition"
+	ProfileNotFound                  ErrorCode = "profile-not-found"
+	ProfileInactive                  ErrorCode = "profile-inactive"
+	TransactionNotFound              ErrorCode = "transaction-not-found"
+	CredentialTemplateNotFound       ErrorCode = "credential-template-not-found"
+	PresentationVerificationFailed   ErrorCode = "presentation-verification-failed"
+	DuplicatePresentationID          ErrorCode = "duplicate-presentation-id"
+	PresentationDefinitionMismatch   ErrorCode = "presentation-definition-mismatch"
+	ClaimsNotReceived                ErrorCode = "claims-not-received"
+	ClaimsNotFound                   ErrorCode = "claims-not-found"
+	ClaimsValidationErr              ErrorCode = "invalid-claims"
+	DataNotFound                     ErrorCode = "data-not-found"
+	OpStateKeyDuplication            ErrorCode = "op-state-key-duplication"
+	CredentialTemplateNotConfigured  ErrorCode = "credential-template-not-configured"
+	CredentialTemplateIDRequired     ErrorCode = "credential-template-id-required"
+	AuthorizedCodeFlowNotSupported   ErrorCode = "authorized-code-flow-not-supported"
+	ResponseTypeMismatch             ErrorCode = "response-type-mismatch"
+	InvalidScope                     ErrorCode = "invalid-scope"
+	InvalidCredentialConfigurationID ErrorCode = "invalid-credential-configuration-id"
+	CredentialTypeNotSupported       ErrorCode = "credential-type-not-supported"
+	CredentialFormatNotSupported     ErrorCode = "credential-format-not-supported"
+	VCOptionsNotConfigured           ErrorCode = "vc-options-not-configured"
+	InvalidIssuerURL                 ErrorCode = "invalid-issuer-url"
+	InvalidStateTransition           ErrorCode = "invalid-state-transition"
 )
 
 type Component = string
@@ -87,19 +88,20 @@ const (
 )
 
 var (
-	ErrDataNotFound                    = NewCustomError(DataNotFound, errors.New("data not found"))
-	ErrOpStateKeyDuplication           = NewCustomError(OpStateKeyDuplication, errors.New("op state key duplication"))
-	ErrProfileInactive                 = NewCustomError(ProfileInactive, errors.New("profile not active"))
-	ErrCredentialTemplateNotFound      = NewCustomError(CredentialTemplateNotFound, errors.New("credential template not found"))           //nolint:lll
-	ErrCredentialTemplateNotConfigured = NewCustomError(CredentialTemplateNotConfigured, errors.New("credential template not configured")) //nolint:lll
-	ErrCredentialTemplateIDRequired    = NewCustomError(CredentialTemplateIDRequired, errors.New("credential template ID is required"))    //nolint:lll
-	ErrAuthorizedCodeFlowNotSupported  = NewCustomError(AuthorizedCodeFlowNotSupported, errors.New("authorized code flow not supported"))  //nolint:lll
-	ErrResponseTypeMismatch            = NewCustomError(ResponseTypeMismatch, errors.New("response type mismatch"))
-	ErrInvalidScope                    = NewCustomError(InvalidScope, errors.New("invalid scope"))
-	ErrCredentialTypeNotSupported      = NewCustomError(CredentialTypeNotSupported, errors.New("credential type not supported"))     //nolint:lll
-	ErrCredentialFormatNotSupported    = NewCustomError(CredentialFormatNotSupported, errors.New("credential format not supported")) //nolint:lll
-	ErrVCOptionsNotConfigured          = NewCustomError(VCOptionsNotConfigured, errors.New("vc options not configured"))
-	ErrInvalidIssuerURL                = NewCustomError(InvalidIssuerURL, errors.New("invalid issuer url"))
+	ErrDataNotFound                     = NewCustomError(DataNotFound, errors.New("data not found"))
+	ErrOpStateKeyDuplication            = NewCustomError(OpStateKeyDuplication, errors.New("op state key duplication"))
+	ErrProfileInactive                  = NewCustomError(ProfileInactive, errors.New("profile not active"))
+	ErrCredentialTemplateNotFound       = NewCustomError(CredentialTemplateNotFound, errors.New("credential template not found"))           //nolint:lll
+	ErrCredentialTemplateNotConfigured  = NewCustomError(CredentialTemplateNotConfigured, errors.New("credential template not configured")) //nolint:lll
+	ErrCredentialTemplateIDRequired     = NewCustomError(CredentialTemplateIDRequired, errors.New("credential template ID is required"))    //nolint:lll
+	ErrAuthorizedCodeFlowNotSupported   = NewCustomError(AuthorizedCodeFlowNotSupported, errors.New("authorized code flow not supported"))  //nolint:lll
+	ErrResponseTypeMismatch             = NewCustomError(ResponseTypeMismatch, errors.New("response type mismatch"))
+	ErrInvalidScope                     = NewCustomError(InvalidScope, errors.New("invalid scope"))
+	ErrCredentialTypeNotSupported       = NewCustomError(CredentialTypeNotSupported, errors.New("credential type not supported"))             //nolint:lll
+	ErrCredentialFormatNotSupported     = NewCustomError(CredentialFormatNotSupported, errors.New("credential format not supported"))         //nolint:lll
+	ErrInvalidCredentialConfigurationID = NewCustomError(InvalidCredentialConfigurationID, errors.New("invalid credential configuration ID")) //nolint:lll
+	ErrVCOptionsNotConfigured           = NewCustomError(VCOptionsNotConfigured, errors.New("vc options not configured"))
+	ErrInvalidIssuerURL                 = NewCustomError(InvalidIssuerURL, errors.New("invalid issuer url"))
 )
 
 func (c ErrorCode) Name() string {

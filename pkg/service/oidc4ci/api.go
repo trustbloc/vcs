@@ -66,7 +66,7 @@ type TransactionData struct {
 	ProfileVersion                     profileapi.Version
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
-	CredentialFormat                   vcsverifiable.Format
+	CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
 	OIDCCredentialFormat               vcsverifiable.OIDCFormat
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
@@ -94,12 +94,23 @@ type TransactionData struct {
 	WalletInitiatedIssuance            bool
 }
 
-// AuthorizationDetails are the VC-related details for VC issuance.
+// AuthorizationDetails represents the domain model for Authorization Details request.
+//
+// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 type AuthorizationDetails struct {
-	Type      string
-	Types     []string
-	Format    vcsverifiable.Format
-	Locations []string
+	Type                      string
+	Format                    vcsverifiable.Format
+	Locations                 []string
+	CredentialConfigurationID string
+	CredentialDefinition      *CredentialDefinition
+}
+
+// CredentialDefinition contains the detailed description of the credential type.
+type CredentialDefinition struct {
+	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
+	Context           []string
+	CredentialSubject map[string]interface{}
+	Type              []string
 }
 
 // IssuerIDPOIDCConfiguration represents an Issuer's IDP OIDC configuration

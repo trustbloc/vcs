@@ -579,7 +579,7 @@ paths:
                   description: An opaque value used by the client to maintain state between the request and callback. The authorization server includes this value when redirecting the user-agent back to the client. The parameter SHOULD be used for preventing cross-site request forgery.
                 authorization_details:
                   type: string
-                  description: The authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
+                  description: Encoded array of authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
                 wallet_issuer:
                   type: string
                   description: Wallet's OpenID Connect Issuer URL. The Issuer will use the discovery process to determine the wallet's capabilities and endpoints. RECOMMENDED in Dynamic Credential Request.
@@ -659,7 +659,7 @@ paths:
             type: string
           in: query
           name: authorization_details
-          description: The authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
+          description: Encoded array of the authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
         - schema:
             type: string
           in: query
@@ -1309,7 +1309,9 @@ components:
           items:
             type: string
         authorization_details:
-          $ref: ./common.yaml#/components/schemas/AuthorizationDetails
+          type: array
+          items:
+            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
         op_state:
           type: string
       required:
@@ -1358,7 +1360,7 @@ components:
         code:
           type: string
         wallet_initiated_flow:
-          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
+          $ref: './common.yaml#/components/schemas/WalletInitiatedFlowData'
           nullable: true
       required:
         - op_state
@@ -1437,7 +1439,7 @@ components:
           type: string
           description: Transaction ID to correlate upcoming authorization response.
         wallet_initiated_flow:
-          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
+          $ref: './common.yaml#/components/schemas/WalletInitiatedFlowData'
       required:
         - authorization_request
         - authorization_endpoint
@@ -1767,7 +1769,9 @@ components:
         op_state:
           type: string
         authorization_details:
-          $ref: ./common.yaml#/components/schemas/AuthorizationDetails
+          type: array
+          items:
+            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
       required:
         - op_state
         - authorization_details
@@ -2004,7 +2008,7 @@ components:
             type: string
           description: Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
         credential_definition:
-          $ref: '#/components/schemas/CredentialConfigurationsSupportedDefinition'
+          $ref: './common.yaml#/components/schemas/CredentialDefinition'
         order:
           type: array
           items:
@@ -2031,28 +2035,6 @@ components:
             $ref: '#/components/schemas/CredentialDisplay'
       required:
         - format
-    CredentialConfigurationsSupportedDefinition:
-      title: CredentialConfigurationsSupportedDefinition object definition.
-      x-tags:
-        - issuer
-      type: object
-      description: Object containing the detailed description of the credential type.
-      properties:
-        '@context':
-          type: array
-          items:
-            type: string
-          description: 'For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.'
-        type:
-          type: array
-          items:
-            type: string
-          description: Array designating the types a certain credential type supports
-        credentialSubject:
-          type: object
-          description: 'An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.'
-      required:
-        - type
     CredentialResponseEncryptionSupported:
       title: CredentialResponseEncryption object definition.
       x-tags:

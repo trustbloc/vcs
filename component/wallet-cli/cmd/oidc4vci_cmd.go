@@ -25,6 +25,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 const (
@@ -41,7 +42,7 @@ type oidc4vciCommandFlags struct {
 	demoIssuerURL              string
 	vcFormat                   string
 	credentialType             string
-	credentialFormat           string
+	oidcCredentialFormat       vcsverifiable.OIDCFormat
 	walletDIDIndex             int
 	clientID                   string
 	scopes                     []string
@@ -87,7 +88,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 				return fmt.Errorf("--credential-type not set")
 			}
 
-			if flags.credentialFormat == "" {
+			if flags.oidcCredentialFormat == "" {
 				return fmt.Errorf("--credential-format not set")
 			}
 
@@ -172,7 +173,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 
 			opts := []oidc4vci.Opt{
 				oidc4vci.WithCredentialType(flags.credentialType),
-				oidc4vci.WithCredentialFormat(flags.credentialFormat),
+				oidc4vci.WithOIDCCredentialFormat(flags.oidcCredentialFormat),
 				oidc4vci.WithClientID(flags.clientID),
 				oidc4vci.WithTrustRegistryURL(flags.trustRegistryURL),
 			}
@@ -258,6 +259,8 @@ func NewOIDC4VCICommand() *cobra.Command {
 		},
 	}
 
+	var oidcCredentialFormat string
+
 	cmd.Flags().StringVar(&flags.serviceFlags.levelDBPath, "leveldb-path", "", "leveldb path")
 	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
 
@@ -265,7 +268,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
 	cmd.Flags().StringVar(&flags.credentialOffer, "credential-offer", "", "openid credential offer")
 	cmd.Flags().StringVar(&flags.demoIssuerURL, "demo-issuer-url", "", "demo issuer url for downloading qr code automatically")
-	cmd.Flags().StringVar(&flags.credentialFormat, "credential-format", "ldp_vc", "supported credential formats: ldp_vc,jwt_vc_json-ld")
+	cmd.Flags().StringVar(&oidcCredentialFormat, "credential-format", "ldp_vc", "supported credential formats: ldp_vc,jwt_vc_json-ld")
 	cmd.Flags().StringVar(&flags.credentialType, "credential-type", "", "credential type")
 	cmd.Flags().StringVar(&flags.proofType, "proof-type", "", "proof-type. jwt or cwt. default jwt")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
@@ -281,6 +284,8 @@ func NewOIDC4VCICommand() *cobra.Command {
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
+
+	flags.oidcCredentialFormat = vcsverifiable.OIDCFormat(oidcCredentialFormat)
 
 	return cmd
 }

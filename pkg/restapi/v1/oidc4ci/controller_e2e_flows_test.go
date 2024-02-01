@@ -151,6 +151,7 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("issuer_state", opState),
+		oauth2.SetAuthURLParam("authorization_details", authorizationDetailsCredentialConfigurationIDBased),
 	}
 
 	authCodeURL := oauthClient.AuthCodeURL(opState, params...)
