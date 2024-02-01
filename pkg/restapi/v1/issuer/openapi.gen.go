@@ -26,7 +26,7 @@ type CredentialConfigurationsSupported struct {
 	Claims *map[string]interface{} `json:"claims,omitempty"`
 
 	// Object containing the detailed description of the credential type.
-	CredentialDefinition *CredentialConfigurationsSupportedDefinition `json:"credential_definition,omitempty"`
+	CredentialDefinition *externalRef0.CredentialDefinition `json:"credential_definition,omitempty"`
 
 	// Array of case sensitive strings that identify how the Credential is bound to the identifier of the End-User who possesses the Credential.
 	CryptographicBindingMethodsSupported *[]string `json:"cryptographic_binding_methods_supported,omitempty"`
@@ -54,18 +54,6 @@ type CredentialConfigurationsSupported struct {
 
 	// For vc+sd-jwt vc only. String designating the type of a Credential, as defined in https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc-01
 	Vct *string `json:"vct,omitempty"`
-}
-
-// Object containing the detailed description of the credential type.
-type CredentialConfigurationsSupportedDefinition struct {
-	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
-	Context *[]string `json:"@context,omitempty"`
-
-	// An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
-	CredentialSubject *map[string]interface{} `json:"credentialSubject,omitempty"`
-
-	// Array designating the types a certain credential type supports
-	Type []string `json:"type"`
 }
 
 // CredentialDisplay defines model for CredentialDisplay.
@@ -257,9 +245,8 @@ type OAuthParameters struct {
 
 // Model for Prepare Claim Data Authorization Request.
 type PrepareClaimDataAuthorizationRequest struct {
-	// Model to convey the details about the Credentials the Client wants to obtain.
-	AuthorizationDetails *externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
-	OpState              string                             `json:"op_state"`
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+	OpState              string                               `json:"op_state"`
 
 	// Value MUST be set to "code".
 	ResponseType string    `json:"response_type"`
@@ -324,9 +311,8 @@ type PrepareCredentialResult struct {
 
 // Model for Push Authorization Details request.
 type PushAuthorizationDetailsRequest struct {
-	// Model to convey the details about the Credentials the Client wants to obtain.
-	AuthorizationDetails externalRef0.AuthorizationDetails `json:"authorization_details"`
-	OpState              string                            `json:"op_state"`
+	AuthorizationDetails []externalRef0.AuthorizationDetails `json:"authorization_details"`
+	OpState              string                              `json:"op_state"`
 }
 
 // Object containing requested information for encrypting the Credential Response.

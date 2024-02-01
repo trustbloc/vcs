@@ -536,7 +536,7 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 		return err
 	}
 
-	ad, err := util.ValidateAuthorizationDetails(&body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
 	if err != nil {
 		return err
 	}
@@ -572,7 +572,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(*body.AuthorizationDetails)
 	if err != nil {
 		return nil, err
 	}

@@ -180,26 +180,21 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	var ad common.AuthorizationDetails
+	var ad []common.AuthorizationDetails
 
 	if err = json.Unmarshal([]byte(par.AuthorizationDetails), &ad); err != nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 	}
 
-	authorizationDetails, err := apiUtil.ValidateAuthorizationDetails(&ad)
+	_, err = apiUtil.ValidateAuthorizationDetails(ad)
 	if err != nil {
 		return err
 	}
 
 	r, err := c.issuerInteractionClient.PushAuthorizationDetails(ctx,
 		issuer.PushAuthorizationDetailsJSONRequestBody{
-			AuthorizationDetails: common.AuthorizationDetails{
-				Types:     authorizationDetails.Types,
-				Format:    lo.ToPtr(string(authorizationDetails.Format)),
-				Locations: lo.ToPtr(authorizationDetails.Locations),
-				Type:      authorizationDetails.Type,
-			},
-			OpState: par.OpState,
+			AuthorizationDetails: ad,
+			OpState:              par.OpState,
 		},
 	)
 	if err != nil {
@@ -250,42 +245,48 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	}
 
-	var (
-		credentialType []string
-		vcFormat       *string
-	)
-
 	scope := []string(ar.GetRequestedScopes())
 
-	if params.AuthorizationDetails != nil {
-		var authorizationDetails common.AuthorizationDetails
+	var prepareAuthRequestAuthorizationDetails common.AuthorizationDetails
 
+	if params.AuthorizationDetails != nil {
+		var authorizationDetails []common.AuthorizationDetails
 		if err = json.Unmarshal([]byte(*params.AuthorizationDetails), &authorizationDetails); err != nil {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 		}
 
-		if _, err = apiUtil.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
+		if _, err = apiUtil.ValidateAuthorizationDetails(authorizationDetails); err != nil {
 			return err
 		}
 
-		credentialType = authorizationDetails.Types
-		vcFormat = authorizationDetails.Format
+		// only single authorization_details supported for now.
+		prepareAuthRequestAuthorizationDetails = authorizationDetails[0]
 	} else {
-		// using scope parameter to request credential type
-		// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-using-scope-parameter-to-re
-		credentialType = scope
+		// TODO: implement using scope parameter to request credential type
+		// https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+
+		// prepareAuthRequestAuthorizationDetails = common.AuthorizationDetails{
+		//	CredentialConfigurationId: nil,
+		//	CredentialDefinition: &common.CredentialDefinition{
+		//		Context:           nil, // Not supported for now.
+		//		CredentialSubject: nil, // Not supported for now.
+		//		Type:              scope,
+		//	},
+		//	Format:    nil,
+		//	Locations: nil, // Not supported for now.
+		//	Type:      "openid_credential",
+		// }
+
+		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details",
+			errors.New("not supplied"))
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
-			AuthorizationDetails: &common.AuthorizationDetails{
-				Type:   "openid_credential",
-				Types:  credentialType,
-				Format: vcFormat,
-			},
-			OpState:      lo.FromPtr(params.IssuerState),
-			ResponseType: params.ResponseType,
-			Scope:        lo.ToPtr(scope),
+			AuthorizationDetails: lo.ToPtr([]common.AuthorizationDetails{prepareAuthRequestAuthorizationDetails}),
+			OpState:              lo.FromPtr(params.IssuerState),
+			ResponseType:         params.ResponseType,
+			Scope:                lo.ToPtr(scope),
 		},
 	)
 	if err != nil {
