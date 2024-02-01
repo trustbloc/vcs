@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService,CwtProofChecker
 
 package oidc4ci
 
@@ -33,6 +33,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -108,6 +109,15 @@ type ProfileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
+type CwtProofChecker interface {
+	CheckCWTProof(
+		checkCWTRequest checker.CheckCWTProofRequest,
+		expectedProofIssuer string,
+		msg []byte,
+		signature []byte,
+	) error
+}
+
 type AckService interface {
 	Ack(
 		ctx context.Context,
@@ -128,7 +138,7 @@ type Config struct {
 	ClientManager           ClientManager
 	ClientIDSchemeService   ClientIDSchemeService
 	JWTVerifier             jwt.ProofChecker
-	CWTVerifier             cwt.ProofChecker
+	CWTVerifier             CwtProofChecker
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
 	ExternalHostURL         string
@@ -146,7 +156,7 @@ type Controller struct {
 	clientManager           ClientManager
 	clientIDSchemeService   ClientIDSchemeService
 	jwtVerifier             jwt.ProofChecker
-	cwtVerifier             cwt.ProofChecker
+	cwtVerifier             CwtProofChecker
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
 	internalHostURL         string
@@ -638,7 +648,7 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	return e.NoContent(http.StatusNoContent)
 }
 
-func (c *Controller) handleProof(
+func (c *Controller) HandleProof(
 	clientID string,
 	credentialReq *CredentialRequest,
 	session *fosite.DefaultSession,
@@ -730,7 +740,7 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	did, aud, err := c.handleProof(ar.GetClient().GetID(), &credentialReq, session)
+	did, aud, err := c.HandleProof(ar.GetClient().GetID(), &credentialReq, session)
 	if err != nil {
 		return err
 	}
