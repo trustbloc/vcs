@@ -543,6 +543,14 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
+	}
+
+	if s.proofType == "cwt" {
+		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	}
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("init auth flow: %w", err)
@@ -561,7 +569,7 @@ func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID() error {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
 
-	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+	opts := []oidc4vci.Opt{
 		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
 		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
 		oidc4vci.WithCredentialType(s.issuedCredentialType),
@@ -574,7 +582,6 @@ func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
 	if s.proofType == "cwt" {
 		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
 	}
