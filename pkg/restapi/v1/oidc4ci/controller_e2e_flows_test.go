@@ -34,17 +34,34 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/doc/jose"
+	arieskms "github.com/trustbloc/kms-go/kms"
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/testsupport"
+	"github.com/trustbloc/vc-go/verifiable"
 	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -54,8 +71,10 @@ import (
 )
 
 const (
-	clientID = "test-client"
-	aud      = "https://server.example.com"
+	clientID   = "test-client"
+	aud        = "https://server.example.com"
+	signingDID = "did:foo:bar"
+	vmID       = "#key1"
 )
 
 func TestAuthorizeCodeGrantFlowWithJWTProof(t *testing.T) {
@@ -64,6 +83,10 @@ func TestAuthorizeCodeGrantFlowWithJWTProof(t *testing.T) {
 
 func TestAuthorizeCodeGrantFlowWithCWTProof(t *testing.T) {
 	testAuthorizeCodeGrantFlow(t, "cwt")
+}
+
+func TestAuthorizeCodeGrantFlowWithLDPVProof(t *testing.T) {
+	testAuthorizeCodeGrantFlow(t, "ldp_vp")
 }
 
 func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
@@ -118,7 +141,27 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
+	suite := createCryptoSuite(t)
+
+	keyCreator, err := suite.KeyCreator()
+	require.NoError(t, err)
+
+	key, err := keyCreator.Create(kms.ECDSAP256IEEEP1363)
+	require.NoError(t, err)
+
+	verificationMethod, err := did.NewVerificationMethodFromJWK(vmID, "JsonWebKey2020", signingDID, key)
+	require.NoError(t, err)
+
+	vdr := &vdrmock.VDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
+		}}
+
 	proofCreator, proofChecker := testsupport.NewEd25519Pair(pub, priv, testsupport.AnyPubKeyID)
+	testCrypto := crypto.New(
+		vdr,
+		testutil.DocumentLoader(t),
+	)
 
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
@@ -183,7 +226,7 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	proofVal := generateProof(t, proofType, claims, proofCreator)
+	proofVal := generateProof(t, proofType, claims, proofCreator, testCrypto, vdr)
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
@@ -197,14 +240,10 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func generateProof(
-	t *testing.T,
-	proofType string,
-	claims *oidc4ci.ProofClaims,
-	jwtProofCreator *creator.ProofCreator,
-) *oidc4ci.JWTProof {
+func generateProof(t *testing.T, proofType string, claims *oidc4ci.ProofClaims, jwtProofCreator *creator.ProofCreator, resolver *crypto.Crypto, vdr *vdrmock.VDRegistry) *oidc4ci.JWTProof {
 	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
 
+	//loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
 	keyID := "any"
 	switch proofType {
 	case "jwt":
@@ -220,19 +259,93 @@ func generateProof(
 		require.NoError(t, err)
 
 		finalProof.Jwt = &jws
+	case "ldp_vp":
+		//cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
+		//	Context: []string{
+		//		"https://www.w3.org/2018/credentials/examples/v1",
+		//	},
+		//}, map[string]interface{}{})
+		//require.NoError(t, err)
+		//
+		vcSigner := &vc.Signer{
+			DataIntegrityProof: vc.DataIntegrityProofConfig{
+				Enable:    true,
+				SuiteType: ecdsa2019.SuiteType,
+			},
+			Format:   vcsverifiable.Ldp,
+			KeyType:  kms.ED25519,
+			KMSKeyID: "key1",
+			KMS: &vcskms.MockKMS{
+				FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
+			},
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+		}
+
+		s1, _, err := resolver.GetSigner(vcSigner.KMSKeyID, vcSigner.KMS, vcSigner.SignatureType)
+		require.NoError(t, err)
+
+		signerSuide, err := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+			SignerGetter:     ecdsa2019.WithStaticSigner(s1),
+			LDDocumentLoader: testutil.DocumentLoader(t),
+		}), nil
+		require.NoError(t, err)
+
+		diSigner, err := dataintegrity.NewSigner(&dataintegrity.Options{
+			DIDResolver: vdr,
+		}, signerSuide)
+		require.NoError(t, err)
+
+		//cc, err := resolver.SignCredential(&vc.Signer{
+		//	DataIntegrityProof: vc.DataIntegrityProofConfig{
+		//		Enable:    true,
+		//		SuiteType: ecdsa2019.SuiteType,
+		//	},
+		//	Format:   vcsverifiable.Ldp,
+		//	KeyType:  kms.ED25519,
+		//	KMSKeyID: "key1",
+		//	KMS: &vcskms.MockKMS{
+		//		FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
+		//	},
+		//	DID:           "did:trustbloc:abc",
+		//	SignatureType: "Ed25519Signature2018",
+		//	Creator:       "did:trustbloc:abc#key1",
+		//}, cred)
+
+		assert.NoError(t, err)
+		//assert.NotNil(t, cc)
+
+		pres, err := verifiable.NewPresentation()
+		//pres, err := verifiable.NewPresentation(verifiable.WithCredentials(cc))
+		require.NoError(t, err)
+
+		err = pres.AddDataIntegrityProof(&verifiable.DataIntegrityProofContext{
+			SigningKeyID: vcSigner.Creator,
+			CryptoSuite:  vcSigner.DataIntegrityProof.SuiteType,
+			//ProofPurpose: "authentication",
+			Created:   lo.ToPtr(time.Now()),
+			Domain:    "some-domain",
+			Challenge: "some-challange",
+		}, diSigner)
+		require.NoError(t, err)
+
+		b, err := pres.MarshalJSON()
+		require.NoError(t, err)
+
+		credMap := map[string]interface{}{}
+		require.NoError(t, json.Unmarshal(b, &credMap))
+
+		finalProof.LdpVp = &credMap
 	case "cwt":
 		encoded, err := cbor.Marshal(claims)
 		require.NoError(t, err)
-
 		msg := &cose.Sign1Message{
 			Headers: cose.Headers{
 				Protected: cose.ProtectedHeader{
 					cose.HeaderLabelAlgorithm:   cose.AlgorithmEd25519,
 					cose.HeaderLabelContentType: "openid4vci-proof+cwt",
 					"COSE_Key":                  []byte(testsupport.AnyPubKeyID),
-				},
-				Unprotected: map[interface{}]interface{}{
-					int64(4): []byte(testsupport.AnyPubKeyID),
 				},
 			},
 			Payload: encoded,
@@ -499,28 +612,38 @@ func (s *memoryStateStore) SaveAuthorizeState(
 
 	return nil
 }
+func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.VerificationRelationship) *did.DocResolution {
+	ver := []did.Verification{{
+		VerificationMethod: *vm,
+		Relationship:       vr,
+	}}
 
-type JWSSigner struct {
-	keyID            string
-	signingAlgorithm string
-	signer           jose.Signer
-}
+	doc := &did.Doc{
+		ID: id,
+	}
 
-func NewJWSSigner(keyID, signingAlgorithm string, signer jose.Signer) *JWSSigner {
-	return &JWSSigner{
-		keyID:            keyID,
-		signingAlgorithm: signingAlgorithm,
-		signer:           signer,
+	switch vr { //nolint:exhaustive
+	case did.VerificationRelationshipGeneral:
+		doc.VerificationMethod = []did.VerificationMethod{*vm}
+	case did.Authentication:
+		doc.Authentication = ver
+	case did.AssertionMethod:
+		doc.AssertionMethod = ver
+	}
+
+	return &did.DocResolution{
+		DIDDocument: doc,
 	}
 }
 
-func (s *JWSSigner) Sign(data []byte) ([]byte, error) {
-	return s.signer.Sign(data)
-}
+func createCryptoSuite(t *testing.T) api.Suite {
+	t.Helper()
 
-func (s *JWSSigner) Headers() jose.Headers {
-	return jose.Headers{
-		jose.HeaderKeyID:     s.keyID,
-		jose.HeaderAlgorithm: s.signingAlgorithm,
-	}
+	p, err := arieskms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
+	require.NoError(t, err)
+
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", p, &noop.NoLock{})
+	require.NoError(t, err)
+
+	return suite
 }

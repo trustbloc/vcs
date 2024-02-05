@@ -29,11 +29,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
+	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -69,8 +74,9 @@ const (
 	invalidTokenOIDCErr   = "invalid_token"
 	invalidClientOIDCErr  = "invalid_client"
 
-	proofTypeCWT = "cwt"
-	proofTypeJWT = "jwt"
+	proofTypeCWT   = "cwt"
+	proofTypeJWT   = "jwt"
+	proofTypeLDPVP = "ldp_vp"
 )
 
 var logger = log.New("oidc4ci")
@@ -144,6 +150,9 @@ type Config struct {
 	ExternalHostURL         string
 	AckService              AckService
 	JWEEncrypterCreator     JWEEncrypterCreator
+
+	DocumentLoader ld.DocumentLoader
+	Vdr            vdrapi.Registry
 }
 
 // Controller for OIDC credential issuance API.
@@ -162,6 +171,9 @@ type Controller struct {
 	internalHostURL         string
 	ackService              AckService
 	jweEncrypterCreator     JWEEncrypterCreator
+
+	documentLoader ld.DocumentLoader
+	vdr            vdrapi.Registry
 }
 
 // NewController creates a new Controller instance.
@@ -175,12 +187,14 @@ func NewController(config *Config) *Controller {
 		clientManager:           config.ClientManager,
 		clientIDSchemeService:   config.ClientIDSchemeService,
 		jwtVerifier:             config.JWTVerifier,
+		cwtVerifier:             config.CWTVerifier,
 		tracer:                  config.Tracer,
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
 		internalHostURL:         config.ExternalHostURL,
 		ackService:              config.AckService,
 		jweEncrypterCreator:     config.JWEEncrypterCreator,
-		cwtVerifier:             config.CWTVerifier,
+		documentLoader:          config.DocumentLoader,
+		vdr:                     config.Vdr,
 	}
 }
 
@@ -703,6 +717,44 @@ func (c *Controller) HandleProof(
 		}
 
 		proofHeaders.KeyID = string(cosKeyBytes.([]byte))
+	case proofTypeLDPVP:
+		if credentialReq.Proof.LdpVp == nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))
+		}
+
+		rawProof, err := json.Marshal(*credentialReq.Proof.LdpVp)
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid ldp_vp"))
+		}
+
+		ver, err := c.getDataIntegrityVerifier()
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("get data integrity verifier: %w", err))
+		}
+
+		presentation, err := verifiable.ParsePresentation(rawProof,
+			verifiable.WithPresDataIntegrityVerifier(ver),
+			verifiable.WithPresDisabledProofCheck(),
+		)
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr,
+				errors.New("can not parse ldp_vp as presentation"))
+		}
+
+		if len(presentation.Proofs) != 1 {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("expected 1 proof, got %d",
+				len(presentation.Proofs)))
+		}
+
+		proof := presentation.Proofs[0]
+
+		proofHeaders.Type = "ldp_vp"             // todo
+		proofHeaders.KeyID = presentation.Holder // todo check
+
+		proofClaims = ProofClaims{
+			Nonce:    proof["proofValue"].(string),
+			IssuedAt: lo.ToPtr(time.Now().UTC().Unix()), // todo
+		}
 	}
 
 	did, err := c.validateProofClaims(clientID, &proofClaims, proofHeaders, session)
@@ -711,6 +763,21 @@ func (c *Controller) HandleProof(
 	}
 
 	return did, proofClaims.Audience, nil
+}
+
+func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
+	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: c.documentLoader,
+	})
+
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: c.vdr,
+	}, verifySuite)
+	if err != nil {
+		return nil, fmt.Errorf("new verifier: %w", err)
+	}
+
+	return verifier, nil
 }
 
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
@@ -854,6 +921,10 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 	case "cwt":
 		if lo.FromPtr(req.Proof.Cwt) == "" {
 			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing cwt proof"))
+		}
+	case "ldp_vp":
+		if req.Proof.LdpVp == nil {
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))
 		}
 	default:
 		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))

@@ -993,7 +993,7 @@ func TestCrypto_NewJWTSigned(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Error getSigner",
+			name: "Error GetSigner",
 			fields: fields{
 				vdr:            &vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 				documentLoader: testutil.DocumentLoader(t),

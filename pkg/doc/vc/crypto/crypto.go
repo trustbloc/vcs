@@ -187,7 +187,7 @@ func (c *Crypto) NewJWTSigned(claims interface{}, signerData *vc.Signer) (string
 		return "", fmt.Errorf("get jwt algo name: %w", err)
 	}
 
-	signer, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signerData.SignatureType)
+	signer, _, err := c.GetSigner(signerData.KMSKeyID, signerData.KMS, signerData.SignatureType)
 	if err != nil {
 		return "", err
 	}
@@ -268,7 +268,7 @@ func (c *Crypto) signCredentialJWT(
 		signatureType = signOpts.SignatureType
 	}
 
-	s, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signatureType)
+	s, _, err := c.GetSigner(signerData.KMSKeyID, signerData.KMS, signatureType)
 	if err != nil {
 		return nil, fmt.Errorf("getting signer for JWS: %w", err)
 	}
@@ -387,7 +387,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 	signatureType vcsverifiable.SignatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, _, err := c.getSigner(signerData.KMSKeyID, km, signatureType)
+	s, _, err := c.GetSigner(signerData.KMSKeyID, km, signatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -434,11 +434,11 @@ func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 	return signingCtx, nil
 }
 
-// getSigner returns signer and verification method based on profile and signing opts
+// GetSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method.
 //
 //nolint:unparam
-func (c *Crypto) getSigner(
+func (c *Crypto) GetSigner(
 	kmsKeyID string,
 	km keyManager,
 	signatureType vcsverifiable.SignatureType,
