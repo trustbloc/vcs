@@ -239,13 +239,6 @@ func (b *LDPProofBuilder) Build(
 		return nil, fmt.Errorf("add data integrity proof: %w", err)
 	}
 
-	ldpVp, err := pres.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("marshal json: %w", err)
-	}
-
-	fmt.Println(string(ldpVp))
-
 	return &Proof{
 		LdpVp:     pres,
 		ProofType: "ldp_vp",
