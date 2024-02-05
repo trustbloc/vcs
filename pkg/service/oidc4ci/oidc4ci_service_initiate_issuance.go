@@ -55,7 +55,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, err
 	}
 
-	data := &TransactionData{
+	txData := &TransactionData{
 		ProfileID:               profile.ID,
 		ProfileVersion:          profile.Version,
 		OrgID:                   profile.OrganizationID,
@@ -75,23 +75,23 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}
 
 	if req.WalletInitiatedIssuance {
-		data.State = TransactionStateAwaitingIssuerOIDCAuthorization
+		txData.State = TransactionStateAwaitingIssuerOIDCAuthorization
 	}
 
-	if err = s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
+	if err = s.extendTransactionWithOIDCConfig(ctx, profile, txData); err != nil {
 		return nil, err
 	}
 
-	if err = setGrantType(data, profile.OIDCConfig.GrantTypesSupported, req.GrantType); err != nil {
+	if err = setGrantType(txData, profile.OIDCConfig.GrantTypesSupported, req.GrantType); err != nil {
 		return nil, err
 	}
 
-	if err = setScopes(data, profile.OIDCConfig.ScopesSupported, req.Scope); err != nil {
+	if err = setScopes(txData, profile.OIDCConfig.ScopesSupported, req.Scope); err != nil {
 		return nil, err
 	}
 
-	if data.ResponseType == "" {
-		data.ResponseType = defaultResponseType
+	if txData.ResponseType == "" {
+		txData.ResponseType = defaultResponseType
 	}
 
 	if isPreAuthorizeFlow {
@@ -120,19 +120,19 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 				fmt.Errorf("store claim data: %w", claimDataErr))
 		}
 
-		data.ClaimDataID = claimDataID
+		txData.ClaimDataID = claimDataID
 
-		data.IsPreAuthFlow = true
-		data.PreAuthCode = generatePreAuthCode()
-		data.PreAuthCodeExpiresAt = lo.ToPtr(time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second))
-		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
+		txData.IsPreAuthFlow = true
+		txData.PreAuthCode = generatePreAuthCode()
+		txData.PreAuthCodeExpiresAt = lo.ToPtr(time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second))
+		txData.OpState = txData.PreAuthCode // set opState as it will be empty for pre-auth
 	}
 
 	if req.UserPinRequired {
-		data.UserPin = s.pinGenerator.Generate(uuid.NewString())
+		txData.UserPin = s.pinGenerator.Generate(uuid.NewString())
 	}
 
-	tx, err := s.store.Create(ctx, data)
+	tx, err := s.store.Create(ctx, txData)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.TransactionStoreComponent, "create",
 			fmt.Errorf("store tx: %w", err))

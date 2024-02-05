@@ -265,8 +265,6 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	}
 
-	scope := []string(ar.GetRequestedScopes())
-
 	var prepareAuthRequestAuthorizationDetails common.AuthorizationDetails
 
 	if params.AuthorizationDetails != nil {
@@ -306,7 +304,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			AuthorizationDetails: lo.ToPtr([]common.AuthorizationDetails{prepareAuthRequestAuthorizationDetails}),
 			OpState:              lo.FromPtr(params.IssuerState),
 			ResponseType:         params.ResponseType,
-			Scope:                lo.ToPtr(scope),
+			Scope:                lo.ToPtr([]string(ar.GetRequestedScopes())),
 		},
 	)
 	if err != nil {

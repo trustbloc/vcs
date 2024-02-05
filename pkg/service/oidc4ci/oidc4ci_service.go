@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -218,26 +219,10 @@ func (s *Service) PushAuthorizationDetails(
 }
 
 func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
-	isScopeValid := true
-
-	for _, scope := range reqScopes {
-		found := false
-
-		for _, v := range txScopes {
-			if v == scope {
-				found = true
-				break
-			}
+	for _, reqScope := range reqScopes {
+		if !lo.Contains(txScopes, reqScope) {
+			return resterr.ErrInvalidScope
 		}
-
-		if !found {
-			isScopeValid = false
-			break
-		}
-	}
-
-	if !isScopeValid {
-		return resterr.ErrInvalidScope
 	}
 
 	return nil
@@ -306,9 +291,11 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		ProfileVersion:                     tx.ProfileVersion,
 		TxID:                               tx.ID,
 		ResponseType:                       tx.ResponseType,
-		Scope:                              tx.Scope,
 		AuthorizationEndpoint:              tx.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
+		// Use request-specific Scope to Issuer OIDC in order to request user consent for
+		// specific scopes that were defined by Wallet.
+		Scope: req.Scope,
 	}, nil
 }
 
