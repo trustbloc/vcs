@@ -143,6 +143,8 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 
 	if s.proofType == "cwt" {
 		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	} else if s.proofType == "ldp_vc" {
+		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewLDPProofBuilder()))
 	}
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
@@ -418,13 +420,12 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
 	builder := oidc4vci.NewJWTProofBuilder().
 		WithCustomProofFn(func(
-			claims *oidc4vci.ProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
+			ctx context.Context,
+			req *oidc4vci.CreateProofRequest,
 		) (string, error) {
-			headers[jose.HeaderKeyID] = "invalid-key-id"
+			req.CustomHeaders[jose.HeaderKeyID] = "invalid-key-id"
 
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -443,11 +444,10 @@ func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains string) error {
 	builder := oidc4vci.NewJWTProofBuilder().
 		WithCustomProofFn(func(
-			claims *oidc4vci.ProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
+			ctx context.Context,
+			req *oidc4vci.CreateProofRequest,
 		) (string, error) {
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -469,13 +469,12 @@ func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains stri
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidNonce(errorContains string) error {
 	builder := oidc4vci.NewJWTProofBuilder().
 		WithCustomProofFn(func(
-			claims *oidc4vci.ProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
+			ctx context.Context,
+			req *oidc4vci.CreateProofRequest,
 		) (string, error) {
-			claims.Nonce = "invalid-nonce"
+			req.Claims.Nonce = "invalid-nonce"
 
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}

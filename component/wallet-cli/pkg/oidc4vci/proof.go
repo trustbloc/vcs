@@ -10,6 +10,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/cwt"
@@ -78,18 +79,17 @@ func (b *CWTProofBuilder) newProofCreator(signer jose.Signer) (*creator.ProofCre
 }
 
 func (b *CWTProofBuilder) Build(
-	claims *ProofClaims,
-	_ map[string]interface{},
-	signer jose.Signer,
+	ctx context.Context,
+	req *CreateProofRequest,
 ) (*Proof, error) {
-	encoded, err := cbor.Marshal(claims)
+	encoded, err := cbor.Marshal(req.Claims)
 	if err != nil {
 		return nil, fmt.Errorf("marshal proof claims: %w", err)
 	}
 
-	proofCreator, descriptors := b.newProofCreator(signer)
+	proofCreator, descriptors := b.newProofCreator(req.Signer)
 
-	algo, _ := signer.Headers().Algorithm()
+	algo, _ := req.Signer.Headers().Algorithm()
 	var targetAlgo cose.Algorithm
 	for _, d := range descriptors {
 		if d.JWTAlgorithm() == algo && d.CWTAlgorithm() != 0 {
@@ -101,7 +101,7 @@ func (b *CWTProofBuilder) Build(
 		return nil, fmt.Errorf("unsupported cosg algorithm: %s", algo)
 	}
 
-	keyID, _ := signer.Headers().KeyID()
+	keyID, _ := req.Signer.Headers().KeyID()
 	msg := &cose.Sign1Message{
 		Headers: cose.Headers{
 			Protected: cose.ProtectedHeader{
@@ -208,7 +208,7 @@ func NewLDPProofBuilder() *LDPProofBuilder {
 }
 
 func (b *LDPProofBuilder) Build(
-	ctx context.Context,
+	_ context.Context,
 	req *CreateProofRequest,
 ) (*Proof, error) {
 	pres, err := verifiable.NewPresentation()
@@ -221,13 +221,16 @@ func (b *LDPProofBuilder) Build(
 		LDDocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
 	})
 
-	signer, err := dataintegrity.NewSigner(&dataintegrity.Options{}, signerSuite)
+	signer, err := dataintegrity.NewSigner(&dataintegrity.Options{
+		DIDResolver: req.VDR,
+	}, signerSuite)
 	if err != nil {
 		return nil, fmt.Errorf("new signer: %w", err)
 	}
 
+	pres.Holder = req.WalletDID
 	if err = pres.AddDataIntegrityProof(&verifiable.DataIntegrityProofContext{
-		SigningKeyID: req.WalletKeyID,
+		SigningKeyID: fmt.Sprintf("%s#%s", req.WalletDID, req.WalletKeyID),
 		CryptoSuite:  ecdsa2019.SuiteType,
 		Created:      lo.ToPtr(time.Now().UTC()),
 		Domain:       "http://localhost",
@@ -245,7 +248,7 @@ func (b *LDPProofBuilder) Build(
 
 	return &Proof{
 		LdpVp:     pres,
-		ProofType: "jwt",
+		ProofType: "ldp_vp",
 	}, nil
 }
 
@@ -253,6 +256,8 @@ type CreateProofRequest struct {
 	Signer        jose.Signer
 	CustomHeaders map[string]interface{}
 	WalletKeyID   string
+	WalletDID     string
 	WalletKeyType kms.KeyType
 	Claims        *ProofClaims
+	VDR           vdrapi.Registry
 }
