@@ -735,10 +735,21 @@ func (c *Controller) HandleProof(
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("get data integrity verifier: %w", err))
 		}
 
-		presentation, err := verifiable.ParsePresentation(rawProof,
+		presentationOpts := []verifiable.PresentationOpt{
 			verifiable.WithPresDataIntegrityVerifier(ver),
-			//verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresProofChecker(c.proofCheker),
 			verifiable.WithDisabledJSONLDChecks(),
+		}
+
+		nonce := session.Extra[cNonceKey].(string)
+		if nonce != "" {
+			presentationOpts = append(presentationOpts,
+				verifiable.WithPresExpectedDataIntegrityFields("", "", nonce),
+			)
+		}
+
+		presentation, err := verifiable.ParsePresentation(rawProof,
+			presentationOpts...,
 		)
 
 		if err != nil {
@@ -756,9 +767,20 @@ func (c *Controller) HandleProof(
 		proofHeaders.Type = "ldp_vp"             // todo
 		proofHeaders.KeyID = presentation.Holder // todo check
 
-		proofClaims = ProofClaims{
-			Nonce:    proof["proofValue"].(string),
-			IssuedAt: lo.ToPtr(time.Now().UTC().Unix()), // todo
+		proofClaims = ProofClaims{}
+
+		if v, ok := proof["domain"]; ok {
+			proofClaims.Audience = v.(string)
+		}
+		if v, ok := proof["challenge"]; ok {
+			proofClaims.Nonce = v.(string)
+		}
+		if v, ok := proof["created"]; ok {
+			t, timeErr := time.Parse(time.RFC3339, v.(string))
+			if timeErr != nil {
+				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", err))
+			}
+			proofClaims.IssuedAt = lo.ToPtr(t.Unix())
 		}
 	}
 
@@ -994,17 +1016,19 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("missing iat"))
 	}
 
-	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
+	if headers.ProofType != proofTypeLDPVP { // ldp_vp checked in parse presentation
+		if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
+			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
+		}
 	}
 
 	switch headers.ProofType {
-	case "jwt":
+	case proofTypeJWT:
 		if headers.Type != jwtProofTypHeader {
 			return "",
 				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
 		}
-	case "cwt":
+	case proofTypeCWT:
 		if headers.Type != cwtProofTypHeader {
 			return "",
 				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))

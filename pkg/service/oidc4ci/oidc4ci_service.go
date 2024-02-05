@@ -541,7 +541,8 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 	if req.AudienceClaim == "" || req.AudienceClaim != expectedAudience {
 		e := resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, req.AudienceClaim,
-			errors.New("invalid aud"))
+			//errors.New("invalid aud"))
+			fmt.Errorf("invalid aud: expected %s got %v", expectedAudience, req.AudienceClaim))
 
 		s.sendFailedTransactionEvent(ctx, tx, e)
 

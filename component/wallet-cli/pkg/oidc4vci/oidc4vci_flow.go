@@ -686,13 +686,14 @@ func (f *Flow) receiveVC(
 	}
 
 	proof, err := f.proofBuilder.Build(context.TODO(), &CreateProofRequest{
-		Signer:        f.signer,
-		CustomHeaders: map[string]interface{}{},
-		WalletKeyID:   f.walletKeyID,
-		WalletKeyType: f.walletKeyType,
-		Claims:        claims,
-		VDR:           f.vdrRegistry,
-		WalletDID:     f.wallet.DIDs()[0].ID,
+		Signer:           f.signer,
+		CustomHeaders:    map[string]interface{}{},
+		WalletKeyID:      f.walletKeyID,
+		WalletKeyType:    f.walletKeyType,
+		Claims:           claims,
+		VDR:              f.vdrRegistry,
+		WalletDID:        f.wallet.DIDs()[0].ID,
+		CredentialIssuer: credentialIssuer,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build proof: %w", err)

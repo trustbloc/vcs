@@ -233,7 +233,7 @@ func (b *LDPProofBuilder) Build(
 		SigningKeyID: fmt.Sprintf("%s#%s", req.WalletDID, req.WalletKeyID),
 		CryptoSuite:  ecdsa2019.SuiteType,
 		Created:      lo.ToPtr(time.Now().UTC()),
-		Domain:       "http://localhost",
+		Domain:       req.CredentialIssuer,
 		Challenge:    req.Claims.Nonce,
 	}, signer); err != nil {
 		return nil, fmt.Errorf("add data integrity proof: %w", err)
@@ -253,11 +253,12 @@ func (b *LDPProofBuilder) Build(
 }
 
 type CreateProofRequest struct {
-	Signer        jose.Signer
-	CustomHeaders map[string]interface{}
-	WalletKeyID   string
-	WalletDID     string
-	WalletKeyType kms.KeyType
-	Claims        *ProofClaims
-	VDR           vdrapi.Registry
+	Signer           jose.Signer
+	CustomHeaders    map[string]interface{}
+	WalletKeyID      string
+	WalletDID        string
+	WalletKeyType    kms.KeyType
+	Claims           *ProofClaims
+	VDR              vdrapi.Registry
+	CredentialIssuer string
 }
