@@ -773,7 +773,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}
 
 	if err = validateCredentialResponseEncryption(profile, body.RequestedCredentialResponseEncryption); err != nil {
-		return err
+		return resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
 	}
 
 	signedCredential, err := c.signCredential(
