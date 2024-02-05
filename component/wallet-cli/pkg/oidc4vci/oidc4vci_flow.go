@@ -207,6 +207,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 		"credential_offer_uri", f.credentialOffer,
 		"credential_type", f.credentialType,
 		"credential_format", f.oidcCredentialFormat,
+		"scope", f.scopes,
 	)
 
 	var (
