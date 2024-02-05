@@ -115,6 +115,11 @@ components:
           type: array
           items:
             type: string
+        credential_identifiers:
+          description: For Token response only. Array of strings, each uniquely identifying a Credential that can be issued using the Access Token returned in this response. Each of these Credentials corresponds to the same entry in the credential_configurations_supported Credential Issuer metadata but can contain different claim values or a different subset of claims within the claims set identified by that Credential type.
+          type: array
+          items:
+            type: string
       required:
         - type
     CredentialDefinition:

@@ -664,7 +664,7 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	txID, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(),
+	exchangeAuthorizationCodeResult, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(),
 		body.OpState,
 		lo.FromPtr(body.ClientId),
 		lo.FromPtr(body.ClientAssertionType),
@@ -674,7 +674,17 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return util.WriteOutput(ctx)(nil, err)
 	}
 
-	return util.WriteOutput(ctx)(ExchangeAuthorizationCodeResponse{TxId: string(txID)}, nil)
+	var authorizationDetailsDTOList []common.AuthorizationDetails
+	if exchangeAuthorizationCodeResult.AuthorizationDetails != nil {
+		authorizationDetailsDTO := exchangeAuthorizationCodeResult.AuthorizationDetails.ToDTO()
+		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+	}
+
+	return util.WriteOutput(ctx)(
+		ExchangeAuthorizationCodeResponse{
+			AuthorizationDetails: lo.ToPtr(authorizationDetailsDTOList),
+			TxId:                 string(exchangeAuthorizationCodeResult.TxID),
+		}, nil)
 }
 
 // ValidatePreAuthorizedCodeRequest Validates authorization code and pin.
@@ -686,7 +696,7 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	result, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
+	transaction, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
 		body.PreAuthorizedCode,
 		lo.FromPtr(body.UserPin),
 		lo.FromPtr(body.ClientId),
@@ -697,10 +707,17 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
+	var authorizationDetailsDTOList []common.AuthorizationDetails
+	if transaction.AuthorizationDetails != nil {
+		authorizationDetailsDTO := transaction.AuthorizationDetails.ToDTO()
+		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+	}
+
 	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
-		TxId:    string(result.ID),
-		OpState: result.OpState,
-		Scopes:  result.Scope,
+		AuthorizationDetails: lo.ToPtr(authorizationDetailsDTOList),
+		TxId:                 string(transaction.ID),
+		OpState:              transaction.OpState,
+		Scopes:               transaction.Scope,
 	}, nil)
 }
 

@@ -70,7 +70,7 @@ func (w *Wrapper) StoreAuthorizationCode(ctx context.Context, opState string, co
 	return w.svc.StoreAuthorizationCode(ctx, opState, code, flowData)
 }
 
-func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState, clientID, clientAttestationType, clientAttestation string) (oidc4ci.TxID, error) {
+func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState, clientID, clientAttestationType, clientAttestation string) (*oidc4ci.ExchangeAuthorizationCodeResult, error) {
 	return w.svc.ExchangeAuthorizationCode(ctx, opState, clientID, clientAttestationType, clientAttestation)
 }
 

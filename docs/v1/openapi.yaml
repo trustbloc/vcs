@@ -1346,6 +1346,10 @@ components:
       properties:
         tx_id:
           type: string
+        authorization_details:
+          type: array
+          items:
+            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
       required:
         - tx_id
     StoreAuthorizationCodeRequest:
@@ -1416,6 +1420,11 @@ components:
           type: array
           items:
             type: string
+        authorization_details:
+          description: REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+          type: array
+          items:
+            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
       required:
         - op_state
         - scopes
@@ -1604,6 +1613,11 @@ components:
         c_nonce_expires_in:
           description: Integer denoting the lifetime in seconds of the c_nonce.
           type: integer
+        authorization_details:
+          description: REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+          type: array
+          items:
+            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
       required:
         - access_token
         - token_type
