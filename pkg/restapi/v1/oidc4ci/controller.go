@@ -795,6 +795,8 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
 			case resterr.OIDCCredentialTypeNotSupported:
 				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+			case resterr.OIDCInvalidEncryptionParameters:
+				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
 			case resterr.InvalidOrMissingProofOIDCErr:
 				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
 			}
