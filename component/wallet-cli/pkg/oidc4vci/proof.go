@@ -1,12 +1,20 @@
 package oidc4vci
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/creator"
@@ -22,15 +30,15 @@ import (
 	"github.com/trustbloc/vc-go/proof/ldproofs/ed25519signature2018"
 	"github.com/trustbloc/vc-go/proof/ldproofs/ed25519signature2020"
 	"github.com/trustbloc/vc-go/proof/ldproofs/jsonwebsignature2020"
+	"github.com/trustbloc/vc-go/verifiable"
 	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/veraison/go-cose"
 )
 
 type ProofBuilder interface {
 	Build(
-		claims *ProofClaims,
-		customerHeaders map[string]interface{},
-		signer jose.Signer,
+		ctx context.Context,
+		req *CreateProofRequest,
 	) (*Proof, error)
 }
 
@@ -136,19 +144,17 @@ type JWTProofBuilder struct {
 }
 
 type JWTProofFn func(
-	claims *ProofClaims,
-	headers map[string]interface{},
-	proofSigner jose.Signer,
+	ctx context.Context,
+	req *CreateProofRequest,
 ) (string, error)
 
 func NewJWTProofBuilder() *JWTProofBuilder {
 	return &JWTProofBuilder{
 		proofFn: func(
-			claims *ProofClaims,
-			headers map[string]interface{},
-			proofSigner jose.Signer,
+			ctx context.Context,
+			req *CreateProofRequest,
 		) (string, error) {
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, proofSigner)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -172,18 +178,17 @@ func (b *JWTProofBuilder) WithCustomProofFn(
 }
 
 func (b *JWTProofBuilder) Build(
-	claims *ProofClaims,
-	customHeaders map[string]interface{},
-	signer jose.Signer,
+	ctx context.Context,
+	req *CreateProofRequest,
 ) (*Proof, error) {
 	headers := map[string]interface{}{
 		jose.HeaderType: jwtProofTypeHeader,
 	}
-	for k, v := range customHeaders {
+	for k, v := range req.CustomHeaders {
 		headers[k] = v
 	}
 
-	jws, err := b.proofFn(claims, headers, signer)
+	jws, err := b.proofFn(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
@@ -192,4 +197,62 @@ func (b *JWTProofBuilder) Build(
 		JWT:       jws,
 		ProofType: "jwt",
 	}, nil
+}
+
+type LDPProofBuilder struct {
+	proofFn JWTProofFn
+}
+
+func NewLDPProofBuilder() *LDPProofBuilder {
+	return &LDPProofBuilder{}
+}
+
+func (b *LDPProofBuilder) Build(
+	ctx context.Context,
+	req *CreateProofRequest,
+) (*Proof, error) {
+	pres, err := verifiable.NewPresentation()
+	if err != nil {
+		return nil, fmt.Errorf("new presentation: %w", err)
+	}
+
+	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+		SignerGetter:     ecdsa2019.WithStaticSigner(req.Signer),
+		LDDocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
+	})
+
+	signer, err := dataintegrity.NewSigner(&dataintegrity.Options{}, signerSuite)
+	if err != nil {
+		return nil, fmt.Errorf("new signer: %w", err)
+	}
+
+	if err = pres.AddDataIntegrityProof(&verifiable.DataIntegrityProofContext{
+		SigningKeyID: req.WalletKeyID,
+		CryptoSuite:  ecdsa2019.SuiteType,
+		Created:      lo.ToPtr(time.Now().UTC()),
+		Domain:       "http://localhost",
+		Challenge:    req.Claims.Nonce,
+	}, signer); err != nil {
+		return nil, fmt.Errorf("add data integrity proof: %w", err)
+	}
+
+	ldpVp, err := pres.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("marshal json: %w", err)
+	}
+
+	fmt.Println(string(ldpVp))
+
+	return &Proof{
+		LdpVp:     pres,
+		ProofType: "jwt",
+	}, nil
+}
+
+type CreateProofRequest struct {
+	Signer        jose.Signer
+	CustomHeaders map[string]interface{}
+	WalletKeyID   string
+	WalletKeyType kms.KeyType
+	Claims        *ProofClaims
 }

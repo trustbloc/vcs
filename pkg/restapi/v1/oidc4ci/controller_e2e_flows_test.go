@@ -171,6 +171,8 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		JWTVerifier:             proofChecker,
 		CWTVerifier:             proofChecker,
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+		Vdr:                     vdr,
+		DocumentLoader:          testutil.DocumentLoader(t),
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)
@@ -283,13 +285,14 @@ func generateProof(t *testing.T, proofType string, claims *oidc4ci.ProofClaims, 
 			Creator:       "did:trustbloc:abc#key1",
 		}
 
+		//api.FixedKeyCrypto()
 		s1, _, err := resolver.GetSigner(vcSigner.KMSKeyID, vcSigner.KMS, vcSigner.SignatureType)
 		require.NoError(t, err)
 
-		signerSuide, err := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+		signerSuide := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
 			SignerGetter:     ecdsa2019.WithStaticSigner(s1),
 			LDDocumentLoader: testutil.DocumentLoader(t),
-		}), nil
+		})
 		require.NoError(t, err)
 
 		diSigner, err := dataintegrity.NewSigner(&dataintegrity.Options{

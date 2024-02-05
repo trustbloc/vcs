@@ -153,6 +153,7 @@ type Config struct {
 
 	DocumentLoader ld.DocumentLoader
 	Vdr            vdrapi.Registry
+	ProofChecker   *checker.ProofChecker
 }
 
 // Controller for OIDC credential issuance API.
@@ -174,6 +175,7 @@ type Controller struct {
 
 	documentLoader ld.DocumentLoader
 	vdr            vdrapi.Registry
+	proofCheker    *checker.ProofChecker
 }
 
 // NewController creates a new Controller instance.
@@ -195,6 +197,7 @@ func NewController(config *Config) *Controller {
 		jweEncrypterCreator:     config.JWEEncrypterCreator,
 		documentLoader:          config.DocumentLoader,
 		vdr:                     config.Vdr,
+		proofCheker:             config.ProofChecker,
 	}
 }
 
@@ -734,8 +737,10 @@ func (c *Controller) HandleProof(
 
 		presentation, err := verifiable.ParsePresentation(rawProof,
 			verifiable.WithPresDataIntegrityVerifier(ver),
-			verifiable.WithPresDisabledProofCheck(),
+			//verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithDisabledJSONLDChecks(),
 		)
+
 		if err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr,
 				errors.New("can not parse ldp_vp as presentation"))
