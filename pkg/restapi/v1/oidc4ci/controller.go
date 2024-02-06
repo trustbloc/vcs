@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService,CwtProofChecker
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService,CwtProofChecker,LDPProofParser
 
 package oidc4ci
 
@@ -131,6 +131,13 @@ type AckService interface {
 	) error
 }
 
+type LDPProofParser interface {
+	Parse(
+		rawProof []byte,
+		opt []verifiable.PresentationOpt,
+	) (*verifiable.Presentation, error)
+}
+
 // JWEEncrypterCreator creates JWE encrypter for given JWK, alg and enc.
 type JWEEncrypterCreator func(jwk gojose.JSONWebKey, alg gojose.KeyAlgorithm, enc gojose.ContentEncryption) (gojose.Encrypter, error) //nolint:lll
 
@@ -154,6 +161,7 @@ type Config struct {
 	DocumentLoader ld.DocumentLoader
 	Vdr            vdrapi.Registry
 	ProofChecker   *checker.ProofChecker
+	LDPProofParser LDPProofParser
 }
 
 // Controller for OIDC credential issuance API.
@@ -176,6 +184,7 @@ type Controller struct {
 	documentLoader ld.DocumentLoader
 	vdr            vdrapi.Registry
 	proofCheker    *checker.ProofChecker
+	ldpProofParser LDPProofParser
 }
 
 // NewController creates a new Controller instance.
@@ -198,6 +207,7 @@ func NewController(config *Config) *Controller {
 		documentLoader:          config.DocumentLoader,
 		vdr:                     config.Vdr,
 		proofCheker:             config.ProofChecker,
+		ldpProofParser:          config.LDPProofParser,
 	}
 }
 
@@ -759,9 +769,7 @@ func (c *Controller) HandleProof(
 			)
 		}
 
-		presentation, err := verifiable.ParsePresentation(rawProof,
-			presentationOpts...,
-		)
+		presentation, err := c.ldpProofParser.Parse(rawProof, presentationOpts)
 
 		if err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr,
@@ -775,13 +783,14 @@ func (c *Controller) HandleProof(
 
 		proof := presentation.Proofs[0]
 
-		proofHeaders.Type = "ldp_vp"             // todo
+		proofHeaders.Type = "ldp_vp"
 		proofHeaders.KeyID = presentation.Holder // todo check
 
 		proofClaims = ProofClaims{}
 
 		if v, ok := proof["domain"]; ok {
 			proofClaims.Audience = v.(string)
+			proofClaims.Issuer = v.(string)
 		}
 		if v, ok := proof["challenge"]; ok {
 			proofClaims.Nonce = v.(string)
@@ -1021,8 +1030,10 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
 	}
 
-	if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
+	if headers.ProofType != proofTypeLDPVP {
+		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
+			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
+		}
 	}
 
 	if claims.IssuedAt == nil {

@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -40,14 +41,11 @@ import (
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/doc/jose"
 	arieskms "github.com/trustbloc/kms-go/kms"
-	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/cwt"
-	"github.com/trustbloc/vc-go/dataintegrity"
-	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/testsupport"
@@ -57,9 +55,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/internal/mock/vcskms"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
-	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
@@ -76,6 +71,9 @@ const (
 	signingDID = "did:foo:bar"
 	vmID       = "#key1"
 )
+
+//go:embed testdata/ldp_proof.json
+var ldpProofContent []byte
 
 func TestAuthorizeCodeGrantFlowWithJWTProof(t *testing.T) {
 	testAuthorizeCodeGrantFlow(t, "jwt")
@@ -142,10 +140,8 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	require.NoError(t, err)
 
 	suite := createCryptoSuite(t)
-
 	keyCreator, err := suite.KeyCreator()
 	require.NoError(t, err)
-
 	key, err := keyCreator.Create(kms.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
@@ -158,11 +154,8 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		}}
 
 	proofCreator, proofChecker := testsupport.NewEd25519Pair(pub, priv, testsupport.AnyPubKeyID)
-	testCrypto := crypto.New(
-		vdr,
-		testutil.DocumentLoader(t),
-	)
 
+	mockProofParser := NewMockLDPProofParser(gomock.NewController(t))
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cisrv.AuthorizeState)},
@@ -173,6 +166,7 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 		Vdr:                     vdr,
 		DocumentLoader:          testutil.DocumentLoader(t),
+		LDPProofParser:          mockProofParser,
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)
@@ -228,7 +222,18 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	proofVal := generateProof(t, proofType, claims, proofCreator, testCrypto, vdr)
+	proofVal := generateProof(t, proofType, claims, proofCreator)
+
+	if proofType == "ldp_vp" {
+		mockProofParser.EXPECT().Parse(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(i []byte, opts []verifiable.PresentationOpt) (*verifiable.Presentation, error) {
+				assert.Len(t, opts, 4)
+
+				return verifiable.ParsePresentation(ldpProofContent,
+					verifiable.WithPresDisabledProofCheck(),
+					verifiable.WithDisabledJSONLDChecks())
+			})
+	}
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
@@ -242,7 +247,12 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func generateProof(t *testing.T, proofType string, claims *oidc4ci.ProofClaims, jwtProofCreator *creator.ProofCreator, resolver *crypto.Crypto, vdr *vdrmock.VDRegistry) *oidc4ci.JWTProof {
+func generateProof(
+	t *testing.T,
+	proofType string,
+	claims *oidc4ci.ProofClaims,
+	jwtProofCreator *creator.ProofCreator,
+) *oidc4ci.JWTProof {
 	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
 
 	//loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
@@ -262,84 +272,10 @@ func generateProof(t *testing.T, proofType string, claims *oidc4ci.ProofClaims, 
 
 		finalProof.Jwt = &jws
 	case "ldp_vp":
-		//cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
-		//	Context: []string{
-		//		"https://www.w3.org/2018/credentials/examples/v1",
-		//	},
-		//}, map[string]interface{}{})
-		//require.NoError(t, err)
-		//
-		vcSigner := &vc.Signer{
-			DataIntegrityProof: vc.DataIntegrityProofConfig{
-				Enable:    true,
-				SuiteType: ecdsa2019.SuiteType,
-			},
-			Format:   vcsverifiable.Ldp,
-			KeyType:  kms.ED25519,
-			KMSKeyID: "key1",
-			KMS: &vcskms.MockKMS{
-				FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
-			},
-			DID:           "did:trustbloc:abc",
-			SignatureType: "Ed25519Signature2018",
-			Creator:       "did:trustbloc:abc#key1",
-		}
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
 
-		//api.FixedKeyCrypto()
-		s1, _, err := resolver.GetSigner(vcSigner.KMSKeyID, vcSigner.KMS, vcSigner.SignatureType)
-		require.NoError(t, err)
-
-		signerSuide := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-			SignerGetter:     ecdsa2019.WithStaticSigner(s1),
-			LDDocumentLoader: testutil.DocumentLoader(t),
-		})
-		require.NoError(t, err)
-
-		diSigner, err := dataintegrity.NewSigner(&dataintegrity.Options{
-			DIDResolver: vdr,
-		}, signerSuide)
-		require.NoError(t, err)
-
-		//cc, err := resolver.SignCredential(&vc.Signer{
-		//	DataIntegrityProof: vc.DataIntegrityProofConfig{
-		//		Enable:    true,
-		//		SuiteType: ecdsa2019.SuiteType,
-		//	},
-		//	Format:   vcsverifiable.Ldp,
-		//	KeyType:  kms.ED25519,
-		//	KMSKeyID: "key1",
-		//	KMS: &vcskms.MockKMS{
-		//		FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
-		//	},
-		//	DID:           "did:trustbloc:abc",
-		//	SignatureType: "Ed25519Signature2018",
-		//	Creator:       "did:trustbloc:abc#key1",
-		//}, cred)
-
-		assert.NoError(t, err)
-		//assert.NotNil(t, cc)
-
-		pres, err := verifiable.NewPresentation()
-		//pres, err := verifiable.NewPresentation(verifiable.WithCredentials(cc))
-		require.NoError(t, err)
-
-		err = pres.AddDataIntegrityProof(&verifiable.DataIntegrityProofContext{
-			SigningKeyID: vcSigner.Creator,
-			CryptoSuite:  vcSigner.DataIntegrityProof.SuiteType,
-			//ProofPurpose: "authentication",
-			Created:   lo.ToPtr(time.Now()),
-			Domain:    "some-domain",
-			Challenge: "some-challange",
-		}, diSigner)
-		require.NoError(t, err)
-
-		b, err := pres.MarshalJSON()
-		require.NoError(t, err)
-
-		credMap := map[string]interface{}{}
-		require.NoError(t, json.Unmarshal(b, &credMap))
-
-		finalProof.LdpVp = &credMap
+		finalProof.LdpVp = &finalPres
 	case "cwt":
 		encoded, err := cbor.Marshal(claims)
 		require.NoError(t, err)

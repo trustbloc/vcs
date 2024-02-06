@@ -1926,6 +1926,7 @@ components:
         ldp_vp:
           type: object
           nullable: true
+          description: REQUIRED if proof_type equals ldp_vp. Linked Data Proof as proof of key possession.
       required:
         - proof_type
     AckRequest:

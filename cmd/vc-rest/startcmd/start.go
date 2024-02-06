@@ -841,6 +841,7 @@ func buildEchoHandler(
 		DocumentLoader:          documentLoader,
 		Vdr:                     conf.VDR,
 		ProofChecker:            proofChecker,
+		LDPProofParser:          oidc4civ1.NewDefaultLDPProofParser(),
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
