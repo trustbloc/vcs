@@ -32,6 +32,7 @@ const (
 	OIDCCredentialTypeNotSupported   ErrorCode = "oidc-credential-type-not-supported"
 	OIDCClientAuthenticationFailed   ErrorCode = "oidc-client-authentication-failed"
 	InvalidOrMissingProofOIDCErr     ErrorCode = "invalid_or_missing_proof"
+	OIDCInvalidEncryptionParameters  ErrorCode = "oidc-invalid-encryption-parameters"
 
 	ProfileNotFound                  ErrorCode = "profile-not-found"
 	ProfileInactive                  ErrorCode = "profile-inactive"

@@ -973,7 +973,7 @@ func TestController_OidcRedirect(t *testing.T) {
 	}
 }
 
-func TestController_OidcToken(t *testing.T) {
+func TestController_OidcToken_Authorize(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
@@ -986,6 +986,70 @@ func TestController_OidcToken(t *testing.T) {
 	}{
 		{
 			name: "success",
+			setup: func() {
+				ad := getTestOIDCTokenAuthorizationDetailsPayload(t)
+				payload := fmt.Sprintf(`{"tx_id":"txID", "authorization_details": %s}`, ad)
+
+				opState := uuid.NewString()
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"opState": opState,
+								},
+							},
+							Client: &fosite.DefaultClient{
+								ID: clientID,
+							},
+						},
+					}, nil)
+
+				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(),
+					issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
+						OpState:             opState,
+						ClientId:            lo.ToPtr(clientID),
+						ClientAssertionType: lo.ToPtr(""),
+						ClientAssertion:     lo.ToPtr(""),
+					}).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBufferString(payload)),
+						}, nil)
+
+				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
+					fosite.NewAccessResponse(), nil)
+
+				mockOAuthProvider.EXPECT().WriteAccessResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Do(func(ctx context.Context, rw http.ResponseWriter, requester fosite.AccessRequester, responder fosite.AccessResponder) {
+						js, err := json.Marshal(responder.ToMap())
+						if err != nil {
+							http.Error(rw, err.Error(), http.StatusInternalServerError)
+							return
+						}
+
+						rw.Header().Set("Content-Type", "application/json;charset=UTF-8")
+
+						rw.WriteHeader(http.StatusOK)
+						_, _ = rw.Write(js)
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+
+				var resp oidc4ci.AccessTokenResponse
+
+				assert.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+				ad := *resp.AuthorizationDetails
+				assert.Len(t, ad, 1)
+				assert.Equal(t, "openid_credential", ad[0].Type)
+			},
+		},
+		{
+			name: "success no authorization detail in response",
 			setup: func() {
 				opState := uuid.NewString()
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
@@ -1018,11 +1082,29 @@ func TestController_OidcToken(t *testing.T) {
 				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
 					fosite.NewAccessResponse(), nil)
 
-				mockOAuthProvider.EXPECT().WriteAccessResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+				mockOAuthProvider.EXPECT().WriteAccessResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Do(func(ctx context.Context, rw http.ResponseWriter, requester fosite.AccessRequester, responder fosite.AccessResponder) {
+						js, err := json.Marshal(responder.ToMap())
+						if err != nil {
+							http.Error(rw, err.Error(), http.StatusInternalServerError)
+							return
+						}
+
+						rw.Header().Set("Content-Type", "application/json;charset=UTF-8")
+
+						rw.WriteHeader(http.StatusOK)
+						_, _ = rw.Write(js)
+					})
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, rec.Code)
+
+				var resp oidc4ci.AccessTokenResponse
+
+				assert.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+				assert.Nil(t, resp.AuthorizationDetails)
 			},
 		},
 		{
@@ -2049,6 +2131,41 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid encryption parameters",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-invalid-encryption-parameters"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "oidc-invalid-encryption-parameters")
+			},
+		},
+		{
 			name: "fail to decode prepare credential result",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
@@ -2341,7 +2458,7 @@ func TestController_OidcCredential(t *testing.T) {
 	}
 }
 
-func TestController_OidcPreAuthorize(t *testing.T) {
+func TestController_OidcToken_PreAuthorize(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
@@ -2361,10 +2478,13 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				"user_pin":            {"5678"},
 			}.Encode()),
 			setup: func() {
+				ad := getTestOIDCTokenAuthorizationDetailsPayload(t)
+				payload := fmt.Sprintf(`{"scopes" : ["a","b"], "op_state" : "opp123", "authorization_details": %s}`, ad)
+
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
 					Return(&http.Response{
 						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"], "op_state" : "opp123"}`)),
+						Body:       io.NopCloser(strings.NewReader(payload)),
 					}, nil)
 
 				accessRq := &fosite.AccessRequest{
@@ -2399,12 +2519,18 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					})
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+
 				var resp oidc4ci.AccessTokenResponse
 
 				assert.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 				assert.Equal(t, "123456", resp.AccessToken)
 				assert.NotEmpty(t, *resp.ExpiresIn)
+
+				ad := *resp.AuthorizationDetails
+				assert.Len(t, ad, 1)
+				assert.Equal(t, "openid_credential", ad[0].Type)
 			},
 		},
 		{
@@ -3033,4 +3159,28 @@ func (m *mockJWEEncrypter) EncryptWithAuthData([]byte, []byte) (*gojose.JSONWebE
 
 func (m *mockJWEEncrypter) Options() gojose.EncrypterOptions {
 	return gojose.EncrypterOptions{}
+}
+
+func getTestOIDCTokenAuthorizationDetailsPayload(t *testing.T) string {
+	t.Helper()
+
+	res := &oidc4cisrv.AuthorizationDetails{
+		CredentialConfigurationID: "CredentialConfigurationID",
+		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+		Type:                      "openid_credential",
+		CredentialDefinition: &oidc4cisrv.CredentialDefinition{
+			Context:           []string{"https://example.com/context/1", "https://example.com/context/2"},
+			CredentialSubject: map[string]interface{}{"key": "value"},
+			Type:              []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		},
+		Format:                "jwt",
+		CredentialIdentifiers: []string{"CredentialIdentifiers1", "CredentialIdentifiers2"},
+	}
+
+	payload := []common.AuthorizationDetails{res.ToDTO()}
+
+	b, err := json.Marshal(payload)
+	assert.NoError(t, err)
+
+	return string(b)
 }

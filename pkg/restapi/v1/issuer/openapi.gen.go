@@ -125,7 +125,8 @@ type ExchangeAuthorizationCodeRequest struct {
 
 // Response model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeResponse struct {
-	TxId string `json:"tx_id"`
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+	TxId                 string                               `json:"tx_id"`
 }
 
 // Model for Initiate OIDC Credential Issuance Request.
@@ -366,6 +367,9 @@ type ValidatePreAuthorizedCodeRequest struct {
 
 // Model for validating pre-authorized code and pin.
 type ValidatePreAuthorizedCodeResponse struct {
+	// REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+
 	// Op state.
 	OpState string `json:"op_state"`
 

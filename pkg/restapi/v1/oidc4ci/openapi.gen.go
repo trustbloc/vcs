@@ -9,12 +9,16 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
+	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 // Model for Access Token Response.
 type AccessTokenResponse struct {
 	// The access token issued by the authorization server.
 	AccessToken string `json:"access_token"`
+
+	// REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
 
 	// String containing a nonce to be used to create a proof of possession of key material when requesting a credential.
 	CNonce *string `json:"c_nonce,omitempty"`

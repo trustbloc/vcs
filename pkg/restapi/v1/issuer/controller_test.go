@@ -1315,26 +1315,107 @@ func TestController_StoreAuthZCode(t *testing.T) {
 }
 
 func TestController_ExchangeAuthorizationCode(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with CredentialDefinition", func(t *testing.T) {
 		opState := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
-			Return(oidc4ci.TxID("1234"), nil)
+			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
+				TxID:                 "TxID",
+				AuthorizationDetails: getTestAuthorizationDetails(t, true),
+			}, nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := fmt.Sprintf(`{"op_state":"%s"}`, opState) //nolint:lll
-		ctx := echoContext(withRequestBody([]byte(req)))
+		recorder := httptest.NewRecorder()
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState)
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+
+		var exchangeResult ExchangeAuthorizationCodeResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&exchangeResult)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "TxID", exchangeResult.TxId)
+
+		assert.NotNil(t, exchangeResult.AuthorizationDetails)
+
+		checkTestAuthorizationDetailsDTO(t, exchangeResult.AuthorizationDetails, true)
+	})
+	t.Run("success without CredentialDefinition", func(t *testing.T) {
+		opState := uuid.NewString()
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
+			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
+				TxID:                 "TxID",
+				AuthorizationDetails: getTestAuthorizationDetails(t, false),
+			}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState)
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
+		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+
+		var exchangeResult ExchangeAuthorizationCodeResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&exchangeResult)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "TxID", exchangeResult.TxId)
+
+		assert.NotNil(t, exchangeResult.AuthorizationDetails)
+
+		checkTestAuthorizationDetailsDTO(t, exchangeResult.AuthorizationDetails, false)
+	})
+
+	t.Run("success without AuthorizationDetails", func(t *testing.T) {
+		opState := uuid.NewString()
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
+			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
+				TxID:                 "TxID",
+				AuthorizationDetails: nil,
+			}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState)
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
+		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+
+		var exchangeResult ExchangeAuthorizationCodeResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&exchangeResult)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "TxID", exchangeResult.TxId)
+
+		assert.Nil(t, exchangeResult.AuthorizationDetails)
 	})
 
 	t.Run("error from service", func(t *testing.T) {
 		opState := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
-			Return(oidc4ci.TxID(""), errors.New("unexpected error"))
+			Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1355,13 +1436,15 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 }
 
 func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
-	t.Run("success with pin", func(t *testing.T) {
+	t.Run("success with pin and authorizationDetails", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123", "", "").
 			Return(&oidc4ci.Transaction{
+				ID: "txID",
 				TransactionData: oidc4ci.TransactionData{
-					OpState: "random_op_state",
-					Scope:   []string{"a", "b"},
+					OpState:              "random_op_state",
+					Scope:                []string{"a", "b"},
+					AuthorizationDetails: getTestAuthorizationDetails(t, true),
 				},
 			}, nil)
 
@@ -1369,18 +1452,34 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
+		recorder := httptest.NewRecorder()
+
 		req := `{"pre-authorized_code":"1234", "user_pin" : "5432", "client_id": "123" }` //nolint:lll
-		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
+
+		err := c.ValidatePreAuthorizedCodeRequest(ctx)
+		assert.NoError(t, err)
+
+		var response ValidatePreAuthorizedCodeResponse
+		err = json.NewDecoder(recorder.Body).Decode(&response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "txID", response.TxId)
+		assert.Equal(t, "random_op_state", response.OpState)
+		assert.Equal(t, []string{"a", "b"}, response.Scopes)
+
+		checkTestAuthorizationDetailsDTO(t, response.AuthorizationDetails, true)
 	})
 
-	t.Run("success without pin", func(t *testing.T) {
+	t.Run("success without pin and without authorizationDetails", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "", "123", "", "").
 			Return(&oidc4ci.Transaction{
+				ID: "txID",
 				TransactionData: oidc4ci.TransactionData{
-					OpState: "random_op_state",
-					Scope:   []string{"a", "b"},
+					OpState:              "random_op_state",
+					Scope:                []string{"a", "b"},
+					AuthorizationDetails: nil,
 				},
 			}, nil)
 
@@ -1388,9 +1487,20 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
+		recorder := httptest.NewRecorder()
+
 		req := `{"pre-authorized_code":"1234", "client_id": "123" }` //nolint:lll
-		ctx := echoContext(withRequestBody([]byte(req)))
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
+
+		var response ValidatePreAuthorizedCodeResponse
+		err := json.NewDecoder(recorder.Body).Decode(&response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "txID", response.TxId)
+		assert.Equal(t, "random_op_state", response.OpState)
+		assert.Equal(t, []string{"a", "b"}, response.Scopes)
+		assert.Nil(t, response.AuthorizationDetails)
 	})
 
 	t.Run("fail with pin", func(t *testing.T) {
@@ -2257,4 +2367,55 @@ func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual err
 
 	require.Equal(t, expectedCode, actualErr.Code)
 	require.Error(t, actualErr.Err)
+}
+
+func getTestAuthorizationDetails(t *testing.T, includeCredentialDefinition bool) *oidc4ci.AuthorizationDetails {
+	t.Helper()
+
+	res := &oidc4ci.AuthorizationDetails{
+		CredentialConfigurationID: "CredentialConfigurationID",
+		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+		Type:                      "openid_credential",
+		CredentialDefinition:      nil,
+		Format:                    "jwt",
+		CredentialIdentifiers:     []string{"CredentialIdentifiers1", "CredentialIdentifiers2"},
+	}
+
+	if includeCredentialDefinition {
+		res.CredentialDefinition = &oidc4ci.CredentialDefinition{
+			Context:           []string{"https://example.com/context/1", "https://example.com/context/2"},
+			CredentialSubject: map[string]interface{}{"key": "value"},
+			Type:              []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		}
+	}
+
+	return res
+}
+
+func checkTestAuthorizationDetailsDTO(
+	t *testing.T,
+	authorizationDetailsDTOList *[]common.AuthorizationDetails,
+	includeCredentialDefinition bool,
+) {
+	authorizationDetailsReceived := *authorizationDetailsDTOList
+
+	assert.Len(t, authorizationDetailsReceived, 1)
+	assert.Equal(t, "CredentialConfigurationID", *authorizationDetailsReceived[0].CredentialConfigurationId)
+	assert.Equal(t, []string{"CredentialIdentifiers1", "CredentialIdentifiers2"},
+		*authorizationDetailsReceived[0].CredentialIdentifiers)
+	assert.Equal(t, "jwt", lo.FromPtr(authorizationDetailsReceived[0].Format))
+	assert.Equal(t, []string{"https://example.com/rs1", "https://example.com/rs2"},
+		*authorizationDetailsReceived[0].Locations)
+	assert.Equal(t, "openid_credential", authorizationDetailsReceived[0].Type)
+
+	ad := authorizationDetailsReceived[0].CredentialDefinition
+
+	if includeCredentialDefinition {
+		assert.NotNil(t, ad)
+		assert.Equal(t, []string{"https://example.com/context/1", "https://example.com/context/2"}, *ad.Context)
+		assert.Equal(t, map[string]interface{}{"key": "value"}, *ad.CredentialSubject)
+		assert.Equal(t, []string{"VerifiableCredential", "UniversityDegreeCredential"}, ad.Type)
+	} else {
+		assert.Nil(t, ad)
+	}
 }
