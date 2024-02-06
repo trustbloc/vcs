@@ -64,6 +64,10 @@ const (
 	FlowTypePreAuthorizedCode          = "pre-authorized_code"
 )
 
+type trustRegistry interface {
+	ValidateIssuer(issuerDID, issuerDomain, credentialType, credentialFormat string, clientAttestationRequested bool) error
+}
+
 type Flow struct {
 	httpClient                 *http.Client
 	documentLoader             ld.DocumentLoader
@@ -73,6 +77,7 @@ type Flow struct {
 	wallet                     *wallet.Wallet
 	wellKnownService           *wellknown.Service
 	trustRegistryURL           string
+	trustRegistryClient        trustRegistry
 	flowType                   FlowType
 	credentialOffer            string
 	credentialType             string
@@ -188,6 +193,14 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		}
 	}
 
+	var trustRegistry trustRegistry
+
+	if o.trustRegistry != nil {
+		trustRegistry = o.trustRegistry
+	} else if o.trustRegistryURL != "" {
+		trustRegistry = trustregistry.NewClient(p.HTTPClient(), o.trustRegistryURL)
+	}
+
 	return &Flow{
 		httpClient:                 p.HTTPClient(),
 		documentLoader:             p.DocumentLoader(),
@@ -211,6 +224,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
 		trustRegistryURL:           o.trustRegistryURL,
+		trustRegistryClient:        trustRegistry,
 		perfInfo:                   &PerfInfo{},
 	}, nil
 }
@@ -264,7 +278,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 	requireWalletAttestation := openIDConfig.TokenEndpointAuthMethodsSupported != nil &&
 		lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
 
-	if f.trustRegistryURL != "" {
+	if f.trustRegistryClient != nil {
 		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
 			return nil, fmt.Errorf("credential offer is empty")
 		}
@@ -290,7 +304,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		credentialFormat := string(credentialOffer.Format)
 
-		if err = trustregistry.NewClient(f.httpClient, f.trustRegistryURL).
+		if err = f.trustRegistryClient.
 			ValidateIssuer(
 				issuerDID,
 				"",
@@ -941,6 +955,7 @@ type options struct {
 	issuerState                string
 	pin                        string
 	trustRegistryURL           string
+	trustRegistry              trustRegistry
 	walletDIDIndex             int
 }
 
@@ -1027,6 +1042,12 @@ func WithPin(pin string) Opt {
 func WithTrustRegistryURL(url string) Opt {
 	return func(opts *options) {
 		opts.trustRegistryURL = url
+	}
+}
+
+func WithTrustRegistry(value trustRegistry) Opt {
+	return func(opts *options) {
+		opts.trustRegistry = value
 	}
 }
 
