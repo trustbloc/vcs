@@ -300,6 +300,8 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 }
 
 func (s *Steps) addProofBuilder(opt []oidc4vci.Opt) []oidc4vci.Opt {
+	fmt.Println("!! GOT PROOF TYPE")
+	fmt.Println(s.proofType)
 	switch s.proofType {
 	case "cwt":
 		return append(opt, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))

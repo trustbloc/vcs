@@ -686,6 +686,7 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	return e.NoContent(http.StatusNoContent)
 }
 
+//nolint:funlen,gocognit
 func (c *Controller) HandleProof(
 	clientID string,
 	credentialReq *CredentialRequest,
