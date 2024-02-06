@@ -762,7 +762,7 @@ func (c *Controller) HandleProof(
 			verifiable.WithDisabledJSONLDChecks(),
 		}
 
-		nonce := session.Extra[cNonceKey].(string)
+		nonce := session.Extra[cNonceKey].(string) //nolint:errcheck
 		if nonce != "" {
 			presentationOpts = append(presentationOpts,
 				verifiable.WithPresExpectedDataIntegrityFields("", "", nonce),
@@ -789,11 +789,11 @@ func (c *Controller) HandleProof(
 		proofClaims = ProofClaims{}
 
 		if v, ok := proof["domain"]; ok {
-			proofClaims.Audience = v.(string)
-			proofClaims.Issuer = v.(string)
+			proofClaims.Audience = v.(string) //nolint:errcheck
+			proofClaims.Issuer = v.(string)   //nolint:errcheck
 		}
 		if v, ok := proof["challenge"]; ok {
-			proofClaims.Nonce = v.(string)
+			proofClaims.Nonce = v.(string) //nolint:errcheck
 		}
 		if v, ok := proof["created"]; ok {
 			t, timeErr := time.Parse(time.RFC3339, v.(string))

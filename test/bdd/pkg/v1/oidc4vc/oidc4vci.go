@@ -141,11 +141,7 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
 	}
 
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	} else if s.proofType == "ldp_vc" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewLDPProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -287,10 +283,7 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		oidc4vci.WithOIDCCredentialFormat(s.getIssuerOIDCCredentialFormat(s.issuedCredentialType)),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
 	}
-
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -304,6 +297,17 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 	}
 
 	return nil
+}
+
+func (s *Steps) addProofBuilder(opt []oidc4vci.Opt) []oidc4vci.Opt {
+	switch s.proofType {
+	case "cwt":
+		return append(opt, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	case "ldp_vc":
+		return append(opt, oidc4vci.WithProofBuilder(oidc4vci.NewLDPProofBuilder()))
+	default:
+		return opt
+	}
 }
 
 func (s *Steps) requestAttestationVC() error {
@@ -507,7 +511,7 @@ func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...o
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
+	opts = s.addProofBuilder(opts)
 	opts = append(opts, overrideOpts...)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider, opts...)
@@ -543,10 +547,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -581,9 +582,7 @@ func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -611,10 +610,7 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -696,6 +692,7 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
+	opts = s.addProofBuilder(opts)
 
 	switch method {
 	case "pre-registered":

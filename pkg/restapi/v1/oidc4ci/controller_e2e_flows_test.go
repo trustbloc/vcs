@@ -255,7 +255,6 @@ func generateProof(
 ) *oidc4ci.JWTProof {
 	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
 
-	//loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
 	keyID := "any"
 	switch proofType {
 	case "jwt":
