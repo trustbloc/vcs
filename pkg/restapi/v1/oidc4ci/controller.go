@@ -785,7 +785,7 @@ func (c *Controller) HandleProof(
 		proof := presentation.Proofs[0]
 
 		proofHeaders.Type = "ldp_vp"
-		proofHeaders.KeyID = presentation.Holder // todo check
+		proofHeaders.KeyID = presentation.Holder
 
 		proofClaims = ProofClaims{}
 

@@ -184,8 +184,8 @@ func (b *JWTProofBuilder) Build(
 	headers := map[string]interface{}{
 		jose.HeaderType: jwtProofTypeHeader,
 	}
-	for k, v := range req.CustomHeaders {
-		headers[k] = v
+	for k, v := range headers {
+		req.CustomHeaders[k] = v
 	}
 
 	jws, err := b.proofFn(ctx, req)
