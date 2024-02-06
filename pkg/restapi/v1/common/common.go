@@ -46,7 +46,7 @@ func ValidateVPFormat(format VPFormat) (vcsverifiable.Format, error) {
 		return vcsverifiable.Ldp, nil
 	}
 
-	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVcJsonLd, LdpVc)
+	return "", fmt.Errorf("unsupported vp format %s, use one of next [%s, %s]", format, JwtVcJsonLd, LdpVc)
 }
 
 func MapToVPFormat(format vcsverifiable.Format) (VPFormat, error) {
