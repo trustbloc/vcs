@@ -22,13 +22,14 @@ type ProofClaims struct {
 type CredentialRequest struct {
 	Format verifiable.OIDCFormat `json:"format,omitempty"`
 	Types  []string              `json:"types"`
-	Proof  Proof              `json:"proof,omitempty"`
+	Proof  Proof                 `json:"proof,omitempty"`
 }
 
 type Proof struct {
 	JWT       string `json:"jwt"`
 	CWT       string `json:"cwt"`
 	ProofType string `json:"proof_type"`
+	LdpVp     any    `json:"ldp_vp,omitempty"`
 }
 
 type CredentialResponse struct {

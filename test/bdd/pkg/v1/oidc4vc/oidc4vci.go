@@ -141,9 +141,7 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
 	}
 
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -285,10 +283,7 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		oidc4vci.WithOIDCCredentialFormat(s.getIssuerOIDCCredentialFormat(s.issuedCredentialType)),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
 	}
-
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -302,6 +297,17 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 	}
 
 	return nil
+}
+
+func (s *Steps) addProofBuilder(opt []oidc4vci.Opt) []oidc4vci.Opt {
+	switch s.proofType {
+	case "cwt":
+		return append(opt, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
+	case "ldp_vc":
+		return append(opt, oidc4vci.WithProofBuilder(oidc4vci.NewLDPProofBuilder()))
+	default:
+		return opt
+	}
 }
 
 func (s *Steps) requestAttestationVC() error {
@@ -418,13 +424,12 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string) error {
 	builder := oidc4vci.NewJWTProofBuilder().
 		WithCustomProofFn(func(
-			claims *oidc4vci.ProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
+			ctx context.Context,
+			req *oidc4vci.CreateProofRequest,
 		) (string, error) {
-			headers[jose.HeaderKeyID] = "invalid-key-id"
+			req.CustomHeaders[jose.HeaderKeyID] = "invalid-key-id"
 
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -443,11 +448,10 @@ func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSigningKeyID(errorContains string
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains string) error {
 	builder := oidc4vci.NewJWTProofBuilder().
 		WithCustomProofFn(func(
-			claims *oidc4vci.ProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
+			ctx context.Context,
+			req *oidc4vci.CreateProofRequest,
 		) (string, error) {
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -469,13 +473,12 @@ func (s *Steps) runOIDC4VCIAuthWithErrorInvalidSignatureValue(errorContains stri
 func (s *Steps) runOIDC4VCIAuthWithErrorInvalidNonce(errorContains string) error {
 	builder := oidc4vci.NewJWTProofBuilder().
 		WithCustomProofFn(func(
-			claims *oidc4vci.ProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
+			ctx context.Context,
+			req *oidc4vci.CreateProofRequest,
 		) (string, error) {
-			claims.Nonce = "invalid-nonce"
+			req.Claims.Nonce = "invalid-nonce"
 
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, signer)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -508,7 +511,7 @@ func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...o
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
+	opts = s.addProofBuilder(opts)
 	opts = append(opts, overrideOpts...)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider, opts...)
@@ -544,10 +547,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -582,9 +582,7 @@ func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -612,10 +610,7 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
-
-	if s.proofType == "cwt" {
-		opts = append(opts, oidc4vci.WithProofBuilder(oidc4vci.NewCWTProofBuilder()))
-	}
+	opts = s.addProofBuilder(opts)
 
 	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
 		opts...,
@@ -697,6 +692,7 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 	}
+	opts = s.addProofBuilder(opts)
 
 	switch method {
 	case "pre-registered":

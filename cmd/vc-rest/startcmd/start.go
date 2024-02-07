@@ -826,18 +826,22 @@ func buildEchoHandler(
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
+		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		IssuerInteractionClient: issuerInteractionClient,
 		ProfileService:          issuerProfileSvc,
-		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
-		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
-		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		JWTVerifier:             proofChecker,
 		ClientManager:           clientManagerService,
 		ClientIDSchemeService:   clientIDSchemeSvc,
+		JWTVerifier:             proofChecker,
+		CWTVerifier:             proofChecker,
 		Tracer:                  conf.Tracer,
+		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL,   // use api gateway here, as this endpoint will be called by clients
+		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		AckService:              ackService,
 		JWEEncrypterCreator:     jweEncrypterCreator,
-		CWTVerifier:             proofChecker,
+		DocumentLoader:          documentLoader,
+		Vdr:                     conf.VDR,
+		ProofChecker:            proofChecker,
+		LDPProofParser:          oidc4civ1.NewDefaultLDPProofParser(),
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{

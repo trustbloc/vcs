@@ -1,12 +1,21 @@
 package oidc4vci
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/creator"
@@ -22,15 +31,15 @@ import (
 	"github.com/trustbloc/vc-go/proof/ldproofs/ed25519signature2018"
 	"github.com/trustbloc/vc-go/proof/ldproofs/ed25519signature2020"
 	"github.com/trustbloc/vc-go/proof/ldproofs/jsonwebsignature2020"
+	"github.com/trustbloc/vc-go/verifiable"
 	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/veraison/go-cose"
 )
 
 type ProofBuilder interface {
 	Build(
-		claims *ProofClaims,
-		customerHeaders map[string]interface{},
-		signer jose.Signer,
+		ctx context.Context,
+		req *CreateProofRequest,
 	) (*Proof, error)
 }
 
@@ -70,18 +79,17 @@ func (b *CWTProofBuilder) newProofCreator(signer jose.Signer) (*creator.ProofCre
 }
 
 func (b *CWTProofBuilder) Build(
-	claims *ProofClaims,
-	_ map[string]interface{},
-	signer jose.Signer,
+	ctx context.Context,
+	req *CreateProofRequest,
 ) (*Proof, error) {
-	encoded, err := cbor.Marshal(claims)
+	encoded, err := cbor.Marshal(req.Claims)
 	if err != nil {
 		return nil, fmt.Errorf("marshal proof claims: %w", err)
 	}
 
-	proofCreator, descriptors := b.newProofCreator(signer)
+	proofCreator, descriptors := b.newProofCreator(req.Signer)
 
-	algo, _ := signer.Headers().Algorithm()
+	algo, _ := req.Signer.Headers().Algorithm()
 	var targetAlgo cose.Algorithm
 	for _, d := range descriptors {
 		if d.JWTAlgorithm() == algo && d.CWTAlgorithm() != 0 {
@@ -93,7 +101,7 @@ func (b *CWTProofBuilder) Build(
 		return nil, fmt.Errorf("unsupported cosg algorithm: %s", algo)
 	}
 
-	keyID, _ := signer.Headers().KeyID()
+	keyID, _ := req.Signer.Headers().KeyID()
 	msg := &cose.Sign1Message{
 		Headers: cose.Headers{
 			Protected: cose.ProtectedHeader{
@@ -136,19 +144,17 @@ type JWTProofBuilder struct {
 }
 
 type JWTProofFn func(
-	claims *ProofClaims,
-	headers map[string]interface{},
-	proofSigner jose.Signer,
+	ctx context.Context,
+	req *CreateProofRequest,
 ) (string, error)
 
 func NewJWTProofBuilder() *JWTProofBuilder {
 	return &JWTProofBuilder{
 		proofFn: func(
-			claims *ProofClaims,
-			headers map[string]interface{},
-			proofSigner jose.Signer,
+			ctx context.Context,
+			req *CreateProofRequest,
 		) (string, error) {
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, proofSigner)
+			signedJWT, jwtErr := jwt.NewJoseSigned(req.Claims, req.CustomHeaders, req.Signer)
 			if jwtErr != nil {
 				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
 			}
@@ -172,18 +178,17 @@ func (b *JWTProofBuilder) WithCustomProofFn(
 }
 
 func (b *JWTProofBuilder) Build(
-	claims *ProofClaims,
-	customHeaders map[string]interface{},
-	signer jose.Signer,
+	ctx context.Context,
+	req *CreateProofRequest,
 ) (*Proof, error) {
 	headers := map[string]interface{}{
 		jose.HeaderType: jwtProofTypeHeader,
 	}
-	for k, v := range customHeaders {
-		headers[k] = v
+	for k, v := range headers {
+		req.CustomHeaders[k] = v
 	}
 
-	jws, err := b.proofFn(claims, headers, signer)
+	jws, err := b.proofFn(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
@@ -192,4 +197,61 @@ func (b *JWTProofBuilder) Build(
 		JWT:       jws,
 		ProofType: "jwt",
 	}, nil
+}
+
+type LDPProofBuilder struct {
+	proofFn JWTProofFn
+}
+
+func NewLDPProofBuilder() *LDPProofBuilder {
+	return &LDPProofBuilder{}
+}
+
+func (b *LDPProofBuilder) Build(
+	_ context.Context,
+	req *CreateProofRequest,
+) (*Proof, error) {
+	pres, err := verifiable.NewPresentation()
+	if err != nil {
+		return nil, fmt.Errorf("new presentation: %w", err)
+	}
+
+	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+		SignerGetter:     ecdsa2019.WithStaticSigner(req.Signer),
+		LDDocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
+	})
+
+	signer, err := dataintegrity.NewSigner(&dataintegrity.Options{
+		DIDResolver: req.VDR,
+	}, signerSuite)
+	if err != nil {
+		return nil, fmt.Errorf("new signer: %w", err)
+	}
+
+	pres.Holder = req.WalletDID
+	if err = pres.AddDataIntegrityProof(&verifiable.DataIntegrityProofContext{
+		SigningKeyID: fmt.Sprintf("%s#%s", req.WalletDID, req.WalletKeyID),
+		CryptoSuite:  ecdsa2019.SuiteType,
+		Created:      lo.ToPtr(time.Now().UTC()),
+		Domain:       req.CredentialIssuer,
+		Challenge:    req.Claims.Nonce,
+	}, signer); err != nil {
+		return nil, fmt.Errorf("add data integrity proof: %w", err)
+	}
+
+	return &Proof{
+		LdpVp:     pres,
+		ProofType: "ldp_vp",
+	}, nil
+}
+
+type CreateProofRequest struct {
+	Signer           jose.Signer
+	CustomHeaders    map[string]interface{}
+	WalletKeyID      string
+	WalletDID        string
+	WalletKeyType    kms.KeyType
+	Claims           *ProofClaims
+	VDR              vdrapi.Registry
+	CredentialIssuer string
 }

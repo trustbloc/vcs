@@ -40,7 +40,7 @@ func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
 		signatureType = signOpts.SignatureType
 	}
 
-	ariesSigner, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signatureType)
+	ariesSigner, _, err := c.GetSigner(signerData.KMSKeyID, signerData.KMS, signatureType)
 	if err != nil {
 		return nil, err
 	}

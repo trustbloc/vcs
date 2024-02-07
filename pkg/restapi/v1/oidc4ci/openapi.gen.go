@@ -117,6 +117,9 @@ type JWTProof struct {
 	// REQUIRED if proof_type equals jwt. Signed JWT as proof of key possession.
 	Jwt *string `json:"jwt,omitempty"`
 
+	// REQUIRED if proof_type equals ldp_vp. Linked Data Proof as proof of key possession.
+	LdpVp *map[string]interface{} `json:"ldp_vp"`
+
 	// REQUIRED. JSON String denoting the proof type. Currently the only supported proof type is 'jwt'.
 	ProofType string `json:"proof_type"`
 }

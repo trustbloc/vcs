@@ -15,6 +15,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -39,6 +40,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/testsupport"
+	verifiable2 "github.com/trustbloc/vc-go/verifiable"
 	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/trace"
 
@@ -1190,6 +1192,56 @@ func TestController_OidcToken_Authorize(t *testing.T) {
 
 			err := controller.OidcToken(echo.New().NewContext(req, rec))
 			tt.check(t, rec, err)
+		})
+	}
+}
+
+func TestMissingProof(t *testing.T) {
+	testCases := []struct {
+		proofType   string
+		expectedErr string
+	}{
+		{
+			proofType:   "cwt",
+			expectedErr: "missing cwt proof",
+		},
+		{
+			proofType:   "ldp_vp",
+			expectedErr: "missing ldp_vp proof",
+		},
+		{
+			proofType:   "xxx",
+			expectedErr: "invalid proof type",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.proofType, func(t *testing.T) {
+			mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+			mockInteractionClient := NewMockIssuerInteractionClient(gomock.NewController(t))
+
+			ctr := oidc4ci.NewController(&oidc4ci.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				IssuerInteractionClient: mockInteractionClient,
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+			})
+
+			credReq := oidc4ci.CredentialRequest{
+				Format: lo.ToPtr("jwt_vc_json"),
+				Proof: &oidc4ci.JWTProof{
+					ProofType: testCase.proofType,
+				},
+			}
+			var requestBody []byte
+			requestBody, err := json.Marshal(credReq)
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+
+			err = ctr.OidcCredential(echo.New().NewContext(req, rec))
+			assert.ErrorContains(t, err, testCase.expectedErr)
 		})
 	}
 }
@@ -3057,6 +3109,92 @@ func TestController_OidcRegisterClient(t *testing.T) {
 			tt.check(t, rec, err)
 		})
 	}
+}
+
+//go:embed testdata/ldp_proof_2.json
+var ldpProofWithTwoProofs []byte
+
+//go:embed testdata/ldp_proof_invalid_date.json
+var ldpProofWithInvalidDate []byte
+
+func TestHandleLDPProof(t *testing.T) {
+	t.Run("invalid proof", func(t *testing.T) {
+		ctr := oidc4ci.NewController(&oidc4ci.Config{})
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     nil,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "missing ldp_vp")
+	})
+
+	t.Run("proof parse err", func(t *testing.T) {
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
+		ldpParser := NewMockLDPProofParser(gomock.NewController(t))
+		ctr := oidc4ci.NewController(&oidc4ci.Config{
+			LDPProofParser: ldpParser,
+		})
+
+		ldpParser.EXPECT().Parse(gomock.Any(), gomock.Any()).Return(nil, errors.New("parse error"))
+
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     &finalPres,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "can not parse ldp_vp as presentation")
+	})
+
+	t.Run("invalid proof count", func(t *testing.T) {
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
+		ldpParser := NewMockLDPProofParser(gomock.NewController(t))
+		ctr := oidc4ci.NewController(&oidc4ci.Config{
+			LDPProofParser: ldpParser,
+		})
+
+		ldpParser.EXPECT().Parse(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(i []byte, opts []verifiable2.PresentationOpt) (*verifiable2.Presentation, error) {
+				return verifiable2.ParsePresentation(ldpProofWithTwoProofs,
+					verifiable2.WithPresDisabledProofCheck(),
+					verifiable2.WithDisabledJSONLDChecks())
+			})
+
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     &finalPres,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "expected 1 proof, got 2")
+	})
+
+	t.Run("invalid date", func(t *testing.T) {
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
+		ldpParser := NewMockLDPProofParser(gomock.NewController(t))
+		ctr := oidc4ci.NewController(&oidc4ci.Config{
+			LDPProofParser: ldpParser,
+		})
+
+		ldpParser.EXPECT().Parse(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(i []byte, opts []verifiable2.PresentationOpt) (*verifiable2.Presentation, error) {
+				return verifiable2.ParsePresentation(ldpProofWithInvalidDate,
+					verifiable2.WithPresDisabledProofCheck(),
+					verifiable2.WithDisabledJSONLDChecks())
+			})
+
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     &finalPres,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "oidc-error: parse created: parsing time")
+	})
 }
 
 func TestHandleCWTProof(t *testing.T) {
