@@ -763,11 +763,13 @@ func (c *Controller) HandleProof(
 			verifiable.WithDisabledJSONLDChecks(),
 		}
 
-		nonce := session.Extra[cNonceKey].(string) //nolint:errcheck
-		if nonce != "" {
-			presentationOpts = append(presentationOpts,
-				verifiable.WithPresExpectedDataIntegrityFields("", "", nonce),
-			)
+		if session != nil && len(session.Extra) > 0 {
+			nonce := session.Extra[cNonceKey].(string) //nolint:errcheck
+			if nonce != "" {
+				presentationOpts = append(presentationOpts,
+					verifiable.WithPresExpectedDataIntegrityFields("", "", nonce),
+				)
+			}
 		}
 
 		presentation, err := c.ldpProofParser.Parse(rawProof, presentationOpts)

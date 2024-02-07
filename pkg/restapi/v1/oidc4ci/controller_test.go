@@ -15,6 +15,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -39,6 +40,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/testsupport"
+	verifiable2 "github.com/trustbloc/vc-go/verifiable"
 	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/trace"
 
@@ -3057,6 +3059,65 @@ func TestController_OidcRegisterClient(t *testing.T) {
 			tt.check(t, rec, err)
 		})
 	}
+}
+
+//go:embed testdata/ldp_proof_2.json
+var ldpProofWithTwoProofs []byte
+
+func TestHandleLDPProof(t *testing.T) {
+	t.Run("invalid proof", func(t *testing.T) {
+		ctr := oidc4ci.NewController(&oidc4ci.Config{})
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     nil,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "missing ldp_vp")
+	})
+
+	t.Run("proof parse err", func(t *testing.T) {
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
+		ldpParser := NewMockLDPProofParser(gomock.NewController(t))
+		ctr := oidc4ci.NewController(&oidc4ci.Config{
+			LDPProofParser: ldpParser,
+		})
+
+		ldpParser.EXPECT().Parse(gomock.Any(), gomock.Any()).Return(nil, errors.New("parse error"))
+
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     &finalPres,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "can not parse ldp_vp as presentation")
+	})
+
+	t.Run("invalid proof count", func(t *testing.T) {
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
+		ldpParser := NewMockLDPProofParser(gomock.NewController(t))
+		ctr := oidc4ci.NewController(&oidc4ci.Config{
+			LDPProofParser: ldpParser,
+		})
+
+		ldpParser.EXPECT().Parse(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(i []byte, opts []verifiable2.PresentationOpt) (*verifiable2.Presentation, error) {
+				return verifiable2.ParsePresentation(ldpProofWithTwoProofs,
+					verifiable2.WithPresDisabledProofCheck(),
+					verifiable2.WithDisabledJSONLDChecks())
+			})
+
+		_, _, err := ctr.HandleProof("invalid", &oidc4ci.CredentialRequest{
+			Proof: &oidc4ci.JWTProof{
+				ProofType: "ldp_vp",
+				LdpVp:     &finalPres,
+			},
+		}, nil)
+		assert.ErrorContains(t, err, "expected 1 proof, got 2")
+	})
 }
 
 func TestHandleCWTProof(t *testing.T) {
