@@ -524,7 +524,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		resp, preAuthorizeErr := c.oidcPreAuthorizedCode(
 			ctx,
 			e.FormValue("pre-authorized_code"),
-			e.FormValue("user_pin"),
+			e.FormValue("tx_code"),
 			e.FormValue("client_id"),
 			e.FormValue("client_assertion_type"),
 			e.FormValue("client_assertion"),
@@ -1055,7 +1055,7 @@ func (c *Controller) validateProofClaims(
 func (c *Controller) oidcPreAuthorizedCode(
 	ctx context.Context,
 	preAuthorizedCode string,
-	userPin string,
+	txCode string,
 	clientID string,
 	clientAssertionType string,
 	clientAssertion string,
@@ -1063,7 +1063,7 @@ func (c *Controller) oidcPreAuthorizedCode(
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 			PreAuthorizedCode:   preAuthorizedCode,
-			UserPin:             lo.ToPtr(userPin),
+			UserPin:             lo.ToPtr(txCode),
 			ClientId:            lo.ToPtr(clientID),
 			ClientAssertionType: lo.ToPtr(clientAssertionType),
 			ClientAssertion:     lo.ToPtr(clientAssertion),

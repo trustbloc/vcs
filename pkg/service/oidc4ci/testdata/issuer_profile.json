@@ -49,5 +49,72 @@
       "id": "templateID2",
       "issuer": "test_issuer"
     }
-  ]
+  ],
+  "credentialMetadata": {
+    "display": [],
+    "credential_configurations_supported": {
+      "PermanentResidentCard": {
+        "format": "jwt_vc_json",
+        "display": [
+          {
+            "name": "Permanent Resident Card",
+            "locale": "en-US",
+            "logo": {
+              "uri": "https://example.com/public/logo.png",
+              "alt_text": "a square logo of a permanent resident card"
+            },
+            "background_color": "#12107c",
+            "text_color": "#FFFFFF"
+          }
+        ],
+        "credential_definition": {
+          "credentialSubject": {
+            "familyName": {
+              "display": [
+                {
+                  "name": "Family Name",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "givenName": {
+              "display": [
+                {
+                  "name": "Given Name",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "gender": {
+              "display": [
+                {
+                  "name": "Gender",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "birthDate": {
+              "display": [
+                {
+                  "name": "Birth Date",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "birthCountry": {
+              "display": [
+                {
+                  "name": "Birth Country"
+                }
+              ]
+            }
+          },
+          "type": [
+            "VerifiableCredential",
+            "PermanentResidentCard"
+          ]
+        }
+      }
+    }
+  }
 }

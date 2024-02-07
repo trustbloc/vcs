@@ -248,8 +248,14 @@ type AuthorizationCodeGrant struct {
 }
 
 type PreAuthorizationGrant struct {
-	PreAuthorizedCode string `json:"pre-authorized_code"`
-	UserPinRequired   bool   `json:"user_pin_required"`
+	PreAuthorizedCode string  `json:"pre-authorized_code"`
+	TxCode            *TxCode `json:"tx_code,omitempty"`
+}
+
+type TxCode struct {
+	InputMode   string `json:"input_mode"`
+	Length      int    `json:"length"`
+	Description string `json:"description"`
 }
 
 type CredentialOfferGrant struct {
@@ -263,9 +269,9 @@ type CredentialOffer struct {
 }
 
 type CredentialOfferResponse struct {
-	CredentialIssuer string               `json:"credential_issuer"`
-	Credentials      []CredentialOffer    `json:"credentials"`
-	Grants           CredentialOfferGrant `json:"grants"`
+	CredentialIssuer           string               `json:"credential_issuer"`
+	CredentialConfigurationIDs []string             `json:"credential_configuration_ids"`
+	Grants                     CredentialOfferGrant `json:"grants"`
 }
 
 type ServiceInterface interface {
