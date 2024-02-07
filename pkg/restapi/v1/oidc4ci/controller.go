@@ -801,7 +801,7 @@ func (c *Controller) HandleProof(
 		if v, ok := proof["created"]; ok {
 			t, timeErr := time.Parse(time.RFC3339, v.(string))
 			if timeErr != nil {
-				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", err))
+				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", timeErr))
 			}
 			proofClaims.IssuedAt = lo.ToPtr(t.Unix())
 		}
@@ -976,7 +976,7 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 		}
 	case "ldp_vp":
 		if req.Proof.LdpVp == nil {
-			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp proof"))
 		}
 	default:
 		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
