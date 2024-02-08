@@ -6,7 +6,9 @@
     "response_types": ["code"],
     "scopes": [
       "openid",
-      "profile"
+      "profile",
+      "VerifiedEmployeeCredential_001",
+      "UniversityDegreeCredential_001"
     ],
     "token_endpoint_auth_method": "none"
   }

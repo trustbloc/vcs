@@ -423,6 +423,8 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 	slog.Info("Getting authorization code",
 		"client_id", oauthClient.ClientID,
 		"scopes", oauthClient.Scopes,
+		"credential_configuration_id", f.credentialConfigurationID,
+		"format", f.oidcCredentialFormat,
 		"redirect_uri", oauthClient.RedirectURL,
 		"authorization_endpoint", oauthClient.Endpoint.AuthURL,
 	)
@@ -452,17 +454,24 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 
 	oauthClient.RedirectURL = redirectURI.String()
 
+	authCodeOptions := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam("issuer_state", issuerState),
+		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	}
+
 	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(
 		f.credentialType, f.credentialConfigurationID, f.oidcCredentialFormat)
 	if err != nil {
 		return "", fmt.Errorf("getAuthorizationDetailsRequestBody: %w", err)
 	}
 
-	authCodeOptions := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("issuer_state", issuerState),
-		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("authorization_details", string(authorizationDetailsRequestBody)),
+	// If neither credential_configuration_id nor format params supplied authorizationDetailsRequestBody will be empty.
+	// In this case Wallet CLI should use scope parameter to request credential type:
+	// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+	if len(authorizationDetailsRequestBody) > 0 {
+		authCodeOptions = append(authCodeOptions,
+			oauth2.SetAuthURLParam("authorization_details", string(authorizationDetailsRequestBody)))
 	}
 
 	if f.enableDiscoverableClientID {
@@ -700,22 +709,9 @@ func (f *Flow) receiveVC(
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
 
-	// Take default value as f.oidcCredentialFormat
-	oidcCredentialFormat := f.oidcCredentialFormat
-
-	if f.credentialConfigurationID != "" {
-		// For cases, when oidcCredentialFormat is not supplied, but credentialConfigurationID option available,
-		// we can take format from well-known configuration.
-		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
-		format := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[f.credentialConfigurationID].Format
-		if format == "" {
-			return nil, fmt.Errorf(
-				"unable to obtain OIDC credential format from issuer well-known configuration. "+
-					"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
-					"with nested `format` field", f.credentialConfigurationID)
-		}
-
-		oidcCredentialFormat = vcsverifiable.OIDCFormat(format)
+	oidcCredentialFormat, err := f.getCredentialRequestOIDCCredentialFormat(wellKnown)
+	if err != nil {
+		return nil, fmt.Errorf("getCredentialRequestOIDCCredentialFormat: %w", err)
 	}
 
 	b, err := json.Marshal(CredentialRequest{
@@ -817,6 +813,48 @@ func (f *Flow) receiveVC(
 	return parsedVC, nil
 }
 
+func (f *Flow) getCredentialRequestOIDCCredentialFormat(
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+) (vcsverifiable.OIDCFormat, error) {
+	// Take default value as f.oidcCredentialFormat
+	if f.oidcCredentialFormat != "" {
+		return f.oidcCredentialFormat, nil
+	}
+
+	// For cases, when oidcCredentialFormat is not supplied:
+	if f.credentialConfigurationID != "" {
+		// CredentialConfigurationID option available so take format from well-known configuration.
+		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
+		format := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[f.credentialConfigurationID].Format
+		if format == "" {
+			return "", fmt.Errorf(
+				"unable to obtain OIDC credential format from issuer well-known configuration. "+
+					"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+					"with nested `format` field", f.credentialConfigurationID)
+		}
+
+		return vcsverifiable.OIDCFormat(format), nil
+	}
+
+	if len(f.scopes) > 0 {
+		// scopes option available so take format from well-known configuration.
+		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+		for _, scope := range f.scopes {
+			for _, credentialConfiguration := range wellKnown.CredentialConfigurationsSupported.AdditionalProperties {
+				if lo.FromPtr(credentialConfiguration.Scope) == scope {
+					return vcsverifiable.OIDCFormat(credentialConfiguration.Format), nil
+				}
+			}
+		}
+
+		return "", fmt.Errorf(
+			"unable to obtain OIDC credential format from issuer well-known configuration. "+
+				"Check if `issuer.credentialMetadata.credential_configurations_supported` contains nested object "+
+				"with `scope` field equals to one of the %v", f.scopes)
+	}
+
+	return "", errors.New("obtain OIDC credential format")
+}
 func (f *Flow) handleIssuanceAck(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credResponse *CredentialResponse,
@@ -881,6 +919,9 @@ func (f *Flow) handleIssuanceAck(
 
 // getAuthorizationDetailsRequestBody returns authorization details request body
 // either with credential_configuration_id or format params.
+// If neither credential_configuration_id nor format supplied,
+// Wallet CLI should use scope parameter to request credential type:
+// https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
 //
 // Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 func (f *Flow) getAuthorizationDetailsRequestBody(
@@ -913,7 +954,8 @@ func (f *Flow) getAuthorizationDetailsRequestBody(
 			Type:      "openid_credential",
 		}
 	default:
-		return nil, errors.New("neither credentialFormat nor credentialConfigurationID supplied")
+		// Valid case - neither credentialFormat nor credentialConfigurationID supplied.
+		return nil, nil
 	}
 
 	return json.Marshal(res)

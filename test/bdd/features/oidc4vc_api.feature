@@ -35,12 +35,12 @@ Feature: OIDC4VC REST API
       | i_myprofile_cmtr_p256_ldp/v1.0    | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
   @oidc4vc_rest_auth_flow_credential_conf_id
-  Scenario Outline: OIDC credential issuance and verification Auth flow
+  Scenario Outline: OIDC credential issuance and verification Auth flow using credential configuration ID to request specific credential type
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-    When User interacts with Wallet to initiate credential issuance using authorization code flow with credential configuration ID
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with credential configuration ID "<credentialConfigurationID>"
     Then credential is issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
@@ -48,9 +48,27 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 
     Examples:
-      | issuerProfile    | credentialType             | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
+      | issuerProfile    | credentialType             | credentialConfigurationID            | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer/v1.0 | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential | UniversityDegreeCredentialIdentifier | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+
+  @oidc4vc_rest_auth_flow_scope_based
+  Scenario Outline: OIDC credential issuance and verification Auth flow using scopes to request specific credential type
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with scopes "<scopes>"
+    Then credential is issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | credentialType             | scopes                         | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredential | UniversityDegreeCredential_001 | dynamic                  | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
   @oidc4vc_rest_pre_auth_flow
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow

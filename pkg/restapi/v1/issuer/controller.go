@@ -550,6 +550,10 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
 		}
 
+		if errors.Is(err, resterr.ErrInvalidCredentialConfigurationID) {
+			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.credential_configuration_id", err)
+		}
+
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PushAuthorizationRequest", err)
 	}
 
@@ -572,9 +576,16 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	ad, err := util.ValidateAuthorizationDetails(*body.AuthorizationDetails)
-	if err != nil {
-		return nil, err
+	var (
+		ad  *oidc4ci.AuthorizationDetails
+		err error
+	)
+
+	if body.AuthorizationDetails != nil {
+		ad, err = util.ValidateAuthorizationDetails(*body.AuthorizationDetails)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	resp, err := c.oidc4ciService.PrepareClaimDataAuthorizationRequest(ctx,

@@ -226,7 +226,8 @@ func (s *Service) buildCredentialConfigurationsSupported(
 ) *issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported {
 	credentialsConfigurationSupported := &issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported{}
 
-	for credentialType, credentialSupported := range issuerProfile.CredentialMetaData.CredentialsConfigurationSupported {
+	credentialConfSupported := issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	for credentialConfigurationID, credentialSupported := range credentialConfSupported {
 		var cryptographicBindingMethodsSupported, cryptographicSuitesSupported []string
 
 		if issuerProfile.VCConfig != nil {
@@ -237,7 +238,7 @@ func (s *Service) buildCredentialConfigurationsSupported(
 		display := s.buildCredentialConfigurationsSupportedDisplay(credentialSupported.Display)
 		credentialDefinition := s.buildCredentialDefinition(credentialSupported.CredentialDefinition)
 
-		credentialsConfigurationSupported.Set(credentialType, issuer.CredentialConfigurationsSupported{
+		credentialsConfigurationSupported.Set(credentialConfigurationID, issuer.CredentialConfigurationsSupported{
 			Claims:                               lo.ToPtr(credentialSupported.Claims),
 			CredentialDefinition:                 credentialDefinition,
 			CryptographicBindingMethodsSupported: lo.ToPtr(cryptographicBindingMethodsSupported),

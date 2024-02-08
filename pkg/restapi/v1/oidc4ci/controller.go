@@ -292,7 +292,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	}
 
-	var prepareAuthRequestAuthorizationDetails common.AuthorizationDetails
+	var prepareAuthRequestAuthorizationDetails *[]common.AuthorizationDetails
 
 	if params.AuthorizationDetails != nil {
 		var authorizationDetails []common.AuthorizationDetails
@@ -305,30 +305,12 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		}
 
 		// only single authorization_details supported for now.
-		prepareAuthRequestAuthorizationDetails = authorizationDetails[0]
-	} else {
-		// TODO: implement using scope parameter to request credential type
-		// https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
-
-		// prepareAuthRequestAuthorizationDetails = common.AuthorizationDetails{
-		//	CredentialConfigurationId: nil,
-		//	CredentialDefinition: &common.CredentialDefinition{
-		//		Context:           nil, // Not supported for now.
-		//		CredentialSubject: nil, // Not supported for now.
-		//		Type:              scope,
-		//	},
-		//	Format:    nil,
-		//	Locations: nil, // Not supported for now.
-		//	Type:      "openid_credential",
-		// }
-
-		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details",
-			errors.New("not supplied"))
+		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails[:1])
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
-			AuthorizationDetails: lo.ToPtr([]common.AuthorizationDetails{prepareAuthRequestAuthorizationDetails}),
+			AuthorizationDetails: prepareAuthRequestAuthorizationDetails,
 			OpState:              lo.FromPtr(params.IssuerState),
 			ResponseType:         params.ResponseType,
 			Scope:                lo.ToPtr([]string(ar.GetRequestedScopes())),

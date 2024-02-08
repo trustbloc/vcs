@@ -215,17 +215,97 @@ func (s *Service) PushAuthorizationDetails(
 		return fmt.Errorf("find tx by op state: %w", err)
 	}
 
-	return s.updateTransactionAuthorizationDetails(ctx, ad, tx)
-}
+	if err = s.checkTransactionAuthorizationDetails(ad, tx); err != nil {
+		return err
+	}
 
-func (s *Service) checkScopes(reqScopes []string, txScopes []string) error {
-	for _, reqScope := range reqScopes {
-		if !lo.Contains(txScopes, reqScope) {
-			return resterr.ErrInvalidScope
-		}
+	tx.AuthorizationDetails = ad
+
+	if err = s.store.Update(ctx, tx); err != nil {
+		return resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
 	}
 
 	return nil
+}
+
+// checkScopes checks request scopes existence in transaction scopes.
+// If no AuthorizationDetails supplied but only scope then additional logic should be applied:
+//  1. Find relevant record in `credential_configurations_supported` of Credential Issuer Metadata based on request scope.
+//  2. Extract format and compare with value from transaction.
+//  3. Extract credential_definition.type and compare with value from transaction.CredentialTemplate.Type
+//
+// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+//
+//nolint:lll,gocognit
+func (s *Service) checkScopes(tx *Transaction, reqScopes []string, authorizationDetailsSupplied bool) ([]string, error) {
+	for _, reqScope := range reqScopes {
+		if !lo.Contains(tx.Scope, reqScope) {
+			return nil, resterr.ErrInvalidScope
+		}
+	}
+
+	if authorizationDetailsSupplied {
+		return reqScopes, nil
+	}
+
+	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
+				fmt.Errorf("check scopes: get profile: %w", err))
+		}
+
+		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile",
+			fmt.Errorf("check scopes: get profile: %w", err))
+	}
+
+	var credentialsConfigurationSupported map[string]*profileapi.CredentialsConfigurationSupported
+	if meta := profile.CredentialMetaData; meta != nil {
+		credentialsConfigurationSupported = meta.CredentialsConfigurationSupported
+	}
+
+	var validScopes []string
+	// TODO: consider to store credentialConfigurationIDKeysUsed in tx.
+	credentialConfigurationIDKeysUsed := map[string]struct{}{}
+
+	// Check each request scope.
+	for _, reqScope := range reqScopes {
+		for credentialConfigurationID, credentialConfiguration := range credentialsConfigurationSupported {
+			if _, ok := credentialConfigurationIDKeysUsed[credentialConfigurationID]; ok {
+				continue
+			}
+
+			if !strings.EqualFold(reqScope, credentialConfiguration.Scope) {
+				continue
+			}
+
+			// Check format.
+			if credentialConfiguration.Format != tx.OIDCCredentialFormat {
+				return nil, resterr.ErrCredentialFormatNotSupported
+			}
+
+			// Check credential type.
+			var targetType string
+			if cd := credentialConfiguration.CredentialDefinition; cd != nil {
+				targetType = cd.Type[len(cd.Type)-1]
+			}
+
+			if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
+				return nil, resterr.ErrCredentialTypeNotSupported
+			}
+
+			// Credential Issuers MUST ignore unknown scope values in a request.
+			validScopes = append(validScopes, reqScope)
+			credentialConfigurationIDKeysUsed[credentialConfigurationID] = struct{}{}
+			break
+		}
+	}
+
+	if len(validScopes) == 0 {
+		return nil, resterr.ErrInvalidScope
+	}
+
+	return validScopes, nil
 }
 
 func (s *Service) PrepareClaimDataAuthorizationRequest(
@@ -257,21 +337,29 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err
 	}
+
 	tx.State = newState
 
 	if req.ResponseType != tx.ResponseType {
 		return nil, resterr.ErrResponseTypeMismatch
 	}
 
-	if err = s.checkScopes(req.Scope, tx.Scope); err != nil {
+	authorizationDetailsSupplied := req.AuthorizationDetails != nil
+
+	validScopes, err := s.checkScopes(tx, req.Scope, authorizationDetailsSupplied)
+	if err != nil {
 		return nil, err
 	}
 
-	if req.AuthorizationDetails != nil {
-		if err = s.updateTransactionAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
+	tx.Scope = validScopes
+
+	if authorizationDetailsSupplied {
+		if err = s.checkTransactionAuthorizationDetails(req.AuthorizationDetails, tx); err != nil {
 			s.sendFailedTransactionEvent(ctx, tx, err)
 			return nil, err
 		}
+
+		tx.AuthorizationDetails = req.AuthorizationDetails
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
@@ -295,7 +383,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
 		// Use request-specific Scope to Issuer OIDC in order to request user consent for
 		// specific scopes that were defined by Wallet.
-		Scope: req.Scope,
+		Scope: validScopes,
 	}, nil
 }
 
@@ -363,21 +451,6 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	}, nil
 }
 
-func (s *Service) updateTransactionAuthorizationDetails(
-	ctx context.Context, ad *AuthorizationDetails, tx *Transaction) error {
-	if err := s.checkTransactionAuthorizationDetails(ad, tx); err != nil {
-		return err
-	}
-
-	tx.AuthorizationDetails = ad
-
-	if err := s.store.Update(ctx, tx); err != nil {
-		return resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
-	}
-
-	return nil
-}
-
 //nolint:gocognit,nolintlint
 func (s *Service) checkTransactionAuthorizationDetails(ad *AuthorizationDetails, tx *Transaction) error {
 	if tx.CredentialTemplate == nil {
@@ -430,7 +503,11 @@ func (s *Service) checkTransactionAuthorizationDetails(ad *AuthorizationDetails,
 			return resterr.ErrCredentialTypeNotSupported
 		}
 	default:
-		return errors.New("neither credentialFormat nor credentialConfigurationID supplied")
+		return resterr.NewValidationError(
+			resterr.InvalidValue,
+			"authorization_details",
+			errors.New("neither credentialFormat nor credentialConfigurationID supplied"),
+		)
 	}
 
 	return nil

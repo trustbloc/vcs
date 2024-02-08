@@ -1068,6 +1068,18 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				},
 			},
 			{
+				name: "CredentialConfigurationID not supported",
+				setup: func() {
+					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
+						resterr.ErrInvalidCredentialConfigurationID)
+
+					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
+				},
+				check: func(t *testing.T, err error) {
+					require.ErrorContains(t, err, "invalid credential configuration ID")
+				},
+			},
+			{
 				name: "Service error",
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
@@ -1138,6 +1150,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 				assert.Nil(t, ad.CredentialDefinition.Context)
 				assert.NotNil(t, ad.CredentialDefinition.CredentialSubject)
 				assert.Equal(t, ad.CredentialDefinition.Type, []string{"VerifiableCredential", "UniversityDegreeCredential"})
+				assert.Equal(t, req.Scope, []string{"scope1", "scope2"})
 
 				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
 					ProfileID:      profileID,
@@ -1156,7 +1169,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			profileSvc:     mockProfileService,
 		}
 
-		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
+		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","scope":["scope1", "scope2"],"authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
 	})
@@ -1177,6 +1190,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 				assert.Nil(t, ad.Locations)
 				assert.Equal(t, "UniversityDegreeCredential", ad.CredentialConfigurationID)
 				assert.Nil(t, ad.CredentialDefinition)
+				assert.Equal(t, req.Scope, []string{"scope1", "scope2"})
 
 				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
 					ProfileID:      profileID,
@@ -1195,7 +1209,41 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			profileSvc:     mockProfileService,
 		}
 
-		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","authorization_details":%s}`, authorizationDetailsCredentialConfigurationIDBased) //nolint:lll
+		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","scope":["scope1", "scope2"],"authorization_details":%s}`, authorizationDetailsCredentialConfigurationIDBased) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
+	})
+
+	t.Run("Success scope based", func(t *testing.T) {
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareClaimDataAuthorizationRequest,
+			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
+				assert.Equal(t, "123", req.OpState)
+
+				assert.Nil(t, req.AuthorizationDetails)
+				assert.Equal(t, req.Scope, []string{"scope1", "scope2"})
+
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+				}, nil
+			},
+		)
+
+		mockProfileService := NewMockProfileService(gomock.NewController(t))
+		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{},
+		}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+			profileSvc:     mockProfileService,
+		}
+
+		req := `{"response_type":"code","op_state":"123","scope":["scope1", "scope2"]}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
 	})

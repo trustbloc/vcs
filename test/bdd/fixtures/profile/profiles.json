@@ -85,7 +85,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "ldp_vc",
               "display": [
                 {
@@ -359,7 +359,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "jwt_vc_json",
               "display": [
                 {
@@ -697,7 +697,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "ldp_vc",
               "display": [
                 {
@@ -809,7 +809,9 @@
           "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
           "scopes_supported": [
             "openid",
-            "profile"
+            "profile",
+            "VerifiedEmployeeCredential_001",
+            "UniversityDegreeCredential_001"
           ],
           "grant_types_supported": [
             "authorization_code"
@@ -880,8 +882,9 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "jwt_vc_json-ld",
+              "scope": "VerifiedEmployeeCredential_001",
               "credential_definition": {
                 "type": [
                   "VerifiableCredential",
@@ -958,8 +961,9 @@
                 }
               ]
             },
-            "UniversityDegreeCredential": {
+            "UniversityDegreeCredentialIdentifier": {
               "format": "jwt_vc_json-ld",
+              "scope": "UniversityDegreeCredential_001",
               "credential_definition": {
                 "type": [
                   "VerifiableCredential",
@@ -1074,7 +1078,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "jwt_vc_json-ld",
               "display": [
                 {
@@ -1193,7 +1197,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "jwt_vc_json-ld",
               "display": [
                 {
@@ -1333,7 +1337,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "ldp_vc",
               "display": [
                 {
@@ -1479,7 +1483,7 @@
         "credentialMetadata": {
           "display": [],
           "credential_configurations_supported": {
-            "VerifiedEmployee": {
+            "VerifiedEmployeeIdentifier": {
               "format": "jwt_vc_json-ld",
               "display": [
                 {
