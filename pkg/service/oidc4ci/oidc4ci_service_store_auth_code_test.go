@@ -236,7 +236,17 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 			Return(&profileapi.Issuer{
 				CredentialTemplates: []*profileapi.CredentialTemplate{
 					{
-						ID: "some-template",
+						ID:   "some-template",
+						Type: "VerifiableCredential",
+					},
+				},
+				CredentialMetaData: &profileapi.CredentialMetaData{
+					CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+						"configuration-id": {
+							CredentialDefinition: &profileapi.CredentialDefinition{
+								Type: []string{"VerifiableCredential"},
+							},
+						},
 					},
 				},
 				Active:     true,
@@ -302,7 +312,17 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 			Return(&profileapi.Issuer{
 				CredentialTemplates: []*profileapi.CredentialTemplate{
 					{
-						ID: "some-template",
+						ID:   "some-template",
+						Type: "VerifiableCredential",
+					},
+				},
+				CredentialMetaData: &profileapi.CredentialMetaData{
+					CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+						"configuration-id": {
+							CredentialDefinition: &profileapi.CredentialDefinition{
+								Type: []string{"VerifiableCredential"},
+							},
+						},
 					},
 				},
 				Version:    "ABSOLUTELY_RANDOM_VERSION",

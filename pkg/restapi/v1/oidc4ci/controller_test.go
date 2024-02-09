@@ -2629,7 +2629,7 @@ func TestController_OidcToken_PreAuthorize(t *testing.T) {
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"123456"},
-				"user_pin":            {"5678"},
+				"tx_code":             {"5678"},
 				"client_id":           {clientID},
 			}.Encode()),
 			setup: func() {

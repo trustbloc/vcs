@@ -102,7 +102,7 @@
               "credential_definition": {
                 "type": [
                   "VerifiableCredential",
-                  "VerifiedEmployee"
+                  "PermanentResidentCard"
                 ],
                 "credentialSubject": {
                   "displayName": {
@@ -433,9 +433,21 @@
                 },
                 "type": [
                   "VerifiableCredential",
-                  "VerifiedEmployee"
+                  "PermanentResidentCard"
                 ]
               }
+            },
+            "CrudeProductCredentialIdentifier": {
+              "format": "jwt_vc_json-ld",
+              "scope": "CrudeProductCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
+                ],
+                "credentialSubject": {}
+              },
+              "display": []
             }
           }
         }
@@ -771,7 +783,7 @@
                 },
                 "type": [
                   "VerifiableCredential",
-                  "VerifiedEmployee"
+                  "CrudeProductCredential"
                 ]
               }
             }
@@ -811,7 +823,8 @@
             "openid",
             "profile",
             "VerifiedEmployeeCredential_001",
-            "UniversityDegreeCredential_001"
+            "UniversityDegreeCredential_001",
+            "CrudeProductCredential_001"
           ],
           "grant_types_supported": [
             "authorization_code"
@@ -968,6 +981,18 @@
                 "type": [
                   "VerifiableCredential",
                   "UniversityDegreeCredential"
+                ],
+                "credentialSubject": {}
+              },
+              "display": []
+            },
+            "CrudeProductCredentialIdentifier": {
+              "format": "jwt_vc_json-ld",
+              "scope": "CrudeProductCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
                 ],
                 "credentialSubject": {}
               },
@@ -1152,9 +1177,21 @@
                 },
                 "type": [
                   "VerifiableCredential",
-                  "VerifiedEmployee"
+                  "UniversityDegreeCredential"
                 ]
               }
+            },
+            "CrudeProductCredentialIdentifier": {
+              "format": "jwt_vc_json-ld",
+              "scope": "CrudeProductCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
+                ],
+                "credentialSubject": {}
+              },
+              "display": []
             }
           }
         }
@@ -1557,7 +1594,7 @@
                 },
                 "type": [
                   "VerifiableCredential",
-                  "VerifiedEmployee"
+                  "UniversityDegreeCredential"
                 ]
               }
             }

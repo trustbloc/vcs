@@ -8,7 +8,8 @@
       "openid",
       "profile",
       "VerifiedEmployeeCredential_001",
-      "UniversityDegreeCredential_001"
+      "UniversityDegreeCredential_001",
+      "CrudeProductCredential_001"
     ],
     "token_endpoint_auth_method": "none"
   }

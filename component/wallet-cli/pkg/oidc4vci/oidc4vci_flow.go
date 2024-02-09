@@ -252,31 +252,30 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 	requireWalletAttestation := lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
 
 	if f.trustRegistryURL != "" {
-		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
+		if credentialOfferResponse == nil || len(credentialOfferResponse.CredentialConfigurationIDs) == 0 {
 			return nil, fmt.Errorf("credential offer is empty")
 		}
 
 		slog.Info("Validating issuer", "url", f.trustRegistryURL)
 
-		credentialOffer := credentialOfferResponse.Credentials[0]
+		configurationID := credentialOfferResponse.CredentialConfigurationIDs[0]
+		credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
 
 		var credentialType string
 
-		for _, t := range credentialOffer.Types {
+		for _, t := range credentialConfiguration.CredentialDefinition.Type {
 			if t != "VerifiableCredential" {
 				credentialType = t
 				break
 			}
 		}
 
-		credentialFormat := string(credentialOffer.Format)
-
 		if err = trustregistry.NewClient(f.httpClient, f.trustRegistryURL).
 			ValidateIssuer(
 				credentialOfferResponse.CredentialIssuer,
 				"",
 				credentialType,
-				credentialFormat,
+				credentialConfiguration.Format,
 				lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
 			); err != nil {
 			return nil, fmt.Errorf("validate issuer: %w", err)
@@ -325,7 +324,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			"client_id":           []string{f.clientID},
 		}
 
-		if preAuthorizationGrant.UserPinRequired {
+		if preAuthorizationGrant.TxCode != nil {
 			if f.pin == "" {
 				fmt.Printf("\nEnter PIN:\n")
 				scanner := bufio.NewScanner(os.Stdin)
@@ -333,7 +332,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 				f.pin = scanner.Text()
 			}
 
-			tokenValues.Add("user_pin", f.pin)
+			tokenValues.Add("tx_code", f.pin)
 		}
 
 		if requireWalletAttestation {
@@ -460,8 +459,8 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 	}
 
-	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(
-		f.credentialType, f.credentialConfigurationID, f.oidcCredentialFormat)
+	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(f.credentialConfigurationID,
+		f.credentialType, f.oidcCredentialFormat)
 	if err != nil {
 		return "", fmt.Errorf("getAuthorizationDetailsRequestBody: %w", err)
 	}
@@ -925,7 +924,7 @@ func (f *Flow) handleIssuanceAck(
 //
 // Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 func (f *Flow) getAuthorizationDetailsRequestBody(
-	credentialType, credentialConfigurationID string, oidcCredentialFormat vcsverifiable.OIDCFormat,
+	credentialConfigurationID, credentialType string, oidcCredentialFormat vcsverifiable.OIDCFormat,
 ) ([]byte, error) {
 	res := make([]common.AuthorizationDetails, 1) // We do not support multiple authorization details for now.
 

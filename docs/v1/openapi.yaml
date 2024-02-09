@@ -729,10 +729,10 @@ paths:
                   type: string
                   nullable: true
                   description: 'REQUIRED, if pre-auth flow'
-                user_pin:
+                tx_code:
                   type: string
                   nullable: true
-                  description: 'REQUIRED, if pre-auth flow and pin was required in issue request'
+                  description: 'REQUIRED, if pre-auth flow and tx_code was present in the Credential Offer.'
               required:
                 - grant_type
         description: ''
