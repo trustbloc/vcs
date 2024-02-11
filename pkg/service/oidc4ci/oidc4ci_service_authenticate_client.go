@@ -28,7 +28,11 @@ func (s *Service) AuthenticateClient(
 		return nil
 	}
 
-	if profile.Checks.ClientAttestationCheck.PolicyURL == "" {
+	if !profile.Checks.ClientAttestationCheck.Enabled {
+		return errors.New("client attestation not set for profile") // this is profile configuration error
+	}
+
+	if profile.Checks.Policy.PolicyURL == "" {
 		return errors.New("policy url not set for profile") // this is profile configuration error
 	}
 
@@ -47,7 +51,7 @@ func (s *Service) AuthenticateClient(
 			errors.New("client_assertion is required"))
 	}
 
-	if err := s.clientAttestationService.ValidateIssuance(ctx, profile, clientAssertion); err != nil {
+	if err := s.trustRegistryService.ValidateIssuance(ctx, profile, clientAssertion); err != nil {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 

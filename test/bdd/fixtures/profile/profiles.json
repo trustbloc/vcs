@@ -1401,8 +1401,11 @@
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "checks": {
-          "clientAttestationCheck": {
+          "policy": {
             "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/issuer/policies/i_myprofile_jwt_client_attestation/v1.latest/interactions/issuance"
+          },
+          "clientAttestationCheck": {
+            "enabled": true
           }
         },
         "vcConfig": {
@@ -2309,8 +2312,11 @@
             "vcSubject": true,
             "proof": true
           },
-          "clientAttestationCheck": {
+          "policy": {
             "policyUrl": "https://mock-trustregistry.trustbloc.local:8098/verifier/policies/v_myprofile_jwt_client_attestation/v1.latest/interactions/presentation"
+          },
+          "clientAttestationCheck": {
+            "enabled": true
           }
         },
         "oidcConfig": {

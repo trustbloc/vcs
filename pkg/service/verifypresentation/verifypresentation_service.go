@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifypresentation -source=verifypresentation_service.go -mock_names vcVerifier=MockVcVerifier,clientAttestationService=MockClientAttestationService
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifypresentation -source=verifypresentation_service.go -mock_names vcVerifier=MockVcVerifier,trustRegistryService=MockTrustRegistryService
 
 package verifypresentation
 
@@ -39,30 +39,30 @@ type vcVerifier interface {
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
-type clientAttestationService interface {
+type trustRegistryService interface {
 	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, jwtVP string) error
 }
 
 type Config struct {
-	VDR                      vdrapi.Registry
-	DocumentLoader           ld.DocumentLoader
-	VcVerifier               vcVerifier
-	ClientAttestationService clientAttestationService
+	VDR                  vdrapi.Registry
+	DocumentLoader       ld.DocumentLoader
+	VcVerifier           vcVerifier
+	TrustRegistryService trustRegistryService
 }
 
 type Service struct {
-	vdr                      vdrapi.Registry
-	documentLoader           ld.DocumentLoader
-	vcVerifier               vcVerifier
-	clientAttestationService clientAttestationService
+	vdr                  vdrapi.Registry
+	documentLoader       ld.DocumentLoader
+	vcVerifier           vcVerifier
+	trustRegistryService trustRegistryService
 }
 
 func New(config *Config) *Service {
 	return &Service{
-		vdr:                      config.VDR,
-		documentLoader:           config.DocumentLoader,
-		vcVerifier:               config.VcVerifier,
-		clientAttestationService: config.ClientAttestationService,
+		vdr:                  config.VDR,
+		documentLoader:       config.DocumentLoader,
+		vcVerifier:           config.VcVerifier,
+		trustRegistryService: config.TrustRegistryService,
 	}
 }
 
@@ -89,12 +89,10 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	var targetPresentation interface{}
 	targetPresentation = presentation
 
-	attestationEnabled := profile.Checks.ClientAttestationCheck.PolicyURL != ""
-
-	if attestationEnabled {
+	if profile.Checks.Policy.PolicyURL != "" {
 		st := time.Now()
 
-		err := s.clientAttestationService.ValidatePresentation(
+		err := s.trustRegistryService.ValidatePresentation(
 			ctx,
 			profile,
 			presentation.JWT,
@@ -136,6 +134,8 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 			})
 		}
 	}
+
+	attestationEnabled := profile.Checks.ClientAttestationCheck.Enabled
 
 	if profile.Checks.Credential.CredentialExpiry {
 		err := s.checkCredentialExpiry(ctx, credentials, attestationEnabled)
@@ -212,7 +212,7 @@ func (s *Service) checkCredentialStrict(
 	claimKeysDict := map[string][]string{}
 
 	for _, cred := range credentials {
-		//TODO: check how bug fixed will affects other code.
+		// TODO: check how bug fixed will affects other code.
 		// previously if credential was not in format of *verifiable.Credential validations was ignored
 		// This happened for all json-ld credentials in verifiable.Presentation
 
