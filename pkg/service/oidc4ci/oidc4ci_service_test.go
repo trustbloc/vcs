@@ -1146,13 +1146,13 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 	t.Run("fail to authenticate client", func(t *testing.T) {
 		profileService := NewMockProfileService(gomock.NewController(t))
-		clientAttestationService := NewMockClientAttestationService(gomock.NewController(t))
+		trustRegistryService := NewMockTrustRegistryService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			ProfileService:           profileService,
-			ClientAttestationService: clientAttestationService,
-			TransactionStore:         storeMock,
+			ProfileService:       profileService,
+			TrustRegistryService: trustRegistryService,
+			TransactionStore:     storeMock,
 		})
 		assert.NoError(t, err)
 
@@ -1161,8 +1161,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 				TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 			},
 			Checks: profileapi.IssuanceChecks{
-				ClientAttestationCheck: profileapi.ClientAttestationCheck{
+				Policy: profileapi.PolicyCheck{
 					PolicyURL: "https://localhost/policy",
+				},
+				ClientAttestationCheck: profileapi.ClientAttestationCheck{
+					Enabled: true,
 				},
 			},
 		}, nil)
