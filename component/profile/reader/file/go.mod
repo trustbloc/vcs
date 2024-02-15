@@ -11,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.0.2-0.20231117120416-ed019bda587f
-	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a
+	github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
@@ -53,7 +53,7 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/glog v1.1.1 // indirect
@@ -115,7 +115,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/trustbloc/bbs-signature-go v1.0.1 // indirect
+	github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4 // indirect
 	github.com/trustbloc/sidetree-go v0.0.0-20231117115139-d71ec9786d12 // indirect
 	github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -134,13 +134,13 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
