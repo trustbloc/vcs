@@ -13,6 +13,8 @@ WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 COGNITO_AUTH_IMAGE_NAME				?= vcs/sample-cognito-auth
 OPENAPIGEN_VERSION 					?=v1.11.0
 VC_FRAMEWORK_VERSION				=	03fc2b8e9895d6256e1d154984de808dada3433e
+KMS_FRAMEWORK_VERSION = 59c2830d27fd44f9a3a663242a4aa61544ce622e
+SIDETREE_VERSION = 7a38a93ede50ea02ad98a1446dbd5f1bca1eeb9e
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
@@ -70,7 +72,7 @@ vc-rest:
 	@echo "Building vc-rest"
 	@mkdir -p ./.build/bin
 	@echo "Version is '$(VC_REST_VERSION)'"
-	@cd ${VC_REST_PATH} && go build -ldflags="-X main.Version=$(VC_REST_VERSION)" -o ../../.build/bin/vc-rest main.go
+	@cd ${VC_REST_PATH} && go build -ldflags="-X main.Version=$(VC_REST_VERSION)" -gcflags "all=-N -l" -o ../../.build/bin/vc-rest main.go
 
 .PHONY: vc-rest-docker
 vc-rest-docker: generate
@@ -231,6 +233,28 @@ update-vc:
 			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/vc-go@$(VC_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
 		fi; \
 	done
+
+.PHONY: update-kms
+update-kms:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/kms-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/kms-go@$(KMS_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
+
+DID_GO_VERSION=aa500e57d8bdf51c90c20d3a6c815fdc76f716c3
+.PHONY: update-did
+update-did:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/did-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/did-go@$(DID_GO_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
+
 
 .PHONY: tidy-modules
 tidy-modules:

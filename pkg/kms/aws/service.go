@@ -340,6 +340,8 @@ func (s *Service) Create(kt arieskms.KeyType) (string, interface{}, error) {
 		keySpec = types.KeySpecEccNistP521
 	case arieskms.ECDSASecp256k1DER:
 		keySpec = types.KeySpecEccSecgP256k1
+	case arieskms.RSARS256:
+		keySpec = types.KeySpecRsa2048
 	default:
 		return "", nil, fmt.Errorf("key not supported %s", kt)
 	}

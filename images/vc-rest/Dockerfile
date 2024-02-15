@@ -27,7 +27,8 @@ RUN GOPROXY=${GO_PROXY} make vc-rest
 
 FROM alpine:${ALPINE_VER} as base
 LABEL org.opencontainers.image.source https://github.com/trustbloc/vcs
-
+RUN apk add --no-cache --update delve --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/
 COPY --from=vcs /go/src/github.com/trustbloc/vcs/.build/bin/vc-rest /usr/local/bin
 
-ENTRYPOINT ["vc-rest"]
+#ENTRYPOINT ["vc-rest"]
+ENTRYPOINT ["dlv", "exec", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "/usr/local/bin/vc-rest", "--", "start"]
