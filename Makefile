@@ -14,7 +14,6 @@ COGNITO_AUTH_IMAGE_NAME				?= vcs/sample-cognito-auth
 OPENAPIGEN_VERSION 					?=v1.11.0
 VC_FRAMEWORK_VERSION				=	03fc2b8e9895d6256e1d154984de808dada3433e
 KMS_FRAMEWORK_VERSION = 59c2830d27fd44f9a3a663242a4aa61544ce622e
-SIDETREE_VERSION = 7a38a93ede50ea02ad98a1446dbd5f1bca1eeb9e
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
@@ -255,6 +254,16 @@ update-did:
 		fi; \
 	done
 
+SIDE_TREE=7a38a93ede50ea02ad98a1446dbd5f1bca1eeb9e
+.PHONY: update-sidetree
+update-sidetree:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/sidetree-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/sidetree-go@$(SIDE_TREE) && go mod tidy) || exit 1; \
+		fi; \
+	done
 
 .PHONY: tidy-modules
 tidy-modules:
