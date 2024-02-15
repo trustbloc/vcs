@@ -125,7 +125,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 				trustRegistryService = NewMockTrustRegistryService(gomock.NewController(t))
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "client attestation not set for profile")
+				require.ErrorContains(t, err, "client attestation is required but policy url not set for profile")
 			},
 		},
 		{
@@ -240,6 +240,29 @@ func TestService_AuthenticateClient(t *testing.T) {
 				require.ErrorContains(t, err, "validate error")
 			},
 		},
+		{
+			name: "client attestation check not set",
+			setup: func() {
+				profile = &profileapi.Issuer{
+					OIDCConfig: &profileapi.OIDCConfig{
+						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						Policy: profileapi.PolicyCheck{
+							PolicyURL: "https://policy.example.com",
+						},
+					},
+				}
+
+				clientAssertionType = "attest_jwt_client_auth"
+				clientAssertion = ""
+
+				trustRegistryService = NewMockTrustRegistryService(gomock.NewController(t))
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "client attestation check not set for profile")
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -250,7 +273,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			err = svc.AuthenticateClient(context.Background(), profile, clientAssertionType, clientAssertion)
+			err = svc.CheckPolicies(context.Background(), profile, clientAssertionType, clientAssertion)
 			tt.check(t, err)
 		})
 	}

@@ -439,7 +439,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		}
 	}
 
-	if err = s.AuthenticateClient(ctx, profile, clientAssertionType, clientAssertion); err != nil {
+	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion); err != nil {
 		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
