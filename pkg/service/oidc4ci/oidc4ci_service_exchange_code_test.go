@@ -142,14 +142,14 @@ func TestExchangeCodeAuthenticateClientError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	eventMock := NewMockEventService(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
-	clientAttestationService := NewMockClientAttestationService(gomock.NewController(t))
+	trustRegistryService := NewMockTrustRegistryService(gomock.NewController(t))
 
 	svc, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:         store,
-		ProfileService:           profileService,
-		ClientAttestationService: clientAttestationService,
-		EventService:             eventMock,
-		EventTopic:               spi.IssuerEventTopic,
+		TransactionStore:     store,
+		ProfileService:       profileService,
+		TrustRegistryService: trustRegistryService,
+		EventService:         eventMock,
+		EventTopic:           spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 
@@ -165,8 +165,11 @@ func TestExchangeCodeAuthenticateClientError(t *testing.T) {
 			TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 		},
 		Checks: profile.IssuanceChecks{
-			ClientAttestationCheck: profile.ClientAttestationCheck{
+			Policy: profile.PolicyCheck{
 				PolicyURL: "https://localhost/policy",
+			},
+			ClientAttestationCheck: profile.ClientAttestationCheck{
+				Enabled: true,
 			},
 		},
 	}, nil)

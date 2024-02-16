@@ -51,7 +51,7 @@ func (s *Service) ExchangeAuthorizationCode(
 		return nil, e
 	}
 
-	if err = s.AuthenticateClient(ctx, profile, clientAssertionType, clientAssertion); err != nil {
+	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}

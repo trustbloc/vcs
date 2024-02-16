@@ -18,8 +18,25 @@ import (
 
 const attestJWTClientAuthType = "attest_jwt_client_auth"
 
-func (s *Service) AuthenticateClient(
+func (s *Service) CheckPolicies(
 	ctx context.Context,
+	profile *profile.Issuer,
+	clientAssertionType,
+	clientAssertion string) error {
+	if err := s.validateClientAssertionConfig(profile, clientAssertionType, clientAssertion); err != nil {
+		return err
+	}
+
+	if profile.Checks.Policy.PolicyURL != "" {
+		if err := s.trustRegistryService.ValidateIssuance(ctx, profile, clientAssertion); err != nil {
+			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) validateClientAssertionConfig(
 	profile *profile.Issuer,
 	clientAssertionType,
 	clientAssertion string) error {
@@ -28,8 +45,15 @@ func (s *Service) AuthenticateClient(
 		return nil
 	}
 
-	if profile.Checks.ClientAttestationCheck.PolicyURL == "" {
-		return errors.New("policy url not set for profile") // this is profile configuration error
+	if profile.Checks.Policy.PolicyURL == "" {
+		// This is a profile configuration error
+		return errors.New("client attestation is required but policy url not set for profile")
+	}
+
+	// TODO: This check should be removed.
+	if !profile.Checks.ClientAttestationCheck.Enabled {
+		// This is a profile configuration error
+		return errors.New("client attestation check not set for profile")
 	}
 
 	if clientAssertionType == "" {
@@ -45,10 +69,6 @@ func (s *Service) AuthenticateClient(
 	if clientAssertion == "" {
 		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
 			errors.New("client_assertion is required"))
-	}
-
-	if err := s.clientAttestationService.ValidateIssuance(ctx, profile, clientAssertion); err != nil {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
 	return nil

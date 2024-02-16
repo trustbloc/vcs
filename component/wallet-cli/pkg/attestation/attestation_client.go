@@ -55,10 +55,28 @@ func NewClient(config *Config) *Client {
 	}
 }
 
-func (c *Client) GetAttestationVC(ctx context.Context) (*verifiable.Credential, error) {
+type options struct {
+	attestationRequest *AttestWalletInitRequest
+}
+
+type Opt func(*options)
+
+func WithAttestationRequest(value *AttestWalletInitRequest) Opt {
+	return func(o *options) {
+		o.attestationRequest = value
+	}
+}
+
+func (c *Client) GetAttestationVC(ctx context.Context, opts ...Opt) (*verifiable.Credential, error) {
 	logger.Debug("get attestation vc", zap.String("walletDID", c.walletDID))
 
-	initResp, err := c.attestationInit(ctx)
+	options := &options{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	initResp, err := c.attestationInit(ctx, options.attestationRequest)
 	if err != nil {
 		return nil, fmt.Errorf("attestation init: %w", err)
 	}
@@ -80,19 +98,21 @@ func (c *Client) GetAttestationVC(ctx context.Context) (*verifiable.Credential, 
 	return attestationVC, nil
 }
 
-func (c *Client) attestationInit(ctx context.Context) (*AttestWalletInitResponse, error) {
+func (c *Client) attestationInit(ctx context.Context, req *AttestWalletInitRequest) (*AttestWalletInitResponse, error) {
 	logger.Debug("attestation init started", zap.String("walletDID", c.walletDID))
 
-	req := &AttestWalletInitRequest{
-		Assertions: []string{
-			"wallet_authentication",
-		},
-		WalletAuthentication: map[string]interface{}{
-			"wallet_id": c.walletDID,
-		},
-		WalletMetadata: map[string]interface{}{
-			"wallet_name": "wallet-cli",
-		},
+	if req == nil {
+		req = &AttestWalletInitRequest{
+			Assertions: []string{
+				"wallet_authentication",
+			},
+			WalletAuthentication: map[string]interface{}{
+				"wallet_id": c.walletDID,
+			},
+			WalletMetadata: map[string]interface{}{
+				"wallet_name": "wallet-cli",
+			},
+		}
 	}
 
 	body, err := json.Marshal(req)

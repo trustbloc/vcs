@@ -55,17 +55,17 @@ func TestNew(t *testing.T) {
 			name: "OK",
 			args: args{
 				config: &Config{
-					VDR:                      &mockvdr.VDRegistry{},
-					DocumentLoader:           testutil.DocumentLoader(t),
-					VcVerifier:               NewMockVcVerifier(ctrl),
-					ClientAttestationService: NewMockClientAttestationService(ctrl),
+					VDR:                  &mockvdr.VDRegistry{},
+					DocumentLoader:       testutil.DocumentLoader(t),
+					VcVerifier:           NewMockVcVerifier(ctrl),
+					TrustRegistryService: NewMockTrustRegistryService(ctrl),
 				},
 			},
 			want: &Service{
-				vdr:                      &mockvdr.VDRegistry{},
-				documentLoader:           testutil.DocumentLoader(t),
-				vcVerifier:               NewMockVcVerifier(ctrl),
-				clientAttestationService: NewMockClientAttestationService(ctrl),
+				vdr:                  &mockvdr.VDRegistry{},
+				documentLoader:       testutil.DocumentLoader(t),
+				vcVerifier:           NewMockVcVerifier(ctrl),
+				trustRegistryService: NewMockTrustRegistryService(ctrl),
 			},
 		},
 	}
@@ -84,9 +84,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 	signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Ldp)
 
 	type fields struct {
-		getVDR                  func() vdrapi.Registry
-		getVcVerifier           func(t *testing.T) vcVerifier
-		getClientAttestationSrv func(t *testing.T) clientAttestationService
+		getVDR              func() vdrapi.Registry
+		getVcVerifier       func(t *testing.T) vcVerifier
+		getTrustRegistrySrv func(t *testing.T) trustRegistryService
 	}
 
 	type args struct {
@@ -127,8 +127,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
-				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
-					tr := NewMockClientAttestationService(gomock.NewController(t))
+				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
+					tr := NewMockTrustRegistryService(gomock.NewController(t))
 
 					tr.EXPECT().ValidatePresentation(
 						context.Background(),
@@ -161,8 +161,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 								"https://example.edu/issuers/14": {},
 							},
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://trustregistry.example.com",
+						},
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							Enabled: true,
 						},
 					},
 				},
@@ -198,8 +201,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
-				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
-					return NewMockClientAttestationService(gomock.NewController(t))
+				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
+					return NewMockTrustRegistryService(gomock.NewController(t))
 				},
 			},
 			args: args{
@@ -258,8 +261,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
-				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
-					return nil
+				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
+					return NewMockTrustRegistryService(gomock.NewController(t))
 				},
 			},
 			args: args{
@@ -312,7 +315,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getVcVerifier: func(t *testing.T) vcVerifier {
 					return nil
 				},
-				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
+				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
 					return nil
 				},
 			},
@@ -362,8 +365,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(errors.New("some error"))
 					return mockVerifier
 				},
-				getClientAttestationSrv: func(t *testing.T) clientAttestationService {
-					ca := NewMockClientAttestationService(gomock.NewController(t))
+				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
+					ca := NewMockTrustRegistryService(gomock.NewController(t))
 
 					ca.EXPECT().ValidatePresentation(
 						context.Background(),
@@ -394,8 +397,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 								"random": {},
 							},
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://trustregistry.example.com",
+						},
+						ClientAttestationCheck: profileapi.ClientAttestationCheck{
+							Enabled: true,
 						},
 					},
 				},
@@ -432,10 +438,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				vdr:                      tt.fields.getVDR(),
-				documentLoader:           loader,
-				vcVerifier:               tt.fields.getVcVerifier(t),
-				clientAttestationService: tt.fields.getClientAttestationSrv(t),
+				vdr:                  tt.fields.getVDR(),
+				documentLoader:       loader,
+				vcVerifier:           tt.fields.getVcVerifier(t),
+				trustRegistryService: tt.fields.getTrustRegistrySrv(t),
 			}
 
 			got, _, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(t), tt.args.opts, tt.args.profile)
