@@ -26,6 +26,7 @@ import (
 type Service struct {
 	HTTPClient  *http.Client
 	VDRRegistry vdrapi.Registry
+	issuerDID   string
 }
 
 // GetWellKnownOpenIDConfiguration returns OIDC Configuration.
@@ -66,11 +67,15 @@ func (s *Service) GetWellKnownOpenIDConfiguration(
 		return &oidcConfigUnsigned, nil
 	}
 
-	wellKnownOpenIDIssuerConfigurationPayload, err = getWellKnownOpenIDConfigurationJWTPayload(
+	var issuerDID []byte
+
+	wellKnownOpenIDIssuerConfigurationPayload, issuerDID, err = getWellKnownOpenIDConfigurationJWTPayload(
 		signedMetadata, s.VDRRegistry)
 	if err != nil {
 		return nil, err
 	}
+
+	s.issuerDID = string(issuerDID)
 
 	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
 
@@ -81,7 +86,7 @@ func (s *Service) GetWellKnownOpenIDConfiguration(
 	return &oidcConfig, nil
 }
 
-func getWellKnownOpenIDConfigurationJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, error) {
+func getWellKnownOpenIDConfigurationJWTPayload(rawResponse string, vdrRegistry vdrapi.Registry) ([]byte, []byte, error) {
 	jwtVerifier := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdrRegistry))
 
 	_, credentialOfferPayload, err := jwt.ParseAndCheckProof(
@@ -90,19 +95,23 @@ func getWellKnownOpenIDConfigurationJWTPayload(rawResponse string, vdrRegistry v
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("parse issuer configuration JWT: %w", err)
+		return nil, nil, fmt.Errorf("parse issuer configuration JWT: %w", err)
 	}
 
 	var fastParser fastjson.Parser
 	v, err := fastParser.ParseBytes(credentialOfferPayload)
 	if err != nil {
-		return nil, fmt.Errorf("decode claims: %w", err)
+		return nil, nil, fmt.Errorf("decode claims: %w", err)
 	}
 
 	sb, err := v.Get("well_known_openid_issuer_configuration").Object()
 	if err != nil {
-		return nil, fmt.Errorf("fastjson.Parser Get well_known_openid_issuer_configuration: %w", err)
+		return nil, nil, fmt.Errorf("fastjson.Parser Get well_known_openid_issuer_configuration: %w", err)
 	}
 
-	return sb.MarshalTo([]byte{}), nil
+	return sb.MarshalTo([]byte{}), v.GetStringBytes("iss"), nil
+}
+
+func (s *Service) GetIssuerDID() string {
+	return s.issuerDID
 }

@@ -83,7 +83,6 @@ import (
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
-	"github.com/trustbloc/vcs/pkg/service/clientattestation"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	clientmanagersvc "github.com/trustbloc/vcs/pkg/service/clientmanager"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
@@ -92,6 +91,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
+	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	wellknownfetcher "github.com/trustbloc/vcs/pkg/service/wellknown/fetcher"
@@ -687,8 +687,8 @@ func buildEchoHandler(
 
 	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(conf.VDR))
 
-	clientAttestationService := clientattestation.NewService(
-		&clientattestation.Config{
+	trustRegistryService := trustregistry.NewService(
+		&trustregistry.Config{
 			HTTPClient:       getHTTPClient(metricsProvider.ClientAttestationService),
 			DocumentLoader:   documentLoader,
 			ProofChecker:     proofChecker,
@@ -719,7 +719,7 @@ func buildEchoHandler(
 		KMSRegistry:                   kmsRegistry,
 		CryptoJWTSigner:               vcCrypto,
 		JSONSchemaValidator:           jsonSchemaValidator,
-		ClientAttestationService:      clientAttestationService,
+		TrustRegistryService:          trustRegistryService,
 		AckService:                    ackService,
 	})
 	if err != nil {
@@ -880,10 +880,10 @@ func buildEchoHandler(
 	var verifyPresentationSvc verifypresentation.ServiceInterface
 
 	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
-		VcVerifier:               verifyCredentialSvc,
-		DocumentLoader:           documentLoader,
-		VDR:                      conf.VDR,
-		ClientAttestationService: clientAttestationService,
+		VcVerifier:           verifyCredentialSvc,
+		DocumentLoader:       documentLoader,
+		VDR:                  conf.VDR,
+		TrustRegistryService: trustRegistryService,
 	})
 
 	if conf.IsTraceEnabled {

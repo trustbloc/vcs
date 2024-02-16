@@ -53,6 +53,10 @@ const (
 	customScopeWalletDetails = "walletdetails"
 )
 
+type trustRegistry interface {
+	ValidateVerifier(verifierDID, verifierDomain string, credentials []*verifiable.Credential) error
+}
+
 type Flow struct {
 	httpClient                     *http.Client
 	documentLoader                 ld.DocumentLoader
@@ -67,6 +71,7 @@ type Flow struct {
 	disableSchemaValidation        bool
 	trustRegistryURL               string
 	perfInfo                       *PerfInfo
+	trustRegistryClient            trustRegistry
 }
 
 type provider interface {
@@ -119,6 +124,14 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		kmssigner.NewKMSSigner(signer, signatureType, nil),
 	)
 
+	var trustRegistry trustRegistry
+
+	if o.trustRegistry != nil {
+		trustRegistry = o.trustRegistry
+	} else if o.trustRegistryURL != "" {
+		trustRegistry = trustregistry.NewClient(p.HTTPClient(), o.trustRegistryURL)
+	}
+
 	return &Flow{
 		httpClient:                     p.HTTPClient(),
 		documentLoader:                 p.DocumentLoader(),
@@ -131,7 +144,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
 		disableDomainMatching:          o.disableDomainMatching,
 		disableSchemaValidation:        o.disableSchemaValidation,
-		trustRegistryURL:               o.trustRegistryURL,
+		trustRegistryClient:            trustRegistry,
 		perfInfo:                       &PerfInfo{},
 	}, nil
 }
@@ -177,10 +190,10 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("query wallet: %w", err)
 	}
 
-	if f.trustRegistryURL != "" {
+	if f.trustRegistryClient != nil {
 		slog.Info("validate verifier", "url", f.trustRegistryURL)
 
-		if err = trustregistry.NewClient(f.httpClient, f.trustRegistryURL).
+		if err = f.trustRegistryClient.
 			ValidateVerifier(
 				requestObject.ClientID,
 				"",
@@ -703,6 +716,7 @@ type options struct {
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
 	trustRegistryURL               string
+	trustRegistry                  trustRegistry
 }
 
 type Opt func(opts *options)
@@ -740,5 +754,11 @@ func WithSchemaValidationDisabled() Opt {
 func WithTrustRegistryURL(url string) Opt {
 	return func(opts *options) {
 		opts.trustRegistryURL = url
+	}
+}
+
+func WithTrustRegistry(value trustRegistry) Opt {
+	return func(opts *options) {
+		opts.trustRegistry = value
 	}
 }
