@@ -733,8 +733,6 @@ func (s *Steps) checkIssuedCredential() error {
 	var vcParsed *verifiable.Credential
 
 	for _, vcBytes := range credentialMap {
-		fmt.Println("CREDENTIAL !!!!")
-		fmt.Println(string(vcBytes))
 		vcParsed, err = verifiable.ParseCredential(vcBytes,
 			verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader))

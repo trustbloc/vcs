@@ -14,7 +14,5 @@ cd test/bdd
 
 echo "Running vcs integration tests with tag=$TAGS"
 
-
-TAGS=@oidc4vc_rest_pre_auth_flow DISABLE_COMPOSITION=true go test -count=1 -v -cover . -p 1 -timeout=40m $TAGS
-
+go test -count=1 -v -cover . -p 1 -timeout=40m $TAGS
 cd $PWD
