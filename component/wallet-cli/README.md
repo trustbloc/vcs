@@ -99,7 +99,7 @@ used for this purpose. The following CLI arguments are supported:
       --trust-registry-url string          if supplied, wallet will run issuer verification in trust registry
       --user-login string                  user login on issuer IdP
       --user-password string               user password on issuer IdP
-      --wallet-did-index int               =igindex of wallet did, if not set the most recently created DID is used (default -1)
+      --wallet-did-index int               index of wallet did, if not set the most recently created DID is used (default -1)
 ```
 
 Examples:

@@ -49,7 +49,6 @@ services:
     ports:
       - "8075:8075"
       - "48127:48127"
-      - "40000:40000"
     depends_on:
       - did-resolver.trustbloc.local
     entrypoint: ""
