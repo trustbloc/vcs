@@ -426,8 +426,6 @@ func (f *Flow) sendAuthorizationResponse(
 		return fmt.Errorf("create id token: %w", err)
 	}
 
-	fmt.Println("VP TOKEN IS")
-	fmt.Println(string(vpToken))
 	v := url.Values{
 		"id_token": {idToken},
 		"vp_token": {vpToken},

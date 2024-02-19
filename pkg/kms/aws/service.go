@@ -232,10 +232,6 @@ func (s *Service) Sign(msg []byte, kh interface{}) ([]byte, error) { //nolint: f
 		return nil, err
 	}
 
-	fmt.Println(fmt.Sprintf("\n\nSIGNING DATA:"))
-	fmt.Println(fmt.Sprintf("Message: %s", string(msg)))
-	fmt.Println(fmt.Sprintf("Digest: %s", string(digest)))
-
 	input := &kms.SignInput{
 		KeyId:            aws.String(keyID),
 		Message:          digest,
@@ -328,7 +324,7 @@ func (s *Service) ExportPubKeyBytes(keyURI string) ([]byte, arieskms.KeyType, er
 }
 
 func (s *Service) selectSignAlgo(keyType types.KeySpec, algo []types.SigningAlgorithmSpec) types.SigningAlgorithmSpec {
-	switch keyType {
+	switch keyType { //nolint:exhaustive
 	case types.KeySpecRsa2048, types.KeySpecRsa3072, types.KeySpecRsa4096:
 		return types.SigningAlgorithmSpecRsassaPkcs1V15Sha256
 	default:
