@@ -196,7 +196,7 @@ func (s *Manager) updateCSLIndexWrapper(ctx context.Context,
 
 	// If amount of used indexes is the same as list size - createCSLIndexWrapper new CSL (ListID, VC and Index Wrapper).
 	// TODO: We should have used indexes > some percent of list size (e.g. 75-90%) in order to avoid collisions.
-	if len(wrapper.UsedIndexes) == s.listSize {
+	if len(wrapper.UsedIndexes) == s.listSize || true {
 		logger.Debugc(ctx, "reached size limit for CSL, creating new CSL ...")
 		_, createErr := s.createCSLIndexWrapper(ctx, profile)
 		if createErr != nil {

@@ -13,7 +13,7 @@ require (
 	github.com/trustbloc/did-go v1.1.1-0.20240214160354-aa500e57d8bd
 	github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/sidetree-go v1.0.1-0.20240215182200-7a38a93ede50
+	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 

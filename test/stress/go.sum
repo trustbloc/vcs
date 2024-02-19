@@ -568,8 +568,8 @@ github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd h1:PjVO8xIavIpw
 github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd/go.mod h1:23chV97aYVcT3ihO8xO9+T0KZn9lFGbk2KXhJNaHbXE=
 github.com/trustbloc/logutil-go v1.0.0-rc1 h1:rRJbvgQfrlUfyej+mY0nuQJymGqjRW4oZEwKi544F4c=
 github.com/trustbloc/logutil-go v1.0.0-rc1/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
-github.com/trustbloc/sidetree-go v1.0.1-0.20240215182200-7a38a93ede50 h1:L5+o41Gta8H9nGbhgsJFlxKcJwzlsvpbZuHXWIjSXIU=
-github.com/trustbloc/sidetree-go v1.0.1-0.20240215182200-7a38a93ede50/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
+github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4muaGvhjJ4OkG6/PQG3DGf5POWxlA1wwEYsxWQ+4=
+github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
 github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734 h1:2+TO4pyXzPnKs8qK8tItu/lLNJAGpL7MxVVjaZ6SAzQ=
 github.com/trustbloc/vc-go v1.0.3-0.20231117124429-a8a3b24ef734/go.mod h1:nPbBUX9nu8j3WX6G54u1szoep/89RBmAZghbVgrGxWc=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=

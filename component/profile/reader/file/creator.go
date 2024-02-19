@@ -36,6 +36,7 @@ var signatureTypeToDidVerificationMethod = map[vcsverifiable.SignatureType]strin
 	vcsverifiable.ES256:  crypto.JSONWebKey2020,
 	vcsverifiable.ES384:  crypto.JSONWebKey2020,
 	vcsverifiable.PS256:  crypto.JSONWebKey2020,
+	vcsverifiable.RS256:  crypto.JSONWebKey2020,
 }
 
 // createResult contains created did, update and recovery keys.

@@ -254,7 +254,7 @@ update-did:
 		fi; \
 	done
 
-SIDE_TREE=7a38a93ede50ea02ad98a1446dbd5f1bca1eeb9e
+SIDE_TREE=f4260aff710479ba5fa3f0c61b51d451d9041225
 .PHONY: update-sidetree
 update-sidetree:
 	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
