@@ -13,10 +13,10 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/doc/did/endpoint"
 	"github.com/trustbloc/did-go/method/key"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -36,6 +36,7 @@ var signatureTypeToDidVerificationMethod = map[vcsverifiable.SignatureType]strin
 	vcsverifiable.ES256:  crypto.JSONWebKey2020,
 	vcsverifiable.ES384:  crypto.JSONWebKey2020,
 	vcsverifiable.PS256:  crypto.JSONWebKey2020,
+	vcsverifiable.RS256:  crypto.JSONWebKey2020,
 }
 
 // createResult contains created did, update and recovery keys.

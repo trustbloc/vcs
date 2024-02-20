@@ -27,7 +27,6 @@ RUN GOPROXY=${GO_PROXY} make vc-rest
 
 FROM alpine:${ALPINE_VER} as base
 LABEL org.opencontainers.image.source https://github.com/trustbloc/vcs
-
 COPY --from=vcs /go/src/github.com/trustbloc/vcs/.build/bin/vc-rest /usr/local/bin
 
 ENTRYPOINT ["vc-rest"]

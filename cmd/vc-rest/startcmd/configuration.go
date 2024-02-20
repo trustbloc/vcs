@@ -17,10 +17,10 @@ import (
 	"github.com/trustbloc/did-go/method/httpbinding"
 	"github.com/trustbloc/did-go/method/jwk"
 	"github.com/trustbloc/did-go/method/key"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	"github.com/trustbloc/did-go/method/web"
 	vdrpkg "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/observability/tracing"
