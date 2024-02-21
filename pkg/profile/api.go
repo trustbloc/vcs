@@ -108,7 +108,6 @@ type Claim struct {
 	Pattern   string `json:"pattern"`
 	Mask      string `json:"mask"`
 	Display   []L10n `json:"display"`
-	Order     *int   `json:"order,omitempty"`
 }
 
 type L10n struct {
