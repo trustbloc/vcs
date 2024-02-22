@@ -27,24 +27,24 @@ import (
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
-	"github.com/trustbloc/did-go/doc/ld/documentloader"
-	"github.com/trustbloc/vc-go/proof/defaults"
-	"github.com/trustbloc/vc-go/vermethod"
-	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-
+	"github.com/go-jose/go-jose/v3"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	jsonld "github.com/piprate/json-gold/ld"
 	echopprof "github.com/sevenNt/echo-pprof"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/did-go/doc/ld/context/remote"
+	"github.com/trustbloc/did-go/doc/ld/documentloader"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
@@ -702,6 +702,7 @@ func buildEchoHandler(
 		AckStore:   ackStore,
 		ProfileSvc: issuerProfileSvc,
 	})
+
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
@@ -811,19 +812,36 @@ func buildEchoHandler(
 		TransactionStore: oidc4ciTransactionStore,
 	})
 
+	jweEncrypterCreator := func(jwk jose.JSONWebKey, alg jose.KeyAlgorithm, enc jose.ContentEncryption) (jose.Encrypter, error) { //nolint:lll
+		return jose.NewEncrypter(
+			enc,
+			jose.Recipient{
+				Algorithm: alg,
+				Key:       jwk,
+			},
+			nil,
+		)
+	}
+
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
+		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		IssuerInteractionClient: issuerInteractionClient,
 		ProfileService:          issuerProfileSvc,
-		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
-		HTTPClient:              getHTTPClient(metricsProvider.ClientOIDC4CIV1),
-		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		JWTVerifier:             proofChecker,
 		ClientManager:           clientManagerService,
 		ClientIDSchemeService:   clientIDSchemeSvc,
+		JWTVerifier:             proofChecker,
+		CWTVerifier:             proofChecker,
 		Tracer:                  conf.Tracer,
+		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL,   // use api gateway here, as this endpoint will be called by clients
+		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		AckService:              ackService,
+		JWEEncrypterCreator:     jweEncrypterCreator,
+		DocumentLoader:          documentLoader,
+		Vdr:                     conf.VDR,
+		ProofChecker:            proofChecker,
+		LDPProofParser:          oidc4civ1.NewDefaultLDPProofParser(),
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{

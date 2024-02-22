@@ -20,6 +20,42 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
+// An object that describes specifics of the Credential that the Credential Issuer supports issuance of.
+type CredentialConfigurationsSupported struct {
+	// For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs, where each name identifies a claim about the subject offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
+	Claims *map[string]interface{} `json:"claims,omitempty"`
+
+	// Object containing the detailed description of the credential type.
+	CredentialDefinition *externalRef0.CredentialDefinition `json:"credential_definition,omitempty"`
+
+	// Array of case sensitive strings that identify how the Credential is bound to the identifier of the End-User who possesses the Credential.
+	CryptographicBindingMethodsSupported *[]string `json:"cryptographic_binding_methods_supported,omitempty"`
+
+	// Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
+	CryptographicSuitesSupported *[]string `json:"cryptographic_suites_supported,omitempty"`
+
+	// An array of objects, where each object contains the display properties of the supported credential for a certain language.
+	Display *[]CredentialDisplay `json:"display,omitempty"`
+
+	// For mso_mdoc vc only. String identifying the Credential type, as defined in [ISO.18013-5].
+	Doctype *string `json:"doctype,omitempty"`
+
+	// A JSON string identifying the format of this credential, i.e., jwt_vc_json or ldp_vc. Depending on the format value, the object contains further elements defining the type and (optionally) particular claims the credential MAY contain and information about how to display the credential.
+	Format string `json:"format"`
+
+	// Array of the claim name values that lists them in the order they should be displayed by the Wallet.
+	Order *[]string `json:"order,omitempty"`
+
+	// A JSON array of case sensitive strings, each representing proof_type that the Credential Issuer supports. If omitted, the default value is jwt.
+	ProofTypes *[]string `json:"proof_types,omitempty"`
+
+	// A JSON string identifying the scope value that this Credential Issuer supports for this particular credential.
+	Scope *string `json:"scope,omitempty"`
+
+	// For vc+sd-jwt vc only. String designating the type of a Credential, as defined in https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc-01
+	Vct *string `json:"vct,omitempty"`
+}
+
 // CredentialDisplay defines model for CredentialDisplay.
 type CredentialDisplay struct {
 	BackgroundColor *string `json:"background_color,omitempty"`
@@ -51,6 +87,18 @@ type CredentialIssuanceHistoryData struct {
 	TransactionId *string `json:"transaction_id,omitempty"`
 }
 
+// Object containing information about whether the Credential Issuer supports encryption of the Credential and Batch Credential Response on top of TLS
+type CredentialResponseEncryptionSupported struct {
+	// Array containing a list of the JWE [RFC7516] encryption algorithms (alg values) [RFC7518] supported by the Credential and Batch Credential Endpoint to encode the Credential or Batch Credential Response in a JWT [RFC7519].
+	AlgValuesSupported []string `json:"alg_values_supported"`
+
+	// Array containing a list of the JWE [RFC7516] encryption algorithms (enc values) [RFC7518] supported by the Credential and Batch Credential Endpoint to encode the Credential or Batch Credential Response in a JWT [RFC7519].
+	EncValuesSupported []string `json:"enc_values_supported"`
+
+	// Boolean value specifying whether the Credential Issuer requires the additional encryption on top of TLS for the Credential Response. If the value is true, the Credential Issuer requires encryption for every Credential Response and therefore the Wallet MUST provide encryption keys in the Credential Request. If the value is false, the Wallet MAY chose whether it provides encryption keys or not.
+	EncryptionRequired bool `json:"encryption_required"`
+}
+
 // Credential status.
 type CredentialStatus struct {
 	Status string `json:"status"`
@@ -77,7 +125,8 @@ type ExchangeAuthorizationCodeRequest struct {
 
 // Response model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeResponse struct {
-	TxId string `json:"tx_id"`
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+	TxId                 string                               `json:"tx_id"`
 }
 
 // Model for Initiate OIDC Credential Issuance Request.
@@ -182,7 +231,9 @@ type IssueCredentialOptions struct {
 // Logo defines model for Logo.
 type Logo struct {
 	AltText *string `json:"alt_text,omitempty"`
-	Url     *string `json:"url,omitempty"`
+
+	// String value that contains a URI where the Wallet can obtain the logo of the Credential Issuer.
+	Uri string `json:"uri"`
 }
 
 // Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
@@ -195,9 +246,8 @@ type OAuthParameters struct {
 
 // Model for Prepare Claim Data Authorization Request.
 type PrepareClaimDataAuthorizationRequest struct {
-	// Model to convey the details about the Credentials the Client wants to obtain.
-	AuthorizationDetails *externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
-	OpState              string                             `json:"op_state"`
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+	OpState              string                               `json:"op_state"`
 
 	// Value MUST be set to "code".
 	ResponseType string    `json:"response_type"`
@@ -234,6 +284,9 @@ type PrepareCredential struct {
 	// Hashed token received from the client.
 	HashedToken string `json:"hashed_token"`
 
+	// Object containing requested information for encrypting the Credential Response.
+	RequestedCredentialResponseEncryption *RequestedCredentialResponseEncryption `json:"requested_credential_response_encryption,omitempty"`
+
 	// Transaction ID.
 	TxId string `json:"tx_id"`
 
@@ -259,9 +312,17 @@ type PrepareCredentialResult struct {
 
 // Model for Push Authorization Details request.
 type PushAuthorizationDetailsRequest struct {
-	// Model to convey the details about the Credentials the Client wants to obtain.
-	AuthorizationDetails externalRef0.AuthorizationDetails `json:"authorization_details"`
-	OpState              string                            `json:"op_state"`
+	AuthorizationDetails []externalRef0.AuthorizationDetails `json:"authorization_details"`
+	OpState              string                              `json:"op_state"`
+}
+
+// Object containing requested information for encrypting the Credential Response.
+type RequestedCredentialResponseEncryption struct {
+	// JWE alg algorithm for encrypting the Credential Response.
+	Alg string `json:"alg"`
+
+	// JWE enc algorithm for encrypting the Credential Response.
+	Enc string `json:"enc"`
 }
 
 // Model for storing auth code from issuer oauth
@@ -306,6 +367,9 @@ type ValidatePreAuthorizedCodeRequest struct {
 
 // Model for validating pre-authorized code and pin.
 type ValidatePreAuthorizedCodeResponse struct {
+	// REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+
 	// Op state.
 	OpState string `json:"op_state"`
 
@@ -349,46 +413,66 @@ type WellKnownOpenIDConfiguration struct {
 // WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
 type WellKnownOpenIDIssuerConfiguration struct {
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
-	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	AuthorizationEndpoint *string `json:"authorization_endpoint,omitempty"`
 
 	// URL of the Credential Issuer's Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.
 	BatchCredentialEndpoint *string `json:"batch_credential_endpoint,omitempty"`
 
 	// URL of the acknowledgement endpoint.
-	CredentialAckEndpoint string `json:"credential_ack_endpoint"`
+	CredentialAckEndpoint *string `json:"credential_ack_endpoint,omitempty"`
+
+	// An object that describes specifics of the Credential that the Credential Issuer supports issuance of. This object contains a list of name/value pairs, where each name is a unique identifier of the supported credential being described.
+	CredentialConfigurationsSupported *WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported `json:"credential_configurations_supported,omitempty"`
 
 	// URL of the Credential Issuer's Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components.
-	CredentialEndpoint string `json:"credential_endpoint"`
+	CredentialEndpoint *string `json:"credential_endpoint,omitempty"`
+
+	// Boolean value specifying whether the Credential Issuer supports returning credential_identifiers parameter in the authorization_details Token Response parameter, with true indicating support. If omitted, the default value is false.
+	CredentialIdentifiersSupported *bool `json:"credential_identifiers_supported,omitempty"`
 
 	// The Credential Issuer's identifier.
-	CredentialIssuer string `json:"credential_issuer"`
+	CredentialIssuer *string `json:"credential_issuer,omitempty"`
 
-	// A JSON array containing a list of JSON objects, each of them representing metadata about a separate credential type that the Credential Issuer can issue.
-	CredentialsSupported []interface{} `json:"credentials_supported"`
+	// Object containing information about whether the Credential Issuer supports encryption of the Credential and Batch Credential Response on top of TLS
+	CredentialResponseEncryption *CredentialResponseEncryptionSupported `json:"credential_response_encryption,omitempty"`
+
+	// URL of the Credential Issuer's Deferred Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path, and query parameter components. If omitted, the Credential Issuer does not support the Deferred Credential Endpoint.
+	DeferredCredentialEndpoint *string `json:"deferred_credential_endpoint,omitempty"`
 
 	// An array of objects, where each object contains display properties of a Credential Issuer for a certain language.
 	Display *[]CredentialDisplay `json:"display,omitempty"`
 
 	// JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
-	GrantTypesSupported []string `json:"grant_types_supported"`
+	GrantTypesSupported *[]string `json:"grant_types_supported,omitempty"`
+
+	// URL of the Credential Issuer's Notification Endpoint. This URL MUST use the https scheme and MAY contain port, path, and query parameter components. If omitted, the Credential Issuer does not support the Notification Endpoint.
+	NotificationEndpoint *string `json:"notification_endpoint,omitempty"`
 
 	// JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
-	PreAuthorizedGrantAnonymousAccessSupported bool `json:"pre-authorized_grant_anonymous_access_supported"`
+	PreAuthorizedGrantAnonymousAccessSupported *bool `json:"pre-authorized_grant_anonymous_access_supported,omitempty"`
 
 	// URL of the OP's Dynamic Client Registration Endpoint.
 	RegistrationEndpoint *string `json:"registration_endpoint,omitempty"`
 
 	// JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
-	ResponseTypesSupported []string `json:"response_types_supported"`
+	ResponseTypesSupported *[]string `json:"response_types_supported,omitempty"`
 
 	// JSON array containing a list of the OAuth 2.0 [RFC6749] scope values that this server supports.
-	ScopesSupported []string `json:"scopes_supported"`
+	ScopesSupported *[]string `json:"scopes_supported,omitempty"`
+
+	// String that is a signed JWT. This JWT contains Credential Issuer metadata parameters as claims.
+	SignedMetadata *string `json:"signed_metadata,omitempty"`
 
 	// URL of the OP's OAuth 2.0 Token Endpoint.
-	TokenEndpoint string `json:"token_endpoint"`
+	TokenEndpoint *string `json:"token_endpoint,omitempty"`
 
 	// JSON array containing a list of client authentication methods supported by this token endpoint. Default is "none".
-	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
+	TokenEndpointAuthMethodsSupported *[]string `json:"token_endpoint_auth_methods_supported,omitempty"`
+}
+
+// An object that describes specifics of the Credential that the Credential Issuer supports issuance of. This object contains a list of name/value pairs, where each name is a unique identifier of the supported credential being described.
+type WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported struct {
+	AdditionalProperties map[string]CredentialConfigurationsSupported `json:"-"`
 }
 
 // PostCredentialsStatusJSONBody defines parameters for PostCredentialsStatus.
@@ -444,6 +528,59 @@ type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// Getter for additional properties for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported. Returns the specified
+// element and whether it was found
+func (a WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported) Get(fieldName string) (value CredentialConfigurationsSupported, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported
+func (a *WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported) Set(fieldName string, value CredentialConfigurationsSupported) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]CredentialConfigurationsSupported)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported to handle AdditionalProperties
+func (a *WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]CredentialConfigurationsSupported)
+		for fieldName, fieldBuf := range object {
+			var fieldVal CredentialConfigurationsSupported
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported to handle AdditionalProperties
+func (a WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error

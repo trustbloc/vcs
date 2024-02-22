@@ -22,6 +22,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
@@ -64,6 +65,14 @@ func NewService(config *Config) *Service {
 // GetOpenIDCredentialIssuerConfig returns issuer.WellKnownOpenIDIssuerConfiguration object, and
 // it's JWT signed representation, if this feature is enabled for specific profile.
 //
+// # Note, that if the Credential Issuer wants to enforce use of signed metadata,
+// it omits the respective metadata parameters from the unsigned part of the Credential Issuer metadata.
+// In this case, HTTP response should be:
+//
+//	{
+//	 "signed_metadata": "jwt_representation"
+//	}
+//
 // Used for creating GET .well-known/openid-credential-issuer VCS IDP response.
 func (s *Service) GetOpenIDCredentialIssuerConfig(
 	issuerProfile *profileapi.Issuer) (*issuer.WellKnownOpenIDIssuerConfiguration, string, error) {
@@ -85,80 +94,55 @@ func (s *Service) GetOpenIDCredentialIssuerConfig(
 }
 
 func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issuer.WellKnownOpenIDIssuerConfiguration {
+	// TODO: add support of internationalization and Accept-Language Header for this function.
+	// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-11.2.2
+	// For now, the following option from the spec supported:
+	// - ignore the Accept-Language Header and send all supported languages or any chosen subset.
 	host := s.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
 	}
 
-	var finalCredentials []interface{}
-	for _, t := range issuerProfile.CredentialMetaData.CredentialsSupported {
-		if issuerProfile.VCConfig != nil {
-			t["cryptographic_binding_methods_supported"] = []string{string(issuerProfile.VCConfig.DIDMethod)}
-			t["cryptographic_suites_supported"] = []string{string(issuerProfile.VCConfig.KeyType)}
-		}
-		finalCredentials = append(finalCredentials, t)
-	}
-
-	var display []issuer.CredentialDisplay
-
-	if issuerProfile.CredentialMetaData.Display != nil {
-		display = make([]issuer.CredentialDisplay, 0, len(issuerProfile.CredentialMetaData.Display))
-
-		for _, d := range issuerProfile.CredentialMetaData.Display {
-			credentialDisplay := issuer.CredentialDisplay{
-				BackgroundColor: lo.ToPtr(d.BackgroundColor),
-				Locale:          lo.ToPtr(d.Locale),
-				Name:            lo.ToPtr(d.Name),
-				TextColor:       lo.ToPtr(d.TextColor),
-				Url:             lo.ToPtr(d.URL),
-			}
-
-			if d.Logo != nil {
-				credentialDisplay.Logo = &issuer.Logo{
-					AltText: lo.ToPtr(d.Logo.AlternativeText),
-					Url:     lo.ToPtr(d.Logo.URL),
-				}
-			}
-
-			display = append(display, credentialDisplay)
-		}
-	} else {
-		display = []issuer.CredentialDisplay{
-			{
-				Locale: lo.ToPtr("en-US"),
-				Name:   lo.ToPtr(issuerProfile.Name),
-				Url:    lo.ToPtr(issuerProfile.URL),
-			},
-		}
-	}
+	credentialsConfigurationSupported := s.buildCredentialConfigurationsSupported(issuerProfile)
 
 	issuerURL, _ := url.JoinPath(s.externalHostURL, "issuer", issuerProfile.ID, issuerProfile.Version)
 
+	credentialIssuerMetadataDisplay := s.buildCredentialIssuerMetadataDisplay(
+		issuerProfile.Name,
+		issuerProfile.URL,
+		issuerProfile.CredentialMetaData.Display,
+	)
+
 	final := &issuer.WellKnownOpenIDIssuerConfiguration{
-		AuthorizationEndpoint:   fmt.Sprintf("%soidc/authorize", host),
-		BatchCredentialEndpoint: nil, // no support for now
-		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
-		CredentialIssuer:        issuerURL,
-		CredentialsSupported:    finalCredentials,
-		Display:                 lo.ToPtr(display),
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
-		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
+		CredentialIssuer:                  &issuerURL,
+		AuthorizationEndpoint:             lo.ToPtr(fmt.Sprintf("%soidc/authorize", host)),
+		CredentialEndpoint:                lo.ToPtr(fmt.Sprintf("%soidc/credential", host)),
+		BatchCredentialEndpoint:           nil, // no support for now
+		DeferredCredentialEndpoint:        nil,
+		NotificationEndpoint:              nil,
+		CredentialResponseEncryption:      nil,
+		CredentialIdentifiersSupported:    nil,
+		SignedMetadata:                    nil,
+		Display:                           lo.ToPtr(credentialIssuerMetadataDisplay),
+		CredentialConfigurationsSupported: credentialsConfigurationSupported,
+
+		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/acknowledgement", host)),
+		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
+		ResponseTypesSupported: lo.ToPtr([]string{"code"}),
 	}
 
 	if issuerProfile.OIDCConfig != nil {
-		final.GrantTypesSupported = issuerProfile.OIDCConfig.GrantTypesSupported
-		final.ScopesSupported = issuerProfile.OIDCConfig.ScopesSupported
-		final.PreAuthorizedGrantAnonymousAccessSupported = issuerProfile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
-		final.TokenEndpointAuthMethodsSupported = issuerProfile.OIDCConfig.TokenEndpointAuthMethodsSupported
-
 		if issuerProfile.OIDCConfig.EnableDynamicClientRegistration {
 			regURL, _ := url.JoinPath(host, "oidc", issuerProfile.ID, issuerProfile.Version, "register")
 
 			final.RegistrationEndpoint = lo.ToPtr(regURL)
 		}
+
+		final.TokenEndpointAuthMethodsSupported = lo.ToPtr(issuerProfile.OIDCConfig.TokenEndpointAuthMethodsSupported)
+		final.ScopesSupported = lo.ToPtr(issuerProfile.OIDCConfig.ScopesSupported)
+		final.GrantTypesSupported = lo.ToPtr(issuerProfile.OIDCConfig.GrantTypesSupported)
+		final.PreAuthorizedGrantAnonymousAccessSupported =
+			lo.ToPtr(issuerProfile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported)
 	}
 
 	return final
@@ -196,4 +180,123 @@ func (s *Service) signIssuerMetadata(
 	}
 
 	return signedIssuerMetadata, nil
+}
+
+func (s *Service) buildCredentialIssuerMetadataDisplay(
+	issuerProfileName, issuerProfileURL string,
+	issuerProfileDisplay []*profileapi.CredentialDisplay,
+) []issuer.CredentialDisplay {
+	var display []issuer.CredentialDisplay
+	if issuerProfileDisplay != nil {
+		display = make([]issuer.CredentialDisplay, 0, len(issuerProfileDisplay))
+
+		for _, d := range issuerProfileDisplay {
+			credentialDisplay := issuer.CredentialDisplay{
+				BackgroundColor: lo.ToPtr(d.BackgroundColor),
+				Locale:          lo.ToPtr(d.Locale),
+				Name:            lo.ToPtr(d.Name),
+				TextColor:       lo.ToPtr(d.TextColor),
+				Url:             lo.ToPtr(d.URL),
+			}
+
+			if d.Logo != nil {
+				credentialDisplay.Logo = &issuer.Logo{
+					AltText: lo.ToPtr(d.Logo.AlternativeText),
+					Uri:     d.Logo.URI,
+				}
+			}
+
+			display = append(display, credentialDisplay)
+		}
+	} else {
+		display = []issuer.CredentialDisplay{
+			{
+				Locale: lo.ToPtr("en-US"),
+				Name:   lo.ToPtr(issuerProfileName),
+				Url:    lo.ToPtr(issuerProfileURL),
+			},
+		}
+	}
+
+	return display
+}
+
+func (s *Service) buildCredentialConfigurationsSupported(
+	issuerProfile *profileapi.Issuer,
+) *issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported {
+	credentialsConfigurationSupported := &issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported{}
+
+	credentialConfSupported := issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	for credentialConfigurationID, credentialSupported := range credentialConfSupported {
+		var cryptographicBindingMethodsSupported, cryptographicSuitesSupported []string
+
+		if issuerProfile.VCConfig != nil {
+			cryptographicBindingMethodsSupported = []string{string(issuerProfile.VCConfig.DIDMethod)}
+			cryptographicSuitesSupported = []string{string(issuerProfile.VCConfig.KeyType)}
+		}
+
+		display := s.buildCredentialConfigurationsSupportedDisplay(credentialSupported.Display)
+		credentialDefinition := s.buildCredentialDefinition(credentialSupported.CredentialDefinition)
+
+		credentialsConfigurationSupported.Set(credentialConfigurationID, issuer.CredentialConfigurationsSupported{
+			Claims:                               lo.ToPtr(credentialSupported.Claims),
+			CredentialDefinition:                 credentialDefinition,
+			CryptographicBindingMethodsSupported: lo.ToPtr(cryptographicBindingMethodsSupported),
+			CryptographicSuitesSupported:         lo.ToPtr(cryptographicSuitesSupported),
+			Display:                              lo.ToPtr(display),
+			Doctype:                              lo.ToPtr(credentialSupported.Doctype),
+			Format:                               string(credentialSupported.Format),
+			Order:                                lo.ToPtr(credentialSupported.Order),
+			ProofTypes:                           lo.ToPtr([]string{"jwt"}),
+			Scope:                                lo.ToPtr(credentialSupported.Scope),
+			Vct:                                  lo.ToPtr(credentialSupported.Vct),
+		})
+	}
+
+	return credentialsConfigurationSupported
+}
+
+func (s *Service) buildCredentialDefinition(
+	issuerCredentialDefinition *profileapi.CredentialDefinition,
+) *common.CredentialDefinition {
+	credentialSubject := make(map[string]interface{}, len(issuerCredentialDefinition.CredentialSubject))
+
+	for k, v := range issuerCredentialDefinition.CredentialSubject {
+		credentialSubject[k] = v
+	}
+
+	return &common.CredentialDefinition{
+		Context:           lo.ToPtr(issuerCredentialDefinition.Context),
+		CredentialSubject: lo.ToPtr(credentialSubject),
+		Type:              issuerCredentialDefinition.Type,
+	}
+}
+
+func (s *Service) buildCredentialConfigurationsSupportedDisplay(
+	credentialSupportedDisplay []*profileapi.CredentialDisplay,
+) []issuer.CredentialDisplay {
+	credentialConfigurationsSupportedDisplay := make([]issuer.CredentialDisplay, 0, len(credentialSupportedDisplay))
+
+	for _, display := range credentialSupportedDisplay {
+		var logo *issuer.Logo
+		if display.Logo != nil {
+			logo = &issuer.Logo{
+				AltText: lo.ToPtr(display.Logo.AlternativeText),
+				Uri:     display.Logo.URI,
+			}
+		}
+
+		credentialDisplay := issuer.CredentialDisplay{
+			BackgroundColor: lo.ToPtr(display.BackgroundColor),
+			Locale:          lo.ToPtr(display.Locale),
+			Logo:            logo,
+			Name:            lo.ToPtr(display.Name),
+			TextColor:       lo.ToPtr(display.TextColor),
+			Url:             lo.ToPtr(display.URL),
+		}
+
+		credentialConfigurationsSupportedDisplay = append(credentialConfigurationsSupportedDisplay, credentialDisplay)
+	}
+
+	return credentialConfigurationsSupportedDisplay
 }

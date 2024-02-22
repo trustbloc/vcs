@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -41,6 +42,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -73,7 +75,7 @@ type Flow struct {
 	documentLoader             ld.DocumentLoader
 	vdrRegistry                vdrapi.Registry
 	signer                     jose.Signer
-	proofBuilder               JWTProofBuilder
+	proofBuilder               ProofBuilder
 	wallet                     *wallet.Wallet
 	wellKnownService           *wellknown.Service
 	trustRegistryURL           string
@@ -81,7 +83,8 @@ type Flow struct {
 	flowType                   FlowType
 	credentialOffer            string
 	credentialType             string
-	credentialFormat           string
+	oidcCredentialFormat       vcsverifiable.OIDCFormat
+	credentialConfigurationID  string
 	clientID                   string
 	scopes                     []string
 	redirectURI                string
@@ -103,8 +106,6 @@ type provider interface {
 	Wallet() *wallet.Wallet
 	WellKnownService() *wellknown.Service
 }
-
-type JWTProofBuilder func(claims *JWTProofClaims, headers map[string]interface{}, signer jose.Signer) (string, error)
 
 func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	o := &options{
@@ -174,23 +175,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	proofBuilder := o.proofBuilder
 
 	if proofBuilder == nil {
-		proofBuilder = func(
-			claims *JWTProofClaims,
-			headers map[string]interface{},
-			signer jose.Signer,
-		) (string, error) {
-			signedJWT, jwtErr := jwt.NewJoseSigned(claims, headers, jwsSigner)
-			if jwtErr != nil {
-				return "", fmt.Errorf("create signed jwt: %w", jwtErr)
-			}
-
-			jws, jwtErr := signedJWT.Serialize(false)
-			if jwtErr != nil {
-				return "", fmt.Errorf("serialize signed jwt: %w", jwtErr)
-			}
-
-			return jws, nil
-		}
+		proofBuilder = NewJWTProofBuilder()
 	}
 
 	var trustRegistry trustRegistry
@@ -214,7 +199,8 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		flowType:                   o.flowType,
 		credentialOffer:            o.credentialOffer,
 		credentialType:             o.credentialType,
-		credentialFormat:           o.credentialFormat,
+		oidcCredentialFormat:       o.oidcCredentialFormat,
+		credentialConfigurationID:  o.credentialConfigurationID,
 		clientID:                   o.clientID,
 		scopes:                     o.scopes,
 		redirectURI:                o.redirectURI,
@@ -234,7 +220,8 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 		"flow_type", f.flowType,
 		"credential_offer_uri", f.credentialOffer,
 		"credential_type", f.credentialType,
-		"credential_format", f.credentialFormat,
+		"credential_format", f.oidcCredentialFormat,
+		"scope", f.scopes,
 	)
 
 	var (
@@ -275,11 +262,11 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 	f.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(start)
 
-	requireWalletAttestation := openIDConfig.TokenEndpointAuthMethodsSupported != nil &&
-		lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
+	tokenEndpointAuthMethodsSupported := lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported)
+	requireWalletAttestation := lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
 
 	if f.trustRegistryClient != nil {
-		if credentialOfferResponse == nil || len(credentialOfferResponse.Credentials) == 0 {
+		if credentialOfferResponse == nil || len(credentialOfferResponse.CredentialConfigurationIDs) == 0 {
 			return nil, fmt.Errorf("credential offer is empty")
 		}
 
@@ -291,26 +278,25 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		slog.Info("Validating issuer", "did", issuerDID, "url", f.trustRegistryURL)
 
-		credentialOffer := credentialOfferResponse.Credentials[0]
+		configurationID := credentialOfferResponse.CredentialConfigurationIDs[0]
+		credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
 
 		var credentialType string
 
-		for _, t := range credentialOffer.Types {
+		for _, t := range credentialConfiguration.CredentialDefinition.Type {
 			if t != "VerifiableCredential" {
 				credentialType = t
 				break
 			}
 		}
 
-		credentialFormat := string(credentialOffer.Format)
-
 		if err = f.trustRegistryClient.
 			ValidateIssuer(
 				issuerDID,
 				"",
 				credentialType,
-				credentialFormat,
-				lo.Contains(openIDConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
+				credentialConfiguration.Format,
+				lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
 			); err != nil {
 			return nil, fmt.Errorf("validate issuer: %w", err)
 		}
@@ -325,8 +311,8 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			ClientID: f.clientID,
 			Scopes:   f.scopes,
 			Endpoint: oauth2.Endpoint{
-				AuthURL:   openIDConfig.AuthorizationEndpoint,
-				TokenURL:  openIDConfig.TokenEndpoint,
+				AuthURL:   lo.FromPtr(openIDConfig.AuthorizationEndpoint),
+				TokenURL:  lo.FromPtr(openIDConfig.TokenEndpoint),
 				AuthStyle: oauth2.AuthStyleInHeader,
 			},
 		}
@@ -358,7 +344,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			"client_id":           []string{f.clientID},
 		}
 
-		if preAuthorizationGrant.UserPinRequired {
+		if preAuthorizationGrant.TxCode != nil {
 			if f.pin == "" {
 				fmt.Printf("\nEnter PIN:\n")
 				scanner := bufio.NewScanner(os.Stdin)
@@ -366,7 +352,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 				f.pin = scanner.Text()
 			}
 
-			tokenValues.Add("user_pin", f.pin)
+			tokenValues.Add("tx_code", f.pin)
 		}
 
 		if requireWalletAttestation {
@@ -383,7 +369,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		var resp *http.Response
 
-		if resp, err = f.httpClient.PostForm(openIDConfig.TokenEndpoint, tokenValues); err != nil {
+		if resp, err = f.httpClient.PostForm(lo.FromPtr(openIDConfig.TokenEndpoint), tokenValues); err != nil {
 			return nil, err
 		}
 
@@ -456,6 +442,8 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 	slog.Info("Getting authorization code",
 		"client_id", oauthClient.ClientID,
 		"scopes", oauthClient.Scopes,
+		"credential_configuration_id", f.credentialConfigurationID,
+		"format", f.oidcCredentialFormat,
 		"redirect_uri", oauthClient.RedirectURL,
 		"authorization_endpoint", oauthClient.Endpoint.AuthURL,
 	)
@@ -485,23 +473,24 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 
 	oauthClient.RedirectURL = redirectURI.String()
 
-	b, err := json.Marshal(&common.AuthorizationDetails{
-		Type: "openid_credential",
-		Types: []string{
-			"VerifiableCredential",
-			f.credentialType,
-		},
-		Format: lo.ToPtr(f.credentialFormat),
-	})
-	if err != nil {
-		return "", fmt.Errorf("marshal authorization details: %w", err)
-	}
-
 	authCodeOptions := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("issuer_state", issuerState),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("authorization_details", string(b)),
+	}
+
+	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(f.credentialConfigurationID,
+		f.credentialType, f.oidcCredentialFormat)
+	if err != nil {
+		return "", fmt.Errorf("getAuthorizationDetailsRequestBody: %w", err)
+	}
+
+	// If neither credential_configuration_id nor format params supplied authorizationDetailsRequestBody will be empty.
+	// In this case Wallet CLI should use scope parameter to request credential type:
+	// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+	if len(authorizationDetailsRequestBody) > 0 {
+		authCodeOptions = append(authCodeOptions,
+			oauth2.SetAuthURLParam("authorization_details", string(authorizationDetailsRequestBody)))
 	}
 
 	if f.enableDiscoverableClientID {
@@ -706,7 +695,7 @@ func (f *Flow) receiveVC(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialIssuer string,
 ) (*verifiable.Credential, error) {
-	credentialEndpoint := wellKnown.CredentialEndpoint
+	credentialEndpoint := lo.FromPtr(wellKnown.CredentialEndpoint)
 
 	start := time.Now()
 	defer func() {
@@ -718,29 +707,36 @@ func (f *Flow) receiveVC(
 		"credential_issuer", credentialIssuer,
 	)
 
-	claims := &JWTProofClaims{
+	claims := &ProofClaims{
 		Issuer:   f.clientID,
-		IssuedAt: time.Now().Unix(),
+		IssuedAt: lo.ToPtr(time.Now().Unix()),
 		Audience: credentialIssuer,
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderType: jwtProofTypeHeader,
-	}
-
-	jws, err := f.proofBuilder(claims, headers, f.signer)
+	proof, err := f.proofBuilder.Build(context.TODO(), &CreateProofRequest{
+		Signer:           f.signer,
+		CustomHeaders:    map[string]interface{}{},
+		WalletKeyID:      f.walletKeyID,
+		WalletKeyType:    f.walletKeyType,
+		Claims:           claims,
+		VDR:              f.vdrRegistry,
+		WalletDID:        f.wallet.DIDs()[0].ID,
+		CredentialIssuer: credentialIssuer,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
 
+	oidcCredentialFormat, err := f.getCredentialRequestOIDCCredentialFormat(wellKnown)
+	if err != nil {
+		return nil, fmt.Errorf("getCredentialRequestOIDCCredentialFormat: %w", err)
+	}
+
 	b, err := json.Marshal(CredentialRequest{
-		Format: f.credentialFormat,
+		Format: oidcCredentialFormat,
 		Types:  []string{"VerifiableCredential", f.credentialType},
-		Proof: JWTProof{
-			ProofType: "jwt",
-			JWT:       jws,
-		},
+		Proof:  *proof,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal credential request: %w", err)
@@ -836,6 +832,48 @@ func (f *Flow) receiveVC(
 	return parsedVC, nil
 }
 
+func (f *Flow) getCredentialRequestOIDCCredentialFormat(
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+) (vcsverifiable.OIDCFormat, error) {
+	// Take default value as f.oidcCredentialFormat
+	if f.oidcCredentialFormat != "" {
+		return f.oidcCredentialFormat, nil
+	}
+
+	// For cases, when oidcCredentialFormat is not supplied:
+	if f.credentialConfigurationID != "" {
+		// CredentialConfigurationID option available so take format from well-known configuration.
+		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
+		format := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[f.credentialConfigurationID].Format
+		if format == "" {
+			return "", fmt.Errorf(
+				"unable to obtain OIDC credential format from issuer well-known configuration. "+
+					"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+					"with nested `format` field", f.credentialConfigurationID)
+		}
+
+		return vcsverifiable.OIDCFormat(format), nil
+	}
+
+	if len(f.scopes) > 0 {
+		// scopes option available so take format from well-known configuration.
+		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+		for _, scope := range f.scopes {
+			for _, credentialConfiguration := range wellKnown.CredentialConfigurationsSupported.AdditionalProperties {
+				if lo.FromPtr(credentialConfiguration.Scope) == scope {
+					return vcsverifiable.OIDCFormat(credentialConfiguration.Format), nil
+				}
+			}
+		}
+
+		return "", fmt.Errorf(
+			"unable to obtain OIDC credential format from issuer well-known configuration. "+
+				"Check if `issuer.credentialMetadata.credential_configurations_supported` contains nested object "+
+				"with `scope` field equals to one of the %v", f.scopes)
+	}
+
+	return "", errors.New("obtain OIDC credential format")
+}
 func (f *Flow) handleIssuanceAck(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credResponse *CredentialResponse,
@@ -845,7 +883,8 @@ func (f *Flow) handleIssuanceAck(
 		return nil
 	}
 
-	if wellKnown.CredentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
+	credentialAckEndpoint := lo.FromPtr(wellKnown.CredentialAckEndpoint)
+	if credentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
 		return nil
 	}
 
@@ -856,7 +895,7 @@ func (f *Flow) handleIssuanceAck(
 
 	slog.Info("Sending wallet ACK",
 		"ack_id", credResponse.AckID,
-		"endpoint", wellKnown.CredentialAckEndpoint,
+		"endpoint", credentialAckEndpoint,
 	)
 
 	b, err := json.Marshal(oidc4civ1.AckRequest{
@@ -865,7 +904,7 @@ func (f *Flow) handleIssuanceAck(
 				AckId:            *credResponse.AckID,
 				ErrorDescription: nil,
 				Status:           "success",
-				IssuerIdentifier: &wellKnown.CredentialIssuer,
+				IssuerIdentifier: wellKnown.CredentialIssuer,
 			},
 		},
 	})
@@ -873,7 +912,7 @@ func (f *Flow) handleIssuanceAck(
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, wellKnown.CredentialAckEndpoint, bytes.NewBuffer(b))
+	req, err := http.NewRequest(http.MethodPost, credentialAckEndpoint, bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("ack credential request: %w", err)
 	}
@@ -895,6 +934,50 @@ func (f *Flow) handleIssuanceAck(
 	}
 
 	return nil
+}
+
+// getAuthorizationDetailsRequestBody returns authorization details request body
+// either with credential_configuration_id or format params.
+// If neither credential_configuration_id nor format supplied,
+// Wallet CLI should use scope parameter to request credential type:
+// https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
+//
+// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
+func (f *Flow) getAuthorizationDetailsRequestBody(
+	credentialConfigurationID, credentialType string, oidcCredentialFormat vcsverifiable.OIDCFormat,
+) ([]byte, error) {
+	res := make([]common.AuthorizationDetails, 1) // We do not support multiple authorization details for now.
+
+	switch {
+	case credentialConfigurationID != "": // Priority 1. Based on credentialConfigurationID.
+		res[0] = common.AuthorizationDetails{
+			CredentialConfigurationId: &credentialConfigurationID,
+			CredentialDefinition:      nil,
+			Format:                    nil,
+			Locations:                 nil, // Not supported for now.
+			Type:                      "openid_credential",
+		}
+	case oidcCredentialFormat != "": // Priority 2. Based on credentialFormat.
+		res[0] = common.AuthorizationDetails{
+			CredentialConfigurationId: nil,
+			CredentialDefinition: &common.CredentialDefinition{
+				Context:           nil, // Not supported for now.
+				CredentialSubject: nil, // Not supported for now.
+				Type: []string{
+					"VerifiableCredential",
+					credentialType,
+				},
+			},
+			Format:    lo.ToPtr(string(oidcCredentialFormat)),
+			Locations: nil, // Not supported for now.
+			Type:      "openid_credential",
+		}
+	default:
+		// Valid case - neither credentialFormat nor credentialConfigurationID supplied.
+		return nil, nil
+	}
+
+	return json.Marshal(res)
 }
 
 func (f *Flow) PerfInfo() *PerfInfo {
@@ -942,10 +1025,11 @@ func (s *callbackServer) ServeHTTP(
 
 type options struct {
 	flowType                   FlowType
-	proofBuilder               JWTProofBuilder
+	proofBuilder               ProofBuilder
 	credentialOffer            string
 	credentialType             string
-	credentialFormat           string
+	oidcCredentialFormat       vcsverifiable.OIDCFormat
+	credentialConfigurationID  string
 	clientID                   string
 	scopes                     []string
 	redirectURI                string
@@ -967,7 +1051,7 @@ func WithFlowType(flowType FlowType) Opt {
 	}
 }
 
-func WithProofBuilder(proofBuilder JWTProofBuilder) Opt {
+func WithProofBuilder(proofBuilder ProofBuilder) Opt {
 	return func(opts *options) {
 		opts.proofBuilder = proofBuilder
 	}
@@ -985,9 +1069,9 @@ func WithCredentialType(credentialType string) Opt {
 	}
 }
 
-func WithCredentialFormat(credentialFormat string) Opt {
+func WithOIDCCredentialFormat(oidcCredentialFormat vcsverifiable.OIDCFormat) Opt {
 	return func(opts *options) {
-		opts.credentialFormat = credentialFormat
+		opts.oidcCredentialFormat = oidcCredentialFormat
 	}
 }
 
@@ -1054,5 +1138,12 @@ func WithTrustRegistry(value trustRegistry) Opt {
 func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
 		opts.walletDIDIndex = idx
+	}
+}
+
+// WithCredentialConfigurationID adds credentialConfigurationID to authorization request.
+func WithCredentialConfigurationID(credentialConfigurationID string) Opt {
+	return func(opts *options) {
+		opts.credentialConfigurationID = credentialConfigurationID
 	}
 }

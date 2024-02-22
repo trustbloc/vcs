@@ -23,16 +23,16 @@ func (s *Service) ExchangeAuthorizationCode(
 	clientID, // nolint:revive
 	clientAssertionType,
 	clientAssertion string,
-) (TxID, error) {
+) (*ExchangeAuthorizationCodeResult, error) {
 	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
-		return "", fmt.Errorf("get transaction by opstate: %w", err)
+		return nil, fmt.Errorf("get transaction by opstate: %w", err)
 	}
 
 	newState := TransactionStateIssuerOIDCAuthorizationDone
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
-		return "", err
+		return nil, err
 	}
 	tx.State = newState
 
@@ -48,12 +48,12 @@ func (s *Service) ExchangeAuthorizationCode(
 
 		s.sendFailedTransactionEvent(ctx, tx, e)
 
-		return "", e
+		return nil, e
 	}
 
 	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
-		return "", resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 
 	oauth2Client := oauth2.Config{
@@ -73,19 +73,22 @@ func (s *Service) ExchangeAuthorizationCode(
 	resp, err := oauth2Client.Exchange(ctx, tx.IssuerAuthCode)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
-		return "", err
+		return nil, err
 	}
 
 	tx.IssuerToken = resp.AccessToken
 
 	if err = s.store.Update(ctx, tx); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
-		return "", err
+		return nil, err
 	}
 
 	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return tx.ID, nil
+	return &ExchangeAuthorizationCodeResult{
+		TxID:                 tx.ID,
+		AuthorizationDetails: tx.AuthorizationDetails, //TODO: add tx.AuthorizationDetails.CredentialIdentifiers
+	}, nil
 }

@@ -443,12 +443,10 @@ func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKno
 	}
 
 	config := &WellKnownOpenIDIssuerConfiguration{
-		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint:         fmt.Sprintf("%soidc/token", host),
-		CredentialAckEndpoint: fmt.Sprintf("%soidc/acknowledgement", host),
+		AuthorizationEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/authorize", host)),
+		ResponseTypesSupported: lo.ToPtr([]string{"code"}),
+		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
+		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/acknowledgement", host)),
 	}
 
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
@@ -457,9 +455,10 @@ func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKno
 	}
 
 	if profile.OIDCConfig != nil {
-		config.GrantTypesSupported = profile.OIDCConfig.GrantTypesSupported
-		config.ScopesSupported = profile.OIDCConfig.ScopesSupported
-		config.PreAuthorizedGrantAnonymousAccessSupported = profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
+		config.GrantTypesSupported = &profile.OIDCConfig.GrantTypesSupported
+		config.ScopesSupported = &profile.OIDCConfig.ScopesSupported
+		config.PreAuthorizedGrantAnonymousAccessSupported =
+			&profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
 
 		if profile.OIDCConfig.EnableDynamicClientRegistration {
 			var regURL string
@@ -537,7 +536,7 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 		return err
 	}
 
-	ad, err := util.ValidateAuthorizationDetails(&body.AuthorizationDetails)
+	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
 	if err != nil {
 		return err
 	}
@@ -549,6 +548,10 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 
 		if errors.Is(err, resterr.ErrCredentialFormatNotSupported) {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
+		}
+
+		if errors.Is(err, resterr.ErrInvalidCredentialConfigurationID) {
+			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.credential_configuration_id", err)
 		}
 
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PushAuthorizationRequest", err)
@@ -573,9 +576,16 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
-	if err != nil {
-		return nil, err
+	var (
+		ad  *oidc4ci.AuthorizationDetails
+		err error
+	)
+
+	if body.AuthorizationDetails != nil {
+		ad, err = util.ValidateAuthorizationDetails(*body.AuthorizationDetails)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	resp, err := c.oidc4ciService.PrepareClaimDataAuthorizationRequest(ctx,
@@ -665,7 +675,7 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	txID, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(),
+	exchangeAuthorizationCodeResult, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(),
 		body.OpState,
 		lo.FromPtr(body.ClientId),
 		lo.FromPtr(body.ClientAssertionType),
@@ -675,7 +685,17 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return util.WriteOutput(ctx)(nil, err)
 	}
 
-	return util.WriteOutput(ctx)(ExchangeAuthorizationCodeResponse{TxId: string(txID)}, nil)
+	var authorizationDetailsDTOList []common.AuthorizationDetails
+	if exchangeAuthorizationCodeResult.AuthorizationDetails != nil {
+		authorizationDetailsDTO := exchangeAuthorizationCodeResult.AuthorizationDetails.ToDTO()
+		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+	}
+
+	return util.WriteOutput(ctx)(
+		ExchangeAuthorizationCodeResponse{
+			AuthorizationDetails: lo.ToPtr(authorizationDetailsDTOList),
+			TxId:                 string(exchangeAuthorizationCodeResult.TxID),
+		}, nil)
 }
 
 // ValidatePreAuthorizedCodeRequest Validates authorization code and pin.
@@ -687,7 +707,7 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	result, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
+	transaction, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
 		body.PreAuthorizedCode,
 		lo.FromPtr(body.UserPin),
 		lo.FromPtr(body.ClientId),
@@ -698,10 +718,17 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
+	var authorizationDetailsDTOList []common.AuthorizationDetails
+	if transaction.AuthorizationDetails != nil {
+		authorizationDetailsDTO := transaction.AuthorizationDetails.ToDTO()
+		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+	}
+
 	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
-		TxId:    string(result.ID),
-		OpState: result.OpState,
-		Scopes:  result.Scope,
+		AuthorizationDetails: lo.ToPtr(authorizationDetailsDTOList),
+		TxId:                 string(transaction.ID),
+		OpState:              transaction.OpState,
+		Scopes:               transaction.Scope,
 	}, nil)
 }
 
@@ -754,6 +781,10 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 
 	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
 		return resterr.NewCustomError(resterr.ClaimsValidationErr, err)
+	}
+
+	if err = validateCredentialResponseEncryption(profile, body.RequestedCredentialResponseEncryption); err != nil {
+		return resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
 	}
 
 	signedCredential, err := c.signCredential(
@@ -907,6 +938,44 @@ func getCredentialSubjects(subject interface{}) ([]verifiable.Subject, error) {
 	return nil, fmt.Errorf("invalid type for credential subject: %T", subject)
 }
 
+func validateCredentialResponseEncryption(
+	profile *profileapi.Issuer,
+	requested *RequestedCredentialResponseEncryption,
+) error {
+	if profile.OIDCConfig == nil {
+		return nil
+	}
+
+	if profile.OIDCConfig.CredentialResponseEncryptionRequired && requested == nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption",
+			errors.New("credential response encryption is required"))
+	}
+
+	alg := ""
+	if requested != nil {
+		alg = requested.Alg
+	}
+
+	if len(profile.OIDCConfig.CredentialResponseAlgValuesSupported) > 0 &&
+		!lo.Contains(profile.OIDCConfig.CredentialResponseAlgValuesSupported, alg) {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.alg",
+			fmt.Errorf("alg %s not supported", requested.Alg))
+	}
+
+	enc := ""
+	if requested != nil {
+		enc = requested.Enc
+	}
+
+	if len(profile.OIDCConfig.CredentialResponseEncValuesSupported) > 0 &&
+		!lo.Contains(profile.OIDCConfig.CredentialResponseEncValuesSupported, enc) {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.enc",
+			fmt.Errorf("enc %s not supported", requested.Enc))
+	}
+
+	return nil
+}
+
 // OpenidCredentialIssuerConfig request VCS IDP OIDC Configuration.
 // GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
 func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, profileVersion string) error {
@@ -921,7 +990,9 @@ func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, p
 	}
 
 	if jwtSignedConfig != "" {
-		return util.WriteRawOutputWithContentType(ctx)([]byte(jwtSignedConfig), "application/jwt", nil)
+		return util.WriteOutput(ctx)(WellKnownOpenIDIssuerConfiguration{
+			SignedMetadata: &jwtSignedConfig,
+		}, nil)
 	}
 
 	return util.WriteOutput(ctx)(config, nil)

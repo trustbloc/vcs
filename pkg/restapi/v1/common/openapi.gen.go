@@ -44,7 +44,16 @@ const (
 
 // Model to convey the details about the Credentials the Client wants to obtain.
 type AuthorizationDetails struct {
-	// String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc_json-ld and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+	// REQUIRED when Format parameter is not present. String specifying a unique identifier of the Credential being described in the credential_configurations_supported map in the Credential Issuer Metadata. The referenced object in the credential_configurations_supported map conveys the details, such as the format, for issuance of the requested Credential. It MUST NOT be present if format parameter is present.
+	CredentialConfigurationId *string `json:"credential_configuration_id,omitempty"`
+
+	// Object containing the detailed description of the credential type.
+	CredentialDefinition *CredentialDefinition `json:"credential_definition,omitempty"`
+
+	// For Token response only. Array of strings, each uniquely identifying a Credential that can be issued using the Access Token returned in this response. Each of these Credentials corresponds to the same entry in the credential_configurations_supported Credential Issuer metadata but can contain different claim values or a different subset of claims within the claims set identified by that Credential type.
+	CredentialIdentifiers *[]string `json:"credential_identifiers,omitempty"`
+
+	// REQUIRED when CredentialConfigurationId parameter is not present. String identifying the format of the Credential the Wallet needs. This Credential format identifier determines further claims in the authorization details object needed to identify the Credential type in the requested format. It MUST NOT be present if credential_configuration_id parameter is present.
 	Format *string `json:"format,omitempty"`
 
 	// An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
@@ -52,9 +61,18 @@ type AuthorizationDetails struct {
 
 	// String that determines the authorization details type. MUST be set to "openid_credential" for OIDC4VC.
 	Type string `json:"type"`
+}
 
-	// String array denoting the types of the requested Credential.
-	Types []string `json:"types"`
+// Object containing the detailed description of the credential type.
+type CredentialDefinition struct {
+	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
+	Context *[]string `json:"@context,omitempty"`
+
+	// An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
+	CredentialSubject *map[string]interface{} `json:"credentialSubject,omitempty"`
+
+	// Array designating the types a certain credential type supports
+	Type []string `json:"type"`
 }
 
 // DID method of the DID to be used for signing.
@@ -103,25 +121,33 @@ type WalletInitiatedFlowData struct {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/5xWQW/bOBP9KwOeWkBxiq/fybes3AJGkq1RN+5hWxgUObIYU6SWHNnxFvnvi6Gs2LHl",
-	"ot2LYZGcN29mHmf4QyhfN96hoyjGP0RUFdYy/b1pqfLB/CPJeDdBksamdY1RBdPwqhiLe6/RAnlQ3m1w",
-	"B1Qh6O4wyMK3lFbygBodGWlj920NOoKtdBTZ2BckjRuJTDTBNxjIYPJV+lBLOvc6p2DcCgI2ASMDuxVI",
-	"6E6DcbCtjKpOPIOJEPDvFiOhZqcFgomxRT2ChbRGw0baFiNoLI1DDcUOPk0n+f8XOciA8Lil5UYtH6N3",
-	"V1aDdBqsbpYbNYIpwwRQ0kHAso2YXMvjBPauwZRpc2U26EAd2NGuwQS6j0L5uvDM2XmC2DaND4SaU8Qn",
-	"xVjElAPxnAnrVfIxUJ4bBzIEuQNfQmfABZAE0lq/jSBBdaUgD7FBZcquhD0k2/F3wOjboBAihg2GN/Ft",
-	"h8CJ5/1XYoF5OsSYtXEEstUGnUooFIzi/EulMHLt1+giR2UI6xTAWXj7hRTH4fuCJFJwGglDbRzGgUL0",
-	"6mSYEdw/zL+wEiKmHHwTvkFn9PJQmW+CS9JLYbAAvBAvUuoKoNF56tOVDA657UV5EOvvZOQ5EwxhAmox",
-	"/qvb7Dl9zwQZsnx68D6/YPniERUx+GQ6uUeqvD4PaDKdQJ32eu680l2lNmLSLkSzcsatOAJ0bc2UfChE",
-	"JrbIv2vcJVanMd3ez3PvSrO61GMY+/Z+zo2mNKs2pDjOW4YuZgFL83QO060zcy1JFjLuSRe7JHcL6zoO",
-	"llcXXwYlx6v/Ce7h89052sPnO07lb4Kh0403bqBHcq763UHTiCog3Xm1vsXdTFI1kDJJVWoN6ShTWf8i",
-	"L/ppxtZ17HB4cASU1LW+SD50mlrjLh4rKDl70ZDcxgENDd2DI/0fBHYq+kw8XZFcRbZKEyGI78+ZWOQf",
-	"L42fvh3DIt/361dsX48KkR0viEx0Y+OY24urgUwuZr9AY3aRRtM7bF45nF12+FVaizR1howk1B+t304k",
-	"SfbvWmtlwQgUWjy9espKUy+PFXmGfWirS8K6sZJwafTgUd8sI0nCwc0m+NLYi7b99gZDTLkaOBOV33ft",
-	"y432NN6fNt4jTucMXvxlp2m6mJSjFBxV7lJ1zjo50zOu9AO3MLSR/rBewSKf92+L47cIXwLJA5sv5QaD",
-	"Kc3+OdBGHmFf3+ewyK9uZlOQ1rsVbA1V8KlBN53wc6kJnrzyXc/ubtR1gsEAxhEGqRJaMusCYt1ao9DF",
-	"VHAn6zSzGqkqvPrf6J3IRBusGIuKqInj6+vtdjuSaXvkw+p6bxuv76b5hz/nH9hmRE9povWpy31de7cf",
-	"vkxtkULjAh+/E/n1YhTCm0U+fysy8SIi8W7ETJI20cnGiLF4P3qXyDWSqijGLJjnfwMAAP//r/R+MlUL",
-	"AAA=",
+	"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",
+	"///tjedAUhIAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

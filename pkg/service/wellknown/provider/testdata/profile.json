@@ -6,9 +6,18 @@
   "active": false,
   "oidcConfig": {
     "signed_issuer_metadata_supported": true,
-    "grant_types_supported": ["grantType1","grantType2"],
-    "scopes_supported": ["scope1","scope1"],
-    "token_endpoint_auth_methods_supported": ["none","attest_jwt_client_auth"],
+    "grant_types_supported": [
+      "grantType1",
+      "grantType2"
+    ],
+    "scopes_supported": [
+      "scope1",
+      "scope1"
+    ],
+    "token_endpoint_auth_methods_supported": [
+      "none",
+      "attest_jwt_client_auth"
+    ],
     "pre-authorized_grant_anonymous_access_supported": true,
     "wallet_initiated_auth_flow_supported": true,
     "enable_dynamic_client_registration": true
@@ -36,11 +45,102 @@
     "creator": "did:orb:bank_issuer#123"
   },
   "credentialMetadata": {
-    "credentials_supported": [
-      {
-        "id": "VerifiedEmployee_JWT"
+    "credential_configurations_supported": {
+      "VerifiedEmployee": {
+        "claims": {
+          "org.iso.18013.5.1.aamva": {
+            "organ_donor": {}
+          }
+        },
+        "format": "ldp_vc",
+        "doctype": "doctype1",
+        "order": [
+          "claimName1",
+          "claimName2",
+          "claimName3"
+        ],
+        "scope": "VerifiedEmployeeCredential",
+        "vct": "vct1",
+        "display": [
+          {
+            "name": "Verified Employee",
+            "locale": "en-US",
+            "logo": {
+              "uri": "https://example.com/public/logo.png",
+              "alt_text": "a square logo of a employee verification"
+            },
+            "background_color": "#12107c",
+            "text_color": "#FFFFFF"
+          }
+        ],
+        "credential_definition": {
+          "@context": [
+            "https://example.com/context/1"
+          ],
+          "credentialSubject": {
+            "displayName": {
+              "display": [
+                {
+                  "name": "Employee",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "givenName": {
+              "display": [
+                {
+                  "name": "Given Name",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "jobTitle": {
+              "display": [
+                {
+                  "name": "Job Title",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "surname": {
+              "display": [
+                {
+                  "name": "Surname",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "preferredLanguage": {
+              "display": [
+                {
+                  "name": "Preferred Language",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "mail": {
+              "display": [
+                {
+                  "name": "Mail",
+                  "locale": "en-US"
+                }
+              ]
+            },
+            "photo": {
+              "display": [
+                {
+                  "name": "Photo"
+                }
+              ]
+            }
+          },
+          "type": [
+            "VerifiableCredential",
+            "VerifiedEmployee"
+          ]
+        }
       }
-    ],
+    },
     "display": [
       {
         "name": "Test Issuer",
@@ -49,7 +149,7 @@
         "background_color": "#FFFFFF",
         "text_color": "#000000",
         "logo": {
-          "url": "https://example.com/credentials-logo.png",
+          "uri": "https://example.com/credentials-logo.png",
           "alt_text": "Issuer Logo"
         }
       }

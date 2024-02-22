@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,ClientManager,ProfileService,AckService,CwtProofChecker,LDPProofParser
 
 package oidc4ci
 
@@ -24,13 +24,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
+	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
@@ -54,6 +63,7 @@ const (
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 	jwtProofTypHeader          = "openid4vci-proof+jwt"
+	cwtProofTypHeader          = "openid4vci-proof+cwt"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
 	cNonceSize                 = 15
@@ -63,6 +73,10 @@ const (
 	invalidGrantOIDCErr   = "invalid_grant"
 	invalidTokenOIDCErr   = "invalid_token"
 	invalidClientOIDCErr  = "invalid_client"
+
+	proofTypeCWT   = "cwt"
+	proofTypeJWT   = "jwt"
+	proofTypeLDPVP = "ldp_vp"
 )
 
 var logger = log.New("oidc4ci")
@@ -101,12 +115,31 @@ type ProfileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
+type CwtProofChecker interface {
+	CheckCWTProof(
+		checkCWTRequest checker.CheckCWTProofRequest,
+		expectedProofIssuer string,
+		msg []byte,
+		signature []byte,
+	) error
+}
+
 type AckService interface {
 	Ack(
 		ctx context.Context,
 		req oidc4ci.AckRemote,
 	) error
 }
+
+type LDPProofParser interface {
+	Parse(
+		rawProof []byte,
+		opt []verifiable.PresentationOpt,
+	) (*verifiable.Presentation, error)
+}
+
+// JWEEncrypterCreator creates JWE encrypter for given JWK, alg and enc.
+type JWEEncrypterCreator func(jwk gojose.JSONWebKey, alg gojose.KeyAlgorithm, enc gojose.ContentEncryption) (gojose.Encrypter, error) //nolint:lll
 
 // Config holds configuration options for Controller.
 type Config struct {
@@ -118,10 +151,17 @@ type Config struct {
 	ClientManager           ClientManager
 	ClientIDSchemeService   ClientIDSchemeService
 	JWTVerifier             jwt.ProofChecker
+	CWTVerifier             CwtProofChecker
 	Tracer                  trace.Tracer
 	IssuerVCSPublicHost     string
 	ExternalHostURL         string
 	AckService              AckService
+	JWEEncrypterCreator     JWEEncrypterCreator
+
+	DocumentLoader ld.DocumentLoader
+	Vdr            vdrapi.Registry
+	ProofChecker   *checker.ProofChecker
+	LDPProofParser LDPProofParser
 }
 
 // Controller for OIDC credential issuance API.
@@ -134,10 +174,17 @@ type Controller struct {
 	clientManager           ClientManager
 	clientIDSchemeService   ClientIDSchemeService
 	jwtVerifier             jwt.ProofChecker
+	cwtVerifier             CwtProofChecker
 	tracer                  trace.Tracer
 	issuerVCSPublicHost     string
 	internalHostURL         string
 	ackService              AckService
+	jweEncrypterCreator     JWEEncrypterCreator
+
+	documentLoader ld.DocumentLoader
+	vdr            vdrapi.Registry
+	proofCheker    *checker.ProofChecker
+	ldpProofParser LDPProofParser
 }
 
 // NewController creates a new Controller instance.
@@ -151,10 +198,16 @@ func NewController(config *Config) *Controller {
 		clientManager:           config.ClientManager,
 		clientIDSchemeService:   config.ClientIDSchemeService,
 		jwtVerifier:             config.JWTVerifier,
+		cwtVerifier:             config.CWTVerifier,
 		tracer:                  config.Tracer,
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
 		internalHostURL:         config.ExternalHostURL,
 		ackService:              config.AckService,
+		jweEncrypterCreator:     config.JWEEncrypterCreator,
+		documentLoader:          config.DocumentLoader,
+		vdr:                     config.Vdr,
+		proofCheker:             config.ProofChecker,
+		ldpProofParser:          config.LDPProofParser,
 	}
 }
 
@@ -174,26 +227,21 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	var ad common.AuthorizationDetails
+	var ad []common.AuthorizationDetails
 
 	if err = json.Unmarshal([]byte(par.AuthorizationDetails), &ad); err != nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 	}
 
-	authorizationDetails, err := apiUtil.ValidateAuthorizationDetails(&ad)
+	_, err = apiUtil.ValidateAuthorizationDetails(ad)
 	if err != nil {
 		return err
 	}
 
 	r, err := c.issuerInteractionClient.PushAuthorizationDetails(ctx,
 		issuer.PushAuthorizationDetailsJSONRequestBody{
-			AuthorizationDetails: common.AuthorizationDetails{
-				Types:     authorizationDetails.Types,
-				Format:    lo.ToPtr(string(authorizationDetails.Format)),
-				Locations: lo.ToPtr(authorizationDetails.Locations),
-				Type:      authorizationDetails.Type,
-			},
-			OpState: par.OpState,
+			AuthorizationDetails: ad,
+			OpState:              par.OpState,
 		},
 	)
 	if err != nil {
@@ -244,42 +292,28 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	}
 
-	var (
-		credentialType []string
-		vcFormat       *string
-	)
-
-	scope := []string(ar.GetRequestedScopes())
+	var prepareAuthRequestAuthorizationDetails *[]common.AuthorizationDetails
 
 	if params.AuthorizationDetails != nil {
-		var authorizationDetails common.AuthorizationDetails
-
+		var authorizationDetails []common.AuthorizationDetails
 		if err = json.Unmarshal([]byte(*params.AuthorizationDetails), &authorizationDetails); err != nil {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
 		}
 
-		if _, err = apiUtil.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
+		if _, err = apiUtil.ValidateAuthorizationDetails(authorizationDetails); err != nil {
 			return err
 		}
 
-		credentialType = authorizationDetails.Types
-		vcFormat = authorizationDetails.Format
-	} else {
-		// using scope parameter to request credential type
-		// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-using-scope-parameter-to-re
-		credentialType = scope
+		// only single authorization_details supported for now.
+		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails[:1])
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
-			AuthorizationDetails: &common.AuthorizationDetails{
-				Type:   "openid_credential",
-				Types:  credentialType,
-				Format: vcFormat,
-			},
-			OpState:      lo.FromPtr(params.IssuerState),
-			ResponseType: params.ResponseType,
-			Scope:        lo.ToPtr(scope),
+			AuthorizationDetails: prepareAuthRequestAuthorizationDetails,
+			OpState:              lo.FromPtr(params.IssuerState),
+			ResponseType:         params.ResponseType,
+			Scope:                lo.ToPtr([]string(ar.GetRequestedScopes())),
 		},
 	)
 	if err != nil {
@@ -483,13 +517,14 @@ func (c *Controller) OidcToken(e echo.Context) error {
 
 	nonce := mustGenerateNonce()
 	var txID string
+	var authorisationDetails *[]common.AuthorizationDetails
 
 	isPreAuthFlow := strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType)
 	if isPreAuthFlow { //nolint:nestif
 		resp, preAuthorizeErr := c.oidcPreAuthorizedCode(
 			ctx,
 			e.FormValue("pre-authorized_code"),
-			e.FormValue("user_pin"),
+			e.FormValue("tx_code"),
 			e.FormValue("client_id"),
 			e.FormValue("client_assertion_type"),
 			e.FormValue("client_assertion"),
@@ -500,6 +535,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		}
 
 		txID = resp.TxId
+		authorisationDetails = resp.AuthorizationDetails
 	} else {
 		exchangeResp, errExchange := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
@@ -529,6 +565,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 			return fmt.Errorf("read exchange auth code response: %w", err)
 		}
 		txID = exchangeResult.TxId
+		authorisationDetails = exchangeResult.AuthorizationDetails
 	}
 
 	c.setCNonceSession(session, nonce, txID, isPreAuthFlow)
@@ -539,6 +576,9 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	c.setCNonce(responder, nonce)
+	if authorisationDetails != nil {
+		c.setAuthorizationDetails(responder, authorisationDetails)
+	}
 
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
 	return nil
@@ -550,6 +590,13 @@ func (c *Controller) setCNonce(
 ) {
 	responder.SetExtra("c_nonce", nonce)
 	responder.SetExtra("c_nonce_expires_in", cNonceTTL.Seconds())
+}
+
+func (c *Controller) setAuthorizationDetails(
+	responder fosite.AccessResponder,
+	authorisationDetails *[]common.AuthorizationDetails,
+) {
+	responder.SetExtra("authorization_details", authorisationDetails)
 }
 
 func (c *Controller) setCNonceSession(
@@ -621,20 +668,164 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	return e.NoContent(http.StatusNoContent)
 }
 
+//nolint:funlen,gocognit
+func (c *Controller) HandleProof(
+	clientID string,
+	credentialReq *CredentialRequest,
+	session *fosite.DefaultSession,
+) (string, string, error) {
+	var proofClaims ProofClaims
+
+	proofHeaders := ProofHeaders{
+		ProofType: credentialReq.Proof.ProofType,
+	}
+
+	switch credentialReq.Proof.ProofType {
+	case proofTypeJWT:
+		jws, rawClaims, err := jwt.ParseAndCheckProof(lo.FromPtr(credentialReq.Proof.Jwt),
+			c.jwtVerifier, false,
+			jwt.WithIgnoreClaimsMapDecoding(true),
+		)
+		if err != nil {
+			return "", "",
+				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), fmt.Errorf("parse jwt: %w", err))
+		}
+
+		proofHeaders.Type, _ = jws.Headers.Type()
+		proofHeaders.KeyID, _ = jws.Headers.KeyID()
+
+		if err = json.Unmarshal(rawClaims, &proofClaims); err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
+		}
+	case proofTypeCWT:
+		cwtBytes, err := hex.DecodeString(lo.FromPtr(credentialReq.Proof.Cwt))
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt"))
+		}
+
+		cwtParsed, rawClaims, err := cwt.ParseAndCheckProof(cwtBytes, c.cwtVerifier, false)
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse cwt: %w", err))
+		}
+
+		if err = cbor.Unmarshal(rawClaims, &proofClaims); err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt claims"))
+		}
+
+		typ, ok := cwtParsed.Headers.Protected[cose.HeaderLabelContentType].(string)
+		if !ok {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE content type"))
+		}
+		proofHeaders.Type = typ
+
+		cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
+		if !ok {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
+		}
+
+		proofHeaders.KeyID = string(cosKeyBytes.([]byte))
+	case proofTypeLDPVP:
+		if credentialReq.Proof.LdpVp == nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))
+		}
+
+		rawProof, err := json.Marshal(*credentialReq.Proof.LdpVp)
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid ldp_vp"))
+		}
+
+		ver, err := c.getDataIntegrityVerifier()
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("get data integrity verifier: %w", err))
+		}
+
+		presentationOpts := []verifiable.PresentationOpt{
+			verifiable.WithPresDataIntegrityVerifier(ver),
+			verifiable.WithPresProofChecker(c.proofCheker),
+			verifiable.WithDisabledJSONLDChecks(),
+		}
+
+		if session != nil && len(session.Extra) > 0 {
+			nonce := session.Extra[cNonceKey].(string) //nolint:errcheck
+			if nonce != "" {
+				presentationOpts = append(presentationOpts,
+					verifiable.WithPresExpectedDataIntegrityFields("", "", nonce),
+				)
+			}
+		}
+
+		presentation, err := c.ldpProofParser.Parse(rawProof, presentationOpts)
+
+		if err != nil {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr,
+				errors.New("can not parse ldp_vp as presentation"))
+		}
+
+		if len(presentation.Proofs) != 1 {
+			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("expected 1 proof, got %d",
+				len(presentation.Proofs)))
+		}
+
+		proof := presentation.Proofs[0]
+
+		proofHeaders.Type = "ldp_vp"
+		proofHeaders.KeyID = presentation.Holder
+
+		proofClaims = ProofClaims{}
+
+		if v, ok := proof["domain"]; ok {
+			proofClaims.Audience = v.(string) //nolint:errcheck
+			proofClaims.Issuer = v.(string)   //nolint:errcheck
+		}
+		if v, ok := proof["challenge"]; ok {
+			proofClaims.Nonce = v.(string) //nolint:errcheck
+		}
+		if v, ok := proof["created"]; ok {
+			t, timeErr := time.Parse(time.RFC3339, v.(string))
+			if timeErr != nil {
+				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", timeErr))
+			}
+			proofClaims.IssuedAt = lo.ToPtr(t.Unix())
+		}
+	}
+
+	did, err := c.validateProofClaims(clientID, &proofClaims, proofHeaders, session)
+	if err != nil {
+		return "", "", err
+	}
+
+	return did, proofClaims.Audience, nil
+}
+
+func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
+	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: c.documentLoader,
+	})
+
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: c.vdr,
+	}, verifySuite)
+	if err != nil {
+		return nil, fmt.Errorf("new verifier: %w", err)
+	}
+
+	return verifier, nil
+}
+
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
-func (c *Controller) OidcCredential(e echo.Context) error {
+func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	req := e.Request()
 
 	ctx, span := c.tracer.Start(req.Context(), "OidcCredential")
 	defer span.End()
 
-	var credentialRequest CredentialRequest
+	var credentialReq CredentialRequest
 
-	if err := validateCredentialRequest(e, &credentialRequest); err != nil {
+	if err := validateCredentialRequest(e, &credentialReq); err != nil {
 		return err
 	}
 
-	span.SetAttributes(attributeutil.JSON("oidc_credential_request", credentialRequest))
+	span.SetAttributes(attributeutil.JSON("oidc_credential_request", credentialReq))
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
@@ -648,34 +839,28 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	jws, rawClaims, err := jwt.ParseAndCheckProof(credentialRequest.Proof.Jwt,
-		c.jwtVerifier, false,
-		jwt.WithIgnoreClaimsMapDecoding(true),
-	)
-	if err != nil {
-		return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), fmt.Errorf("parse jwt: %w", err))
-	}
-
-	var claims JWTProofClaims
-	if err = json.Unmarshal(rawClaims, &claims); err != nil {
-		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
-	}
-
-	did, err := c.validateProofClaims(ar.GetClient().GetID(), &claims, jws, session)
+	did, aud, err := c.HandleProof(ar.GetClient().GetID(), &credentialReq, session)
 	if err != nil {
 		return err
 	}
 
-	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
-		issuer.PrepareCredentialJSONRequestBody{
-			TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
-			Did:           lo.ToPtr(did),
-			Types:         credentialRequest.Types,
-			Format:        credentialRequest.Format,
-			AudienceClaim: claims.Audience,
-			HashedToken:   hashToken(token),
-		},
-	)
+	prepareCredentialReq := issuer.PrepareCredentialJSONRequestBody{
+		TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
+		Did:           &did,
+		Types:         credentialReq.Types,
+		Format:        credentialReq.Format,
+		AudienceClaim: aud,
+		HashedToken:   hashToken(token),
+	}
+
+	if credentialReq.CredentialResponseEncryption != nil {
+		prepareCredentialReq.RequestedCredentialResponseEncryption = &issuer.RequestedCredentialResponseEncryption{
+			Alg: credentialReq.CredentialResponseEncryption.Alg,
+			Enc: credentialReq.CredentialResponseEncryption.Enc,
+		}
+	}
+
+	resp, err := c.issuerInteractionClient.PrepareCredential(ctx, prepareCredentialReq)
 	if err != nil {
 		return fmt.Errorf("prepare credential: %w", err)
 	}
@@ -696,6 +881,8 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
 			case resterr.OIDCCredentialTypeNotSupported:
 				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+			case resterr.OIDCInvalidEncryptionParameters:
+				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
 			case resterr.InvalidOrMissingProofOIDCErr:
 				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
 			}
@@ -715,13 +902,35 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
-	return apiUtil.WriteOutput(e)(CredentialResponse{
+	credentialResp := &CredentialResponse{
 		Credential:      result.Credential,
 		Format:          result.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
 		AckId:           result.AckId,
-	}, nil)
+	}
+
+	if credentialReq.CredentialResponseEncryption != nil {
+		var encryptedResponse string
+
+		if encryptedResponse, err = c.encryptCredentialResponse(
+			credentialResp,
+			credentialReq.CredentialResponseEncryption,
+		); err != nil {
+			return fmt.Errorf("encrypt credential response: %w", err)
+		}
+
+		e.Response().Header().Set("Content-Type", "application/jwt")
+		e.Response().WriteHeader(http.StatusOK)
+
+		if _, err = e.Response().Write([]byte(encryptedResponse)); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return apiUtil.WriteOutput(e)(credentialResp, nil)
 }
 
 func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
@@ -738,18 +947,64 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing proof type"))
 	}
 
-	if req.Proof.ProofType != "jwt" || req.Proof.Jwt == "" {
+	switch req.Proof.ProofType {
+	case "jwt":
+		if lo.FromPtr(req.Proof.Jwt) == "" {
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
+		}
+	case "cwt":
+		if lo.FromPtr(req.Proof.Cwt) == "" {
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing cwt proof"))
+		}
+	case "ldp_vp":
+		if req.Proof.LdpVp == nil {
+			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp proof"))
+		}
+	default:
 		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
 	}
 
 	return nil
 }
 
+func (c *Controller) encryptCredentialResponse(
+	resp *CredentialResponse,
+	enc *CredentialResponseEncryption,
+) (string, error) {
+	var jwk gojose.JSONWebKey
+
+	if err := json.Unmarshal([]byte(enc.Jwk), &jwk); err != nil {
+		return "", fmt.Errorf("unmarshal jwk: %w", err)
+	}
+
+	encrypter, err := c.jweEncrypterCreator(jwk, gojose.KeyAlgorithm(enc.Alg), gojose.ContentEncryption(enc.Enc))
+	if err != nil {
+		return "", fmt.Errorf("create encrypter: %w", err)
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return "", fmt.Errorf("marshal credential response: %w", err)
+	}
+
+	encrypted, err := encrypter.Encrypt(b)
+	if err != nil {
+		return "", fmt.Errorf("encrypt credential response: %w", err)
+	}
+
+	jwe, err := encrypted.CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("serialize credential response: %w", err)
+	}
+
+	return jwe, nil
+}
+
 //nolint:gocognit
 func (c *Controller) validateProofClaims(
 	clientID string,
-	claims *JWTProofClaims,
-	jws *jwt.JSONWebToken,
+	claims *ProofClaims,
+	headers ProofHeaders,
 	session *fosite.DefaultSession,
 ) (string, error) {
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
@@ -760,35 +1015,47 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
 	}
 
-	if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
+	if headers.ProofType != proofTypeLDPVP {
+		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
+			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
+		}
 	}
 
 	if claims.IssuedAt == nil {
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("missing iat"))
 	}
 
-	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
+	if headers.ProofType != proofTypeLDPVP { // ldp_vp checked in parse presentation
+		if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
+			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
+		}
 	}
 
-	if typ, ok := jws.Headers.Type(); ok && typ != jwtProofTypHeader {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+	switch headers.ProofType {
+	case proofTypeJWT:
+		if headers.Type != jwtProofTypHeader {
+			return "",
+				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+		}
+	case proofTypeCWT:
+		if headers.Type != cwtProofTypHeader {
+			return "",
+				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+		}
 	}
 
-	keyID, ok := jws.Headers.KeyID()
-	if !ok {
+	if headers.KeyID == "" {
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid kid"))
 	}
 
-	return strings.Split(keyID, "#")[0], nil
+	return strings.Split(headers.KeyID, "#")[0], nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.
 func (c *Controller) oidcPreAuthorizedCode(
 	ctx context.Context,
 	preAuthorizedCode string,
-	userPin string,
+	txCode string,
 	clientID string,
 	clientAssertionType string,
 	clientAssertion string,
@@ -796,7 +1063,7 @@ func (c *Controller) oidcPreAuthorizedCode(
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 			PreAuthorizedCode:   preAuthorizedCode,
-			UserPin:             lo.ToPtr(userPin),
+			UserPin:             lo.ToPtr(txCode),
 			ClientId:            lo.ToPtr(clientID),
 			ClientAssertionType: lo.ToPtr(clientAssertionType),
 			ClientAssertion:     lo.ToPtr(clientAssertion),

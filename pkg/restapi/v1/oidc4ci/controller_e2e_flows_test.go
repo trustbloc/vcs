@@ -11,6 +11,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
@@ -32,13 +35,28 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	ariesmockstorage "github.com/trustbloc/did-go/legacy/mock/storage"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/doc/jose"
+	arieskms "github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/testsupport"
+	"github.com/trustbloc/vc-go/verifiable"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
+	"github.com/veraison/go-cose"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -48,11 +66,28 @@ import (
 )
 
 const (
-	clientID = "test-client"
-	aud      = "https://server.example.com"
+	clientID   = "test-client"
+	aud        = "https://server.example.com"
+	signingDID = "did:foo:bar"
+	vmID       = "#key1"
 )
 
-func TestAuthorizeCodeGrantFlow(t *testing.T) {
+//go:embed testdata/ldp_proof.json
+var ldpProofContent []byte
+
+func TestAuthorizeCodeGrantFlowWithJWTProof(t *testing.T) {
+	testAuthorizeCodeGrantFlow(t, "jwt")
+}
+
+func TestAuthorizeCodeGrantFlowWithCWTProof(t *testing.T) {
+	testAuthorizeCodeGrantFlow(t, "cwt")
+}
+
+func TestAuthorizeCodeGrantFlowWithLDPVProof(t *testing.T) {
+	testAuthorizeCodeGrantFlow(t, "ldp_vp")
+}
+
+func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	e := echo.New()
 	e.HTTPErrorHandler = resterr.HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))
 
@@ -104,15 +139,34 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
+	suite := createCryptoSuite(t)
+	keyCreator, err := suite.KeyCreator()
+	require.NoError(t, err)
+	key, err := keyCreator.Create(kms.ECDSAP256IEEEP1363)
+	require.NoError(t, err)
+
+	verificationMethod, err := did.NewVerificationMethodFromJWK(vmID, "JsonWebKey2020", signingDID, key)
+	require.NoError(t, err)
+
+	vdr := &vdrmock.VDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
+		}}
+
 	proofCreator, proofChecker := testsupport.NewEd25519Pair(pub, priv, testsupport.AnyPubKeyID)
 
+	mockProofParser := NewMockLDPProofParser(gomock.NewController(t))
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cisrv.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
 		JWTVerifier:             proofChecker,
+		CWTVerifier:             proofChecker,
 		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+		Vdr:                     vdr,
+		DocumentLoader:          testutil.DocumentLoader(t),
+		LDPProofParser:          mockProofParser,
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)
@@ -136,6 +190,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("issuer_state", opState),
+		oauth2.SetAuthURLParam("authorization_details", authorizationDetailsCredentialConfigurationIDBased),
 	}
 
 	authCodeURL := oauthClient.AuthCodeURL(opState, params...)
@@ -160,27 +215,29 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	currentTime := time.Now().Unix()
 
-	claims := &oidc4ci.JWTProofClaims{
+	claims := &oidc4ci.ProofClaims{
 		Issuer:   clientID,
 		IssuedAt: &currentTime,
 		Audience: srv.URL,
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderType: "openid4vci-proof+jwt",
+	proofVal := generateProof(t, proofType, claims, proofCreator)
+
+	if proofType == "ldp_vp" {
+		mockProofParser.EXPECT().Parse(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(i []byte, opts []verifiable.PresentationOpt) (*verifiable.Presentation, error) {
+				assert.Len(t, opts, 4)
+
+				return verifiable.ParsePresentation(ldpProofContent,
+					verifiable.WithPresDisabledProofCheck(),
+					verifiable.WithDisabledJSONLDChecks())
+			})
 	}
-
-	signedJWT, err := jwt.NewSigned(
-		claims, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any", AdditionalHeaders: headers}, proofCreator)
-	require.NoError(t, err)
-
-	jws, err := signedJWT.Serialize(false)
-	require.NoError(t, err)
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+		Proof:  proofVal,
 		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	})
 	require.NoError(t, err)
@@ -188,6 +245,68 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	resp, err = httpClient.Post(srv.URL+"/oidc/credential", "application/json", bytes.NewBuffer(b))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func generateProof(
+	t *testing.T,
+	proofType string,
+	claims *oidc4ci.ProofClaims,
+	jwtProofCreator *creator.ProofCreator,
+) *oidc4ci.JWTProof {
+	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
+
+	keyID := "any"
+	switch proofType {
+	case "jwt":
+		headers := map[string]interface{}{
+			jose.HeaderType: "openid4vci-proof+jwt",
+		}
+
+		signedJWT, err := jwt.NewSigned(
+			claims, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: keyID, AdditionalHeaders: headers}, jwtProofCreator)
+		require.NoError(t, err)
+
+		jws, err := signedJWT.Serialize(false)
+		require.NoError(t, err)
+
+		finalProof.Jwt = &jws
+	case "ldp_vp":
+		var finalPres map[string]interface{}
+		require.NoError(t, json.Unmarshal(ldpProofContent, &finalPres))
+
+		finalProof.LdpVp = &finalPres
+	case "cwt":
+		encoded, err := cbor.Marshal(claims)
+		require.NoError(t, err)
+		msg := &cose.Sign1Message{
+			Headers: cose.Headers{
+				Protected: cose.ProtectedHeader{
+					cose.HeaderLabelAlgorithm:   cose.AlgorithmEd25519,
+					cose.HeaderLabelContentType: "openid4vci-proof+cwt",
+					"COSE_Key":                  []byte(testsupport.AnyPubKeyID),
+				},
+			},
+			Payload: encoded,
+		}
+
+		signData, err := cwt2.GetProofValue(msg)
+		assert.NoError(t, err)
+
+		signed, err := jwtProofCreator.SignCWT(cwt.SignParameters{
+			KeyID:  testsupport.AnyPubKeyID,
+			CWTAlg: cose.AlgorithmEd25519,
+		}, signData)
+		assert.NoError(t, err)
+
+		msg.Signature = signed
+
+		finalMsg, err := msg.MarshalCBOR()
+		assert.NoError(t, err)
+
+		finalProof.Cwt = lo.ToPtr(hex.EncodeToString(finalMsg))
+	}
+
+	return finalProof
 }
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
@@ -264,7 +383,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	resp, err := http.DefaultClient.PostForm(fmt.Sprintf("%v/oidc/token", srv.URL), url.Values{
 		"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 		"pre-authorized_code": {code},
-		"user_pin":            {pin},
+		"tx_code":             {pin},
 		"client_id":           {clientID},
 	})
 	assert.NoError(t, err)
@@ -431,28 +550,38 @@ func (s *memoryStateStore) SaveAuthorizeState(
 
 	return nil
 }
+func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.VerificationRelationship) *did.DocResolution {
+	ver := []did.Verification{{
+		VerificationMethod: *vm,
+		Relationship:       vr,
+	}}
 
-type JWSSigner struct {
-	keyID            string
-	signingAlgorithm string
-	signer           jose.Signer
-}
+	doc := &did.Doc{
+		ID: id,
+	}
 
-func NewJWSSigner(keyID, signingAlgorithm string, signer jose.Signer) *JWSSigner {
-	return &JWSSigner{
-		keyID:            keyID,
-		signingAlgorithm: signingAlgorithm,
-		signer:           signer,
+	switch vr { //nolint:exhaustive
+	case did.VerificationRelationshipGeneral:
+		doc.VerificationMethod = []did.VerificationMethod{*vm}
+	case did.Authentication:
+		doc.Authentication = ver
+	case did.AssertionMethod:
+		doc.AssertionMethod = ver
+	}
+
+	return &did.DocResolution{
+		DIDDocument: doc,
 	}
 }
 
-func (s *JWSSigner) Sign(data []byte) ([]byte, error) {
-	return s.signer.Sign(data)
-}
+func createCryptoSuite(t *testing.T) api.Suite {
+	t.Helper()
 
-func (s *JWSSigner) Headers() jose.Headers {
-	return jose.Headers{
-		jose.HeaderKeyID:     s.keyID,
-		jose.HeaderAlgorithm: s.signingAlgorithm,
-	}
+	p, err := arieskms.NewAriesProviderWrapper(ariesmockstorage.NewMockStoreProvider())
+	require.NoError(t, err)
+
+	suite, err := localsuite.NewLocalCryptoSuite("local-lock://custom/primary/key/", p, &noop.NoLock{})
+	require.NoError(t, err)
+
+	return suite
 }

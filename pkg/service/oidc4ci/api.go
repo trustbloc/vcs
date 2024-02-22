@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
@@ -66,7 +67,7 @@ type TransactionData struct {
 	ProfileVersion                     profileapi.Version
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
-	CredentialFormat                   vcsverifiable.Format
+	CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
 	OIDCCredentialFormat               vcsverifiable.OIDCFormat
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
@@ -94,12 +95,44 @@ type TransactionData struct {
 	WalletInitiatedIssuance            bool
 }
 
-// AuthorizationDetails are the VC-related details for VC issuance.
+// AuthorizationDetails represents the domain model for Authorization Details request.
+//
+// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 type AuthorizationDetails struct {
-	Type      string
-	Types     []string
-	Format    vcsverifiable.Format
-	Locations []string
+	Type                      string
+	Format                    vcsverifiable.Format
+	Locations                 []string
+	CredentialConfigurationID string
+	CredentialDefinition      *CredentialDefinition
+	CredentialIdentifiers     []string
+}
+
+func (ad *AuthorizationDetails) ToDTO() common.AuthorizationDetails {
+	var credentialDefinition *common.CredentialDefinition
+	if cd := ad.CredentialDefinition; cd != nil {
+		credentialDefinition = &common.CredentialDefinition{
+			Context:           &cd.Context,
+			CredentialSubject: &cd.CredentialSubject,
+			Type:              cd.Type,
+		}
+	}
+
+	return common.AuthorizationDetails{
+		CredentialConfigurationId: &ad.CredentialConfigurationID,
+		CredentialDefinition:      credentialDefinition,
+		CredentialIdentifiers:     lo.ToPtr(ad.CredentialIdentifiers),
+		Format:                    lo.ToPtr(string(ad.Format)),
+		Locations:                 &ad.Locations,
+		Type:                      ad.Type,
+	}
+}
+
+// CredentialDefinition contains the detailed description of the credential type.
+type CredentialDefinition struct {
+	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
+	Context           []string
+	CredentialSubject map[string]interface{}
+	Type              []string
 }
 
 // IssuerIDPOIDCConfiguration represents an Issuer's IDP OIDC configuration
@@ -215,8 +248,14 @@ type AuthorizationCodeGrant struct {
 }
 
 type PreAuthorizationGrant struct {
-	PreAuthorizedCode string `json:"pre-authorized_code"`
-	UserPinRequired   bool   `json:"user_pin_required"`
+	PreAuthorizedCode string  `json:"pre-authorized_code"`
+	TxCode            *TxCode `json:"tx_code,omitempty"`
+}
+
+type TxCode struct {
+	InputMode   string `json:"input_mode"`
+	Length      int    `json:"length"`
+	Description string `json:"description"`
 }
 
 type CredentialOfferGrant struct {
@@ -230,9 +269,9 @@ type CredentialOffer struct {
 }
 
 type CredentialOfferResponse struct {
-	CredentialIssuer string               `json:"credential_issuer"`
-	Credentials      []CredentialOffer    `json:"credentials"`
-	Grants           CredentialOfferGrant `json:"grants"`
+	CredentialIssuer           string               `json:"credential_issuer"`
+	CredentialConfigurationIDs []string             `json:"credential_configuration_ids"`
+	Grants                     CredentialOfferGrant `json:"grants"`
 }
 
 type ServiceInterface interface {
@@ -258,7 +297,7 @@ type ServiceInterface interface {
 		clientID,
 		clientAssertionType,
 		clientAssertion string,
-	) (TxID, error)
+	) (*ExchangeAuthorizationCodeResult, error)
 	ValidatePreAuthorizedCodeRequest(
 		ctx context.Context,
 		preAuthorizedCode,
@@ -285,6 +324,11 @@ type AckRemote struct {
 	Status           string `json:"status"`
 	ErrorText        string `json:"error_text"`
 	IssuerIdentifier string `json:"issuer_identifier"`
+}
+
+type ExchangeAuthorizationCodeResult struct {
+	TxID                 TxID
+	AuthorizationDetails *AuthorizationDetails
 }
 
 var ErrDataNotFound = errors.New("data not found")

@@ -9,12 +9,16 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
+	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 // Model for Access Token Response.
 type AccessTokenResponse struct {
 	// The access token issued by the authorization server.
 	AccessToken string `json:"access_token"`
+
+	// REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
 
 	// String containing a nonce to be used to create a proof of possession of key material when requesting a credential.
 	CNonce *string `json:"c_nonce,omitempty"`
@@ -63,6 +67,9 @@ type AcpRequestItem struct {
 
 // Model for OIDC Credential request.
 type CredentialRequest struct {
+	// Object containing information for encrypting the Credential Response.
+	CredentialResponseEncryption *CredentialResponseEncryption `json:"credential_response_encryption,omitempty"`
+
 	// Format of the credential being issued.
 	Format *string   `json:"format,omitempty"`
 	Proof  *JWTProof `json:"proof,omitempty"`
@@ -90,10 +97,28 @@ type CredentialResponse struct {
 	Format string `json:"format"`
 }
 
+// Object containing information for encrypting the Credential Response.
+type CredentialResponseEncryption struct {
+	// JWE alg algorithm for encrypting the Credential Response.
+	Alg string `json:"alg"`
+
+	// JWE enc algorithm for encrypting the Credential Response.
+	Enc string `json:"enc"`
+
+	// Object containing a single public key as a JWK used for encrypting the Credential Response.
+	Jwk string `json:"jwk"`
+}
+
 // JWTProof defines model for JWTProof.
 type JWTProof struct {
-	// REQUIRED. Signed JWT as proof of key possession.
-	Jwt string `json:"jwt"`
+	// REQUIRED if proof_type equals cwt. Signed CWT as proof of key possession.
+	Cwt *string `json:"cwt,omitempty"`
+
+	// REQUIRED if proof_type equals jwt. Signed JWT as proof of key possession.
+	Jwt *string `json:"jwt,omitempty"`
+
+	// REQUIRED if proof_type equals ldp_vp. Linked Data Proof as proof of key possession.
+	LdpVp *map[string]interface{} `json:"ldp_vp"`
 
 	// REQUIRED. JSON String denoting the proof type. Currently the only supported proof type is 'jwt'.
 	ProofType string `json:"proof_type"`
@@ -251,7 +276,7 @@ type OidcAuthorizeParams struct {
 	// An opaque value used by the client to maintain state between the request and callback. The authorization server includes this value when redirecting the user-agent back to the client. The parameter SHOULD be used for preventing cross-site request forgery.
 	State *string `form:"state,omitempty" json:"state,omitempty"`
 
-	// The authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
+	// Encoded array of the authorization_details conveys the details about the credentials the wallet wants to obtain. Multiple authorization_details can be used with type openid_credential to request authorization in case of multiple credentials.
 	AuthorizationDetails *string `form:"authorization_details,omitempty" json:"authorization_details,omitempty"`
 
 	// Wallet's OpenID Connect Issuer URL. The Issuer will use the discovery process to determine the wallet's capabilities and endpoints. RECOMMENDED in Dynamic Credential Request.

@@ -400,6 +400,92 @@ func TestExchangeCodePublishError(t *testing.T) {
 	assert.Empty(t, resp)
 }
 
+func TestExchangeCode_Success(t *testing.T) {
+	store := NewMockTransactionStore(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
+	profileService := NewMockProfileService(gomock.NewController(t))
+
+	httpClient := &http.Client{
+		Transport: &mockTransport{
+			func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"access_token":"SlAV32hkKG"}`)),
+				}, nil
+			},
+		},
+	}
+
+	svc, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore: store,
+		ProfileService:   profileService,
+		HTTPClient:       httpClient,
+		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
+	})
+	assert.NoError(t, err)
+
+	opState := uuid.NewString()
+	authCode := uuid.NewString()
+
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeExchanged)
+
+			return nil
+		})
+
+	authorizationDetails := &oidc4ci.AuthorizationDetails{
+		CredentialConfigurationID: "",
+		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+		Type:                      "openid_credential",
+		CredentialDefinition: &oidc4ci.CredentialDefinition{
+			Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
+			CredentialSubject: map[string]interface{}{
+				"key": "value",
+			},
+			Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		},
+		Format: "",
+	}
+
+	baseTx := &oidc4ci.Transaction{
+		ID: oidc4ci.TxID("id"),
+		TransactionData: oidc4ci.TransactionData{
+			TokenEndpoint:        "https://localhost/token",
+			IssuerAuthCode:       authCode,
+			State:                oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+			AuthorizationDetails: authorizationDetails,
+		},
+	}
+
+	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
+	store.EXPECT().Update(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+			assert.Equal(t, baseTx, tx)
+			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
+			assert.Equal(t, oidc4ci.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
+
+			return nil
+		})
+
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+		Return(&profile.Issuer{
+			OIDCConfig: &profile.OIDCConfig{
+				ClientID:           "clientID",
+				ClientSecretHandle: "clientSecret",
+			},
+		}, nil)
+
+	resp, err := svc.ExchangeAuthorizationCode(context.TODO(), opState, "", "", "")
+	assert.NoError(t, err)
+	assert.Equal(t, &oidc4ci.ExchangeAuthorizationCodeResult{
+		TxID:                 "id",
+		AuthorizationDetails: authorizationDetails,
+	}, resp)
+}
+
 type mockTransport struct {
 	roundTripFunc func(req *http.Request) (*http.Response, error)
 }

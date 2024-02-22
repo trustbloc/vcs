@@ -975,18 +975,51 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 func TestController_PushAuthorizationDetails(t *testing.T) {
 	var (
-		mockOIDC4CISvc = NewMockOIDC4CIService(gomock.NewController(t))
-		req            string
+		mockOIDC4CISvc                  = NewMockOIDC4CIService(gomock.NewController(t))
+		req                             string
+		authorizationDetailsFormatBased = `[{
+    "type": "openid_credential",
+    "format": "ldp_vc",
+    "credential_definition": {
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ],
+      "credentialSubject": {
+        "given_name": {},
+        "family_name": {},
+        "degree": {}
+      }
+    }
+  }]`
+		authorizationDetailsCredentialConfigurationIDBased = `[{
+		 "type": "openid_credential",
+		 "credential_configuration_id": "UniversityDegreeCredential"
+		}]`
 	)
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success: AuthorizationDetails contains Format field", func(t *testing.T) {
 		mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(nil)
 
 		controller := NewController(&Config{
 			OIDC4CIService: mockOIDC4CISvc,
 		})
 
-		req = `{"op_state":"opState","authorization_details":{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}}` //nolint:lll
+		req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
+		c := echoContext(withRequestBody([]byte(req)))
+
+		err := controller.PushAuthorizationDetails(c)
+		require.NoError(t, err)
+	})
+
+	t.Run("Success: AuthorizationDetails contains CredentialConfigurationID field", func(t *testing.T) {
+		mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(nil)
+
+		controller := NewController(&Config{
+			OIDC4CIService: mockOIDC4CISvc,
+		})
+
+		req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsCredentialConfigurationIDBased) //nolint:lll
 		c := echoContext(withRequestBody([]byte(req)))
 
 		err := controller.PushAuthorizationDetails(c)
@@ -1004,7 +1037,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Times(0)
 
-					req = `{"op_state":"opState","authorization_details":{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}}` //nolint:lll
+					req = `{"op_state":"opState","authorization_details":[{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}]}` //nolint:lll
 				},
 				check: func(t *testing.T, err error) {
 					require.ErrorContains(t, err, "type should be 'openid_credential'")
@@ -1016,7 +1049,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
 						resterr.ErrCredentialTypeNotSupported)
 
-					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential"}}`
+					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 				},
 				check: func(t *testing.T, err error) {
 					require.ErrorContains(t, err, "credential type not supported")
@@ -1028,10 +1061,22 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
 						resterr.ErrCredentialFormatNotSupported)
 
-					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential"}}`
+					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 				},
 				check: func(t *testing.T, err error) {
 					require.ErrorContains(t, err, "credential format not supported")
+				},
+			},
+			{
+				name: "CredentialConfigurationID not supported",
+				setup: func() {
+					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
+						resterr.ErrInvalidCredentialConfigurationID)
+
+					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
+				},
+				check: func(t *testing.T, err error) {
+					require.ErrorContains(t, err, "invalid credential configuration ID")
 				},
 			},
 			{
@@ -1040,7 +1085,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
 						errors.New("service error"))
 
-					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}}` //nolint:lll
+					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 				},
 				check: func(t *testing.T, err error) {
 					require.ErrorContains(t, err, "service error")
@@ -1065,7 +1110,29 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 }
 
 func TestController_PrepareAuthorizationRequest(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	var (
+		authorizationDetailsFormatBased = `[{
+    "type": "openid_credential",
+    "format": "ldp_vc",
+    "credential_definition": {
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ],
+      "credentialSubject": {
+        "given_name": {},
+        "family_name": {},
+        "degree": {}
+      }
+    }
+  }]`
+		authorizationDetailsCredentialConfigurationIDBased = `[{
+		 "type": "openid_credential",
+		 "credential_configuration_id": "UniversityDegreeCredential"
+		}]`
+	)
+
+	t.Run("success format based", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(
@@ -1073,6 +1140,17 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 				req *oidc4ci.PrepareClaimDataAuthorizationRequest,
 			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
 				assert.Equal(t, "123", req.OpState)
+
+				ad := req.AuthorizationDetails
+				assert.NotEmpty(t, ad)
+				assert.Equal(t, ad.Type, "openid_credential")
+				assert.Equal(t, ad.Format, vcsverifiable.Ldp)
+				assert.Nil(t, ad.Locations)
+				assert.Empty(t, ad.CredentialConfigurationID)
+				assert.Nil(t, ad.CredentialDefinition.Context)
+				assert.NotNil(t, ad.CredentialDefinition.CredentialSubject)
+				assert.Equal(t, ad.CredentialDefinition.Type, []string{"VerifiableCredential", "UniversityDegreeCredential"})
+				assert.Equal(t, req.Scope, []string{"scope1", "scope2"})
 
 				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
 					ProfileID:      profileID,
@@ -1091,7 +1169,81 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			profileSvc:     mockProfileService,
 		}
 
-		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
+		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","scope":["scope1", "scope2"],"authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
+	})
+
+	t.Run("success credentialConfigurationID based", func(t *testing.T) {
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareClaimDataAuthorizationRequest,
+			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
+				assert.Equal(t, "123", req.OpState)
+
+				ad := req.AuthorizationDetails
+				assert.NotEmpty(t, ad)
+				assert.Equal(t, ad.Type, "openid_credential")
+				assert.Empty(t, ad.Format)
+				assert.Nil(t, ad.Locations)
+				assert.Equal(t, "UniversityDegreeCredential", ad.CredentialConfigurationID)
+				assert.Nil(t, ad.CredentialDefinition)
+				assert.Equal(t, req.Scope, []string{"scope1", "scope2"})
+
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+				}, nil
+			},
+		)
+
+		mockProfileService := NewMockProfileService(gomock.NewController(t))
+		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{},
+		}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+			profileSvc:     mockProfileService,
+		}
+
+		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","scope":["scope1", "scope2"],"authorization_details":%s}`, authorizationDetailsCredentialConfigurationIDBased) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
+	})
+
+	t.Run("Success scope based", func(t *testing.T) {
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareClaimDataAuthorizationRequest,
+			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
+				assert.Equal(t, "123", req.OpState)
+
+				assert.Nil(t, req.AuthorizationDetails)
+				assert.Equal(t, req.Scope, []string{"scope1", "scope2"})
+
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+				}, nil
+			},
+		)
+
+		mockProfileService := NewMockProfileService(gomock.NewController(t))
+		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{},
+		}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+			profileSvc:     mockProfileService,
+		}
+
+		req := `{"response_type":"code","op_state":"123","scope":["scope1", "scope2"]}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
 	})
@@ -1104,7 +1256,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"invalid","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
+		req := `{"response_type":"code","op_state":"123","authorization_details":[{"type":"invalid","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}]}` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "authorization_details.type")
 	})
@@ -1117,7 +1269,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[]}}` //nolint:lll
+		req := `{"response_type":"code","op_state":"123","authorization_details":[{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[]}]}` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "authorization_details.format")
 	})
@@ -1131,7 +1283,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
+		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "service error")
 	})
@@ -1160,7 +1312,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			profileSvc:     mockProfileService,
 		}
 
-		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
+		req := fmt.Sprintf(`{"response_type":"code","op_state":"123","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "get profile error")
 	})
@@ -1211,26 +1363,107 @@ func TestController_StoreAuthZCode(t *testing.T) {
 }
 
 func TestController_ExchangeAuthorizationCode(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with CredentialDefinition", func(t *testing.T) {
 		opState := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
-			Return(oidc4ci.TxID("1234"), nil)
+			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
+				TxID:                 "TxID",
+				AuthorizationDetails: getTestAuthorizationDetails(t, true),
+			}, nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
 		}
 
-		req := fmt.Sprintf(`{"op_state":"%s"}`, opState) //nolint:lll
-		ctx := echoContext(withRequestBody([]byte(req)))
+		recorder := httptest.NewRecorder()
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState)
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+
+		var exchangeResult ExchangeAuthorizationCodeResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&exchangeResult)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "TxID", exchangeResult.TxId)
+
+		assert.NotNil(t, exchangeResult.AuthorizationDetails)
+
+		checkTestAuthorizationDetailsDTO(t, exchangeResult.AuthorizationDetails, true)
+	})
+	t.Run("success without CredentialDefinition", func(t *testing.T) {
+		opState := uuid.NewString()
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
+			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
+				TxID:                 "TxID",
+				AuthorizationDetails: getTestAuthorizationDetails(t, false),
+			}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState)
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
+		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+
+		var exchangeResult ExchangeAuthorizationCodeResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&exchangeResult)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "TxID", exchangeResult.TxId)
+
+		assert.NotNil(t, exchangeResult.AuthorizationDetails)
+
+		checkTestAuthorizationDetailsDTO(t, exchangeResult.AuthorizationDetails, false)
+	})
+
+	t.Run("success without AuthorizationDetails", func(t *testing.T) {
+		opState := uuid.NewString()
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
+			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
+				TxID:                 "TxID",
+				AuthorizationDetails: nil,
+			}, nil)
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState)
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
+		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+
+		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+
+		var exchangeResult ExchangeAuthorizationCodeResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&exchangeResult)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "TxID", exchangeResult.TxId)
+
+		assert.Nil(t, exchangeResult.AuthorizationDetails)
 	})
 
 	t.Run("error from service", func(t *testing.T) {
 		opState := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
-			Return(oidc4ci.TxID(""), errors.New("unexpected error"))
+			Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1251,13 +1484,15 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 }
 
 func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
-	t.Run("success with pin", func(t *testing.T) {
+	t.Run("success with pin and authorizationDetails", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123", "", "").
 			Return(&oidc4ci.Transaction{
+				ID: "txID",
 				TransactionData: oidc4ci.TransactionData{
-					OpState: "random_op_state",
-					Scope:   []string{"a", "b"},
+					OpState:              "random_op_state",
+					Scope:                []string{"a", "b"},
+					AuthorizationDetails: getTestAuthorizationDetails(t, true),
 				},
 			}, nil)
 
@@ -1265,18 +1500,34 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
+		recorder := httptest.NewRecorder()
+
 		req := `{"pre-authorized_code":"1234", "user_pin" : "5432", "client_id": "123" }` //nolint:lll
-		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
+
+		err := c.ValidatePreAuthorizedCodeRequest(ctx)
+		assert.NoError(t, err)
+
+		var response ValidatePreAuthorizedCodeResponse
+		err = json.NewDecoder(recorder.Body).Decode(&response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "txID", response.TxId)
+		assert.Equal(t, "random_op_state", response.OpState)
+		assert.Equal(t, []string{"a", "b"}, response.Scopes)
+
+		checkTestAuthorizationDetailsDTO(t, response.AuthorizationDetails, true)
 	})
 
-	t.Run("success without pin", func(t *testing.T) {
+	t.Run("success without pin and without authorizationDetails", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "", "123", "", "").
 			Return(&oidc4ci.Transaction{
+				ID: "txID",
 				TransactionData: oidc4ci.TransactionData{
-					OpState: "random_op_state",
-					Scope:   []string{"a", "b"},
+					OpState:              "random_op_state",
+					Scope:                []string{"a", "b"},
+					AuthorizationDetails: nil,
 				},
 			}, nil)
 
@@ -1284,9 +1535,20 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 			oidc4ciService: mockOIDC4CIService,
 		}
 
+		recorder := httptest.NewRecorder()
+
 		req := `{"pre-authorized_code":"1234", "client_id": "123" }` //nolint:lll
-		ctx := echoContext(withRequestBody([]byte(req)))
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
+
+		var response ValidatePreAuthorizedCodeResponse
+		err := json.NewDecoder(recorder.Body).Decode(&response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "txID", response.TxId)
+		assert.Equal(t, "random_op_state", response.OpState)
+		assert.Equal(t, []string{"a", "b"}, response.Scopes)
+		assert.Nil(t, response.AuthorizationDetails)
 	})
 
 	t.Run("fail with pin", func(t *testing.T) {
@@ -1312,6 +1574,7 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	})
 }
 
+// nolint:lll
 func TestController_PrepareCredential(t *testing.T) {
 	var universityDegreeSchemaDoc map[string]interface{}
 	require.NoError(t, json.Unmarshal(universityDegreeSchema, &universityDegreeSchemaDoc))
@@ -1332,6 +1595,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				VCConfig: &profileapi.VCConfig{
 					Format: vcsverifiable.Ldp,
 				},
+				OIDCConfig: &profileapi.OIDCConfig{},
 			}, nil)
 
 		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
@@ -1376,6 +1640,67 @@ func TestController_PrepareCredential(t *testing.T) {
 		})
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.PrepareCredential(ctx))
+	})
+
+	t.Run("success with requested credential response encryption", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc","requested_credential_response_encryption":{"alg":"ECDH-ES","enc":"A128CBC-HS256"}}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareCredential(ctx))
 	})
@@ -1567,6 +1892,190 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.EqualError(t, c.PrepareCredential(ctx), "invalid-claims: validation error")
 	})
+
+	t.Run("credential response encryption is required error", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseEncryptionRequired: true,
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "credential response encryption is required")
+	})
+
+	t.Run("alg not supported error", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc","requested_credential_response_encryption":{"alg":"RSA-OAEP-256","enc":"A128CBC-HS256"}}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "alg RSA-OAEP-256 not supported")
+	})
+
+	t.Run("enc not supported error", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				OIDCConfig: &profileapi.OIDCConfig{
+					CredentialResponseAlgValuesSupported: []string{"ECDH-ES"},
+					CredentialResponseEncValuesSupported: []string{"A128CBC-HS256"},
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:               profileID,
+					ProfileVersion:          profileVersion,
+					Credential:              sampleVC,
+					Format:                  vcsverifiable.Ldp,
+					Retry:                   false,
+					EnforceStrictValidation: true,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						JSONSchema:   string(universityDegreeSchema),
+						JSONSchemaID: "https://trustbloc.com/universitydegree.schema.json",
+						Checks: profileapi.CredentialTemplateChecks{
+							Strict: true,
+						},
+					},
+				}, nil
+			},
+		)
+
+		mockJSONSchemaValidator := NewMockJSONSchemaValidator(gomock.NewController(t))
+		mockJSONSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    mockJSONSchemaValidator,
+		})
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc","requested_credential_response_encryption":{"alg":"ECDH-ES","enc":"A192CBC-HS384"}}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "enc A192CBC-HS384 not supported")
+	})
 }
 
 func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
@@ -1582,11 +2091,7 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: []map[string]interface{}{
-				{
-					"id": "VerifiedEmployee_JWT",
-				},
-			},
+			CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{},
 		},
 	}
 
@@ -1619,8 +2124,8 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			bodyBytes, err := io.ReadAll(recorder.Body)
 			assert.NoError(t, err)
 
-			assert.Equal(t, "aa.bb.cc", string(bodyBytes))
-			assert.Equal(t, "application/jwt", recorder.Header().Get("Content-Type"))
+			assert.Equal(t, `{"signed_metadata":"aa.bb.cc"}`, string(bodyBytes))
+			assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
 		}
 	})
 
@@ -1628,7 +2133,7 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 		openidIssuerConfigProvider := NewMockOpenIDCredentialIssuerConfigProvider(gomock.NewController(t))
 		openidIssuerConfigProvider.EXPECT().GetOpenIDCredentialIssuerConfig(profile).Return(
 			&WellKnownOpenIDIssuerConfiguration{
-				CredentialIssuer: "https://example.com",
+				CredentialIssuer: lo.ToPtr("https://example.com"),
 			}, "", nil).Times(2)
 
 		profileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1790,10 +2295,20 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	profileSvc.EXPECT().GetProfile("12345", "v0.1").
-		Return(&profileapi.Issuer{}, nil)
+		Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDCConfig{
+				ScopesSupported:                            []string{"scope1"},
+				GrantTypesSupported:                        []string{"grantType1"},
+				EnableDynamicClientRegistration:            true,
+				PreAuthorizedGrantAnonymousAccessSupported: true,
+			},
+		}, nil)
 	resp, err := ctr.GetOpenIDConfig("12345", "v0.1")
 	assert.NoError(t, err)
-	assert.Equal(t, "/oidc/acknowledgement", resp.CredentialAckEndpoint)
+	assert.Equal(t, "/oidc/acknowledgement", *resp.CredentialAckEndpoint)
+	assert.Equal(t, []string{"grantType1"}, *resp.GrantTypesSupported)
+	assert.Equal(t, []string{"scope1"}, *resp.ScopesSupported)
+	assert.Equal(t, "/oidc/12345/v0.1/register", *resp.RegistrationEndpoint)
 }
 
 func Test_sendFailedEvent(t *testing.T) {
@@ -1900,4 +2415,55 @@ func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual err
 
 	require.Equal(t, expectedCode, actualErr.Code)
 	require.Error(t, actualErr.Err)
+}
+
+func getTestAuthorizationDetails(t *testing.T, includeCredentialDefinition bool) *oidc4ci.AuthorizationDetails {
+	t.Helper()
+
+	res := &oidc4ci.AuthorizationDetails{
+		CredentialConfigurationID: "CredentialConfigurationID",
+		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+		Type:                      "openid_credential",
+		CredentialDefinition:      nil,
+		Format:                    "jwt",
+		CredentialIdentifiers:     []string{"CredentialIdentifiers1", "CredentialIdentifiers2"},
+	}
+
+	if includeCredentialDefinition {
+		res.CredentialDefinition = &oidc4ci.CredentialDefinition{
+			Context:           []string{"https://example.com/context/1", "https://example.com/context/2"},
+			CredentialSubject: map[string]interface{}{"key": "value"},
+			Type:              []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		}
+	}
+
+	return res
+}
+
+func checkTestAuthorizationDetailsDTO(
+	t *testing.T,
+	authorizationDetailsDTOList *[]common.AuthorizationDetails,
+	includeCredentialDefinition bool,
+) {
+	authorizationDetailsReceived := *authorizationDetailsDTOList
+
+	assert.Len(t, authorizationDetailsReceived, 1)
+	assert.Equal(t, "CredentialConfigurationID", *authorizationDetailsReceived[0].CredentialConfigurationId)
+	assert.Equal(t, []string{"CredentialIdentifiers1", "CredentialIdentifiers2"},
+		*authorizationDetailsReceived[0].CredentialIdentifiers)
+	assert.Equal(t, "jwt", lo.FromPtr(authorizationDetailsReceived[0].Format))
+	assert.Equal(t, []string{"https://example.com/rs1", "https://example.com/rs2"},
+		*authorizationDetailsReceived[0].Locations)
+	assert.Equal(t, "openid_credential", authorizationDetailsReceived[0].Type)
+
+	ad := authorizationDetailsReceived[0].CredentialDefinition
+
+	if includeCredentialDefinition {
+		assert.NotNil(t, ad)
+		assert.Equal(t, []string{"https://example.com/context/1", "https://example.com/context/2"}, *ad.Context)
+		assert.Equal(t, map[string]interface{}{"key": "value"}, *ad.CredentialSubject)
+		assert.Equal(t, []string{"VerifiableCredential", "UniversityDegreeCredential"}, ad.Type)
+	} else {
+		assert.Nil(t, ad)
+	}
 }
