@@ -628,8 +628,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4 h1:Yw
 github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955 h1:pVe5+rmEzDuuK64cd3EjM0WtBMfm2T26xraGgv3r0Mg=
 github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955/go.mod h1:PXsxEF78QvuExNO3WkumlYvbrjLH+AN8P74D8IOMABo=
-github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167 h1:tgzKqzUJRLg0sY/BmHEDpMQ3TZOtC7u1RDYEMPeqnCI=
-github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167/go.mod h1:23chV97aYVcT3ihO8xO9+T0KZn9lFGbk2KXhJNaHbXE=
+github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd h1:PjVO8xIavIpwwi23pkmNJ2FrlajdcCC/AvMpnelQ7dU=
+github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd/go.mod h1:23chV97aYVcT3ihO8xO9+T0KZn9lFGbk2KXhJNaHbXE=
 github.com/trustbloc/logutil-go v1.0.0-rc1 h1:rRJbvgQfrlUfyej+mY0nuQJymGqjRW4oZEwKi544F4c=
 github.com/trustbloc/logutil-go v1.0.0-rc1/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
 github.com/trustbloc/vc-go v1.1.1-0.20240131142342-c5e522292848 h1:yGmY6+gK+wx66rMv8uxNHBjWL6SI0jsTIjX8YHBBqe8=

@@ -16,9 +16,9 @@ import (
 
 	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
 	"github.com/trustbloc/did-go/method/httpbinding"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdrpkg "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 
 	"github.com/trustbloc/vcs/pkg/profile"
 )
