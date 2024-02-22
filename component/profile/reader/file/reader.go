@@ -21,9 +21,9 @@ import (
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/did-go/method/jwk"
 	"github.com/trustbloc/did-go/method/key"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdrpkg "github.com/trustbloc/did-go/vdr"
 	"github.com/trustbloc/logutil-go/pkg/log" //nolint:typecheck
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"

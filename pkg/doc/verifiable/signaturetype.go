@@ -23,6 +23,7 @@ const (
 	ES256  SignatureType = "ES256"
 	ES384  SignatureType = "ES384"
 	PS256  SignatureType = "PS256"
+	RS256  SignatureType = "RS256"
 
 	Ed25519Signature2018        SignatureType = "Ed25519Signature2018"
 	Ed25519Signature2020        SignatureType = "Ed25519Signature2020"
@@ -74,6 +75,7 @@ var signatureTypes = []signatureTypeDesc{
 	{ES256, Jwt, []kms.KeyType{kms.ECDSAP256TypeDER}},
 	{ES384, Jwt, []kms.KeyType{kms.ECDSAP384TypeDER}},
 	{PS256, Jwt, []kms.KeyType{kms.RSAPS256Type}},
+	{RS256, Jwt, []kms.KeyType{kms.RSARS256Type}},
 }
 
 func ValidateSignatureAlgorithm(format Format, signatureType string, kmsKeyTypes []kms.KeyType) (SignatureType, error) {

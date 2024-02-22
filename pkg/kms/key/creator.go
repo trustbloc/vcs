@@ -37,7 +37,8 @@ func CryptoKeyCreator(kc api.RawKeyCreator) func(kms.KeyType) (string, interface
 			kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363,
 			kms.ECDSASecp256k1DER,
 			kms.BLS12381G2Type,
-			kms.ED25519Type:
+			kms.ED25519Type,
+			kms.RSAPS256, kms.RSARS256:
 			keyID, pubKey, err := kc.CreateRaw(kt)
 			if err != nil {
 				return "", nil, fmt.Errorf("failed to create new crypto key: %w", err)

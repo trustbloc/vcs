@@ -307,6 +307,28 @@ func TestCreate(t *testing.T) {
 		require.Contains(t, result, keyID)
 	})
 
+	t.Run("success RSA", func(t *testing.T) {
+		keyID := "key1"
+
+		metric := NewMockmetricsProvider(gomock.NewController(t))
+		client := NewMockawsClient(gomock.NewController(t))
+		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(
+				ctx context.Context,
+				input *kms.CreateKeyInput,
+				f ...func(*kms.Options),
+			) (*kms.CreateKeyOutput, error) {
+				require.EqualValues(t, types.CustomerMasterKeySpecRsa2048, input.KeySpec)
+				return &kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil
+			})
+
+		svc := New(awsConfig, metric, "", WithAWSClient(client))
+
+		result, _, err := svc.Create(arieskms.RSARS256)
+		require.NoError(t, err)
+		require.Contains(t, result, keyID)
+	})
+
 	t.Run("success: with key alias prefix", func(t *testing.T) {
 		keyID := "key1"
 
@@ -619,6 +641,27 @@ func TestPubKeyBytes(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, string(keyID), "publickey")
 		require.Contains(t, string(keyType), "ECDSAP256DER")
+	})
+
+	t.Run("success RSA", func(t *testing.T) {
+		metric := NewMockmetricsProvider(gomock.NewController(t))
+		metric.EXPECT().ExportPublicKeyCount()
+		metric.EXPECT().ExportPublicKeyTime(gomock.Any())
+
+		client := NewMockawsClient(gomock.NewController(t))
+		client.EXPECT().GetPublicKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.GetPublicKeyOutput{
+				PublicKey:         []byte("publickey"),
+				KeySpec:           types.KeySpecRsa2048,
+				SigningAlgorithms: []types.SigningAlgorithmSpec{types.SigningAlgorithmSpecEcdsaSha256},
+			}, nil)
+		svc := New(awsConfig, metric, "", WithAWSClient(client))
+
+		keyID, keyType, err := svc.ExportPubKeyBytes(
+			"aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147")
+		require.NoError(t, err)
+		require.Contains(t, string(keyID), "publickey")
+		require.Contains(t, string(keyType), "RSARS256")
 	})
 
 	t.Run("failed to export public key", func(t *testing.T) {

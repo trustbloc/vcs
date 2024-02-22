@@ -24,10 +24,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/doc/did/endpoint"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	vdr2 "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 )
 
 const (

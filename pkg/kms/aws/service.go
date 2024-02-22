@@ -80,9 +80,10 @@ const (
 
 // nolint: gochecknoglobals
 var kmsKeyTypes = map[types.SigningAlgorithmSpec]arieskms.KeyType{
-	signingAlgorithmEcdsaSha256: arieskms.ECDSAP256DER,
-	signingAlgorithmEcdsaSha384: arieskms.ECDSAP384DER,
-	signingAlgorithmEcdsaSha512: arieskms.ECDSAP521DER,
+	signingAlgorithmEcdsaSha256:                    arieskms.ECDSAP256DER,
+	signingAlgorithmEcdsaSha384:                    arieskms.ECDSAP384DER,
+	signingAlgorithmEcdsaSha512:                    arieskms.ECDSAP521DER,
+	types.SigningAlgorithmSpecRsassaPkcs1V15Sha256: arieskms.RSARS256,
 }
 
 // nolint: gochecknoglobals
@@ -224,7 +225,9 @@ func (s *Service) Sign(msg []byte, kh interface{}) ([]byte, error) { //nolint: f
 		return nil, err
 	}
 
-	digest, err := hashMessage(msg, describeKey.KeyMetadata.SigningAlgorithms[0])
+	signAlgo := s.selectSignAlgo(describeKey.KeyMetadata.KeySpec, describeKey.KeyMetadata.SigningAlgorithms)
+
+	digest, err := hashMessage(msg, signAlgo)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +236,7 @@ func (s *Service) Sign(msg []byte, kh interface{}) ([]byte, error) { //nolint: f
 		KeyId:            aws.String(keyID),
 		Message:          digest,
 		MessageType:      types.MessageTypeDigest,
-		SigningAlgorithm: describeKey.KeyMetadata.SigningAlgorithms[0],
+		SigningAlgorithm: signAlgo,
 	}
 
 	result, err := s.client.Sign(context.Background(), input)
@@ -317,7 +320,16 @@ func (s *Service) ExportPubKeyBytes(keyURI string) ([]byte, arieskms.KeyType, er
 		return nil, "", err
 	}
 
-	return result.PublicKey, kmsKeyTypes[result.SigningAlgorithms[0]], nil
+	return result.PublicKey, kmsKeyTypes[s.selectSignAlgo(result.KeySpec, result.SigningAlgorithms)], nil
+}
+
+func (s *Service) selectSignAlgo(keyType types.KeySpec, algo []types.SigningAlgorithmSpec) types.SigningAlgorithmSpec {
+	switch keyType { //nolint:exhaustive
+	case types.KeySpecRsa2048, types.KeySpecRsa3072, types.KeySpecRsa4096:
+		return types.SigningAlgorithmSpecRsassaPkcs1V15Sha256
+	default:
+		return algo[0]
+	}
 }
 
 // Verify signature.
@@ -340,6 +352,8 @@ func (s *Service) Create(kt arieskms.KeyType) (string, interface{}, error) {
 		keySpec = types.KeySpecEccNistP521
 	case arieskms.ECDSASecp256k1DER:
 		keySpec = types.KeySpecEccSecgP256k1
+	case arieskms.RSARS256:
+		keySpec = types.KeySpecRsa2048
 	default:
 		return "", nil, fmt.Errorf("key not supported %s", kt)
 	}
@@ -425,14 +439,14 @@ func hashMessage(message []byte, algorithm types.SigningAlgorithmSpec) ([]byte, 
 	var digest hash.Hash
 
 	switch algorithm { //nolint: exhaustive
-	case signingAlgorithmEcdsaSha256:
+	case signingAlgorithmEcdsaSha256, types.SigningAlgorithmSpecRsassaPkcs1V15Sha256:
 		digest = sha256.New()
 	case signingAlgorithmEcdsaSha384:
 		digest = sha512.New384()
 	case signingAlgorithmEcdsaSha512:
 		digest = sha512.New()
 	default:
-		return []byte{}, fmt.Errorf("unknown signing algorithm")
+		return []byte{}, fmt.Errorf("unknown signing algorithm - %v", algorithm)
 	}
 
 	digest.Write(message)

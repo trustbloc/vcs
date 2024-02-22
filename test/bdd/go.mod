@@ -22,9 +22,10 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/tidwall/gjson v1.14.4
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955
-	github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167
+	github.com/trustbloc/did-go v1.1.1-0.20240214160354-aa500e57d8bd
+	github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd
 	github.com/trustbloc/logutil-go v1.0.0-rc1
+	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
 	github.com/trustbloc/vc-go v1.1.1-0.20240131142342-c5e522292848
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
@@ -63,7 +64,6 @@ require (
 	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
 	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
 	github.com/dave/jennifer v1.6.1 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.11.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
@@ -126,7 +126,6 @@ require (
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
@@ -138,14 +137,12 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.16.0 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4 // indirect
-	github.com/trustbloc/sidetree-go v1.0.1-0.20240117181443-2f0d5acb92b7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect

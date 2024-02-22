@@ -19,6 +19,11 @@ ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 GOPROXY ?= https://proxy.golang.org
 
+VC_FRAMEWORK_VERSION				= 03fc2b8e9895d6256e1d154984de808dada3433e
+KMS_FRAMEWORK_VERSION 				= 59c2830d27fd44f9a3a663242a4aa61544ce622e
+DID_GO_VERSION						= aa500e57d8bdf51c90c20d3a6c815fdc76f716c3
+SIDE_TREE_VERSION							= f4260aff710479ba5fa3f0c61b51d451d9041225
+
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
 VC_REST_VERSION ?= $(subst v,,"$(shell git name-rev --tags --name-only $(shell git rev-parse HEAD))+$(BUILD_DATE)")
 ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
@@ -228,6 +233,36 @@ update-vc:
 		if grep -q "github.com/trustbloc/vc-go" "$$gomod_path"; then \
 			echo "Executing 'updating vc' in directory: $$dir_path"; \
 			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/vc-go@$(VC_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
+
+.PHONY: update-kms
+update-kms:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/kms-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/kms-go@$(KMS_FRAMEWORK_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
+
+.PHONY: update-did
+update-did:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/did-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/did-go@$(DID_GO_VERSION) && go mod tidy) || exit 1; \
+		fi; \
+	done
+
+.PHONY: update-sidetree
+update-sidetree:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		if grep -q "github.com/trustbloc/sidetree-go" "$$gomod_path"; then \
+			echo "Executing 'updating vc' in directory: $$dir_path"; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/sidetree-go@$(SIDE_TREE_VERSION) && go mod tidy) || exit 1; \
 		fi; \
 	done
 

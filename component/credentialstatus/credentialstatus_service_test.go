@@ -23,8 +23,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	"github.com/trustbloc/kms-go/spi/kms"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
 

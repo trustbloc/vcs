@@ -14,10 +14,10 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/method/jwk"
 	"github.com/trustbloc/did-go/method/key"
-	longform "github.com/trustbloc/did-go/method/sidetreelongform"
 	"github.com/trustbloc/did-go/method/web"
 	"github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 )
 
 func NewRegistry(tls *tls.Config) (vdrapi.Registry, error) {
