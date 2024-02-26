@@ -34,7 +34,6 @@ const (
 	version                    = "/version"
 	versionSystem              = "/version/system"
 	profiler                   = "/debug/pprof"
-	openIDConfigWellKnown      = "/.well-known/openid-configuration"
 )
 
 // APIKeyAuth returns a middleware that authenticates requests using the API key from X-API-Key header.
@@ -81,7 +80,6 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc { //nolint:gocognit
 				strings.HasPrefix(currentPath, oidcCredential) ||
 				strings.HasSuffix(currentPath, issuedCredentialsHistory) ||
 				strings.HasSuffix(currentPath, oidcCredentialWellKnown) ||
-				strings.HasSuffix(currentPath, openIDConfigWellKnown) ||
 				(strings.HasPrefix(currentPath, "/oidc/") && strings.HasSuffix(currentPath, "/register")) {
 				return next(c)
 			}

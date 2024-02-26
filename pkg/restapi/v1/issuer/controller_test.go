@@ -2287,30 +2287,6 @@ func Test_getCredentialSubjects(t *testing.T) {
 	})
 }
 
-func TestGetConfig(t *testing.T) {
-	profileSvc := NewMockProfileService(gomock.NewController(t))
-
-	ctr := NewController(&Config{
-		ProfileSvc: profileSvc,
-	})
-
-	profileSvc.EXPECT().GetProfile("12345", "v0.1").
-		Return(&profileapi.Issuer{
-			OIDCConfig: &profileapi.OIDCConfig{
-				ScopesSupported:                            []string{"scope1"},
-				GrantTypesSupported:                        []string{"grantType1"},
-				EnableDynamicClientRegistration:            true,
-				PreAuthorizedGrantAnonymousAccessSupported: true,
-			},
-		}, nil)
-	resp, err := ctr.GetOpenIDConfig("12345", "v0.1")
-	assert.NoError(t, err)
-	assert.Equal(t, "/oidc/acknowledgement", *resp.CredentialAckEndpoint)
-	assert.Equal(t, []string{"grantType1"}, *resp.GrantTypesSupported)
-	assert.Equal(t, []string{"scope1"}, *resp.ScopesSupported)
-	assert.Equal(t, "/oidc/12345/v0.1/register", *resp.RegistrationEndpoint)
-}
-
 func Test_sendFailedEvent(t *testing.T) {
 	t.Run("marshal error", func(t *testing.T) {
 		c := NewController(&Config{})

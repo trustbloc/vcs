@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -428,51 +427,6 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 	}
 
 	return util.WriteOutputWithContentType(e)(resp, ct, nil)
-}
-
-// OpenidConfigV2 request openid configuration for issuer. // TODO to remove
-// GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration.
-func (c *Controller) OpenidConfigV2(ctx echo.Context, profileID, profileVersion string) error {
-	return util.WriteOutput(ctx)(c.GetOpenIDConfig(profileID, profileVersion))
-}
-
-func (c *Controller) GetOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
-	host := c.externalHostURL
-	if !strings.HasSuffix(host, "/") {
-		host += "/"
-	}
-
-	config := &WellKnownOpenIDIssuerConfiguration{
-		AuthorizationEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/authorize", host)),
-		ResponseTypesSupported: lo.ToPtr([]string{"code"}),
-		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
-		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/acknowledgement", host)),
-	}
-
-	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if profile.OIDCConfig != nil {
-		config.GrantTypesSupported = &profile.OIDCConfig.GrantTypesSupported
-		config.ScopesSupported = &profile.OIDCConfig.ScopesSupported
-		config.PreAuthorizedGrantAnonymousAccessSupported =
-			&profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported
-
-		if profile.OIDCConfig.EnableDynamicClientRegistration {
-			var regURL string
-
-			regURL, err = url.JoinPath(host, "oidc", profileID, profileVersion, "register")
-			if err != nil {
-				return nil, fmt.Errorf("build registration endpoint: %w", err)
-			}
-
-			config.RegistrationEndpoint = lo.ToPtr(regURL)
-		}
-	}
-
-	return config, nil
 }
 
 func (c *Controller) initiateIssuance(

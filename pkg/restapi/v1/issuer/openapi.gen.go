@@ -380,36 +380,6 @@ type ValidatePreAuthorizedCodeResponse struct {
 	TxId string `json:"tx_id"`
 }
 
-// OpenID Config response.
-type WellKnownOpenIDConfiguration struct {
-	// URL of the OP's OAuth 2.0 Authorization Endpoint.
-	AuthorizationEndpoint string `json:"authorization_endpoint"`
-
-	// URL of the acknowledgement endpoint.
-	CredentialAckEndpoint string `json:"credential_ack_endpoint"`
-
-	// JSON array containing a list of the OAuth 2.0 Grant Type values that this OP supports.
-	GrantTypesSupported []string `json:"grant_types_supported"`
-
-	// JSON Boolean indicating whether the issuer accepts a Token Request with a Pre-Authorized Code but without a client id. The default is false.
-	PreAuthorizedGrantAnonymousAccessSupported bool `json:"pre-authorized_grant_anonymous_access_supported"`
-
-	// URL of the OP's Dynamic Client Registration Endpoint.
-	RegistrationEndpoint *string `json:"registration_endpoint,omitempty"`
-
-	// JSON array containing a list of the OAuth 2.0 response_type values that this OP supports.
-	ResponseTypesSupported []string `json:"response_types_supported"`
-
-	// JSON array containing a list of the OAuth 2.0 [RFC6749] scope values that this server supports.
-	ScopesSupported []string `json:"scopes_supported"`
-
-	// URL of the OP's OAuth 2.0 Token Endpoint.
-	TokenEndpoint string `json:"token_endpoint"`
-
-	// JSON Boolean indicating whether the issuer profile supports wallet initiated flow in OIDC4CI. The default is false.
-	WalletInitiatedAuthFlowSupported bool `json:"wallet_initiated_auth_flow_supported"`
-}
-
 // WellKnownOpenIDIssuerConfiguration represents the OIDC Configuration response for cases when VCS serves as IDP.
 type WellKnownOpenIDIssuerConfiguration struct {
 	// URL of the OP's OAuth 2.0 Authorization Endpoint.
@@ -709,9 +679,6 @@ type ClientInterface interface {
 	// OpenidCredentialIssuerConfig request
 	OpenidCredentialIssuerConfig(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// OpenidConfigV2 request
-	OpenidConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// OpenidCredentialIssuerConfigV2 request
 	OpenidCredentialIssuerConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
@@ -958,18 +925,6 @@ func (c *Client) InitiateCredentialIssuance(ctx context.Context, profileID strin
 
 func (c *Client) OpenidCredentialIssuerConfig(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewOpenidCredentialIssuerConfigRequest(c.Server, profileID, profileVersion)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) OpenidConfigV2(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewOpenidConfigV2Request(c.Server, profileID, profileVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -1496,47 +1451,6 @@ func NewOpenidCredentialIssuerConfigRequest(server string, profileID string, pro
 	return req, nil
 }
 
-// NewOpenidConfigV2Request generates requests for OpenidConfigV2
-func NewOpenidConfigV2Request(server string, profileID string, profileVersion string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, profileVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/oidc/idp/%s/%s/.well-known/openid-configuration", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewOpenidCredentialIssuerConfigV2Request generates requests for OpenidCredentialIssuerConfigV2
 func NewOpenidCredentialIssuerConfigV2Request(server string, profileID string, profileVersion string) (*http.Request, error) {
 	var err error
@@ -1674,9 +1588,6 @@ type ClientWithResponsesInterface interface {
 
 	// OpenidCredentialIssuerConfig request
 	OpenidCredentialIssuerConfigWithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigResponse, error)
-
-	// OpenidConfigV2 request
-	OpenidConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidConfigV2Response, error)
 
 	// OpenidCredentialIssuerConfigV2 request
 	OpenidCredentialIssuerConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigV2Response, error)
@@ -1945,28 +1856,6 @@ func (r OpenidCredentialIssuerConfigResponse) StatusCode() int {
 	return 0
 }
 
-type OpenidConfigV2Response struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *WellKnownOpenIDConfiguration
-}
-
-// Status returns HTTPResponse.Status
-func (r OpenidConfigV2Response) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r OpenidConfigV2Response) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type OpenidCredentialIssuerConfigV2Response struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2167,15 +2056,6 @@ func (c *ClientWithResponses) OpenidCredentialIssuerConfigWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseOpenidCredentialIssuerConfigResponse(rsp)
-}
-
-// OpenidConfigV2WithResponse request returning *OpenidConfigV2Response
-func (c *ClientWithResponses) OpenidConfigV2WithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidConfigV2Response, error) {
-	rsp, err := c.OpenidConfigV2(ctx, profileID, profileVersion, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseOpenidConfigV2Response(rsp)
 }
 
 // OpenidCredentialIssuerConfigV2WithResponse request returning *OpenidCredentialIssuerConfigV2Response
@@ -2489,32 +2369,6 @@ func ParseOpenidCredentialIssuerConfigResponse(rsp *http.Response) (*OpenidCrede
 	return response, nil
 }
 
-// ParseOpenidConfigV2Response parses an HTTP response from a OpenidConfigV2WithResponse call
-func ParseOpenidConfigV2Response(rsp *http.Response) (*OpenidConfigV2Response, error) {
-	bodyBytes, err := ioutil.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &OpenidConfigV2Response{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest WellKnownOpenIDConfiguration
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseOpenidCredentialIssuerConfigV2Response parses an HTTP response from a OpenidCredentialIssuerConfigV2WithResponse call
 func ParseOpenidCredentialIssuerConfigV2Response(rsp *http.Response) (*OpenidCredentialIssuerConfigV2Response, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2579,9 +2433,6 @@ type ServerInterface interface {
 	// Request VCS IDP OIDC Configuration.
 	// (GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
 	OpenidCredentialIssuerConfig(ctx echo.Context, profileID string, profileVersion string) error
-	// Request openid-config public endpoint.
-	// (GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-configuration)
-	OpenidConfigV2(ctx echo.Context, profileID string, profileVersion string) error
 	// Request VCS IDP OIDC Configuration.
 	// (GET /oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
 	OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID string, profileVersion string) error
@@ -2767,30 +2618,6 @@ func (w *ServerInterfaceWrapper) OpenidCredentialIssuerConfig(ctx echo.Context) 
 	return err
 }
 
-// OpenidConfigV2 converts echo context to params.
-func (w *ServerInterfaceWrapper) OpenidConfigV2(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// ------------- Path parameter "profileVersion" -------------
-	var profileVersion string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.OpenidConfigV2(ctx, profileID, profileVersion)
-	return err
-}
-
 // OpenidCredentialIssuerConfigV2 converts echo context to params.
 func (w *ServerInterfaceWrapper) OpenidCredentialIssuerConfigV2(ctx echo.Context) error {
 	var err error
@@ -2855,7 +2682,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
-	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-configuration", wrapper.OpenidConfigV2)
 	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfigV2)
 
 }
