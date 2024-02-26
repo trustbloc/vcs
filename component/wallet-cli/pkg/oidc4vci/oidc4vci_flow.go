@@ -67,7 +67,7 @@ const (
 )
 
 type trustRegistry interface {
-	ValidateIssuer(issuerDID string, issuerDomain string, credentialOffers []trustregistry.CredentialOffer) error
+	ValidateIssuer(issuerDID, issuerDomain, credentialType, credentialFormat string, clientAttestationRequested bool) error
 }
 
 type Flow struct {
@@ -294,13 +294,9 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			ValidateIssuer(
 				issuerDID,
 				"",
-				[]trustregistry.CredentialOffer{
-					{
-						ClientAttestationRequested: lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
-						CredentialFormat:           credentialConfiguration.Format,
-						CredentialType:             credentialType,
-					},
-				},
+				credentialType,
+				credentialConfiguration.Format,
+				lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
 			); err != nil {
 			return nil, fmt.Errorf("validate issuer: %w", err)
 		}
