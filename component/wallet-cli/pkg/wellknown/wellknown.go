@@ -104,12 +104,7 @@ func getWellKnownOpenIDConfigurationJWTPayload(rawResponse string, vdrRegistry v
 		return nil, nil, fmt.Errorf("decode claims: %w", err)
 	}
 
-	sb, err := v.Get("well_known_openid_issuer_configuration").Object()
-	if err != nil {
-		return nil, nil, fmt.Errorf("fastjson.Parser Get well_known_openid_issuer_configuration: %w", err)
-	}
-
-	return sb.MarshalTo([]byte{}), v.GetStringBytes("iss"), nil
+	return credentialOfferPayload, v.GetStringBytes("iss"), nil
 }
 
 func (s *Service) GetIssuerDID() string {

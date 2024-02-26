@@ -34,12 +34,10 @@ type cryptoJWTSigner interface {
 	NewJWTSigned(claims interface{}, signerData *vc.Signer) (string, error)
 }
 
-// JWTWellKnownOpenIDIssuerConfigurationClaims is JWT Claims extension
-// by WellKnownOpenIDIssuerConfiguration (with custom "well_known_openid_issuer_configuration" claim).
+// JWTWellKnownOpenIDIssuerConfigurationClaims is JWT Claims extension by WellKnownOpenIDIssuerConfiguration.
 type JWTWellKnownOpenIDIssuerConfigurationClaims struct {
 	*jwt.Claims
-
-	WellKnownOpenIDIssuerConfiguration *issuer.WellKnownOpenIDIssuerConfiguration `json:"well_known_openid_issuer_configuration,omitempty"` //nolint:lll
+	*issuer.WellKnownOpenIDIssuerConfiguration
 }
 
 type Config struct {
@@ -226,7 +224,11 @@ func (s *Service) buildCredentialConfigurationsSupported(
 ) *issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported {
 	credentialsConfigurationSupported := &issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported{}
 
-	credentialConfSupported := issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	var credentialConfSupported map[string]*profileapi.CredentialsConfigurationSupported
+	if issuerProfile.CredentialMetaData != nil {
+		credentialConfSupported = issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	}
+
 	for credentialConfigurationID, credentialSupported := range credentialConfSupported {
 		var cryptographicBindingMethodsSupported, cryptographicSuitesSupported []string
 
