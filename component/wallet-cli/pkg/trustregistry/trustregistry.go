@@ -36,20 +36,16 @@ func NewClient(httpClient *http.Client, policyURL string) *Client {
 }
 
 func (c *Client) ValidateIssuer(
-	issuerDID,
-	issuerDomain,
-	credentialType,
-	credentialFormat string,
-	clientAttestationRequested bool,
+	issuerDID string,
+	issuerDomain string,
+	credentialOffers []CredentialOffer,
 ) error {
 	logger.Debug("issuer validation begin")
 
 	req := &WalletIssuanceRequest{
-		ClientAttestationRequested: clientAttestationRequested,
-		CredentialFormat:           credentialFormat,
-		CredentialType:             credentialType,
-		IssuerDID:                  issuerDID,
-		IssuerDomain:               issuerDomain,
+		IssuerDID:        issuerDID,
+		IssuerDomain:     issuerDomain,
+		CredentialOffers: credentialOffers,
 	}
 
 	body, err := json.Marshal(req)
