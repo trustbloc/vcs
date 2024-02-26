@@ -8,8 +8,9 @@ package main
 
 // IssuerIssuanceRequest is a model for issuer issuance policy evaluation.
 type IssuerIssuanceRequest struct {
-	AttestationVC *string `json:"attestation_vc,omitempty"`
-	IssuerDID     string  `json:"issuer_did"`
+	AttestationVC   *[]string `json:"attestation_vc,omitempty"`
+	CredentialTypes []string  `json:"credential_types"`
+	IssuerDID       string    `json:"issuer_did"`
 }
 
 // VerifierPresentationRequest is a model for verifier presentation policy evaluation.

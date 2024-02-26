@@ -54,9 +54,9 @@ func (s *server) evaluateIssuerIssuancePolicy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if request.AttestationVC == nil || len(*request.AttestationVC) == 0 {
+	if len(request.CredentialTypes) == 0 {
 		s.writeResponse(
-			w, http.StatusBadRequest, "no attestation vc supplied")
+			w, http.StatusBadRequest, "no credential types supplied")
 
 		return
 	}

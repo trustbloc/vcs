@@ -88,7 +88,8 @@ func (s *Service) ValidateIssuance(
 	}
 
 	req := &IssuancePolicyEvaluationRequest{
-		IssuerDID: profile.SigningDID.DID,
+		IssuerDID:       profile.SigningDID.DID,
+		CredentialTypes: getCredentialTypes(profile),
 	}
 
 	if profile.Checks.ClientAttestationCheck.Enabled {
@@ -97,14 +98,18 @@ func (s *Service) ValidateIssuance(
 			return err
 		}
 
-		for _, vc := range attestationVCs {
+		attestations := make([]string, len(attestationVCs))
+
+		for i, vc := range attestationVCs {
 			jwtVC, convertErr := vc.ToJWTString()
 			if convertErr != nil {
 				return fmt.Errorf("convert attestation vc to jwt: %w", convertErr)
 			}
 
-			req.AttestationVC = lo.ToPtr(jwtVC)
+			attestations[i] = jwtVC
 		}
+
+		req.AttestationVC = lo.ToPtr(attestations)
 	}
 
 	payload, err := json.Marshal(req)
@@ -331,4 +336,12 @@ func (s *Service) requestPolicyEvaluation(
 	}
 
 	return result, nil
+}
+
+func getCredentialTypes(profile *profileapi.Issuer) []string {
+	return lo.Map(profile.CredentialTemplates,
+		func(item *profileapi.CredentialTemplate, index int) string {
+			return item.Type
+		},
+	)
 }
