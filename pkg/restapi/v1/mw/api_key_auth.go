@@ -27,7 +27,7 @@ const (
 	oidcRedirect               = "/oidc/redirect"
 	oidcPresent                = "/oidc/present"
 	oidcToken                  = "/oidc/token"
-	oidcAck                    = "/oidc/acknowledgement"
+	oidcAck                    = "/oidc/notification"
 	oidcCredential             = "/oidc/credential"
 	oidcCredentialWellKnown    = "/.well-known/openid-credential-issuer"
 	issuedCredentialsHistory   = "/issued-credentials"

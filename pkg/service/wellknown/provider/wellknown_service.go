@@ -124,7 +124,7 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 		Display:                           lo.ToPtr(credentialIssuerMetadataDisplay),
 		CredentialConfigurationsSupported: credentialsConfigurationSupported,
 
-		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/acknowledgement", host)),
+		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/notification", host)),
 		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
 		ResponseTypesSupported: lo.ToPtr([]string{"code"}),
 	}

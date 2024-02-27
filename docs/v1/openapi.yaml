@@ -781,9 +781,9 @@ paths:
             schema:
               $ref: '#/components/schemas/CredentialRequest'
       parameters: []
-  /oidc/acknowledgement:
+  /oidc/notification:
     post:
-      summary: OIDC Acknowledgement
+      summary: OIDC Notification
       tags:
         - oidc4ci
       responses:
@@ -1780,7 +1780,7 @@ components:
         oidc_format:
           type: string
           description: OIDC credential format
-        ack_id:
+        notification_id:
           type: string
           description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
         retry:
@@ -1870,21 +1870,21 @@ components:
       type: object
       description: AcpRequestItem
       properties:
-        ack_id:
+        notification_id:
           type: string
           description: Ack ID.
-        status:
+        event:
           type: string
-          description: Ack Status.
+          description: Type of the notification event.
         issuer_identifier:
           type: string
           description: Optional issuer identifier.
-        error_description:
+        event_description:
           type: string
-          description: error description.
+          description: Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
       required:
-        - ack_id
-        - status
+        - notification_id
+        - event
     AckErrorResponse:
       title: AckResponse
       x-tags:
@@ -1920,7 +1920,7 @@ components:
         c_nonce_expires_in:
           type: integer
           description: JSON integer denoting the lifetime in seconds of the c_nonce.
-        ack_id:
+        notification_id:
           type: string
           description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
       required:

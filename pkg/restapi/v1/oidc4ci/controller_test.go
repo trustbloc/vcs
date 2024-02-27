@@ -2855,14 +2855,14 @@ func TestController_Ack(t *testing.T) {
 			DoAndReturn(func(ctx context.Context, remote oidc4cisrv.AckRemote) error {
 				assert.Equal(t, hh(expectedToken), remote.HashedToken)
 				assert.Equal(t, "tx_id", remote.ID)
-				assert.Equal(t, "status", remote.Status)
-				assert.Equal(t, "err_txt", remote.ErrorText)
+				assert.Equal(t, "credential_accepted", remote.Event)
+				assert.Equal(t, "err_txt", remote.EventDescription)
 
 				return nil
 			})
 
 		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
+			"credentials" : [{"notification_id" : "tx_id", "event" : "credential_accepted", "event_description" : "err_txt"}]
 		}`)))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer xxxx")

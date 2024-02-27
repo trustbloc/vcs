@@ -884,7 +884,7 @@ func (f *Flow) handleIssuanceAck(
 	}
 
 	credentialAckEndpoint := lo.FromPtr(wellKnown.CredentialAckEndpoint)
-	if credentialAckEndpoint == "" || lo.FromPtr(credResponse.AckID) == "" {
+	if credentialAckEndpoint == "" || lo.FromPtr(credResponse.NotificationId) == "" {
 		return nil
 	}
 
@@ -894,16 +894,16 @@ func (f *Flow) handleIssuanceAck(
 	}()
 
 	slog.Info("Sending wallet ACK",
-		"ack_id", credResponse.AckID,
+		"notification_id", credResponse.NotificationId,
 		"endpoint", credentialAckEndpoint,
 	)
 
 	b, err := json.Marshal(oidc4civ1.AckRequest{
 		Credentials: []oidc4civ1.AcpRequestItem{
 			{
-				AckId:            *credResponse.AckID,
-				ErrorDescription: nil,
-				Status:           "success",
+				NotificationId:   *credResponse.NotificationId,
+				EventDescription: nil,
+				Event:            "credential_accepted",
 				IssuerIdentifier: wellKnown.CredentialIssuer,
 			},
 		},
