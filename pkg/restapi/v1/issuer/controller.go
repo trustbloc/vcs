@@ -900,6 +900,10 @@ func validateCredentialResponseEncryption(
 		return nil
 	}
 
+	if !profile.OIDCConfig.CredentialResponseEncryptionRequired && requested == nil {
+		return nil
+	}
+
 	if profile.OIDCConfig.CredentialResponseEncryptionRequired && requested == nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption",
 			errors.New("credential response encryption is required"))
@@ -913,7 +917,7 @@ func validateCredentialResponseEncryption(
 	if len(profile.OIDCConfig.CredentialResponseAlgValuesSupported) > 0 &&
 		!lo.Contains(profile.OIDCConfig.CredentialResponseAlgValuesSupported, alg) {
 		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.alg",
-			fmt.Errorf("alg %s not supported", requested.Alg))
+			fmt.Errorf("alg %s not supported", alg))
 	}
 
 	enc := ""
@@ -924,7 +928,7 @@ func validateCredentialResponseEncryption(
 	if len(profile.OIDCConfig.CredentialResponseEncValuesSupported) > 0 &&
 		!lo.Contains(profile.OIDCConfig.CredentialResponseEncValuesSupported, enc) {
 		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.enc",
-			fmt.Errorf("enc %s not supported", requested.Enc))
+			fmt.Errorf("enc %s not supported", enc))
 	}
 
 	return nil
