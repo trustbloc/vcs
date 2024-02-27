@@ -296,12 +296,13 @@ type PrepareCredential struct {
 
 // Model for Prepare Credential response.
 type PrepareCredentialResult struct {
-	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
-	AckId      *string     `json:"ack_id,omitempty"`
 	Credential interface{} `json:"credential"`
 
 	// Format of issued credential.
 	Format string `json:"format"`
+
+	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+	NotificationId *string `json:"notification_id,omitempty"`
 
 	// OIDC credential format
 	OidcFormat string `json:"oidc_format"`

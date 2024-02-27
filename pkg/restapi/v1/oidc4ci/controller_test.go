@@ -2855,8 +2855,8 @@ func TestController_Ack(t *testing.T) {
 			DoAndReturn(func(ctx context.Context, remote oidc4cisrv.AckRemote) error {
 				assert.Equal(t, hh(expectedToken), remote.HashedToken)
 				assert.Equal(t, "tx_id", remote.ID)
-				assert.Equal(t, "status", remote.Status)
-				assert.Equal(t, "err_txt", remote.ErrorText)
+				assert.Equal(t, "status", remote.Event)
+				assert.Equal(t, "err_txt", remote.EventDescription)
 
 				return nil
 			})

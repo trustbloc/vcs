@@ -211,7 +211,7 @@ type PrepareCredentialResult struct {
 	EnforceStrictValidation bool
 	OidcFormat              vcsverifiable.OIDCFormat
 	CredentialTemplate      *profileapi.CredentialTemplate
-	AckID                   *string
+	NotificationID          *string
 }
 
 type InsertOptions struct {
@@ -321,8 +321,8 @@ type Ack struct {
 type AckRemote struct {
 	HashedToken      string `json:"hashed_token"`
 	ID               string `json:"id"`
-	Status           string `json:"status"`
-	ErrorText        string `json:"error_text"`
+	Event            string `json:"event"`
+	EventDescription string `json:"event_description"`
 	IssuerIdentifier string `json:"issuer_identifier"`
 }
 

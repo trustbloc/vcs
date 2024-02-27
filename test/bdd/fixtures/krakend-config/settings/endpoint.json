@@ -132,7 +132,7 @@
       ]
     },
     {
-      "endpoint": "/oidc/acknowledgement",
+      "endpoint": "/oidc/notification",
       "method": "POST",
       "input_headers": [
         "Authorization",

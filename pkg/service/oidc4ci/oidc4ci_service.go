@@ -696,7 +696,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
 		CredentialTemplate:      tx.CredentialTemplate,
-		AckID:                   ack,
+		NotificationID:          ack,
 	}, nil
 }
 

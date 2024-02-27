@@ -102,8 +102,8 @@ func TestAckFallback(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
 			ID:               "123",
-			Status:           "failure",
-			ErrorText:        "some-random-text",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 			IssuerIdentifier: "https://someurl/some_issuer/v1.0",
 		})
 		assert.ErrorIs(t, err, oidc4ci.ErrAckExpired)
@@ -154,8 +154,8 @@ func TestAckFallback(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
 			ID:               "123",
-			Status:           "failure",
-			ErrorText:        "some-random-text",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
 		})
 		assert.ErrorContains(t, err, "expired_ack_id")
@@ -165,10 +165,10 @@ func TestAckFallback(t *testing.T) {
 		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{})
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
-			HashedToken: "abcds",
-			ID:          "123",
-			Status:      "failure",
-			ErrorText:   "some-random-text",
+			HashedToken:      "abcds",
+			ID:               "123",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 		})
 		assert.NoError(t, err)
 	})
@@ -186,10 +186,10 @@ func TestAckFallback(t *testing.T) {
 		})
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
-			HashedToken: "abcds",
-			ID:          "123",
-			Status:      "failure",
-			ErrorText:   "some-random-text",
+			HashedToken:      "abcds",
+			ID:               "123",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 		})
 		assert.ErrorContains(t, err, "issuer identifier is empty and ack not found")
 	})
@@ -209,8 +209,8 @@ func TestAckFallback(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
 			ID:               "123",
-			Status:           "failure",
-			ErrorText:        "some-random-text",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 			IssuerIdentifier: "abcd",
 		})
 		assert.ErrorContains(t, err, "invalid issuer identifier. expected format")
@@ -234,8 +234,8 @@ func TestAckFallback(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
 			ID:               "123",
-			Status:           "failure",
-			ErrorText:        "some-random-text",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
 		})
 		assert.ErrorContains(t, err, "profile not found")
@@ -267,8 +267,8 @@ func TestAckFallback(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
 			ID:               "123",
-			Status:           "failure",
-			ErrorText:        "some-random-text",
+			Event:            "failure",
+			EventDescription: "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
 		})
 		assert.ErrorContains(t, err, "publish err")
@@ -317,10 +317,10 @@ func TestAck(t *testing.T) {
 		store.EXPECT().Delete(gomock.Any(), "123").Return(errors.New("ignored"))
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
-			HashedToken: "abcds",
-			ID:          "123",
-			Status:      "failure",
-			ErrorText:   "some-random-text",
+			HashedToken:      "abcds",
+			ID:               "123",
+			Event:            "credential_failure",
+			EventDescription: "some-random-text",
 		})
 		assert.NoError(t, err)
 	})
@@ -380,7 +380,7 @@ func TestAck(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
 			ID:          "123",
-			Status:      "xxx",
+			Event:       "xxx",
 		})
 		assert.ErrorContains(t, err, "invalid status: xxx")
 	})
@@ -404,7 +404,7 @@ func TestAck(t *testing.T) {
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
 			ID:          "123",
-			Status:      "rejected",
+			Event:       "credential_deleted",
 		})
 		assert.ErrorContains(t, err, "event send err")
 	})
@@ -416,15 +416,15 @@ func TestAck(t *testing.T) {
 			Error  string
 		}{
 			{
-				Input:  "success",
+				Input:  "credential_accepted",
 				Output: spi.IssuerOIDCInteractionAckSucceeded,
 			},
 			{
-				Input:  "failure",
+				Input:  "credential_failure",
 				Output: spi.IssuerOIDCInteractionAckFailed,
 			},
 			{
-				Input:  "rejected",
+				Input:  "credential_deleted",
 				Output: spi.IssuerOIDCInteractionAckRejected,
 			},
 			{

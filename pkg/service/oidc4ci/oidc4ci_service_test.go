@@ -2122,7 +2122,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
-				require.Equal(t, "ackID", *resp.AckID)
+				require.Equal(t, "ackID", *resp.NotificationID)
 			},
 		},
 		{
@@ -2376,7 +2376,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
-				require.Nil(t, resp.AckID)
+				require.Nil(t, resp.NotificationID)
 			},
 		},
 		{

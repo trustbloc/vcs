@@ -250,7 +250,7 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, "vct1", lo.FromPtr(credentialConfigurationSupported.Vct))
 	}
 
-	assert.Equal(t, "https://example.com/oidc/acknowledgement", lo.FromPtr(res.CredentialAckEndpoint))
+	assert.Equal(t, "https://example.com/oidc/notification", lo.FromPtr(res.CredentialAckEndpoint))
 	assert.Equal(t, "https://example.com/oidc/token", lo.FromPtr(res.TokenEndpoint))
 	assert.Equal(t, []string{"code"}, lo.FromPtr(res.ResponseTypesSupported))
 

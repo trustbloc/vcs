@@ -622,7 +622,7 @@ func mustGenerateNonce() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-// OidcAcknowledgement handles OIDC acknowledgement request (POST /oidc/acknowledgement).
+// OidcAcknowledgement handles OIDC acknowledgement request (POST /oidc/notification).
 func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	req := e.Request()
 
@@ -650,9 +650,9 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	for _, r := range body.Credentials {
 		if err := c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
 			HashedToken:      hashToken(token),
-			ID:               r.AckId,
-			Status:           r.Status,
-			ErrorText:        lo.FromPtr(r.ErrorDescription),
+			ID:               r.NotificationId,
+			Event:            r.Event,
+			EventDescription: lo.FromPtr(r.EventDescription),
 			IssuerIdentifier: lo.FromPtr(r.IssuerIdentifier),
 		}); err != nil {
 			finalErr = errors.Join(finalErr, err)
@@ -907,7 +907,7 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 		Format:          result.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
-		AckId:           result.AckId,
+		NotificationId:  result.NotificationId,
 	}
 
 	if credentialReq.CredentialResponseEncryption != nil {

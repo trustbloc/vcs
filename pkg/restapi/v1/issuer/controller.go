@@ -748,11 +748,11 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}
 
 	return util.WriteOutput(e)(PrepareCredentialResult{
-		Credential: signedCredential,
-		Format:     string(result.Format),
-		OidcFormat: string(result.OidcFormat),
-		Retry:      result.Retry,
-		AckId:      result.AckID,
+		Credential:     signedCredential,
+		Format:         string(result.Format),
+		OidcFormat:     string(result.OidcFormat),
+		Retry:          result.Retry,
+		NotificationId: result.NotificationID,
 	}, nil)
 }
 

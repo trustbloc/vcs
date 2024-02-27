@@ -81,9 +81,9 @@ func (s *AckService) HandleAckNotFound(
 		OrgID:          profile.OrganizationID,
 	}
 
-	if req.ErrorText != "" {
+	if req.EventDescription != "" {
 		eventPayload.ErrorComponent = "wallet"
-		eventPayload.Error = req.ErrorText
+		eventPayload.Error = req.EventDescription
 	}
 
 	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, TxID(req.ID), eventPayload)
@@ -122,12 +122,12 @@ func (s *AckService) Ack(
 		OrgID:          ack.OrgID,
 	}
 
-	if req.ErrorText != "" {
+	if req.EventDescription != "" {
 		eventPayload.ErrorComponent = "wallet"
-		eventPayload.Error = req.ErrorText
+		eventPayload.Error = req.EventDescription
 	}
 
-	targetEvent, err := s.AckEventMap(req.Status)
+	targetEvent, err := s.AckEventMap(req.Event)
 	if err != nil {
 		return err
 	}
@@ -160,11 +160,11 @@ func (s *AckService) sendEvent(
 
 func (s *AckService) AckEventMap(status string) (spi.EventType, error) {
 	switch strings.ToLower(status) {
-	case "success":
+	case "credential_accepted":
 		return spi.IssuerOIDCInteractionAckSucceeded, nil
-	case "failure":
+	case "credential_failure":
 		return spi.IssuerOIDCInteractionAckFailed, nil
-	case "rejected":
+	case "credential_deleted":
 		return spi.IssuerOIDCInteractionAckRejected, nil
 	}
 
