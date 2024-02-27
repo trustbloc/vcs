@@ -31,8 +31,9 @@ type CredentialMetadata struct {
 
 // IssuancePolicyEvaluationRequest is a request payload for issuance policy evaluation service.
 type IssuancePolicyEvaluationRequest struct {
-	AttestationVC *string `json:"attestation_vc,omitempty"`
-	IssuerDID     string  `json:"issuer_did"`
+	CredentialTypes []string  `json:"credential_types"`
+	AttestationVC   *[]string `json:"attestation_vc,omitempty"`
+	IssuerDID       string    `json:"issuer_did"`
 }
 
 // PresentationPolicyEvaluationRequest is a request payload for presentation policy evaluation service.

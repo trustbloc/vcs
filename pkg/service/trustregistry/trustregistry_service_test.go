@@ -738,6 +738,11 @@ func createIssuerProfile(t *testing.T) *profileapi.Issuer {
 				Enabled: true,
 			},
 		},
+		CredentialTemplates: []*profileapi.CredentialTemplate{
+			{
+				Type: "VerifiedDocument",
+			},
+		},
 	}
 
 	return profile
