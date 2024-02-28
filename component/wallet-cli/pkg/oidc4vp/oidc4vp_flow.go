@@ -34,7 +34,6 @@ import (
 	"github.com/trustbloc/vc-go/vermethod"
 
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -53,13 +52,17 @@ const (
 	customScopeWalletDetails = "walletdetails"
 )
 
-type trustRegistry interface {
+type AttestationService interface {
+	GetAttestation(ctx context.Context) (string, error)
+}
+
+type TrustRegistry interface {
 	ValidateVerifier(
 		ctx context.Context,
 		verifierDID,
 		verifierDomain string,
 		credentials []*verifiable.Credential,
-	) error
+	) (bool, error)
 }
 
 type Flow struct {
@@ -68,15 +71,15 @@ type Flow struct {
 	vdrRegistry                    vdrapi.Registry
 	cryptoSuite                    api.Suite
 	signer                         jose.Signer
+	attestationService             AttestationService
+	trustRegistry                  TrustRegistry
 	wallet                         *wallet.Wallet
 	walletDID                      *did.DID
 	requestURI                     string
 	enableLinkedDomainVerification bool
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
-	trustRegistryURL               string
 	perfInfo                       *PerfInfo
-	trustRegistryClient            trustRegistry
 }
 
 type provider interface {
@@ -84,6 +87,8 @@ type provider interface {
 	DocumentLoader() ld.DocumentLoader
 	VDRegistry() vdrapi.Registry
 	CryptoSuite() api.Suite
+	AttestationService() AttestationService
+	TrustRegistry() TrustRegistry
 	Wallet() *wallet.Wallet
 }
 
@@ -129,27 +134,20 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		kmssigner.NewKMSSigner(signer, signatureType, nil),
 	)
 
-	var trustRegistry trustRegistry
-
-	if o.trustRegistry != nil {
-		trustRegistry = o.trustRegistry
-	} else if o.trustRegistryURL != "" {
-		trustRegistry = trustregistry.NewClient(p.HTTPClient(), o.trustRegistryURL)
-	}
-
 	return &Flow{
 		httpClient:                     p.HTTPClient(),
 		documentLoader:                 p.DocumentLoader(),
 		vdrRegistry:                    p.VDRegistry(),
 		cryptoSuite:                    p.CryptoSuite(),
 		signer:                         jwsSigner,
+		attestationService:             p.AttestationService(),
+		trustRegistry:                  p.TrustRegistry(),
 		wallet:                         p.Wallet(),
 		walletDID:                      walletDID,
 		requestURI:                     o.requestURI,
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
 		disableDomainMatching:          o.disableDomainMatching,
 		disableSchemaValidation:        o.disableSchemaValidation,
-		trustRegistryClient:            trustRegistry,
 		perfInfo:                       &PerfInfo{},
 	}, nil
 }
@@ -161,7 +159,6 @@ func (f *Flow) Run(ctx context.Context) error {
 		"enable_linked_domain_verification", f.enableLinkedDomainVerification,
 		"disable_domain_matching", f.disableDomainMatching,
 		"disable_schema_validation", f.disableSchemaValidation,
-		"trust_registry_url", f.trustRegistryURL,
 	)
 
 	requestObject, err := f.fetchRequestObject(ctx)
@@ -195,18 +192,9 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("query wallet: %w", err)
 	}
 
-	if f.trustRegistryClient != nil {
-		slog.Info("validate verifier", "url", f.trustRegistryURL)
-
-		if err = f.trustRegistryClient.
-			ValidateVerifier(
-				ctx,
-				requestObject.ClientID,
-				"",
-				vp.Credentials(),
-			); err != nil {
-			return fmt.Errorf("validate verifier: %w", err)
-		}
+	attestationRequired, err := f.trustRegistry.ValidateVerifier(ctx, requestObject.ClientID, "", vp.Credentials())
+	if err != nil {
+		return fmt.Errorf("validate verifier: %w", err)
 	}
 
 	if !f.disableDomainMatching {
@@ -220,7 +208,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		}
 	}
 
-	if err = f.sendAuthorizationResponse(ctx, requestObject, vp); err != nil {
+	if err = f.sendAuthorizationResponse(ctx, requestObject, vp, attestationRequired); err != nil {
 		return fmt.Errorf("send authorization response: %w", err)
 	}
 
@@ -400,6 +388,7 @@ func (f *Flow) sendAuthorizationResponse(
 	ctx context.Context,
 	requestObject *RequestObject,
 	vp *verifiable.Presentation,
+	attestationRequired bool,
 ) error {
 	slog.Info("Sending authorization response",
 		"redirect_uri", requestObject.RedirectURI,
@@ -427,7 +416,12 @@ func (f *Flow) sendAuthorizationResponse(
 		return fmt.Errorf("create vp token: %w", err)
 	}
 
-	idToken, err := f.createIDToken(presentationSubmission, requestObject.ClientID, requestObject.Nonce, requestObject.Scope)
+	idToken, err := f.createIDToken(
+		ctx,
+		presentationSubmission,
+		requestObject.ClientID, requestObject.Nonce, requestObject.Scope,
+		attestationRequired,
+	)
 	if err != nil {
 		return fmt.Errorf("create id token: %w", err)
 	}
@@ -593,8 +587,10 @@ func (f *Flow) signPresentationLDP(
 }
 
 func (f *Flow) createIDToken(
+	ctx context.Context,
 	presentationSubmission *presexch.PresentationSubmission,
 	clientID, nonce, requestObjectScope string,
+	attestationRequired bool,
 ) (string, error) {
 	scopeAdditionalClaims, err := extractCustomScopeClaims(requestObjectScope)
 	if err != nil {
@@ -614,6 +610,17 @@ func (f *Flow) createIDToken(
 		Nbf:   time.Now().Unix(),
 		Iat:   time.Now().Unix(),
 		Jti:   uuid.NewString(),
+	}
+
+	if attestationRequired {
+		var jwtVP string
+
+		jwtVP, err = f.attestationService.GetAttestation(ctx)
+		if err != nil {
+			return "", fmt.Errorf("get attestation: %w", err)
+		}
+
+		idToken.AttestationVP = jwtVP
 	}
 
 	signedIDToken, err := jwt.NewJoseSigned(
@@ -721,8 +728,6 @@ type options struct {
 	enableLinkedDomainVerification bool
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
-	trustRegistryURL               string
-	trustRegistry                  trustRegistry
 }
 
 type Opt func(opts *options)
@@ -754,17 +759,5 @@ func WithDomainMatchingDisabled() Opt {
 func WithSchemaValidationDisabled() Opt {
 	return func(opts *options) {
 		opts.disableSchemaValidation = true
-	}
-}
-
-func WithTrustRegistryURL(url string) Opt {
-	return func(opts *options) {
-		opts.trustRegistryURL = url
-	}
-}
-
-func WithTrustRegistry(value trustRegistry) Opt {
-	return func(opts *options) {
-		opts.trustRegistry = value
 	}
 }

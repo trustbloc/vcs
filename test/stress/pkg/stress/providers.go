@@ -18,6 +18,10 @@ import (
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 )
@@ -46,13 +50,15 @@ func (p *walletProvider) KeyCreator() api.RawKeyCreator {
 }
 
 type oidc4vciProvider struct {
-	storageProvider  storageapi.Provider
-	httpClient       *http.Client
-	documentLoader   ld.DocumentLoader
-	vdrRegistry      vdrapi.Registry
-	cryptoSuite      api.Suite
-	wallet           *wallet.Wallet
-	wellKnownService *wellknown.Service
+	storageProvider    storageapi.Provider
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	cryptoSuite        api.Suite
+	attestationService *attestation.Service
+	trustRegistry      *trustregistry.Client
+	wallet             *wallet.Wallet
+	wellKnownService   *wellknown.Service
 }
 
 func (p *oidc4vciProvider) StorageProvider() storageapi.Provider {
@@ -75,6 +81,14 @@ func (p *oidc4vciProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
 }
 
+func (p *oidc4vciProvider) AttestationService() oidc4vci.AttestationService {
+	return p.attestationService
+}
+
+func (p *oidc4vciProvider) TrustRegistry() oidc4vci.TrustRegistry {
+	return p.trustRegistry
+}
+
 func (p *oidc4vciProvider) Wallet() *wallet.Wallet {
 	return p.wallet
 }
@@ -84,12 +98,14 @@ func (p *oidc4vciProvider) WellKnownService() *wellknown.Service {
 }
 
 type oidc4vpProvider struct {
-	storageProvider storageapi.Provider
-	httpClient      *http.Client
-	documentLoader  ld.DocumentLoader
-	vdrRegistry     vdrapi.Registry
-	cryptoSuite     api.Suite
-	wallet          *wallet.Wallet
+	storageProvider    storageapi.Provider
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	cryptoSuite        api.Suite
+	attestationService *attestation.Service
+	trustRegistry      *trustregistry.Client
+	wallet             *wallet.Wallet
 }
 
 func (p *oidc4vpProvider) StorageProvider() storageapi.Provider {
@@ -110,6 +126,14 @@ func (p *oidc4vpProvider) VDRegistry() vdrapi.Registry {
 
 func (p *oidc4vpProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *oidc4vpProvider) AttestationService() oidc4vp.AttestationService {
+	return p.attestationService
+}
+
+func (p *oidc4vpProvider) TrustRegistry() oidc4vp.TrustRegistry {
+	return p.trustRegistry
 }
 
 func (p *oidc4vpProvider) Wallet() *wallet.Wallet {

@@ -1685,7 +1685,8 @@
             "attest_jwt_client_auth"
           ],
           "pre-authorized_grant_anonymous_access_supported": true,
-          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard",
+          "signed_issuer_metadata_supported": true
         },
         "credentialTemplates": [
           {
@@ -2578,34 +2579,6 @@
           {
             "id": "attestation-vc-single-field",
             "input_descriptors": [
-              {
-                "id": "attestation_vc_type",
-                "name": "type",
-                "purpose": "Wallet Attestation VC required",
-                "schema": [
-                  {
-                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
-                  }
-                ],
-                "constraints": {
-                  "fields": [
-                    {
-                      "path": [
-                        "$.type"
-                      ],
-                      "id": "attestation_vc_type",
-                      "purpose": "Wallet Attestation VC required",
-                      "filter": {
-                        "type": "array",
-                        "contains": {
-                          "type": "string",
-                          "pattern": "WalletAttestationCredential"
-                        }
-                      }
-                    }
-                  ]
-                }
-              },
               {
                 "id": "degree_type_id",
                 "name": "degree",

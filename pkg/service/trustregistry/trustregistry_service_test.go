@@ -47,7 +47,6 @@ const (
 
 func TestService_ValidateIssuance(t *testing.T) {
 	httpClient := NewMockHTTPClient(gomock.NewController(t))
-	// vcStatusVerifier := NewMockVCStatusVerifier(gomock.NewController(t))
 
 	proofCreators, defaultProofChecker := testsupport.NewKMSSignersAndVerifier(t,
 		[]testsupport.SigningKey{
@@ -68,8 +67,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 	var proofChecker *checker.ProofChecker
 
 	var (
-		jwtVP   string
-		profile *profileapi.Issuer
+		attestationVP string
+		profile       *profileapi.Issuer
 	)
 
 	tests := []struct {
@@ -81,8 +80,6 @@ func TestService_ValidateIssuance(t *testing.T) {
 			name: "success",
 			setup: func() {
 				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
@@ -97,7 +94,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
 
 				// prepare wallet attestation VP (in jwt_vp format) signed by wallet DID
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 				profile = createIssuerProfile(t)
 			},
 			check: func(t *testing.T, err error) {
@@ -105,14 +102,27 @@ func TestService_ValidateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "attestation vp is required",
+			setup: func() {
+				proofChecker = defaultProofChecker
+
+				httpClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				attestationVP = ""
+				profile = createIssuerProfile(t)
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "attestation vp is required")
+			},
+		},
+		{
 			name: "fail to parse attestation vp",
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
-				jwtVP = "invalid-jwt-vp"
+				attestationVP = "invalid-jwt-vp"
 				profile = createIssuerProfile(t)
 			},
 			check: func(t *testing.T, err error) {
@@ -120,30 +130,14 @@ func TestService_ValidateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "no attestation vc found",
-			setup: func() {
-				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-				httpClient.EXPECT().Do(gomock.Any()).Times(0)
-
-				jwtVP = createAttestationVP(t, nil, walletProofCreator)
-				profile = createIssuerProfile(t)
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "no attestation vc found")
-			},
-		},
-		{
 			name: "attestation vc is expired",
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createIssuerProfile(t)
 			},
@@ -156,11 +150,10 @@ func TestService_ValidateIssuance(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, "invalid-subject", false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createIssuerProfile(t)
 			},
@@ -168,36 +161,15 @@ func TestService_ValidateIssuance(t *testing.T) {
 				require.ErrorContains(t, err, "check attestation vp proof")
 			},
 		},
-		// {
-		//	name: "fail to validate attestation vc status",
-		//	setup: func() {
-		//		proofChecker = defaultProofChecker
-		//
-		//		vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).
-		//			Return(errors.New("validate status error"))
-		//
-		//		httpClient.EXPECT().Do(gomock.Any()).Times(0)
-		//
-		//		attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-		//		jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
-		//
-		//		profile = createIssuerProfile(t)
-		//	},
-		//	check: func(t *testing.T, err error) {
-		//		require.ErrorContains(t, err, "validate attestation vc status")
-		//	},
-		// },
 		{
 			name: "policy url not set in profile",
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = &profileapi.Issuer{
 					SigningDID: &profileapi.SigningDID{
@@ -210,38 +182,9 @@ func TestService_ValidateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "client attestation enabled but policy url not set in profile",
-			setup: func() {
-				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
-				httpClient.EXPECT().Do(gomock.Any()).Times(0)
-
-				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
-
-				profile = &profileapi.Issuer{
-					SigningDID: &profileapi.SigningDID{
-						DID: issuerDID,
-					},
-					Checks: profileapi.IssuanceChecks{
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
-					},
-				}
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "client attestation checks are enabled but policy URL is not configured")
-			},
-		},
-		{
 			name: "fail to send request to policy evaluation service",
 			setup: func() {
 				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
@@ -250,7 +193,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createIssuerProfile(t)
 			},
@@ -263,8 +206,6 @@ func TestService_ValidateIssuance(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
 						return &http.Response{
@@ -275,20 +216,18 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createIssuerProfile(t)
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "unexpected status code")
+				require.ErrorContains(t, err, "status code")
 			},
 		},
 		{
 			name: "fail to decode response from policy evaluation service",
 			setup: func() {
 				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
@@ -300,7 +239,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createIssuerProfile(t)
 			},
@@ -313,8 +252,6 @@ func TestService_ValidateIssuance(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
 						return &http.Response{
@@ -325,7 +262,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createIssuerProfile(t)
 			},
@@ -344,9 +281,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 						HTTPClient:     httpClient,
 						DocumentLoader: testutil.DocumentLoader(t),
 						ProofChecker:   proofChecker,
-						// VCStatusVerifier: vcStatusVerifier,
 					},
-				).ValidateIssuance(context.Background(), profile, jwtVP),
+				).ValidateIssuance(context.Background(), profile, attestationVP, nil),
 			)
 		})
 	}
@@ -354,7 +290,6 @@ func TestService_ValidateIssuance(t *testing.T) {
 
 func TestService_ValidatePresentation(t *testing.T) {
 	httpClient := NewMockHTTPClient(gomock.NewController(t))
-	// vcStatusVerifier := NewMockVCStatusVerifier(gomock.NewController(t))
 
 	proofCreators, defaultProofChecker := testsupport.NewKMSSignersAndVerifier(t,
 		[]testsupport.SigningKey{
@@ -375,8 +310,8 @@ func TestService_ValidatePresentation(t *testing.T) {
 	var proofChecker *checker.ProofChecker
 
 	var (
-		jwtVP   string
-		profile *profileapi.Verifier
+		attestationVP string
+		profile       *profileapi.Verifier
 	)
 
 	tests := []struct {
@@ -388,8 +323,6 @@ func TestService_ValidatePresentation(t *testing.T) {
 			name: "success",
 			setup: func() {
 				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
@@ -413,11 +346,25 @@ func TestService_ValidatePresentation(t *testing.T) {
 				)
 
 				// prepare wallet attestation VP (in jwt_vp format) signed by wallet DID
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator, requestedVC)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, requestedVC)
 				profile = createVerifierProfile(t)
 			},
 			check: func(t *testing.T, err error) {
 				require.NoError(t, err)
+			},
+		},
+		{
+			name: "attestation vp is required",
+			setup: func() {
+				proofChecker = defaultProofChecker
+
+				httpClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				attestationVP = ""
+				profile = createVerifierProfile(t)
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "attestation vp is required")
 			},
 		},
 		{
@@ -428,26 +375,11 @@ func TestService_ValidatePresentation(t *testing.T) {
 				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
-				jwtVP = "invalid-jwt-vp"
+				attestationVP = "invalid-jwt-vp"
 				profile = createVerifierProfile(t)
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "parse attestation vp")
-			},
-		},
-		{
-			name: "no attestation vc found",
-			setup: func() {
-				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-				httpClient.EXPECT().Do(gomock.Any()).Times(0)
-
-				jwtVP = createAttestationVP(t, nil, walletProofCreator)
-				profile = createVerifierProfile(t)
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "no attestation vc found")
 			},
 		},
 		{
@@ -459,7 +391,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createVerifierProfile(t)
 			},
@@ -476,7 +408,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, "invalid-subject", false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createVerifierProfile(t)
 			},
@@ -484,25 +416,6 @@ func TestService_ValidatePresentation(t *testing.T) {
 				require.ErrorContains(t, err, "check attestation vp proof")
 			},
 		},
-		// {
-		//	name: "fail to validate attestation vc status",
-		//	setup: func() {
-		//		proofChecker = defaultProofChecker
-		//
-		//		vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).
-		//			Return(errors.New("validate status error"))
-		//
-		//		httpClient.EXPECT().Do(gomock.Any()).Times(0)
-		//
-		//		attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-		//		jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
-		//
-		//		profile = createVerifierProfile(t)
-		//	},
-		//	check: func(t *testing.T, err error) {
-		//		require.ErrorContains(t, err, "validate attestation vc status")
-		//	},
-		// },
 		{
 			name: "policy url not set in profile",
 			setup: func() {
@@ -513,7 +426,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = &profileapi.Verifier{
 					SigningDID: &profileapi.SigningDID{
@@ -527,36 +440,9 @@ func TestService_ValidatePresentation(t *testing.T) {
 			},
 		},
 		{
-			name: "client attestation enabled but policy url not set in profile",
-			setup: func() {
-				proofChecker = defaultProofChecker
-
-				httpClient.EXPECT().Do(gomock.Any()).Times(0)
-
-				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
-
-				profile = &profileapi.Verifier{
-					SigningDID: &profileapi.SigningDID{
-						DID: issuerDID,
-					},
-					Checks: &profileapi.VerificationChecks{
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
-					},
-				}
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "client attestation checks are enabled but policy URL is not configured")
-			},
-		},
-		{
 			name: "fail to request policy evaluation",
 			setup: func() {
 				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
@@ -568,20 +454,18 @@ func TestService_ValidatePresentation(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createVerifierProfile(t)
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "unexpected status code")
+				require.ErrorContains(t, err, "status code")
 			},
 		},
 		{
 			name: "policy evaluation service returns not allowed",
 			setup: func() {
 				proofChecker = defaultProofChecker
-
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
@@ -593,7 +477,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				jwtVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
 
 				profile = createVerifierProfile(t)
 			},
@@ -612,9 +496,8 @@ func TestService_ValidatePresentation(t *testing.T) {
 						HTTPClient:     httpClient,
 						DocumentLoader: testutil.DocumentLoader(t),
 						ProofChecker:   proofChecker,
-						// VCStatusVerifier: vcStatusVerifier,
 					},
-				).ValidatePresentation(context.Background(), profile, jwtVP),
+				).ValidatePresentation(context.Background(), profile, attestationVP, nil),
 			)
 		})
 	}
@@ -734,9 +617,6 @@ func createIssuerProfile(t *testing.T) *profileapi.Issuer {
 			Policy: profileapi.PolicyCheck{
 				PolicyURL: issuancePolicyURL,
 			},
-			ClientAttestationCheck: profileapi.ClientAttestationCheck{
-				Enabled: true,
-			},
 		},
 		CredentialTemplates: []*profileapi.CredentialTemplate{
 			{
@@ -758,9 +638,6 @@ func createVerifierProfile(t *testing.T) *profileapi.Verifier {
 		Checks: &profileapi.VerificationChecks{
 			Policy: profileapi.PolicyCheck{
 				PolicyURL: presentationPolicyURL,
-			},
-			ClientAttestationCheck: profileapi.ClientAttestationCheck{
-				Enabled: true,
 			},
 		},
 	}

@@ -1962,9 +1962,6 @@ func TestValidatePreAuthCode(t *testing.T) {
 				Policy: profileapi.PolicyCheck{
 					PolicyURL: "https://localhost/policy",
 				},
-				ClientAttestationCheck: profileapi.ClientAttestationCheck{
-					Enabled: true,
-				},
 			},
 		}, nil)
 

@@ -9,6 +9,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"net/http"
 	"net/url"
 	"strings"
@@ -33,7 +35,8 @@ type oidc4vpCommandFlags struct {
 	enableLinkedDomainVerification bool
 	enableTracing                  bool
 	disableDomainMatching          bool
-	trustRegistryURL               string
+	trustRegistryHost              string
+	attestationURL                 string
 	proxyURL                       string
 }
 
@@ -85,13 +88,41 @@ func NewOIDC4VPCommand() *cobra.Command {
 				httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
 			}
 
+			var walletDIDIndex int
+
+			if flags.walletDIDIndex != -1 {
+				walletDIDIndex = flags.walletDIDIndex
+			} else {
+				walletDIDIndex = len(w.DIDs()) - 1
+			}
+
+			attestationService, err := attestation.NewService(
+				&attestationServiceProvider{
+					storageProvider: svc.StorageProvider(),
+					httpClient:      httpClient,
+					documentLoader:  svc.DocumentLoader(),
+					cryptoSuite:     svc.CryptoSuite(),
+				},
+				flags.attestationURL,
+				w.DIDs()[walletDIDIndex],
+				w.SignatureType(),
+			)
+			if err != nil {
+				return fmt.Errorf("create attestation service: %w", err)
+			}
+
 			provider := &oidc4vpProvider{
-				storageProvider: svc.StorageProvider(),
-				httpClient:      httpClient,
-				documentLoader:  svc.DocumentLoader(),
-				vdrRegistry:     svc.VDR(),
-				cryptoSuite:     svc.CryptoSuite(),
-				wallet:          w,
+				storageProvider:    svc.StorageProvider(),
+				httpClient:         httpClient,
+				documentLoader:     svc.DocumentLoader(),
+				vdrRegistry:        svc.VDR(),
+				cryptoSuite:        svc.CryptoSuite(),
+				attestationService: attestationService,
+				wallet:             w,
+			}
+
+			if flags.trustRegistryHost != "" {
+				provider.trustRegistry = trustregistry.NewClient(httpClient, flags.trustRegistryHost)
 			}
 
 			var authorizationRequest string
@@ -113,11 +144,7 @@ func NewOIDC4VPCommand() *cobra.Command {
 
 			opts := []oidc4vp.Opt{
 				oidc4vp.WithRequestURI(requestURI),
-				oidc4vp.WithTrustRegistryURL(flags.trustRegistryURL),
-			}
-
-			if flags.walletDIDIndex != -1 {
-				opts = append(opts, oidc4vp.WithWalletDIDIndex(flags.walletDIDIndex))
+				oidc4vp.WithWalletDIDIndex(walletDIDIndex),
 			}
 
 			if flags.enableLinkedDomainVerification {
@@ -154,19 +181,22 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
 	cmd.Flags().BoolVar(&flags.disableDomainMatching, "disable-domain-matching", false, "disables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
-	cmd.Flags().StringVar(&flags.trustRegistryURL, "trust-registry-url", "", "if supplied, wallet will run verifier verification in trust registry")
+	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url with profile id and profile version, i.e. <host>/profiles/{profileID}/{profileVersion}/wallet/attestation")
+	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "<trust-registry-host>/wallet/interactions/presentation to validate that the verifier is trusted as per policy")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
 }
 
 type oidc4vpProvider struct {
-	storageProvider storageapi.Provider
-	httpClient      *http.Client
-	documentLoader  ld.DocumentLoader
-	vdrRegistry     vdrapi.Registry
-	cryptoSuite     api.Suite
-	wallet          *wallet.Wallet
+	storageProvider    storageapi.Provider
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	cryptoSuite        api.Suite
+	attestationService *attestation.Service
+	trustRegistry      *trustregistry.Client
+	wallet             *wallet.Wallet
 }
 
 func (p *oidc4vpProvider) StorageProvider() storageapi.Provider {
@@ -187,6 +217,14 @@ func (p *oidc4vpProvider) VDRegistry() vdrapi.Registry {
 
 func (p *oidc4vpProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *oidc4vpProvider) AttestationService() oidc4vp.AttestationService {
+	return p.attestationService
+}
+
+func (p *oidc4vpProvider) TrustRegistry() oidc4vp.TrustRegistry {
+	return p.trustRegistry
 }
 
 func (p *oidc4vpProvider) Wallet() *wallet.Wallet {

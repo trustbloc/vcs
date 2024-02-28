@@ -29,6 +29,7 @@ type AuthorizationResponseParsed struct {
 	// caused by custom scope as a part of Initiate Credential Presentation request.
 	CustomScopeClaims map[string]Claims
 	VPTokens          []*ProcessedVPToken
+	AttestationVP     string
 }
 
 type ProcessedVPToken struct {

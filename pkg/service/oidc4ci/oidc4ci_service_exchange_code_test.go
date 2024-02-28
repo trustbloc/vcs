@@ -168,9 +168,6 @@ func TestExchangeCodeAuthenticateClientError(t *testing.T) {
 			Policy: profile.PolicyCheck{
 				PolicyURL: "https://localhost/policy",
 			},
-			ClientAttestationCheck: profile.ClientAttestationCheck{
-				Enabled: true,
-			},
 		},
 	}, nil)
 

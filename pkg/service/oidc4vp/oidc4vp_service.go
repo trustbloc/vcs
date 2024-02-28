@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier
+//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistryService=MockTrustRegistryService
 
 package oidc4vp
 
@@ -42,6 +42,7 @@ import (
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
@@ -91,6 +92,15 @@ type presentationVerifier interface {
 	)
 }
 
+type trustRegistryService interface {
+	ValidatePresentation(
+		ctx context.Context,
+		profile *profileapi.Verifier,
+		jwtVP string,
+		metadata []trustregistry.CredentialMetadata,
+	) error
+}
+
 type RequestObjectClaims struct {
 	VPToken VPToken `json:"vp_token"`
 }
@@ -126,6 +136,7 @@ type Config struct {
 	EventTopic               string
 	PresentationVerifier     presentationVerifier
 	VDR                      vdrapi.Registry
+	TrustRegistryService     trustRegistryService
 
 	RedirectURL   string
 	TokenLifetime time.Duration
@@ -146,6 +157,7 @@ type Service struct {
 	profileService           profileService
 	presentationVerifier     presentationVerifier
 	vdr                      vdrapi.Registry
+	trustRegistryService     trustRegistryService
 
 	redirectURL   string
 	tokenLifetime time.Duration
@@ -180,6 +192,7 @@ func NewService(cfg *Config) *Service {
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
 		vdr:                      cfg.VDR,
+		trustRegistryService:     cfg.TrustRegistryService,
 		metrics:                  metrics,
 	}
 }
@@ -427,6 +440,10 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
+	if err = s.checkPolicy(ctx, profile, authResponse.AttestationVP, authResponse.VPTokens); err != nil {
+		return err
+	}
+
 	logger.Debugc(ctx, fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(authResponse.VPTokens)))
 
 	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, authResponse.VPTokens)
@@ -448,6 +465,56 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 	}
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation succeed")
+	return nil
+}
+
+func (s *Service) checkPolicy(
+	ctx context.Context,
+	profile *profileapi.Verifier,
+	attestationVP string,
+	vpTokens []*ProcessedVPToken,
+) error {
+	if profile.Checks.Policy.PolicyURL == "" {
+		return nil
+	}
+
+	st := time.Now()
+
+	metadata := make([]trustregistry.CredentialMetadata, 0)
+
+	for _, token := range vpTokens {
+		for _, credential := range token.Presentation.Credentials() {
+			vcc := credential.Contents()
+
+			var iss, exp string
+
+			if vcc.Issued != nil {
+				iss = vcc.Issued.FormatToString()
+			}
+
+			if vcc.Expired != nil {
+				exp = vcc.Expired.FormatToString()
+			}
+
+			metadata = append(metadata, trustregistry.CredentialMetadata{
+				CredentialID: vcc.ID,
+				Types:        vcc.Types,
+				IssuerID:     vcc.Issuer.ID,
+				Issued:       iss,
+				Expired:      exp,
+			})
+		}
+	}
+
+	if err := s.trustRegistryService.ValidatePresentation(ctx, profile, attestationVP, metadata); err != nil {
+		return fmt.Errorf("check policy: %w", err)
+	}
+
+	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation policy checked",
+		logfields.WithProfileID(profile.ID),
+		log.WithDuration(time.Since(st)),
+	)
+
 	return nil
 }
 

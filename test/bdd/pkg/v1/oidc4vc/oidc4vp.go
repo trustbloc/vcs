@@ -24,7 +24,9 @@ import (
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -341,12 +343,14 @@ func (s *Steps) waitForEvent(eventType string) (string, error) {
 }
 
 type oidc4vpProvider struct {
-	storageProvider storageapi.Provider
-	httpClient      *http.Client
-	documentLoader  ld.DocumentLoader
-	vdrRegistry     vdrapi.Registry
-	cryptoSuite     api.Suite
-	wallet          *wallet.Wallet
+	storageProvider    storageapi.Provider
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	cryptoSuite        api.Suite
+	attestationService *attestation.Service
+	trustRegistry      *trustregistry.Client
+	wallet             *wallet.Wallet
 }
 
 func (p *oidc4vpProvider) StorageProvider() storageapi.Provider {
@@ -367,6 +371,14 @@ func (p *oidc4vpProvider) VDRegistry() vdrapi.Registry {
 
 func (p *oidc4vpProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *oidc4vpProvider) AttestationService() oidc4vp.AttestationService {
+	return p.attestationService
+}
+
+func (p *oidc4vpProvider) TrustRegistry() oidc4vp.TrustRegistry {
+	return p.trustRegistry
 }
 
 func (p *oidc4vpProvider) Wallet() *wallet.Wallet {

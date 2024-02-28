@@ -288,7 +288,7 @@ Feature: OIDC4VC REST API
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled
     Then credential is issued
-    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_client_attestation/v1.0" profile with presentation definition ID "attestation-vc-single-field" and fields "attestation_vc_type,degree_type_id"
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_client_attestation/v1.0" profile with presentation definition ID "attestation-vc-single-field" and fields "degree_type_id"
     And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" retrieves interactions claims
     Then we wait 2 seconds
     And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" requests deleted interactions claims

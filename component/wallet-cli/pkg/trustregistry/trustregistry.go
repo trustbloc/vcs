@@ -12,8 +12,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
+	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -25,23 +27,26 @@ var (
 
 type Client struct {
 	httpClient *http.Client
-	policyURL  string
+	host       string
 }
 
-func NewClient(httpClient *http.Client, policyURL string) *Client {
+func NewClient(httpClient *http.Client, host string) *Client {
 	return &Client{
 		httpClient: httpClient,
-		policyURL:  policyURL,
+		host:       host,
 	}
 }
 
+// ValidateIssuer validates that the issuer is trusted according to policy.
 func (c *Client) ValidateIssuer(
 	ctx context.Context,
 	issuerDID string,
 	issuerDomain string,
 	credentialOffers []CredentialOffer,
-) error {
-	logger.Debug("issuer validation begin", log.WithURL(c.policyURL))
+) (bool, error) {
+	endpoint := fmt.Sprintf("%s/wallet/interactions/issuance", c.host)
+
+	logger.Debug("issuer validation begin", log.WithURL(endpoint))
 
 	req := &WalletIssuanceRequest{
 		IssuerDID:        issuerDID,
@@ -51,21 +56,21 @@ func (c *Client) ValidateIssuer(
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("marshal wallet issuance request: %w", err)
+		return false, fmt.Errorf("marshal wallet issuance request: %w", err)
 	}
 
-	resp, err := c.doRequest(ctx, c.policyURL, body)
+	resp, err := c.doRequest(ctx, endpoint, body)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if !resp.Allowed {
-		return ErrInteractionRestricted
+		return false, ErrInteractionRestricted
 	}
 
-	logger.Debug("issuer validation succeed", log.WithURL(c.policyURL))
+	logger.Debug("issuer validation succeed", log.WithURL(endpoint))
 
-	return nil
+	return resp.Payload != nil && lo.FromPtr(resp.Payload)["attestations_required"] != nil, nil
 }
 
 func (c *Client) ValidateVerifier(
@@ -73,8 +78,10 @@ func (c *Client) ValidateVerifier(
 	verifierDID,
 	verifierDomain string,
 	credentials []*verifiable.Credential,
-) error {
-	logger.Debug("verifier validation begin", log.WithURL(c.policyURL))
+) (bool, error) {
+	endpoint := fmt.Sprintf("%s/wallet/interactions/presentation", c.host)
+
+	logger.Debug("verifier validation begin", log.WithURL(endpoint))
 
 	req := &WalletPresentationRequest{
 		VerifierDID:        verifierDID,
@@ -90,21 +97,21 @@ func (c *Client) ValidateVerifier(
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("marshal wallet presentation request: %w", err)
+		return false, fmt.Errorf("marshal wallet presentation request: %w", err)
 	}
 
-	resp, err := c.doRequest(ctx, c.policyURL, body)
+	resp, err := c.doRequest(ctx, endpoint, body)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if !resp.Allowed {
-		return ErrInteractionRestricted
+		return false, ErrInteractionRestricted
 	}
 
-	logger.Debug("verifier validation succeed", log.WithURL(c.policyURL))
+	logger.Debug("verifier validation succeed", log.WithURL(endpoint))
 
-	return nil
+	return resp.Payload != nil && lo.FromPtr(resp.Payload)["attestations_required"] != nil, nil
 }
 
 func getCredentialMetadata(content verifiable.CredentialContents) CredentialMetadata {
@@ -142,7 +149,8 @@ func (c *Client) doRequest(ctx context.Context, policyURL string, body []byte) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("status code: %d, msg: %s", resp.StatusCode, string(b))
 	}
 
 	var policyEvaluationResp *PolicyEvaluationResponse

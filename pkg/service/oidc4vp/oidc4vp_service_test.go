@@ -56,9 +56,10 @@ var (
 )
 
 const (
-	profileID      = "testProfileID"
-	profileVersion = "v1.0"
-	customScope    = "customScope"
+	profileID             = "testProfileID"
+	profileVersion        = "v1.0"
+	customScope           = "customScope"
+	presentationPolicyURL = "https://trust-registry.dev/verifier/policies/{policyID}/{policyVersion}/interactions/presentation" //nolint:lll
 )
 
 func TestService_InitiateOidcInteraction(t *testing.T) {
@@ -262,6 +263,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
+	trustRegistry := NewMockTrustRegistryService(gomock.NewController(t))
+
 	vp, pd, issuer, vdr, loader := newVPWithPD(t, w)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
@@ -272,6 +275,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		ProfileService:       profileService,
 		DocumentLoader:       loader,
 		VDR:                  vdr,
+		TrustRegistryService: trustRegistry,
 	})
 
 	txManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -294,11 +298,17 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 					vcsverifiable.Jwt,
 				},
 			},
+			Policy: profileapi.PolicyCheck{
+				PolicyURL: presentationPolicyURL,
+			},
 		},
 	}, nil)
 
 	presentationVerifier.EXPECT().VerifyPresentation(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil, nil, nil)
+
+	trustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes().Return(nil)
 
 	t.Run("Success without custom claims", func(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
@@ -325,6 +335,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
+			TrustRegistryService: trustRegistry,
 		})
 
 		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -342,7 +353,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Success - two VP tokens (merged) with custom claims", func(t *testing.T) {
+	t.Run("Success - two VP tokens (merged) with custom claims and attestation vp", func(t *testing.T) {
 		var descriptors []*presexch.InputDescriptor
 		err = json.Unmarshal([]byte(twoInputDescriptors), &descriptors)
 		require.NoError(t, err)
@@ -399,6 +410,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       testLoader,
 			VDR:                  combinedDIDResolver,
+			TrustRegistryService: trustRegistry,
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -427,6 +439,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 						"key1": "value1",
 					},
 				},
+				AttestationVP: "attestation_vp.jwt",
 				VPTokens: []*oidc4vp.ProcessedVPToken{
 					{
 						Nonce:         "nonce1",
@@ -520,6 +533,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       testLoader,
 			VDR:                  combinedDIDResolver,
+			TrustRegistryService: trustRegistry,
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -725,6 +739,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
+			TrustRegistryService: trustRegistry,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -772,6 +787,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
+			TrustRegistryService: trustRegistry,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -785,6 +801,35 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				}}})
 
 		require.Contains(t, err.Error(), "store error")
+	})
+
+	t.Run("Trust Registry error", func(t *testing.T) {
+		errTrustRegistry := NewMockTrustRegistryService(gomock.NewController(t))
+		errTrustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			AnyTimes().Return(errors.New("validate error"))
+
+		withError := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
+			TransactionManager:   txManager,
+			PresentationVerifier: presentationVerifier,
+			ProfileService:       profileService,
+			DocumentLoader:       loader,
+			VDR:                  vdr,
+			TrustRegistryService: errTrustRegistry,
+		})
+
+		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+			&oidc4vp.AuthorizationResponseParsed{
+				CustomScopeClaims: nil,
+				VPTokens: []*oidc4vp.ProcessedVPToken{{
+					Nonce:         "nonce1",
+					Presentation:  vp,
+					SignerDIDID:   "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+					VpTokenFormat: vcsverifiable.Jwt,
+				}}})
+
+		require.Contains(t, err.Error(), "check policy")
 	})
 }
 
@@ -1023,6 +1068,9 @@ func newVC(issuer string, ctx []string, customTypes []string) verifiable.Credent
 		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
+		Expired: &util.TimeWrapper{
+			Time: time.Now().AddDate(1, 0, 0),
+		},
 		Subject: []verifiable.Subject{{
 			ID: issuer,
 		}},
@@ -1043,6 +1091,9 @@ func newDegreeVC(issuer string, degreeType string, ctx []string, customTypes []s
 		Issuer:  &verifiable.Issuer{ID: issuer},
 		Issued: &util.TimeWrapper{
 			Time: time.Now(),
+		},
+		Expired: &util.TimeWrapper{
+			Time: time.Now().AddDate(1, 0, 0),
 		},
 		Subject: []verifiable.Subject{{
 			ID: issuer,

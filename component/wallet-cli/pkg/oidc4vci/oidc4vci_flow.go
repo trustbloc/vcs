@@ -66,13 +66,17 @@ const (
 	FlowTypePreAuthorizedCode          = "pre-authorized_code"
 )
 
-type trustRegistry interface {
+type AttestationService interface {
+	GetAttestation(ctx context.Context) (string, error)
+}
+
+type TrustRegistry interface {
 	ValidateIssuer(
 		ctx context.Context,
 		issuerDID string,
 		issuerDomain string,
 		credentialOffers []trustregistry.CredentialOffer,
-	) error
+	) (bool, error)
 }
 
 type Flow struct {
@@ -83,8 +87,8 @@ type Flow struct {
 	proofBuilder               ProofBuilder
 	wallet                     *wallet.Wallet
 	wellKnownService           *wellknown.Service
-	trustRegistryURL           string
-	trustRegistryClient        trustRegistry
+	attestationService         AttestationService
+	trustRegistry              TrustRegistry
 	flowType                   FlowType
 	credentialOffer            string
 	credentialType             string
@@ -108,6 +112,8 @@ type provider interface {
 	DocumentLoader() ld.DocumentLoader
 	VDRegistry() vdrapi.Registry
 	CryptoSuite() api.Suite
+	AttestationService() AttestationService
+	TrustRegistry() TrustRegistry
 	Wallet() *wallet.Wallet
 	WellKnownService() *wellknown.Service
 }
@@ -183,14 +189,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		proofBuilder = NewJWTProofBuilder()
 	}
 
-	var trustRegistry trustRegistry
-
-	if o.trustRegistry != nil {
-		trustRegistry = o.trustRegistry
-	} else if o.trustRegistryURL != "" {
-		trustRegistry = trustregistry.NewClient(p.HTTPClient(), o.trustRegistryURL)
-	}
-
 	return &Flow{
 		httpClient:                 p.HTTPClient(),
 		documentLoader:             p.DocumentLoader(),
@@ -199,6 +197,8 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		proofBuilder:               proofBuilder,
 		wallet:                     p.Wallet(),
 		wellKnownService:           p.WellKnownService(),
+		attestationService:         p.AttestationService(),
+		trustRegistry:              p.TrustRegistry(),
 		walletKeyID:                walletDIDInfo.KeyID,
 		walletKeyType:              walletDIDInfo.KeyType,
 		flowType:                   o.flowType,
@@ -214,8 +214,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		userPassword:               o.userPassword,
 		issuerState:                o.issuerState,
 		pin:                        o.pin,
-		trustRegistryURL:           o.trustRegistryURL,
-		trustRegistryClient:        trustRegistry,
 		perfInfo:                   &PerfInfo{},
 	}, nil
 }
@@ -266,51 +264,6 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 	}
 
 	f.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(start)
-
-	tokenEndpointAuthMethodsSupported := lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported)
-	requireWalletAttestation := lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType)
-
-	if f.trustRegistryClient != nil {
-		if credentialOfferResponse == nil || len(credentialOfferResponse.CredentialConfigurationIDs) == 0 {
-			return nil, fmt.Errorf("credential offer is empty")
-		}
-
-		issuerDID := f.wellKnownService.GetIssuerDID()
-
-		if issuerDID == "" {
-			slog.Warn("Issuer DID is empty. Does '/.well-known/openid-credential-issuer' return jwt?")
-		}
-
-		slog.Info("Validating issuer", "did", issuerDID, "url", f.trustRegistryURL)
-
-		configurationID := credentialOfferResponse.CredentialConfigurationIDs[0]
-		credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
-
-		var credentialType string
-
-		for _, t := range credentialConfiguration.CredentialDefinition.Type {
-			if t != "VerifiableCredential" {
-				credentialType = t
-				break
-			}
-		}
-
-		if err = f.trustRegistryClient.
-			ValidateIssuer(
-				ctx,
-				issuerDID,
-				"",
-				[]trustregistry.CredentialOffer{
-					{
-						ClientAttestationRequested: lo.Contains(tokenEndpointAuthMethodsSupported, attestJWTClientAuthType),
-						CredentialFormat:           credentialConfiguration.Format,
-						CredentialType:             credentialType,
-					},
-				},
-			); err != nil {
-			return nil, fmt.Errorf("validate issuer: %w", err)
-		}
-	}
 
 	var token *oauth2.Token
 
@@ -365,12 +318,55 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			tokenValues.Add("tx_code", f.pin)
 		}
 
-		if requireWalletAttestation {
+		issuerDID := f.wellKnownService.GetIssuerDID()
+
+		if issuerDID == "" {
+			slog.Warn("Issuer DID is empty. Does '/.well-known/openid-credential-issuer' return jwt?")
+		}
+
+		if len(credentialOfferResponse.CredentialConfigurationIDs) == 0 {
+			return nil, fmt.Errorf("no credential configuration id defined in credential offer")
+		}
+
+		configurationID := credentialOfferResponse.CredentialConfigurationIDs[0]
+		credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
+
+		var credentialType string
+
+		for _, t := range credentialConfiguration.CredentialDefinition.Type {
+			if t != "VerifiableCredential" {
+				credentialType = t
+				break
+			}
+		}
+
+		var attestationRequired bool
+
+		if f.trustRegistry != nil {
+			attestationRequired, err = f.trustRegistry.ValidateIssuer(ctx,
+				issuerDID,
+				"",
+				[]trustregistry.CredentialOffer{
+					{
+						ClientAttestationRequested: lo.Contains(
+							lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported),
+							attestJWTClientAuthType,
+						),
+						CredentialFormat: credentialConfiguration.Format,
+						CredentialType:   credentialType,
+					},
+				})
+			if err != nil {
+				return nil, fmt.Errorf("validate issuer: %w", err)
+			}
+		}
+
+		if attestationRequired {
 			var jwtVP string
 
-			jwtVP, err = f.getAttestationVP()
+			jwtVP, err = f.attestationService.GetAttestation(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("get attestation vp: %w", err)
+				return nil, fmt.Errorf("get attestation: %w", err)
 			}
 
 			tokenValues.Add("client_assertion_type", attestJWTClientAuthType)
@@ -1048,8 +1044,6 @@ type options struct {
 	userPassword               string
 	issuerState                string
 	pin                        string
-	trustRegistryURL           string
-	trustRegistry              trustRegistry
 	walletDIDIndex             int
 }
 
@@ -1130,18 +1124,6 @@ func WithIssuerState(issuerState string) Opt {
 func WithPin(pin string) Opt {
 	return func(opts *options) {
 		opts.pin = pin
-	}
-}
-
-func WithTrustRegistryURL(url string) Opt {
-	return func(opts *options) {
-		opts.trustRegistryURL = url
-	}
-}
-
-func WithTrustRegistry(value trustRegistry) Opt {
-	return func(opts *options) {
-		opts.trustRegistry = value
 	}
 }
 

@@ -29,40 +29,29 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
-const (
-	walletAttestationVCType = "WalletAttestationCredential"
-)
-
 type vcVerifier interface {
 	ValidateCredentialProof(ctx context.Context, vc *verifiable.Credential, proofChallenge, proofDomain string, vcInVPValidation, strictValidation bool) error //nolint:lll
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
-type trustRegistryService interface {
-	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, jwtVP string) error
-}
-
 type Config struct {
-	VDR                  vdrapi.Registry
-	DocumentLoader       ld.DocumentLoader
-	VcVerifier           vcVerifier
-	TrustRegistryService trustRegistryService
+	VDR            vdrapi.Registry
+	DocumentLoader ld.DocumentLoader
+	VcVerifier     vcVerifier
 }
 
 type Service struct {
-	vdr                  vdrapi.Registry
-	documentLoader       ld.DocumentLoader
-	vcVerifier           vcVerifier
-	trustRegistryService trustRegistryService
+	vdr            vdrapi.Registry
+	documentLoader ld.DocumentLoader
+	vcVerifier     vcVerifier
 }
 
 func New(config *Config) *Service {
 	return &Service{
-		vdr:                  config.VDR,
-		documentLoader:       config.DocumentLoader,
-		vcVerifier:           config.VcVerifier,
-		trustRegistryService: config.TrustRegistryService,
+		vdr:            config.VDR,
+		documentLoader: config.DocumentLoader,
+		vcVerifier:     config.VcVerifier,
 	}
 }
 
@@ -88,24 +77,6 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 	var targetPresentation interface{}
 	targetPresentation = presentation
-
-	if profile.Checks.Policy.PolicyURL != "" {
-		st := time.Now()
-
-		err := s.trustRegistryService.ValidatePresentation(
-			ctx,
-			profile,
-			presentation.JWT,
-		)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "clientAttestation",
-				Error: err.Error(),
-			})
-		}
-
-		logger.Debugc(ctx, "Checks.Policy", log.WithDuration(time.Since(st)))
-	}
 
 	if profile.Checks.Presentation.Proof {
 		st := time.Now()
@@ -135,10 +106,8 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		}
 	}
 
-	attestationEnabled := profile.Checks.ClientAttestationCheck.Enabled
-
 	if profile.Checks.Credential.CredentialExpiry {
-		err := s.checkCredentialExpiry(ctx, credentials, attestationEnabled)
+		err := s.checkCredentialExpiry(credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialExpiry",
@@ -150,7 +119,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
-		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials, attestationEnabled)
+		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -164,7 +133,7 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Status {
 		st := time.Now()
 
-		err := s.validateCredentialsStatus(ctx, credentials, attestationEnabled)
+		err := s.validateCredentialsStatus(ctx, credentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -257,16 +226,9 @@ func (s *Service) checkCredentialStrict(
 	return claimKeysDict, nil
 }
 
-func (s *Service) checkCredentialExpiry(
-	_ context.Context,
-	credentials []*verifiable.Credential,
-	attestationEnabled bool) error {
+func (s *Service) checkCredentialExpiry(credentials []*verifiable.Credential) error {
 	for _, credential := range credentials {
 		vcc := credential.Contents()
-
-		if attestationEnabled && lo.Contains(vcc.Types, walletAttestationVCType) {
-			continue
-		}
 
 		if vcc.Expired != nil && time.Now().UTC().After(vcc.Expired.Time) {
 			return errors.New("credential expired")
@@ -387,13 +349,8 @@ func (s *Service) validateCredentialsProof(
 	ctx context.Context,
 	vpJWT string,
 	credentials []*verifiable.Credential,
-	attestationEnabled bool,
 ) error {
 	for _, cred := range credentials {
-		if attestationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
-			continue
-		}
-
 		err := s.vcVerifier.ValidateCredentialProof(ctx, cred, "", "", true, vpJWT == "")
 		if err != nil {
 			return err
@@ -406,13 +363,8 @@ func (s *Service) validateCredentialsProof(
 func (s *Service) validateCredentialsStatus(
 	ctx context.Context,
 	credentials []*verifiable.Credential,
-	attestationEnabled bool,
 ) error {
 	for _, cred := range credentials {
-		if attestationEnabled && lo.Contains(cred.Contents().Types, walletAttestationVCType) {
-			continue
-		}
-
 		typedID, issuer := s.extractCredentialStatus(cred)
 
 		if typedID != nil {

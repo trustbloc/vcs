@@ -120,7 +120,12 @@ type jsonSchemaValidator interface {
 }
 
 type trustRegistryService interface {
-	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
+	ValidateIssuance(
+		ctx context.Context,
+		profile *profileapi.Issuer,
+		attestationVP string,
+		credentialTypes []string,
+	) error
 }
 
 type ackStore interface {
@@ -553,7 +558,13 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		}
 	}
 
-	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion); err != nil {
+	var credentialTypes []string
+
+	if tx.CredentialTemplate != nil {
+		credentialTypes = append(credentialTypes, tx.CredentialTemplate.Type)
+	}
+
+	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion, credentialTypes); err != nil {
 		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}
 

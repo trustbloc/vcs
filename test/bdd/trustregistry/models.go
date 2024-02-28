@@ -6,6 +6,27 @@ SPDX-License-Identifier: Apache-2.0
 
 package main
 
+// WalletIssuanceRequest is a model for wallet issuance policy evaluation.
+type WalletIssuanceRequest struct {
+	CredentialOffers *[]CredentialOffer `json:"credential_offers,omitempty"`
+	IssuerDID        string             `json:"issuer_did"`
+	IssuerDomain     *string            `json:"issuer_domain,omitempty"`
+}
+
+// CredentialOffer is a model for CredentialOffer.
+type CredentialOffer struct {
+	ClientAttestationRequested *bool   `json:"client_attestation_requested,omitempty"`
+	CredentialFormat           *string `json:"credential_format,omitempty"`
+	CredentialType             *string `json:"credential_type,omitempty"`
+}
+
+// WalletPresentationRequest is a model for wallet presentation policy evaluation.
+type WalletPresentationRequest struct {
+	CredentialMetadata []CredentialMetadata `json:"credential_metadata"`
+	VerifierDID        string               `json:"verifier_did"`
+	VerifierDomain     *string              `json:"verifier_domain,omitempty"`
+}
+
 // IssuerIssuanceRequest is a model for issuer issuance policy evaluation.
 type IssuerIssuanceRequest struct {
 	AttestationVC   *[]string `json:"attestation_vc,omitempty"`
