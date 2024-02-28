@@ -8,11 +8,16 @@ package trustregistry
 
 // WalletIssuanceRequest is a request model for wallet issuance policy evaluation.
 type WalletIssuanceRequest struct {
+	IssuerDID        string            `json:"issuer_did"`
+	IssuerDomain     string            `json:"issuer_domain,omitempty"`
+	CredentialOffers []CredentialOffer `json:"credential_offers"`
+}
+
+// CredentialOffer contains the data for a credential in a wallet issuance request.
+type CredentialOffer struct {
 	ClientAttestationRequested bool   `json:"client_attestation_requested,omitempty"`
 	CredentialFormat           string `json:"credential_format,omitempty"`
 	CredentialType             string `json:"credential_type,omitempty"`
-	IssuerDID                  string `json:"issuer_did"`
-	IssuerDomain               string `json:"issuer_domain,omitempty"`
 }
 
 type CredentialMetadata struct {
