@@ -389,9 +389,6 @@ type WellKnownOpenIDIssuerConfiguration struct {
 	// URL of the Credential Issuer's Batch Credential Endpoint. This URL MUST use the https scheme and MAY contain port, path and query parameter components. If omitted, the Credential Issuer does not support the Batch Credential Endpoint.
 	BatchCredentialEndpoint *string `json:"batch_credential_endpoint,omitempty"`
 
-	// URL of the acknowledgement endpoint.
-	CredentialAckEndpoint *string `json:"credential_ack_endpoint,omitempty"`
-
 	// An object that describes specifics of the Credential that the Credential Issuer supports issuance of. This object contains a list of name/value pairs, where each name is a unique identifier of the supported credential being described.
 	CredentialConfigurationsSupported *WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported `json:"credential_configurations_supported,omitempty"`
 

@@ -117,14 +117,13 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 		CredentialEndpoint:                lo.ToPtr(fmt.Sprintf("%soidc/credential", host)),
 		BatchCredentialEndpoint:           nil, // no support for now
 		DeferredCredentialEndpoint:        nil,
-		NotificationEndpoint:              nil,
 		CredentialResponseEncryption:      nil,
 		CredentialIdentifiersSupported:    nil,
 		SignedMetadata:                    nil,
 		Display:                           lo.ToPtr(credentialIssuerMetadataDisplay),
 		CredentialConfigurationsSupported: credentialsConfigurationSupported,
 
-		CredentialAckEndpoint:  lo.ToPtr(fmt.Sprintf("%soidc/notification", host)),
+		NotificationEndpoint:   lo.ToPtr(fmt.Sprintf("%soidc/notification", host)),
 		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
 		ResponseTypesSupported: lo.ToPtr([]string{"code"}),
 	}
