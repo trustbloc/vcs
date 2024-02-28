@@ -863,9 +863,6 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/CredentialConfigurationsSupported'
           description: 'An object that describes specifics of the Credential that the Credential Issuer supports issuance of. This object contains a list of name/value pairs, where each name is a unique identifier of the supported credential being described.'
-        credential_ack_endpoint:
-          type: string
-          description: URL of the acknowledgement endpoint.
         registration_endpoint:
           type: string
           description: URL of the OP's Dynamic Client Registration Endpoint.

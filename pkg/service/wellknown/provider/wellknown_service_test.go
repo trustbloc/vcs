@@ -203,7 +203,6 @@ func checkWellKnownOpenIDIssuerConfiguration(
 	assert.Equal(t, "https://example.com/oidc/credential", lo.FromPtr(res.CredentialEndpoint))
 	assert.Nil(t, res.BatchCredentialEndpoint)
 	assert.Nil(t, res.DeferredCredentialEndpoint)
-	assert.Nil(t, res.NotificationEndpoint)
 	assert.Nil(t, res.CredentialResponseEncryption)
 	assert.Nil(t, res.CredentialIdentifiersSupported)
 	assert.Nil(t, res.SignedMetadata)
@@ -250,7 +249,7 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, "vct1", lo.FromPtr(credentialConfigurationSupported.Vct))
 	}
 
-	assert.Equal(t, "https://example.com/oidc/notification", lo.FromPtr(res.CredentialAckEndpoint))
+	assert.Equal(t, "https://example.com/oidc/notification", lo.FromPtr(res.NotificationEndpoint))
 	assert.Equal(t, "https://example.com/oidc/token", lo.FromPtr(res.TokenEndpoint))
 	assert.Equal(t, []string{"code"}, lo.FromPtr(res.ResponseTypesSupported))
 

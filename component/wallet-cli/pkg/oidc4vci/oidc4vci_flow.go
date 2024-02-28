@@ -883,8 +883,8 @@ func (f *Flow) handleIssuanceAck(
 		return nil
 	}
 
-	credentialAckEndpoint := lo.FromPtr(wellKnown.CredentialAckEndpoint)
-	if credentialAckEndpoint == "" || lo.FromPtr(credResponse.NotificationId) == "" {
+	notificationEndpoint := lo.FromPtr(wellKnown.NotificationEndpoint)
+	if notificationEndpoint == "" || lo.FromPtr(credResponse.NotificationId) == "" {
 		return nil
 	}
 
@@ -893,9 +893,9 @@ func (f *Flow) handleIssuanceAck(
 		f.perfInfo.CredentialsAck = time.Since(start)
 	}()
 
-	slog.Info("Sending wallet ACK",
+	slog.Info("Sending wallet notification",
 		"notification_id", credResponse.NotificationId,
-		"endpoint", credentialAckEndpoint,
+		"endpoint", notificationEndpoint,
 	)
 
 	b, err := json.Marshal(oidc4civ1.AckRequest{
@@ -912,7 +912,7 @@ func (f *Flow) handleIssuanceAck(
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, credentialAckEndpoint, bytes.NewBuffer(b))
+	req, err := http.NewRequest(http.MethodPost, notificationEndpoint, bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("ack credential request: %w", err)
 	}
