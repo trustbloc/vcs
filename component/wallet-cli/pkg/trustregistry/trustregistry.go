@@ -36,11 +36,12 @@ func NewClient(httpClient *http.Client, policyURL string) *Client {
 }
 
 func (c *Client) ValidateIssuer(
+	ctx context.Context,
 	issuerDID string,
 	issuerDomain string,
 	credentialOffers []CredentialOffer,
 ) error {
-	logger.Debug("issuer validation begin")
+	logger.Debug("issuer validation begin", log.WithURL(c.policyURL))
 
 	req := &WalletIssuanceRequest{
 		IssuerDID:        issuerDID,
@@ -53,7 +54,7 @@ func (c *Client) ValidateIssuer(
 		return fmt.Errorf("marshal wallet issuance request: %w", err)
 	}
 
-	resp, err := c.doRequest(context.Background(), c.policyURL, body)
+	resp, err := c.doRequest(ctx, c.policyURL, body)
 	if err != nil {
 		return err
 	}
@@ -62,17 +63,18 @@ func (c *Client) ValidateIssuer(
 		return ErrInteractionRestricted
 	}
 
-	logger.Debug("issuer validation succeed")
+	logger.Debug("issuer validation succeed", log.WithURL(c.policyURL))
 
 	return nil
 }
 
 func (c *Client) ValidateVerifier(
+	ctx context.Context,
 	verifierDID,
 	verifierDomain string,
 	credentials []*verifiable.Credential,
 ) error {
-	logger.Debug("verifier validation begin")
+	logger.Debug("verifier validation begin", log.WithURL(c.policyURL))
 
 	req := &WalletPresentationRequest{
 		VerifierDID:        verifierDID,
@@ -91,7 +93,7 @@ func (c *Client) ValidateVerifier(
 		return fmt.Errorf("marshal wallet presentation request: %w", err)
 	}
 
-	resp, err := c.doRequest(context.Background(), c.policyURL, body)
+	resp, err := c.doRequest(ctx, c.policyURL, body)
 	if err != nil {
 		return err
 	}
@@ -100,7 +102,7 @@ func (c *Client) ValidateVerifier(
 		return ErrInteractionRestricted
 	}
 
-	logger.Debug("verifier validation succeed")
+	logger.Debug("verifier validation succeed", log.WithURL(c.policyURL))
 
 	return nil
 }

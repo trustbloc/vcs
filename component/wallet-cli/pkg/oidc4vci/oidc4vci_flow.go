@@ -67,7 +67,12 @@ const (
 )
 
 type trustRegistry interface {
-	ValidateIssuer(issuerDID string, issuerDomain string, credentialOffers []trustregistry.CredentialOffer) error
+	ValidateIssuer(
+		ctx context.Context,
+		issuerDID string,
+		issuerDomain string,
+		credentialOffers []trustregistry.CredentialOffer,
+	) error
 }
 
 type Flow struct {
@@ -292,6 +297,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		if err = f.trustRegistryClient.
 			ValidateIssuer(
+				ctx,
 				issuerDID,
 				"",
 				[]trustregistry.CredentialOffer{

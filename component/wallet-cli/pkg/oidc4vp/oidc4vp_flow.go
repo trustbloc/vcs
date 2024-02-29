@@ -54,7 +54,12 @@ const (
 )
 
 type trustRegistry interface {
-	ValidateVerifier(verifierDID, verifierDomain string, credentials []*verifiable.Credential) error
+	ValidateVerifier(
+		ctx context.Context,
+		verifierDID,
+		verifierDomain string,
+		credentials []*verifiable.Credential,
+	) error
 }
 
 type Flow struct {
@@ -195,6 +200,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 		if err = f.trustRegistryClient.
 			ValidateVerifier(
+				ctx,
 				requestObject.ClientID,
 				"",
 				vp.Credentials(),
