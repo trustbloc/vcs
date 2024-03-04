@@ -8,16 +8,16 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
+	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
-	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
-	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 )
 
 type attestCommandFlags struct {
@@ -58,37 +58,23 @@ func NewAttestWalletCommand() *cobra.Command {
 				didInfo = w.DIDs()[len(w.DIDs())-1]
 			}
 
-			signer, err := svc.CryptoSuite().FixedKeyMultiSigner(didInfo.KeyID)
-			if err != nil {
-				return fmt.Errorf("create signer: %w", err)
-			}
-
-			jwsSigner := jwssigner.NewJWSSigner(
-				fmt.Sprintf("%s#%s", didInfo.ID, didInfo.KeyID),
-				string(w.SignatureType()),
-				kmssigner.NewKMSSigner(signer, w.SignatureType(), nil),
-			)
-
-			attestationVC, err := attestation.NewClient(
-				&attestation.Config{
-					HTTPClient:     httpClient,
-					DocumentLoader: svc.DocumentLoader(),
-					Signer:         jwsSigner,
-					WalletDID:      didInfo.ID,
-					AttestationURL: flags.attestationURL,
+			attestationService, err := attestation.NewService(
+				&attestationServiceProvider{
+					storageProvider: svc.StorageProvider(),
+					httpClient:      httpClient,
+					documentLoader:  svc.DocumentLoader(),
+					cryptoSuite:     svc.CryptoSuite(),
 				},
-			).GetAttestationVC(context.Background())
+				flags.attestationURL,
+				didInfo,
+				w.SignatureType(),
+			)
 			if err != nil {
-				return fmt.Errorf("get attestation vc: %w", err)
+				return fmt.Errorf("create attestation service: %w", err)
 			}
 
-			vcBytes, err := json.Marshal(attestationVC)
-			if err != nil {
-				return fmt.Errorf("marshal attestation vc: %w", err)
-			}
-
-			if err = w.Add(vcBytes); err != nil {
-				return fmt.Errorf("add attestation vc to wallet: %w", err)
+			if _, err = attestationService.GetAttestation(context.Background()); err != nil {
+				return fmt.Errorf("get attestation: %w", err)
 			}
 
 			return nil
@@ -102,4 +88,27 @@ func NewAttestWalletCommand() *cobra.Command {
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 
 	return cmd
+}
+
+type attestationServiceProvider struct {
+	storageProvider storageapi.Provider
+	httpClient      *http.Client
+	documentLoader  ld.DocumentLoader
+	cryptoSuite     api.Suite
+}
+
+func (p *attestationServiceProvider) StorageProvider() storageapi.Provider {
+	return p.storageProvider
+}
+
+func (p *attestationServiceProvider) HTTPClient() *http.Client {
+	return p.httpClient
+}
+
+func (p *attestationServiceProvider) DocumentLoader() ld.DocumentLoader {
+	return p.documentLoader
+}
+
+func (p *attestationServiceProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
 }

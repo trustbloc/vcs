@@ -52,6 +52,6 @@ type PolicyEvaluationResponse struct {
 // ServiceInterface defines an interface for client attestation service. The task of service is to validate and confirm
 // the device binding and authentication of the client instance by validating attestation VP and evaluating policy.
 type ServiceInterface interface {
-	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, jwtVP string) error
-	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, jwtVP string) error
+	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, attestationVP string, credentialTypes []string) error            //nolint: lll
+	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, attestationVP string, metadata []CredentialMetadata) error //nolint: lll
 }

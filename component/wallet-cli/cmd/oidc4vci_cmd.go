@@ -22,7 +22,9 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/formatter"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -54,7 +56,8 @@ type oidc4vciCommandFlags struct {
 	enableDiscoverableClientID bool
 	enableTracing              bool
 	proxyURL                   string
-	trustRegistryURL           string
+	trustRegistryHost          string
+	attestationURL             string
 }
 
 func NewOIDC4VCICommand() *cobra.Command {
@@ -154,19 +157,47 @@ func NewOIDC4VCICommand() *cobra.Command {
 				}
 			}
 
+			var walletDIDIndex int
+
+			if flags.walletDIDIndex != -1 {
+				walletDIDIndex = flags.walletDIDIndex
+			} else {
+				walletDIDIndex = len(w.DIDs()) - 1
+			}
+
+			attestationService, err := attestation.NewService(
+				&attestationServiceProvider{
+					storageProvider: svc.StorageProvider(),
+					httpClient:      httpClient,
+					documentLoader:  svc.DocumentLoader(),
+					cryptoSuite:     svc.CryptoSuite(),
+				},
+				flags.attestationURL,
+				w.DIDs()[walletDIDIndex],
+				w.SignatureType(),
+			)
+			if err != nil {
+				return fmt.Errorf("create attestation service: %w", err)
+			}
+
 			wellKnownService := &wellknown.Service{
 				HTTPClient:  httpClient,
 				VDRRegistry: svc.VDR(),
 			}
 
 			provider := &oidc4vciProvider{
-				storageProvider:  svc.StorageProvider(),
-				httpClient:       httpClient,
-				documentLoader:   svc.DocumentLoader(),
-				vdrRegistry:      svc.VDR(),
-				cryptoSuite:      svc.CryptoSuite(),
-				wallet:           w,
-				wellKnownService: wellKnownService,
+				storageProvider:    svc.StorageProvider(),
+				httpClient:         httpClient,
+				documentLoader:     svc.DocumentLoader(),
+				vdrRegistry:        svc.VDR(),
+				cryptoSuite:        svc.CryptoSuite(),
+				attestationService: attestationService,
+				wallet:             w,
+				wellKnownService:   wellKnownService,
+			}
+
+			if flags.trustRegistryHost != "" {
+				provider.trustRegistry = trustregistry.NewClient(httpClient, flags.trustRegistryHost)
 			}
 
 			var flow *oidc4vci.Flow
@@ -175,21 +206,12 @@ func NewOIDC4VCICommand() *cobra.Command {
 				oidc4vci.WithCredentialType(flags.credentialType),
 				oidc4vci.WithOIDCCredentialFormat(flags.oidcCredentialFormat),
 				oidc4vci.WithClientID(flags.clientID),
-				oidc4vci.WithTrustRegistryURL(flags.trustRegistryURL),
 			}
 
 			if walletInitiatedFlow {
 				opts = append(opts, oidc4vci.WithIssuerState(flags.issuerState))
 			} else {
 				opts = append(opts, oidc4vci.WithCredentialOffer(credentialOffer))
-			}
-
-			var walletDIDIndex int
-
-			if flags.walletDIDIndex != -1 {
-				walletDIDIndex = flags.walletDIDIndex
-			} else {
-				walletDIDIndex = len(w.DIDs()) - 1
 			}
 
 			if flags.proofType == "cwt" {
@@ -280,7 +302,8 @@ func NewOIDC4VCICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.issuerState, "issuer-state", "", "issuer state in wallet-initiated flow")
 	cmd.Flags().StringVar(&flags.pin, "pin", "", "pin for pre-authorized code flow")
 	cmd.Flags().BoolVar(&flags.enableDiscoverableClientID, "enable-discoverable-client-id", false, "enables discoverable client id scheme for dynamic client registration")
-	cmd.Flags().StringVar(&flags.trustRegistryURL, "trust-registry-url", "", "if supplied, wallet will run issuer verification in trust registry")
+	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url with profile id and profile version, i.e. <host>/profiles/{profileID}/{profileVersion}/wallet/attestation")
+	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "<trust-registry-host>/wallet/interactions/issuance to validate that the issuer is trusted according to policy")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
@@ -291,13 +314,15 @@ func NewOIDC4VCICommand() *cobra.Command {
 }
 
 type oidc4vciProvider struct {
-	storageProvider  storageapi.Provider
-	httpClient       *http.Client
-	documentLoader   ld.DocumentLoader
-	vdrRegistry      vdrapi.Registry
-	cryptoSuite      api.Suite
-	wallet           *wallet.Wallet
-	wellKnownService *wellknown.Service
+	storageProvider    storageapi.Provider
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	cryptoSuite        api.Suite
+	attestationService *attestation.Service
+	trustRegistry      *trustregistry.Client
+	wallet             *wallet.Wallet
+	wellKnownService   *wellknown.Service
 }
 
 func (p *oidc4vciProvider) StorageProvider() storageapi.Provider {
@@ -318,6 +343,14 @@ func (p *oidc4vciProvider) VDRegistry() vdrapi.Registry {
 
 func (p *oidc4vciProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *oidc4vciProvider) AttestationService() oidc4vci.AttestationService {
+	return p.attestationService
+}
+
+func (p *oidc4vciProvider) TrustRegistry() oidc4vci.TrustRegistry {
+	return p.trustRegistry
 }
 
 func (p *oidc4vciProvider) Wallet() *wallet.Wallet {

@@ -22,7 +22,7 @@ const (
 	issuerDID = "did:oin:abc"
 )
 
-func TestService_AuthenticateClient(t *testing.T) {
+func TestService_CheckPolicies(t *testing.T) {
 	var (
 		trustRegistryService *MockTrustRegistryService
 		profile              *profileapi.Issuer
@@ -47,9 +47,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://policy.example.com",
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
 					},
 				}
 
@@ -62,6 +59,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 					context.Background(),
 					profile,
 					clientAssertion,
+					[]string{"VerifiedEmployee"},
 				).Times(1).Return(nil)
 			},
 			check: func(t *testing.T, err error) {
@@ -93,11 +91,7 @@ func TestService_AuthenticateClient(t *testing.T) {
 					OIDCConfig: &profileapi.OIDCConfig{
 						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
 					},
-					Checks: profileapi.IssuanceChecks{
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
-					},
+					Checks: profileapi.IssuanceChecks{},
 				}
 
 				clientAssertionType = "attest_jwt_client_auth"
@@ -140,9 +134,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://policy.example.com",
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
 					},
 				}
 
@@ -166,9 +157,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://policy.example.com",
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
 					},
 				}
 
@@ -191,9 +179,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 					Checks: profileapi.IssuanceChecks{
 						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://policy.example.com",
-						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
 						},
 					},
 				}
@@ -219,9 +204,6 @@ func TestService_AuthenticateClient(t *testing.T) {
 						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://policy.example.com",
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
 					},
 				}
 
@@ -234,33 +216,11 @@ func TestService_AuthenticateClient(t *testing.T) {
 					context.Background(),
 					profile,
 					clientAssertion,
+					[]string{"VerifiedEmployee"},
 				).Return(errors.New("validate error"))
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "validate error")
-			},
-		},
-		{
-			name: "client attestation check not set",
-			setup: func() {
-				profile = &profileapi.Issuer{
-					OIDCConfig: &profileapi.OIDCConfig{
-						TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
-					},
-					Checks: profileapi.IssuanceChecks{
-						Policy: profileapi.PolicyCheck{
-							PolicyURL: "https://policy.example.com",
-						},
-					},
-				}
-
-				clientAssertionType = "attest_jwt_client_auth"
-				clientAssertion = ""
-
-				trustRegistryService = NewMockTrustRegistryService(gomock.NewController(t))
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "client attestation check not set for profile")
 			},
 		},
 	}
@@ -273,7 +233,8 @@ func TestService_AuthenticateClient(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			err = svc.CheckPolicies(context.Background(), profile, clientAssertionType, clientAssertion)
+			err = svc.CheckPolicies(context.Background(), profile, clientAssertionType, clientAssertion,
+				[]string{"VerifiedEmployee"})
 			tt.check(t, err)
 		})
 	}

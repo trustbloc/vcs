@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/legacy/mem"
 	"github.com/trustbloc/did-go/method/jwk"
 	"github.com/trustbloc/did-go/method/key"
@@ -24,18 +25,27 @@ import (
 	"github.com/trustbloc/did-go/vdr"
 	"github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
+	storageapi "github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 	"github.com/trustbloc/vc-go/verifiable"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
+)
+
+const (
+	attestationServiceURL = "https://mock-attestation.trustbloc.local:8097/profiles/profileID/profileVersion/wallet/attestation"
+	trustRegistryHost     = "https://mock-trustregistry.trustbloc.local:8098"
 )
 
 type TestCase struct {
@@ -165,23 +175,44 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		VDRRegistry: vdRegistry,
 	}
 
-	return &TestCase{
-		oidc4vciProvider: &oidc4vciProvider{
-			storageProvider:  storageProvider,
-			httpClient:       opts.httpClient,
-			documentLoader:   documentLoader,
-			vdrRegistry:      vdRegistry,
-			cryptoSuite:      suite,
-			wallet:           w,
-			wellKnownService: wellKnownService,
-		},
-		oidc4vpProvider: &oidc4vpProvider{
+	attestationService, err := attestation.NewService(
+		&attestationServiceProvider{
 			storageProvider: storageProvider,
 			httpClient:      opts.httpClient,
 			documentLoader:  documentLoader,
-			vdrRegistry:     vdRegistry,
 			cryptoSuite:     suite,
-			wallet:          w,
+		},
+		attestationServiceURL,
+		w.DIDs()[0],
+		w.SignatureType(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create attestation service: %w", err)
+	}
+
+	trustRegistry := trustregistry.NewClient(opts.httpClient, trustRegistryHost)
+
+	return &TestCase{
+		oidc4vciProvider: &oidc4vciProvider{
+			storageProvider:    storageProvider,
+			httpClient:         opts.httpClient,
+			documentLoader:     documentLoader,
+			vdrRegistry:        vdRegistry,
+			cryptoSuite:        suite,
+			attestationService: attestationService,
+			trustRegistry:      trustRegistry,
+			wallet:             w,
+			wellKnownService:   wellKnownService,
+		},
+		oidc4vpProvider: &oidc4vpProvider{
+			storageProvider:    storageProvider,
+			httpClient:         opts.httpClient,
+			documentLoader:     documentLoader,
+			vdrRegistry:        vdRegistry,
+			cryptoSuite:        suite,
+			attestationService: attestationService,
+			trustRegistry:      trustRegistry,
+			wallet:             w,
 		},
 		wallet:                 w,
 		httpClient:             opts.httpClient,
@@ -535,4 +566,27 @@ func (c *TestCase) fetchAuthorizationRequest() (string, error) {
 	}
 
 	return parsedResp.AuthorizationRequest, nil
+}
+
+type attestationServiceProvider struct {
+	storageProvider storageapi.Provider
+	httpClient      *http.Client
+	documentLoader  ld.DocumentLoader
+	cryptoSuite     api.Suite
+}
+
+func (p *attestationServiceProvider) StorageProvider() storageapi.Provider {
+	return p.storageProvider
+}
+
+func (p *attestationServiceProvider) HTTPClient() *http.Client {
+	return p.httpClient
+}
+
+func (p *attestationServiceProvider) DocumentLoader() ld.DocumentLoader {
+	return p.documentLoader
+}
+
+func (p *attestationServiceProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
 }

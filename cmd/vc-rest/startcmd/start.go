@@ -689,10 +689,9 @@ func buildEchoHandler(
 
 	trustRegistryService := trustregistry.NewService(
 		&trustregistry.Config{
-			HTTPClient:       getHTTPClient(metricsProvider.ClientAttestationService),
-			DocumentLoader:   documentLoader,
-			ProofChecker:     proofChecker,
-			VCStatusVerifier: verifyCredentialSvc,
+			HTTPClient:     getHTTPClient(metricsProvider.ClientAttestationService),
+			DocumentLoader: documentLoader,
+			ProofChecker:   proofChecker,
 		},
 	)
 
@@ -880,10 +879,9 @@ func buildEchoHandler(
 	var verifyPresentationSvc verifypresentation.ServiceInterface
 
 	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
-		VcVerifier:           verifyCredentialSvc,
-		DocumentLoader:       documentLoader,
-		VDR:                  conf.VDR,
-		TrustRegistryService: trustRegistryService,
+		VcVerifier:     verifyCredentialSvc,
+		DocumentLoader: documentLoader,
+		VDR:            conf.VDR,
 	})
 
 	if conf.IsTraceEnabled {
@@ -954,6 +952,7 @@ func buildEchoHandler(
 		DocumentLoader:           documentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,
+		TrustRegistryService:     trustRegistryService,
 		RedirectURL:              conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
 		TokenLifetime:            15 * time.Minute,
 		Metrics:                  metrics,

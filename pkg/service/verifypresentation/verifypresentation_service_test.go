@@ -55,17 +55,15 @@ func TestNew(t *testing.T) {
 			name: "OK",
 			args: args{
 				config: &Config{
-					VDR:                  &mockvdr.VDRegistry{},
-					DocumentLoader:       testutil.DocumentLoader(t),
-					VcVerifier:           NewMockVcVerifier(ctrl),
-					TrustRegistryService: NewMockTrustRegistryService(ctrl),
+					VDR:            &mockvdr.VDRegistry{},
+					DocumentLoader: testutil.DocumentLoader(t),
+					VcVerifier:     NewMockVcVerifier(ctrl),
 				},
 			},
 			want: &Service{
-				vdr:                  &mockvdr.VDRegistry{},
-				documentLoader:       testutil.DocumentLoader(t),
-				vcVerifier:           NewMockVcVerifier(ctrl),
-				trustRegistryService: NewMockTrustRegistryService(ctrl),
+				vdr:            &mockvdr.VDRegistry{},
+				documentLoader: testutil.DocumentLoader(t),
+				vcVerifier:     NewMockVcVerifier(ctrl),
 			},
 		},
 	}
@@ -84,9 +82,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 	signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Ldp)
 
 	type fields struct {
-		getVDR              func() vdrapi.Registry
-		getVcVerifier       func(t *testing.T) vcVerifier
-		getTrustRegistrySrv func(t *testing.T) trustRegistryService
+		getVDR        func() vdrapi.Registry
+		getVcVerifier func(t *testing.T) vcVerifier
 	}
 
 	type args struct {
@@ -104,10 +101,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "OK with Trust registry validation enabled and client attestation VC included in VP",
+			name: "OK",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
-					return signedClientAttestationVP.VDR
+					return signedRequestedCredentialsVP.VDR
 				},
 				getVcVerifier: func(t *testing.T) vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -127,87 +124,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
-				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
-					tr := NewMockTrustRegistryService(gomock.NewController(t))
-
-					tr.EXPECT().ValidatePresentation(
-						context.Background(),
-						gomock.Any(),
-						gomock.Any(),
-					).Return(nil)
-
-					return tr
-				},
 			},
 			args: args{
 				getPresentation: func(t *testing.T) *verifiable.Presentation {
-					return signedClientAttestationVP.Presentation
-				},
-				profile: &profileapi.Verifier{
-					SigningDID: &profileapi.SigningDID{DID: verifierDID},
-					Checks: &profileapi.VerificationChecks{
-						Presentation: &profileapi.PresentationChecks{
-							Proof:  true,
-							Format: nil,
-						},
-						Credential: profileapi.CredentialChecks{
-							Proof:            true,
-							Status:           true,
-							LinkedDomain:     true,
-							Format:           nil,
-							CredentialExpiry: true,
-							Strict:           true,
-							IssuerTrustList: map[string]profileapi.TrustList{
-								"https://example.edu/issuers/14": {},
-							},
-						},
-						Policy: profileapi.PolicyCheck{
-							PolicyURL: "https://trustregistry.example.com",
-						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
-					},
-				},
-				opts: &Options{
-					Domain:    crypto.Domain,
-					Challenge: crypto.Challenge,
-				},
-			},
-			want:    nil,
-			wantErr: false,
-		},
-		{
-			name: "OK with Trust registry validation disabled and client attestation VC included in VP",
-			fields: fields{
-				getVDR: func() vdrapi.Registry {
-					return signedClientAttestationVP.VDR
-				},
-				getVcVerifier: func(t *testing.T) vcVerifier {
-					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
-					mockVerifier.EXPECT().ValidateCredentialProof(
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any()).Times(2).Return(nil)
-					mockVerifier.EXPECT().ValidateVCStatus(
-						context.Background(),
-						gomock.Any(),
-						gomock.Any()).Times(2).Return(nil)
-					mockVerifier.EXPECT().ValidateLinkedDomain(
-						context.Background(),
-						gomock.Any()).Times(1).Return(nil)
-					return mockVerifier
-				},
-				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
-					return NewMockTrustRegistryService(gomock.NewController(t))
-				},
-			},
-			args: args{
-				getPresentation: func(t *testing.T) *verifiable.Presentation {
-					return signedClientAttestationVP.Presentation
+					return signedRequestedCredentialsVP.Presentation
 				},
 				profile: &profileapi.Verifier{
 					SigningDID: &profileapi.SigningDID{DID: verifierDID},
@@ -261,9 +181,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
-				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
-					return NewMockTrustRegistryService(gomock.NewController(t))
-				},
 			},
 			args: args{
 				getPresentation: func(t *testing.T) *verifiable.Presentation {
@@ -315,9 +232,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getVcVerifier: func(t *testing.T) vcVerifier {
 					return nil
 				},
-				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
-					return nil
-				},
 			},
 			args: args{
 				getPresentation: func(t *testing.T) *verifiable.Presentation {
@@ -365,17 +279,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any()).Times(1).Return(errors.New("some error"))
 					return mockVerifier
 				},
-				getTrustRegistrySrv: func(t *testing.T) trustRegistryService {
-					ca := NewMockTrustRegistryService(gomock.NewController(t))
-
-					ca.EXPECT().ValidatePresentation(
-						context.Background(),
-						gomock.Any(),
-						gomock.Any(),
-					).Return(errors.New("some error"))
-
-					return ca
-				},
 			},
 			args: args{
 				getPresentation: func(t *testing.T) *verifiable.Presentation {
@@ -400,9 +303,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 						Policy: profileapi.PolicyCheck{
 							PolicyURL: "https://trustregistry.example.com",
 						},
-						ClientAttestationCheck: profileapi.ClientAttestationCheck{
-							Enabled: true,
-						},
 					},
 				},
 				opts: &Options{
@@ -411,10 +311,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 			},
 			want: []PresentationVerificationCheckResult{
-				{
-					Check: "clientAttestation",
-					Error: "some error",
-				},
 				{
 					Check: "issuerTrustList",
 					Error: "issuer with id: https://example.edu/issuers/14 is not a member of trustlist",
@@ -438,10 +334,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				vdr:                  tt.fields.getVDR(),
-				documentLoader:       loader,
-				vcVerifier:           tt.fields.getVcVerifier(t),
-				trustRegistryService: tt.fields.getTrustRegistrySrv(t),
+				vdr:            tt.fields.getVDR(),
+				documentLoader: loader,
+				vcVerifier:     tt.fields.getVcVerifier(t),
 			}
 
 			got, _, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(t), tt.args.opts, tt.args.profile)
@@ -772,8 +667,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 		getVcVerifier func(t *testing.T) vcVerifier
 	}
 	type args struct {
-		trustRegistryValidationEnabled bool
-		getCredentials                 func(t *testing.T) []*verifiable.Credential
+		getCredentials func(t *testing.T) []*verifiable.Credential
 	}
 	tests := []struct {
 		name    string
@@ -782,7 +676,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "OK with trustRegistryValidationEnabled == true and Wallet Attestation VC included",
+			name: "OK",
 			fields: fields{
 				getVcVerifier: func(t *testing.T) vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -797,7 +691,6 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				},
 			},
 			args: args{
-				trustRegistryValidationEnabled: true,
 				getCredentials: func(t *testing.T) []*verifiable.Credential {
 					credContent := verifiable.CredentialContents{
 						Types: []string{
@@ -809,60 +702,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 					credential, err := verifiable.CreateCredential(credContent, nil)
 					assert.NoError(t, err)
 
-					attestationVCContent := verifiable.CredentialContents{
-						Types: []string{
-							"VerifiableCredential",
-							"WalletAttestationCredential",
-						},
-					}
-
-					attestationVC, err := verifiable.CreateCredential(attestationVCContent, nil)
-					assert.NoError(t, err)
-
-					return []*verifiable.Credential{credential, attestationVC}
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "OK with trustRegistryValidationEnabled == false and Wallet Attestation VC included",
-			fields: fields{
-				getVcVerifier: func(t *testing.T) vcVerifier {
-					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
-					mockVerifier.EXPECT().ValidateCredentialProof(
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any()).Times(2).Return(nil)
-					return mockVerifier
-				},
-			},
-			args: args{
-				trustRegistryValidationEnabled: false,
-				getCredentials: func(t *testing.T) []*verifiable.Credential {
-					credContent := verifiable.CredentialContents{
-						Types: []string{
-							"VerifiableCredential",
-							"UniversityDegreeCredential",
-						},
-					}
-
-					credential, err := verifiable.CreateCredential(credContent, nil)
-					assert.NoError(t, err)
-
-					attestationVCContent := verifiable.CredentialContents{
-						Types: []string{
-							"VerifiableCredential",
-							"WalletAttestationCredential",
-						},
-					}
-
-					attestationVC, err := verifiable.CreateCredential(attestationVCContent, nil)
-					assert.NoError(t, err)
-
-					return []*verifiable.Credential{credential, attestationVC}
+					return []*verifiable.Credential{credential}
 				},
 			},
 			wantErr: false,
@@ -883,7 +723,6 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				},
 			},
 			args: args{
-				trustRegistryValidationEnabled: false,
 				getCredentials: func(t *testing.T) []*verifiable.Credential {
 					credContent := verifiable.CredentialContents{
 						Types: []string{
@@ -911,7 +750,6 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				context.Background(),
 				"",
 				tt.args.getCredentials(t),
-				tt.args.trustRegistryValidationEnabled,
 			); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -924,8 +762,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 		getVcVerifier func(t *testing.T) vcVerifier
 	}
 	type args struct {
-		getCredentials                 func(t *testing.T) []*verifiable.Credential
-		trustRegistryValidationEnabled bool
+		getCredentials func(t *testing.T) []*verifiable.Credential
 	}
 	tests := []struct {
 		name    string
@@ -934,7 +771,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "OK with trustRegistryValidationEnabled == true and Wallet Attestation VC",
+			name: "OK",
 			fields: fields{
 				getVcVerifier: func(t *testing.T) vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
@@ -947,7 +784,6 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				trustRegistryValidationEnabled: true,
 				getCredentials: func(t *testing.T) []*verifiable.Credential {
 					credContent := verifiable.CredentialContents{
 						Types: []string{
@@ -961,52 +797,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 					cred1, err := verifiable.CreateCredential(credContent, nil)
 					assert.NoError(t, err)
 
-					attestationVCContent := verifiable.CredentialContents{
-						Types: []string{
-							"VerifiableCredential",
-							"WalletAttestationCredential",
-						},
-						Status: &verifiable.TypedID{ID: "TypedID"},
-						Issuer: &verifiable.Issuer{ID: "IssuerID"},
-					}
-
-					attestationVC, err := verifiable.CreateCredential(attestationVCContent, nil)
-					assert.NoError(t, err)
-
-					return []*verifiable.Credential{cred1, attestationVC}
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "OK with trustRegistryValidationEnabled == false and Wallet Attestation VC",
-			fields: fields{
-				getVcVerifier: func(t *testing.T) vcVerifier {
-					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
-					mockVerifier.EXPECT().ValidateVCStatus(
-						context.Background(),
-						&verifiable.TypedID{ID: "TypedID"},
-						&verifiable.Issuer{ID: "IssuerID"},
-					).Times(1).Return(nil)
-					return mockVerifier
-				},
-			},
-			args: args{
-				trustRegistryValidationEnabled: false,
-				getCredentials: func(t *testing.T) []*verifiable.Credential {
-					attestationVCContent := verifiable.CredentialContents{
-						Types: []string{
-							"VerifiableCredential",
-							"WalletAttestationCredential",
-						},
-						Status: &verifiable.TypedID{ID: "TypedID"},
-						Issuer: &verifiable.Issuer{ID: "IssuerID"},
-					}
-
-					attestationVC, err := verifiable.CreateCredential(attestationVCContent, nil)
-					assert.NoError(t, err)
-
-					return []*verifiable.Credential{attestationVC}
+					return []*verifiable.Credential{cred1}
 				},
 			},
 			wantErr: false,
@@ -1019,7 +810,6 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				trustRegistryValidationEnabled: false,
 				getCredentials: func(t *testing.T) []*verifiable.Credential {
 					credContent := verifiable.CredentialContents{
 						Types: []string{
@@ -1077,8 +867,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 			}
 			if err := s.validateCredentialsStatus(
 				context.Background(),
-				tt.args.getCredentials(t),
-				tt.args.trustRegistryValidationEnabled); (err != nil) != tt.wantErr {
+				tt.args.getCredentials(t)); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1202,13 +991,12 @@ func TestCheckTrustList(t *testing.T) {
 
 func TestService_checkCredentialExpiry(t *testing.T) {
 	tests := []struct {
-		name                           string
-		getCredentials                 func() []*verifiable.Credential
-		wantErr                        assert.ErrorAssertionFunc
-		trustRegistryValidationEnabled bool
+		name           string
+		getCredentials func() []*verifiable.Credential
+		wantErr        assert.ErrorAssertionFunc
 	}{
 		{
-			name: "Success with trustRegistryValidationEnabled == true and expired Wallet Attestation VC",
+			name: "Success",
 			getCredentials: func() []*verifiable.Credential {
 				credContent := verifiable.CredentialContents{
 					Types: []string{
@@ -1218,24 +1006,12 @@ func TestService_checkCredentialExpiry(t *testing.T) {
 					Expired: timeutil.NewTime(time.Now().Add(time.Hour)),
 				}
 
-				attestationVCContent := verifiable.CredentialContents{
-					Types: []string{
-						"VerifiableCredential",
-						"WalletAttestationCredential",
-					},
-					Expired: timeutil.NewTime(time.Now().Add(-time.Hour)),
-				}
-
 				cred1, err := verifiable.CreateCredential(credContent, nil)
 				assert.NoError(t, err)
 
-				attestationVC, err := verifiable.CreateCredential(attestationVCContent, nil)
-				assert.NoError(t, err)
-
-				return []*verifiable.Credential{cred1, attestationVC}
+				return []*verifiable.Credential{cred1}
 			},
-			trustRegistryValidationEnabled: true,
-			wantErr:                        assert.NoError,
+			wantErr: assert.NoError,
 		},
 		{
 			name: "Error with expired VC",
@@ -1253,7 +1029,6 @@ func TestService_checkCredentialExpiry(t *testing.T) {
 
 				return []*verifiable.Credential{cred1}
 			},
-			trustRegistryValidationEnabled: true,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.ErrorContains(t, err, "credential expired")
 			},
@@ -1261,11 +1036,10 @@ func TestService_checkCredentialExpiry(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
 			credentials := tt.getCredentials()
 			tt.wantErr(t,
-				(&Service{}).checkCredentialExpiry(ctx, credentials, tt.trustRegistryValidationEnabled),
-				fmt.Sprintf("checkCredentialExpiry(%v, %v)", ctx, credentials),
+				(&Service{}).checkCredentialExpiry(credentials),
+				fmt.Sprintf("checkCredentialExpiry(%v)", credentials),
 			)
 		})
 	}

@@ -53,6 +53,7 @@ type IDTokenClaims struct {
 	// ScopeAdditionalClaims stores claims retrieved using custom scope.
 	ScopeAdditionalClaims map[string]Claims `json:"_scope,omitempty"` //custom scope -> additional claims
 	VPToken               IDTokenVPToken    `json:"_vp_token"`
+	AttestationVP         string            `json:"_attestation_vp"`
 	Nonce                 string            `json:"nonce"`
 	Exp                   int64             `json:"exp"`
 	Iss                   string            `json:"iss"`

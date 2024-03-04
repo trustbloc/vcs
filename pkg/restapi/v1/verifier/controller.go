@@ -75,6 +75,7 @@ type IDTokenClaims struct {
 	// CustomScopeClaims stores claims retrieved using custom scope.
 	CustomScopeClaims map[string]oidc4vp.Claims `json:"_scope,omitempty"`
 	VPToken           IDTokenVPToken            `json:"_vp_token"`
+	AttestationVP     string                    `json:"_attestation_vp"`
 	Nonce             string                    `json:"nonce"`
 	Aud               string                    `json:"aud"`
 	Exp               int64                     `json:"exp"`
@@ -625,6 +626,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 	return &oidc4vp.AuthorizationResponseParsed{
 		CustomScopeClaims: idTokenClaims.CustomScopeClaims,
 		VPTokens:          processedVPTokens,
+		AttestationVP:     idTokenClaims.AttestationVP,
 	}, nil
 }
 
@@ -666,9 +668,10 @@ func validateIDToken(idToken string, verifier jwt.ProofChecker) (*IDTokenClaims,
 		VPToken: IDTokenVPToken{
 			PresentationSubmission: presentationSubmission,
 		},
-		Nonce: string(v.GetStringBytes("nonce")),
-		Aud:   string(v.GetStringBytes("aud")),
-		Exp:   v.GetInt64("exp"),
+		AttestationVP: string(v.GetStringBytes("_attestation_vp")),
+		Nonce:         string(v.GetStringBytes("nonce")),
+		Aud:           string(v.GetStringBytes("aud")),
+		Exp:           v.GetInt64("exp"),
 	}
 
 	if idTokenClaims.Exp < time.Now().Unix() {

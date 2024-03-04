@@ -27,12 +27,19 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	"github.com/trustbloc/vcs/test/stress/pkg/stress"
+)
+
+const (
+	attestationServiceURL = "https://mock-attestation.trustbloc.local:8097/profiles/profileID/profileVersion/wallet/attestation"
+	trustRegistryHost     = "https://mock-trustregistry.trustbloc.local:8098"
 )
 
 // Steps defines context for OIDC4VC scenario steps.
@@ -211,23 +218,44 @@ func (s *Steps) ResetAndSetup() error {
 
 	s.wellKnownService = wellKnownService
 
+	attestationService, err := attestation.NewService(
+		&attestationServiceProvider{
+			storageProvider: storageProvider,
+			httpClient:      httpClient,
+			documentLoader:  documentLoader,
+			cryptoSuite:     suite,
+		},
+		attestationServiceURL,
+		w.DIDs()[0],
+		w.SignatureType(),
+	)
+	if err != nil {
+		return fmt.Errorf("create attestation service: %w", err)
+	}
+
+	trustRegistry := trustregistry.NewClient(httpClient, trustRegistryHost)
+
 	s.oidc4vciProvider = &oidc4vciProvider{
-		storageProvider:  storageProvider,
-		httpClient:       httpClient,
-		documentLoader:   documentLoader,
-		vdrRegistry:      vdRegistry,
-		cryptoSuite:      suite,
-		wallet:           w,
-		wellKnownService: wellKnownService,
+		storageProvider:    storageProvider,
+		httpClient:         httpClient,
+		documentLoader:     documentLoader,
+		vdrRegistry:        vdRegistry,
+		cryptoSuite:        suite,
+		attestationService: attestationService,
+		trustRegistry:      trustRegistry,
+		wallet:             w,
+		wellKnownService:   wellKnownService,
 	}
 
 	s.oidc4vpProvider = &oidc4vpProvider{
-		storageProvider: storageProvider,
-		httpClient:      httpClient,
-		documentLoader:  documentLoader,
-		vdrRegistry:     vdRegistry,
-		cryptoSuite:     suite,
-		wallet:          w,
+		storageProvider:    storageProvider,
+		httpClient:         httpClient,
+		documentLoader:     documentLoader,
+		vdrRegistry:        vdRegistry,
+		cryptoSuite:        suite,
+		attestationService: attestationService,
+		trustRegistry:      trustRegistry,
+		wallet:             w,
 	}
 
 	return nil
@@ -254,4 +282,27 @@ func (p *walletProvider) VDRegistry() vdrapi.Registry {
 
 func (p *walletProvider) KeyCreator() api.RawKeyCreator {
 	return p.keyCreator
+}
+
+type attestationServiceProvider struct {
+	storageProvider storageapi.Provider
+	httpClient      *http.Client
+	documentLoader  ld.DocumentLoader
+	cryptoSuite     api.Suite
+}
+
+func (p *attestationServiceProvider) StorageProvider() storageapi.Provider {
+	return p.storageProvider
+}
+
+func (p *attestationServiceProvider) HTTPClient() *http.Client {
+	return p.httpClient
+}
+
+func (p *attestationServiceProvider) DocumentLoader() ld.DocumentLoader {
+	return p.documentLoader
+}
+
+func (p *attestationServiceProvider) CryptoSuite() api.Suite {
+	return p.cryptoSuite
 }

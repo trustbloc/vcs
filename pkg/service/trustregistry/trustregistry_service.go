@@ -4,7 +4,7 @@ Copyright Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination trustregistry_service_mocks_test.go -package trustregistry_test -source=trustregistry_service.go -mock_names httpClient=MockHTTPClient,vcStatusVerifier=MockVCStatusVerifier
+//go:generate mockgen -destination trustregistry_service_mocks_test.go -package trustregistry_test -source=trustregistry_service.go -mock_names httpClient=MockHTTPClient
 
 package trustregistry
 
@@ -12,8 +12,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -35,33 +35,26 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-type vcStatusVerifier interface {
-	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
-}
-
 // Config defines configuration for Service.
 type Config struct {
-	HTTPClient       httpClient
-	DocumentLoader   ld.DocumentLoader
-	ProofChecker     verifiable.CombinedProofChecker
-	VCStatusVerifier vcStatusVerifier
+	HTTPClient     httpClient
+	DocumentLoader ld.DocumentLoader
+	ProofChecker   verifiable.CombinedProofChecker
 }
 
 // Service implements attestation functionality for OAuth 2.0 Attestation-Based Client Authentication.
 type Service struct {
-	httpClient       httpClient
-	documentLoader   ld.DocumentLoader
-	proofChecker     verifiable.CombinedProofChecker
-	vcStatusVerifier vcStatusVerifier
+	httpClient     httpClient
+	documentLoader ld.DocumentLoader
+	proofChecker   verifiable.CombinedProofChecker
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) *Service {
 	return &Service{
-		httpClient:       config.HTTPClient,
-		documentLoader:   config.DocumentLoader,
-		proofChecker:     config.ProofChecker,
-		vcStatusVerifier: config.VCStatusVerifier,
+		httpClient:     config.HTTPClient,
+		documentLoader: config.DocumentLoader,
+		proofChecker:   config.ProofChecker,
 	}
 }
 
@@ -69,48 +62,36 @@ func NewService(config *Config) *Service {
 func (s *Service) ValidateIssuance(
 	ctx context.Context,
 	profile *profileapi.Issuer,
-	jwtVP string,
+	attestationVP string,
+	credentialTypes []string,
 ) error {
 	logger.Debugc(ctx, "validate issuance",
 		zap.String("profileID", profile.ID),
 		zap.String("profileVersion", profile.Version),
 		zap.String("policyURL", profile.Checks.Policy.PolicyURL),
-		zap.Bool("attestationCheckEnabled", profile.Checks.ClientAttestationCheck.Enabled),
-		zap.String("jwtVP", jwtVP),
+		zap.String("attestationVP", attestationVP),
+		zap.Strings("credentialTypes", credentialTypes),
 	)
 
 	if profile.Checks.Policy.PolicyURL == "" {
-		if profile.Checks.ClientAttestationCheck.Enabled {
-			return errors.New("client attestation checks are enabled but policy URL is not configured")
-		}
-
 		return nil
+	}
+
+	if attestationVP == "" {
+		return fmt.Errorf("attestation vp is required")
 	}
 
 	req := &IssuancePolicyEvaluationRequest{
 		IssuerDID:       profile.SigningDID.DID,
-		CredentialTypes: getCredentialTypes(profile),
+		CredentialTypes: credentialTypes,
 	}
 
-	if profile.Checks.ClientAttestationCheck.Enabled {
-		attestationVCs, err := s.validateAttestationVP(ctx, jwtVP)
-		if err != nil {
-			return err
-		}
-
-		attestations := make([]string, len(attestationVCs))
-
-		for i, vc := range attestationVCs {
-			jwtVC, convertErr := vc.ToJWTString()
-			if convertErr != nil {
-				return fmt.Errorf("convert attestation vc to jwt: %w", convertErr)
-			}
-
-			attestations[i] = jwtVC
-		}
-
-		req.AttestationVC = lo.ToPtr(attestations)
+	attestationVCs, err := s.parseAttestationVP(attestationVP)
+	if err != nil {
+		return err
 	}
+
+	req.AttestationVC = lo.ToPtr(attestationVCs)
 
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -135,90 +116,35 @@ func (s *Service) ValidateIssuance(
 func (s *Service) ValidatePresentation(
 	ctx context.Context,
 	profile *profileapi.Verifier,
-	jwtVP string,
+	attestationVP string,
+	metadata []CredentialMetadata,
 ) error {
 	logger.Debugc(ctx, "validate presentation",
 		zap.String("profileID", profile.ID),
 		zap.String("profileVersion", profile.Version),
 		zap.String("policyURL", profile.Checks.Policy.PolicyURL),
-		zap.Bool("attestationCheckEnabled", profile.Checks.ClientAttestationCheck.Enabled),
-		zap.String("jwtVP", jwtVP),
+		zap.String("attestationVP", attestationVP),
 	)
 
 	if profile.Checks.Policy.PolicyURL == "" {
-		if profile.Checks.ClientAttestationCheck.Enabled {
-			return errors.New("client attestation checks are enabled but policy URL is not configured")
-		}
-
 		return nil
 	}
 
+	if attestationVP == "" {
+		return fmt.Errorf("attestation vp is required")
+	}
+
 	req := &PresentationPolicyEvaluationRequest{
-		VerifierDID: profile.SigningDID.DID,
+		VerifierDID:        profile.SigningDID.DID,
+		CredentialMetadata: metadata,
 	}
 
-	if profile.Checks.ClientAttestationCheck.Enabled {
-		attestationVCs, err := s.validateAttestationVP(ctx, jwtVP)
-		if err != nil {
-			return err
-		}
-
-		jwtVCs := make([]string, len(attestationVCs))
-
-		for i, vc := range attestationVCs {
-			jwtVC, marshalErr := vc.ToJWTString()
-			if marshalErr != nil {
-				return fmt.Errorf("marshal attestation vc to jwt: %w", marshalErr)
-			}
-
-			jwtVCs[i] = jwtVC
-		}
-
-		req.AttestationVC = lo.ToPtr(jwtVCs)
-	}
-
-	credentialMetadata := make([]CredentialMetadata, 0)
-
-	vp, err := verifiable.ParsePresentation(
-		[]byte(jwtVP),
-		// The verification of proof is conducted manually, along with an extra verification to ensure that signer of
-		// the VP matches the subject of the attestation VC.
-		verifiable.WithPresDisabledProofCheck(),
-		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
-	)
+	attestationVCs, err := s.parseAttestationVP(attestationVP)
 	if err != nil {
-		return fmt.Errorf("parse presentation vp: %w", err)
+		return err
 	}
 
-	for _, vc := range vp.Credentials() {
-		if lo.Contains(vc.Contents().Types, WalletAttestationVCType) {
-			continue
-		}
-
-		vcc := vc.Contents()
-
-		var iss, exp string
-
-		if vcc.Issued != nil {
-			iss = vcc.Issued.FormatToString()
-		}
-
-		if vcc.Expired != nil {
-			exp = vcc.Expired.FormatToString()
-		}
-
-		credentialMetadata = append(credentialMetadata, CredentialMetadata{
-			CredentialID: vcc.ID,
-			Types:        vcc.Types,
-			IssuerID:     vcc.Issuer.ID,
-			Issued:       iss,
-			Expired:      exp,
-		})
-	}
-
-	if len(credentialMetadata) > 0 {
-		req.CredentialMetadata = credentialMetadata
-	}
+	req.AttestationVC = lo.ToPtr(attestationVCs)
 
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -237,11 +163,7 @@ func (s *Service) ValidatePresentation(
 	return nil
 }
 
-//nolint:gocritic
-func (s *Service) validateAttestationVP(
-	_ context.Context,
-	jwtVP string,
-) ([]*verifiable.Credential, error) {
+func (s *Service) parseAttestationVP(jwtVP string) ([]string, error) {
 	attestationVP, err := verifiable.ParsePresentation(
 		[]byte(jwtVP),
 		// The verification of proof is conducted manually, along with an extra verification to ensure that signer of
@@ -253,7 +175,7 @@ func (s *Service) validateAttestationVP(
 		return nil, fmt.Errorf("parse attestation vp: %w", err)
 	}
 
-	attestationVCs := make([]*verifiable.Credential, 0)
+	attestationVCs := make([]string, 0)
 
 	for _, vc := range attestationVP.Credentials() {
 		if !lo.Contains(vc.Contents().Types, WalletAttestationVCType) {
@@ -285,17 +207,12 @@ func (s *Service) validateAttestationVP(
 			return nil, fmt.Errorf("check attestation vp proof: %w", err)
 		}
 
-		// check attestation VC status
-		// TODO: status list check should be mandatory for attestation VC
-		// if err = s.vcStatusVerifier.ValidateVCStatus(ctx, vcc.Status, vcc.Issuer); err != nil {
-		//	return nil, nil, fmt.Errorf("validate attestation vc status: %w", err)
-		// }
+		jwtVC, marshalErr := vc.ToJWTString()
+		if marshalErr != nil {
+			return nil, fmt.Errorf("marshal attestation vc to jwt: %w", marshalErr)
+		}
 
-		attestationVCs = append(attestationVCs, vc)
-	}
-
-	if len(attestationVCs) == 0 {
-		return nil, errors.New("no attestation vc found")
+		attestationVCs = append(attestationVCs, jwtVC)
 	}
 
 	return attestationVCs, nil
@@ -326,7 +243,8 @@ func (s *Service) requestPolicyEvaluation(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("status code: %d, msg: %s", resp.StatusCode, string(b))
 	}
 
 	var result *PolicyEvaluationResponse
@@ -336,12 +254,4 @@ func (s *Service) requestPolicyEvaluation(
 	}
 
 	return result, nil
-}
-
-func getCredentialTypes(profile *profileapi.Issuer) []string {
-	return lo.Map(profile.CredentialTemplates,
-		func(item *profileapi.CredentialTemplate, index int) string {
-			return item.Type
-		},
-	)
 }

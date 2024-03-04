@@ -34,23 +34,20 @@ import (
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vci"
-	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
 const (
 	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
-	issueCredentialURLFormat            = vcsAPIGateway + "/issuer/profiles/%s/%s/credentials/issue"
 	issuedCredentialHistoryURL          = vcsAPIGateway + "/issuer/profiles/%s/issued-credentials"
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
 	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
-	attestationServiceURL               = "https://mock-attestation.trustbloc.local:8097/profiles/profileID/profileVersion/wallet/attestation"
 )
 
 func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {
@@ -256,10 +253,6 @@ func (s *Steps) setProofType(proofType string) {
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
-	if err := s.requestAttestationVC(); err != nil {
-		return fmt.Errorf("request attestation vc: %w", err)
-	}
-
 	claims, err := s.fetchClaimData(s.issuedCredentialType)
 	if err != nil {
 		return fmt.Errorf("fetchClaimData: %w", err)
@@ -308,45 +301,6 @@ func (s *Steps) addProofBuilder(opt []oidc4vci.Opt) []oidc4vci.Opt {
 	default:
 		return opt
 	}
-}
-
-func (s *Steps) requestAttestationVC() error {
-	didInfo := s.wallet.DIDs()[0]
-
-	signer, err := s.oidc4vpProvider.cryptoSuite.FixedKeyMultiSigner(didInfo.KeyID)
-	if err != nil {
-		return fmt.Errorf("create signer: %w", err)
-	}
-
-	jwsSigner := jwssigner.NewJWSSigner(
-		fmt.Sprintf("%s#%s", didInfo.ID, didInfo.KeyID),
-		string(s.wallet.SignatureType()),
-		kmssigner.NewKMSSigner(signer, s.wallet.SignatureType(), nil),
-	)
-
-	attestationVC, err := attestation.NewClient(
-		&attestation.Config{
-			HTTPClient:     s.oidc4vpProvider.httpClient,
-			DocumentLoader: s.oidc4vpProvider.documentLoader,
-			Signer:         jwsSigner,
-			WalletDID:      didInfo.ID,
-			AttestationURL: attestationServiceURL,
-		},
-	).GetAttestationVC(context.Background())
-	if err != nil {
-		return fmt.Errorf("get attestation vc: %w", err)
-	}
-
-	vcBytes, err := json.Marshal(attestationVC)
-	if err != nil {
-		return fmt.Errorf("marshal attestation vc: %w", err)
-	}
-
-	if err = s.wallet.Add(vcBytes); err != nil {
-		return fmt.Errorf("add attestation vc to wallet: %w", err)
-	}
-
-	return nil
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithError(errorContains string) error {
@@ -1072,13 +1026,15 @@ func checkIssuer(vc *verifiable.Credential, expected string) error {
 }
 
 type oidc4vciProvider struct {
-	storageProvider  storageapi.Provider
-	httpClient       *http.Client
-	documentLoader   ld.DocumentLoader
-	vdrRegistry      vdrapi.Registry
-	cryptoSuite      api.Suite
-	wallet           *wallet.Wallet
-	wellKnownService *wellknown.Service
+	storageProvider    storageapi.Provider
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	cryptoSuite        api.Suite
+	attestationService *attestation.Service
+	trustRegistry      *trustregistry.Client
+	wallet             *wallet.Wallet
+	wellKnownService   *wellknown.Service
 }
 
 func (p *oidc4vciProvider) StorageProvider() storageapi.Provider {
@@ -1099,6 +1055,14 @@ func (p *oidc4vciProvider) VDRegistry() vdrapi.Registry {
 
 func (p *oidc4vciProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *oidc4vciProvider) AttestationService() oidc4vci.AttestationService {
+	return p.attestationService
+}
+
+func (p *oidc4vciProvider) TrustRegistry() oidc4vci.TrustRegistry {
+	return p.trustRegistry
 }
 
 func (p *oidc4vciProvider) Wallet() *wallet.Wallet {

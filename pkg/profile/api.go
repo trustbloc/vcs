@@ -218,16 +218,14 @@ type OIDC4VPConfig struct {
 
 // VerificationChecks are checks to be performed for verifying credentials and presentations.
 type VerificationChecks struct {
-	Credential             CredentialChecks       `json:"credential,omitempty"`
-	Presentation           *PresentationChecks    `json:"presentation,omitempty"`
-	Policy                 PolicyCheck            `json:"policy,omitempty"`
-	ClientAttestationCheck ClientAttestationCheck `json:"clientAttestationCheck,omitempty"`
+	Credential   CredentialChecks    `json:"credential,omitempty"`
+	Presentation *PresentationChecks `json:"presentation,omitempty"`
+	Policy       PolicyCheck         `json:"policy,omitempty"`
 }
 
 // IssuanceChecks are checks to be performed for issuance credentials and presentations.
 type IssuanceChecks struct {
-	Policy                 PolicyCheck            `json:"policy,omitempty"`
-	ClientAttestationCheck ClientAttestationCheck `json:"clientAttestationCheck,omitempty"`
+	Policy PolicyCheck `json:"policy,omitempty"`
 }
 
 // PolicyCheck stores policy check configuration.
