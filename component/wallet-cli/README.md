@@ -25,12 +25,15 @@ the Wallet. Therefore, prior to engaging in the OIDC4VCI flow, it's essential to
 
 Wallet can be created using `create` command. The following CLI arguments are supported:
 ```bash
+      --authentication-method string       wallet authentication method (default "system_pin")
       --context-provider-url string        json-ld context provider url
       --did-key-type string                did key types supported: ED25519,ECDSAP256DER,ECDSAP384DER (default "ED25519")
       --did-method string                  wallet did methods supported: ion,jwk,key (default "ion")
   -h, --help                               help for create
       --leveldb-path string                leveldb path
       --mongodb-connection-string string   mongodb connection string
+      --name string                        wallet name (default "wallet-cli")
+      --version string                     wallet version (default "0.1")
 ```
 
 Examples:

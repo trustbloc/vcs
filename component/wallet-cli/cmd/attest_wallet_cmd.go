@@ -50,24 +50,16 @@ func NewAttestWalletCommand() *cobra.Command {
 				},
 			}
 
-			var didInfo *wallet.DIDInfo
-
-			if flags.walletDIDIndex != -1 {
-				didInfo = w.DIDs()[flags.walletDIDIndex]
-			} else {
-				didInfo = w.DIDs()[len(w.DIDs())-1]
-			}
-
 			attestationService, err := attestation.NewService(
-				&attestationServiceProvider{
+				&attestationProvider{
 					storageProvider: svc.StorageProvider(),
 					httpClient:      httpClient,
 					documentLoader:  svc.DocumentLoader(),
 					cryptoSuite:     svc.CryptoSuite(),
+					wallet:          w,
 				},
 				flags.attestationURL,
-				didInfo,
-				w.SignatureType(),
+				flags.walletDIDIndex,
 			)
 			if err != nil {
 				return fmt.Errorf("create attestation service: %w", err)
@@ -90,25 +82,30 @@ func NewAttestWalletCommand() *cobra.Command {
 	return cmd
 }
 
-type attestationServiceProvider struct {
+type attestationProvider struct {
 	storageProvider storageapi.Provider
 	httpClient      *http.Client
 	documentLoader  ld.DocumentLoader
 	cryptoSuite     api.Suite
+	wallet          *wallet.Wallet
 }
 
-func (p *attestationServiceProvider) StorageProvider() storageapi.Provider {
+func (p *attestationProvider) StorageProvider() storageapi.Provider {
 	return p.storageProvider
 }
 
-func (p *attestationServiceProvider) HTTPClient() *http.Client {
+func (p *attestationProvider) HTTPClient() *http.Client {
 	return p.httpClient
 }
 
-func (p *attestationServiceProvider) DocumentLoader() ld.DocumentLoader {
+func (p *attestationProvider) DocumentLoader() ld.DocumentLoader {
 	return p.documentLoader
 }
 
-func (p *attestationServiceProvider) CryptoSuite() api.Suite {
+func (p *attestationProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *attestationProvider) Wallet() *wallet.Wallet {
+	return p.wallet
 }

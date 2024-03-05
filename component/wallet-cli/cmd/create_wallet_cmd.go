@@ -21,9 +21,12 @@ import (
 )
 
 type createCommandFlags struct {
-	walletFlags *walletFlags
-	didMethod   string
-	didKeyType  string
+	walletFlags          *walletFlags
+	didMethod            string
+	didKeyType           string
+	name                 string
+	version              string
+	authenticationMethod string
 }
 
 func NewCreateWalletCommand() *cobra.Command {
@@ -65,6 +68,9 @@ func NewCreateWalletCommand() *cobra.Command {
 				provider,
 				wallet.WithNewDID(flags.didMethod),
 				wallet.WithKeyType(kmsapi.KeyType(flags.didKeyType)),
+				wallet.WithName(flags.name),
+				wallet.WithVersion(flags.version),
+				wallet.WithAuthenticationMethod(flags.authenticationMethod),
 			)
 			if err != nil {
 				return err
@@ -76,6 +82,9 @@ func NewCreateWalletCommand() *cobra.Command {
 			}
 
 			slog.Info("wallet created successfully",
+				"name", w.Name(),
+				"version", w.Version(),
+				"authentication_method", w.AuthenticationMethod(),
 				"signature_type", w.SignatureType(),
 				slog.Group("did", dids...),
 			)
@@ -89,6 +98,9 @@ func NewCreateWalletCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.walletFlags.contextProviderURL, "context-provider-url", "", "json-ld context provider url")
 	cmd.Flags().StringVar(&flags.didMethod, "did-method", "ion", "wallet did methods supported: ion,jwk,key")
 	cmd.Flags().StringVar(&flags.didKeyType, "did-key-type", "ED25519", "did key types supported: ED25519,ECDSAP256DER,ECDSAP384DER")
+	cmd.Flags().StringVar(&flags.name, "name", "wallet-cli", "wallet name")
+	cmd.Flags().StringVar(&flags.version, "version", "0.1", "wallet version")
+	cmd.Flags().StringVar(&flags.authenticationMethod, "authentication-method", "system_pin", "wallet authentication method")
 
 	return cmd
 }
