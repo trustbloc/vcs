@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -192,9 +193,13 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("query wallet: %w", err)
 	}
 
-	attestationRequired, err := f.trustRegistry.ValidateVerifier(ctx, requestObject.ClientID, "", vp.Credentials())
-	if err != nil {
-		return fmt.Errorf("validate verifier: %w", err)
+	var attestationRequired bool
+
+	if f.trustRegistry != nil && !reflect.ValueOf(f.trustRegistry).IsNil() {
+		attestationRequired, err = f.trustRegistry.ValidateVerifier(ctx, requestObject.ClientID, "", vp.Credentials())
+		if err != nil {
+			return fmt.Errorf("validate verifier: %w", err)
+		}
 	}
 
 	if !f.disableDomainMatching {

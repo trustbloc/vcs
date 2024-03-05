@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -342,7 +343,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		var attestationRequired bool
 
-		if f.trustRegistry != nil {
+		if f.trustRegistry != nil && !reflect.ValueOf(f.trustRegistry).IsNil() {
 			attestationRequired, err = f.trustRegistry.ValidateIssuer(ctx,
 				issuerDID,
 				"",

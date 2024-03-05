@@ -61,7 +61,7 @@ with the key type ED25519 (EdDSA signature type).
 
 To add attestation VC to the Wallet, use the `attest` command. The following CLI arguments are supported:
 ```bash
-      --attestation-url string             attestation url with profile id and profile version, i.e. <host>/profiles/{profileID}/{profileVersion}/wallet/attestation
+      --attestation-url string             attestation url, i.e. https://<host>/vcs/wallet/attestation
       --context-provider-url string        json-ld context provider url
   -h, --help                               help for attest
       --leveldb-path string                leveldb path
@@ -71,7 +71,7 @@ To add attestation VC to the Wallet, use the `attest` command. The following CLI
 
 Example:
 ```bash
-./wallet-cli attest --leveldb-path "/mnt/wallet.db" --attestation-url "https://<host>/profiles/{profileID}/{profileVersion}/wallet/attestation"
+./wallet-cli attest --leveldb-path "/mnt/wallet.db" --attestation-url "https://<host>/vcs/wallet/attestation"
 ```
 
 ### Receiving Verifiable Credential using OIDC4VCI exchange protocol
@@ -79,6 +79,7 @@ Example:
 Once the Wallet is created, it can be used to receive Verifiable Credentials from the Issuer. The `oidc4vci` command is
 used for this purpose. The following CLI arguments are supported:
 ```bash
+      --attestation-url string             attestation url, i.e. https://<host>/vcs/wallet/attestation
       --client-id string                   vcs oauth2 client
       --credential-format string           supported credential formats: ldp_vc,jwt_vc_json-ld (default "ldp_vc")
       --credential-offer string            openid credential offer
@@ -92,11 +93,12 @@ used for this purpose. The following CLI arguments are supported:
       --leveldb-path string                leveldb path
       --mongodb-connection-string string   mongodb connection string
       --pin string                         pin for pre-authorized code flow
+      --proof-type string                  proof-type. jwt or cwt. default jwt
       --proxy-url string                   proxy url for http client
       --qr-code-path string                path to file with qr code
       --redirect-uri string                callback where the authorization code should be sent (default "http://127.0.0.1/callback")
       --scopes strings                     vcs oauth2 scopes (default [openid])
-      --trust-registry-url string          if supplied, wallet will run issuer verification in trust registry
+      --trust-registry-host string         trust registry host, i.e. https://<host>/trustregistry
       --user-login string                  user login on issuer IdP
       --user-password string               user password on issuer IdP
       --wallet-did-index int               index of wallet did, if not set the most recently created DID is used (default -1)
@@ -112,6 +114,18 @@ Examples:
 --grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code \
 --credential-type VerifiedEmployee \
 --credential-format jwt_vc_json-ld
+```
+
+* Receive credential from the Issuer using `pre-authorized_code` flow with attestation flow:
+```bash
+./wallet-cli oidc4vci \
+--leveldb-path "/mnt/wallet.db" \
+--qr-code-path "qr.png" \
+--grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code \
+--credential-type VerifiedEmployee \
+--credential-format jwt_vc_json-ld \
+--attestation-url "https://<host>/vcs/wallet/attestation" \
+--trust-registry-host "https://<host>/trustregistry"
 ```
 
 * Receive credential from the Issuer using `authorization_code` flow:
@@ -157,6 +171,7 @@ To trace HTTP requests between `wallet-cli` and `vcs`, use the `--enable-tracing
 
 Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
 ```bash
+      --attestation-url string              attestation url, i.e. https://<host>/vcs/wallet/attestation
       --authorization-request-uri string    authorization request uri, starts with 'openid-vc://?request_uri=' prefix
       --disable-domain-matching             disables domain matching for issuer and verifier when presenting credentials (only for did:web)
       --enable-linked-domain-verification   enables linked domain verification
@@ -166,7 +181,7 @@ Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
       --mongodb-connection-string string    mongodb connection string
       --proxy-url string                    proxy url for http client
       --qr-code-path string                 path to file with qr code
-      --trust-registry-url string           if supplied, wallet will run verifier verification in trust registry
+      --trust-registry-host string          trust registry host, i.e. https://<host>/trustregistry
       --wallet-did-index int                index of wallet did, if not set the most recently created DID is used (default -1)
 ```
 
