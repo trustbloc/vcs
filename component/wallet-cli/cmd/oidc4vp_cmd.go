@@ -97,15 +97,15 @@ func NewOIDC4VPCommand() *cobra.Command {
 			}
 
 			attestationService, err := attestation.NewService(
-				&attestationServiceProvider{
+				&attestationProvider{
 					storageProvider: svc.StorageProvider(),
 					httpClient:      httpClient,
 					documentLoader:  svc.DocumentLoader(),
 					cryptoSuite:     svc.CryptoSuite(),
+					wallet:          w,
 				},
 				flags.attestationURL,
-				w.DIDs()[walletDIDIndex],
-				w.SignatureType(),
+				walletDIDIndex,
 			)
 			if err != nil {
 				return fmt.Errorf("create attestation service: %w", err)

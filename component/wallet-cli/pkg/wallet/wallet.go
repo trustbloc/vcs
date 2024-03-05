@@ -32,9 +32,12 @@ const (
 	credentialsStore = "wallet:credentials"
 	credentialTag    = "credential"
 
-	configStore      = "wallet:config"
-	signatureTypeKey = "signatureType"
-	didsKey          = "dids"
+	configStore             = "wallet:config"
+	signatureTypeKey        = "signatureType"
+	didsKey                 = "dids"
+	nameKey                 = "name"
+	versionKey              = "version"
+	authenticationMethodKey = "authenticationMethod"
 )
 
 type DIDInfo struct {
@@ -44,11 +47,14 @@ type DIDInfo struct {
 }
 
 type Wallet struct {
-	store          storage.Store
-	documentLoader ld.DocumentLoader
-	mu             sync.RWMutex
-	signatureType  vcs.SignatureType
-	dids           []*DIDInfo
+	store                storage.Store
+	documentLoader       ld.DocumentLoader
+	mu                   sync.RWMutex
+	signatureType        vcs.SignatureType
+	dids                 []*DIDInfo
+	name                 string
+	version              string
+	authenticationMethod string
 }
 
 type provider interface {
@@ -59,15 +65,21 @@ type provider interface {
 }
 
 type options struct {
-	KeyType kmsapi.KeyType
-	NewDIDs []string
+	keyType              kmsapi.KeyType
+	newDIDs              []string
+	name                 string
+	version              string
+	authenticationMethod string
 }
 
 type Opt func(opts *options)
 
 func New(p provider, opts ...Opt) (*Wallet, error) {
 	o := &options{
-		NewDIDs: make([]string, 0),
+		newDIDs:              make([]string, 0),
+		name:                 "wallet-cli",
+		version:              "0.1",
+		authenticationMethod: "system_pin",
 	}
 
 	for i := range opts {
@@ -77,6 +89,45 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 	configurationStore, err := p.StorageProvider().OpenStore(configStore)
 	if err != nil {
 		return nil, fmt.Errorf("open config store: %w", err)
+	}
+
+	v, err := configurationStore.Get(nameKey)
+	if err != nil {
+		if !errors.Is(err, storage.ErrDataNotFound) {
+			return nil, fmt.Errorf("get name: %w", err)
+		}
+
+		if err = configurationStore.Put(nameKey, []byte(o.name)); err != nil {
+			return nil, fmt.Errorf("put name: %w", err)
+		}
+	} else {
+		o.name = string(v)
+	}
+
+	v, err = configurationStore.Get(versionKey)
+	if err != nil {
+		if !errors.Is(err, storage.ErrDataNotFound) {
+			return nil, fmt.Errorf("get version: %w", err)
+		}
+
+		if err = configurationStore.Put(versionKey, []byte(o.version)); err != nil {
+			return nil, fmt.Errorf("put version: %w", err)
+		}
+	} else {
+		o.version = string(v)
+	}
+
+	v, err = configurationStore.Get(authenticationMethodKey)
+	if err != nil {
+		if !errors.Is(err, storage.ErrDataNotFound) {
+			return nil, fmt.Errorf("get authentication method: %w", err)
+		}
+
+		if err = configurationStore.Put(authenticationMethodKey, []byte(o.authenticationMethod)); err != nil {
+			return nil, fmt.Errorf("put authentication method: %w", err)
+		}
+	} else {
+		o.authenticationMethod = string(v)
 	}
 
 	var (
@@ -95,10 +146,10 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 		signatureType = vcs.SignatureType(b)
 	}
 
-	if o.KeyType != "" {
+	if o.keyType != "" {
 		var st vcs.SignatureType
 
-		if st, err = mapToSignatureType(o.KeyType); err != nil {
+		if st, err = mapToSignatureType(o.keyType); err != nil {
 			return nil, err
 		}
 
@@ -127,7 +178,7 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 		}
 	}
 
-	if len(dids) == 0 && len(o.NewDIDs) == 0 {
+	if len(dids) == 0 && len(o.newDIDs) == 0 {
 		return nil, fmt.Errorf("wallet not initialized, please run 'create' command")
 	}
 
@@ -137,7 +188,7 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 		return nil, err
 	}
 
-	for _, method := range o.NewDIDs {
+	for _, method := range o.newDIDs {
 		res, createErr := vdrutil.DefaultVdrUtil.Create(
 			method,
 			keyType,
@@ -180,10 +231,13 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 	}
 
 	return &Wallet{
-		store:          store,
-		documentLoader: p.DocumentLoader(),
-		signatureType:  signatureType,
-		dids:           dids,
+		store:                store,
+		documentLoader:       p.DocumentLoader(),
+		signatureType:        signatureType,
+		dids:                 dids,
+		name:                 o.name,
+		version:              o.version,
+		authenticationMethod: o.authenticationMethod,
 	}, nil
 }
 
@@ -411,14 +465,44 @@ func (w *Wallet) SignatureType() vcs.SignatureType {
 	return w.signatureType
 }
 
+func (w *Wallet) Name() string {
+	return w.name
+}
+
+func (w *Wallet) Version() string {
+	return w.version
+}
+
+func (w *Wallet) AuthenticationMethod() string {
+	return w.authenticationMethod
+}
+
 func WithNewDID(method string) Opt {
 	return func(opts *options) {
-		opts.NewDIDs = append(opts.NewDIDs, method)
+		opts.newDIDs = append(opts.newDIDs, method)
 	}
 }
 
 func WithKeyType(keyType kmsapi.KeyType) Opt {
 	return func(opts *options) {
-		opts.KeyType = keyType
+		opts.keyType = keyType
+	}
+}
+
+func WithName(name string) Opt {
+	return func(opts *options) {
+		opts.name = name
+	}
+}
+
+func WithVersion(version string) Opt {
+	return func(opts *options) {
+		opts.version = version
+	}
+}
+
+func WithAuthenticationMethod(method string) Opt {
+	return func(opts *options) {
+		opts.authenticationMethod = method
 	}
 }

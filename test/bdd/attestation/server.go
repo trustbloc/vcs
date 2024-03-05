@@ -101,7 +101,7 @@ func (s *server) evaluateWalletAttestationInitRequest(w http.ResponseWriter, r *
 		return
 	}
 
-	if !reflect.DeepEqual(request.WalletMetadata, map[string]interface{}{"wallet_name": "wallet-cli"}) {
+	if !reflect.DeepEqual(request.WalletMetadata, map[string]interface{}{"wallet_name": "wallet-cli", "wallet_version": "0.1"}) {
 		s.writeResponse(
 			w, http.StatusBadRequest, "walletMetadata field is invalid")
 
@@ -109,7 +109,7 @@ func (s *server) evaluateWalletAttestationInitRequest(w http.ResponseWriter, r *
 	}
 
 	walletDID, ok := request.WalletAuthentication["wallet_id"].(string)
-	if len(request.WalletAuthentication) != 1 || !ok || walletDID == "" {
+	if len(request.WalletAuthentication) != 2 || !ok || walletDID == "" {
 		s.writeResponse(
 			w, http.StatusBadRequest, "walletAuthentication field is invalid")
 

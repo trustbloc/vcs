@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/trustbloc/logutil-go/pkg/log"
 	"io"
 	"net/http"
 	"time"
@@ -22,13 +21,13 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.uber.org/zap"
 
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 )
 
@@ -46,6 +45,7 @@ type Service struct {
 	documentLoader      ld.DocumentLoader
 	signer              jose.Signer
 	httpClient          *http.Client
+	wallet              *wallet.Wallet
 	walletDID           string
 	attestationEndpoint string
 }
@@ -55,23 +55,35 @@ type provider interface {
 	HTTPClient() *http.Client
 	DocumentLoader() ld.DocumentLoader
 	CryptoSuite() api.Suite
+	Wallet() *wallet.Wallet
 }
 
 func NewService(
 	p provider,
 	attestationEndpoint string,
-	didInfo *wallet.DIDInfo,
-	signatureType vcsverifiable.SignatureType,
+	walletDIDIndex int,
 ) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(attestationStore)
 	if err != nil {
 		return nil, fmt.Errorf("open attestation store: %w", err)
 	}
 
+	var didInfo *wallet.DIDInfo
+
+	dids := p.Wallet().DIDs()
+
+	if walletDIDIndex != -1 {
+		didInfo = dids[walletDIDIndex]
+	} else {
+		didInfo = dids[len(dids)-1]
+	}
+
 	signer, err := p.CryptoSuite().FixedKeyMultiSigner(didInfo.KeyID)
 	if err != nil {
 		return nil, fmt.Errorf("create signer: %w", err)
 	}
+
+	signatureType := p.Wallet().SignatureType()
 
 	jwsSigner := jwssigner.NewJWSSigner(
 		fmt.Sprintf("%s#%s", didInfo.ID, didInfo.KeyID),
@@ -84,6 +96,7 @@ func NewService(
 		documentLoader:      p.DocumentLoader(),
 		signer:              jwsSigner,
 		httpClient:          p.HTTPClient(),
+		wallet:              p.Wallet(),
 		walletDID:           didInfo.ID,
 		attestationEndpoint: attestationEndpoint,
 	}, nil
@@ -166,10 +179,12 @@ func (s *Service) attestationInit(ctx context.Context) (*AttestWalletInitRespons
 			"wallet_authentication",
 		},
 		WalletAuthentication: map[string]interface{}{
-			"wallet_id": s.walletDID,
+			"wallet_id":             s.walletDID,
+			"authentication_method": s.wallet.AuthenticationMethod(),
 		},
 		WalletMetadata: map[string]interface{}{
-			"wallet_name": "wallet-cli",
+			"wallet_name":    s.wallet.Name(),
+			"wallet_version": s.wallet.Version(),
 		},
 	}
 

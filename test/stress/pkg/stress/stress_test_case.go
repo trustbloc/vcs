@@ -176,15 +176,15 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 	}
 
 	attestationService, err := attestation.NewService(
-		&attestationServiceProvider{
+		&attestationProvider{
 			storageProvider: storageProvider,
 			httpClient:      opts.httpClient,
 			documentLoader:  documentLoader,
 			cryptoSuite:     suite,
+			wallet:          w,
 		},
 		attestationServiceURL,
-		w.DIDs()[0],
-		w.SignatureType(),
+		0,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create attestation service: %w", err)
@@ -568,25 +568,30 @@ func (c *TestCase) fetchAuthorizationRequest() (string, error) {
 	return parsedResp.AuthorizationRequest, nil
 }
 
-type attestationServiceProvider struct {
+type attestationProvider struct {
 	storageProvider storageapi.Provider
 	httpClient      *http.Client
 	documentLoader  ld.DocumentLoader
 	cryptoSuite     api.Suite
+	wallet          *wallet.Wallet
 }
 
-func (p *attestationServiceProvider) StorageProvider() storageapi.Provider {
+func (p *attestationProvider) StorageProvider() storageapi.Provider {
 	return p.storageProvider
 }
 
-func (p *attestationServiceProvider) HTTPClient() *http.Client {
+func (p *attestationProvider) HTTPClient() *http.Client {
 	return p.httpClient
 }
 
-func (p *attestationServiceProvider) DocumentLoader() ld.DocumentLoader {
+func (p *attestationProvider) DocumentLoader() ld.DocumentLoader {
 	return p.documentLoader
 }
 
-func (p *attestationServiceProvider) CryptoSuite() api.Suite {
+func (p *attestationProvider) CryptoSuite() api.Suite {
 	return p.cryptoSuite
+}
+
+func (p *attestationProvider) Wallet() *wallet.Wallet {
+	return p.wallet
 }
