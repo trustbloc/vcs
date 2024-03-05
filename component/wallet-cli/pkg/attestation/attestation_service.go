@@ -166,10 +166,12 @@ func (s *Service) attestationInit(ctx context.Context) (*AttestWalletInitRespons
 			"wallet_authentication",
 		},
 		WalletAuthentication: map[string]interface{}{
-			"wallet_id": s.walletDID,
+			"wallet_id":             s.walletDID,
+			"authentication_method": "system_biometry",
 		},
 		WalletMetadata: map[string]interface{}{
-			"wallet_name": "wallet-cli",
+			"wallet_name":    "Midy Wallet",
+			"wallet_version": "2.0",
 		},
 	}
 
