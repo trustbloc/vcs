@@ -181,8 +181,8 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
 	cmd.Flags().BoolVar(&flags.disableDomainMatching, "disable-domain-matching", false, "disables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
-	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url with profile id and profile version, i.e. <host>/profiles/{profileID}/{profileVersion}/wallet/attestation")
-	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "<trust-registry-host>/wallet/interactions/presentation to validate that the verifier is trusted as per policy")
+	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url, i.e. https://<host>/vcs/wallet/attestation")
+	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "trust registry host, i.e. https://<host>/trustregistry")
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")
