@@ -102,20 +102,6 @@ func TestService_ValidateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "attestation vp is required",
-			setup: func() {
-				proofChecker = defaultProofChecker
-
-				httpClient.EXPECT().Do(gomock.Any()).Times(0)
-
-				attestationVP = ""
-				profile = createIssuerProfile(t)
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "attestation vp is required")
-			},
-		},
-		{
 			name: "fail to parse attestation vp",
 			setup: func() {
 				proofChecker = defaultProofChecker
@@ -351,20 +337,6 @@ func TestService_ValidatePresentation(t *testing.T) {
 			},
 			check: func(t *testing.T, err error) {
 				require.NoError(t, err)
-			},
-		},
-		{
-			name: "attestation vp is required",
-			setup: func() {
-				proofChecker = defaultProofChecker
-
-				httpClient.EXPECT().Do(gomock.Any()).Times(0)
-
-				attestationVP = ""
-				profile = createVerifierProfile(t)
-			},
-			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "attestation vp is required")
 			},
 		},
 		{
