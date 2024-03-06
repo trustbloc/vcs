@@ -77,21 +77,19 @@ func (s *Service) ValidateIssuance(
 		return nil
 	}
 
-	if attestationVP == "" {
-		return fmt.Errorf("attestation vp is required")
-	}
-
 	req := &IssuancePolicyEvaluationRequest{
 		IssuerDID:       profile.SigningDID.DID,
 		CredentialTypes: credentialTypes,
 	}
 
-	attestationVCs, err := s.parseAttestationVP(attestationVP)
-	if err != nil {
-		return err
-	}
+	if attestationVP != "" {
+		attestationVCs, err := s.parseAttestationVP(attestationVP)
+		if err != nil {
+			return err
+		}
 
-	req.AttestationVC = lo.ToPtr(attestationVCs)
+		req.AttestationVC = lo.ToPtr(attestationVCs)
+	}
 
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -130,21 +128,19 @@ func (s *Service) ValidatePresentation(
 		return nil
 	}
 
-	if attestationVP == "" {
-		return fmt.Errorf("attestation vp is required")
-	}
-
 	req := &PresentationPolicyEvaluationRequest{
 		VerifierDID:        profile.SigningDID.DID,
 		CredentialMetadata: metadata,
 	}
 
-	attestationVCs, err := s.parseAttestationVP(attestationVP)
-	if err != nil {
-		return err
-	}
+	if attestationVP != "" {
+		attestationVCs, err := s.parseAttestationVP(attestationVP)
+		if err != nil {
+			return err
+		}
 
-	req.AttestationVC = lo.ToPtr(attestationVCs)
+		req.AttestationVC = lo.ToPtr(attestationVCs)
+	}
 
 	payload, err := json.Marshal(req)
 	if err != nil {
