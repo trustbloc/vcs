@@ -94,7 +94,9 @@ func (s *Service) ExchangeAuthorizationCode(
 	}
 
 	return &ExchangeAuthorizationCodeResult{
-		TxID:                 tx.ID,
+		TxID: tx.ID,
+		// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
+		// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
 		AuthorizationDetails: tx.AuthorizationDetails, //TODO: add tx.AuthorizationDetails.CredentialIdentifiers
 	}, nil
 }

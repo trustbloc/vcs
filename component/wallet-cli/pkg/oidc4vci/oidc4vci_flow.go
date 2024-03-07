@@ -94,7 +94,6 @@ type Flow struct {
 	credentialOffer            string
 	credentialType             string
 	oidcCredentialFormat       vcsverifiable.OIDCFormat
-	credentialConfigurationID  string
 	clientID                   string
 	scopes                     []string
 	redirectURI                string
@@ -206,7 +205,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		credentialOffer:            o.credentialOffer,
 		credentialType:             o.credentialType,
 		oidcCredentialFormat:       o.oidcCredentialFormat,
-		credentialConfigurationID:  o.credentialConfigurationID,
 		clientID:                   o.clientID,
 		scopes:                     o.scopes,
 		redirectURI:                o.redirectURI,
@@ -283,7 +281,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 		var authCode string
 
-		authCode, err = f.getAuthorizationCode(oauthClient, issuerState)
+		authCode, err = f.getAuthorizationCode(oauthClient, credentialOfferResponse, issuerState)
 		if err != nil {
 			return nil, err
 		}
@@ -445,11 +443,14 @@ func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResp
 	return credentialOfferResponse, nil
 }
 
-func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState string) (string, error) {
+func (f *Flow) getAuthorizationCode(
+	oauthClient *oauth2.Config,
+	credentialOfferResponse *oidc4ci.CredentialOfferResponse,
+	issuerState string,
+) (string, error) {
 	slog.Info("Getting authorization code",
 		"client_id", oauthClient.ClientID,
 		"scopes", oauthClient.Scopes,
-		"credential_configuration_id", f.credentialConfigurationID,
 		"format", f.oidcCredentialFormat,
 		"redirect_uri", oauthClient.RedirectURL,
 		"authorization_endpoint", oauthClient.Endpoint.AuthURL,
@@ -486,7 +487,7 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 	}
 
-	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(f.credentialConfigurationID,
+	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(credentialOfferResponse,
 		f.credentialType, f.oidcCredentialFormat)
 	if err != nil {
 		return "", fmt.Errorf("getAuthorizationDetailsRequestBody: %w", err)
@@ -951,21 +952,25 @@ func (f *Flow) handleIssuanceAck(
 //
 // Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 func (f *Flow) getAuthorizationDetailsRequestBody(
-	credentialConfigurationID, credentialType string, oidcCredentialFormat vcsverifiable.OIDCFormat,
+	credentialOfferResponse *oidc4ci.CredentialOfferResponse,
+	credentialType string,
+	oidcCredentialFormat vcsverifiable.OIDCFormat,
 ) ([]byte, error) {
-	res := make([]common.AuthorizationDetails, 1) // We do not support multiple authorization details for now.
+	res := make([]common.AuthorizationDetails, 0)
 
 	switch {
-	case credentialConfigurationID != "": // Priority 1. Based on credentialConfigurationID.
-		res[0] = common.AuthorizationDetails{
-			CredentialConfigurationId: &credentialConfigurationID,
-			CredentialDefinition:      nil,
-			Format:                    nil,
-			Locations:                 nil, // Not supported for now.
-			Type:                      "openid_credential",
+	case credentialOfferResponse != nil: // Priority 1. Based on credentialConfigurationID.
+		for _, credentialConfigurationID := range credentialOfferResponse.CredentialConfigurationIDs {
+			res = append(res, common.AuthorizationDetails{
+				CredentialConfigurationId: &credentialConfigurationID,
+				CredentialDefinition:      nil,
+				Format:                    nil,
+				Locations:                 nil, // Not supported for now.
+				Type:                      "openid_credential",
+			})
 		}
 	case oidcCredentialFormat != "": // Priority 2. Based on credentialFormat.
-		res[0] = common.AuthorizationDetails{
+		res = append(res, common.AuthorizationDetails{
 			CredentialConfigurationId: nil,
 			CredentialDefinition: &common.CredentialDefinition{
 				Context:           nil, // Not supported for now.
@@ -978,7 +983,7 @@ func (f *Flow) getAuthorizationDetailsRequestBody(
 			Format:    lo.ToPtr(string(oidcCredentialFormat)),
 			Locations: nil, // Not supported for now.
 			Type:      "openid_credential",
-		}
+		})
 	default:
 		// Valid case - neither credentialFormat nor credentialConfigurationID supplied.
 		return nil, nil
@@ -1036,7 +1041,6 @@ type options struct {
 	credentialOffer            string
 	credentialType             string
 	oidcCredentialFormat       vcsverifiable.OIDCFormat
-	credentialConfigurationID  string
 	clientID                   string
 	scopes                     []string
 	redirectURI                string
@@ -1131,12 +1135,5 @@ func WithPin(pin string) Opt {
 func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
 		opts.walletDIDIndex = idx
-	}
-}
-
-// WithCredentialConfigurationID adds credentialConfigurationID to authorization request.
-func WithCredentialConfigurationID(credentialConfigurationID string) Opt {
-	return func(opts *options) {
-		opts.credentialConfigurationID = credentialConfigurationID
 	}
 }
