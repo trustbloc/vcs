@@ -1424,15 +1424,19 @@ components:
         credential_expires_at:
           type: string
           format: date-time
+          deprecated: true
           description: Date when credentials should be consider as expired
         credential_name:
           type: string
+          deprecated: true
           description: Credential name
         credential_description:
           type: string
+          deprecated: true
           description: Credential description
         credential_template_id:
           type: string
+          deprecated: true
           description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'
         client_initiate_issuance_url:
           type: string
@@ -1444,6 +1448,7 @@ components:
           type: string
           description: 'String value created by the Credential Issuer and opaque to the Wallet that is used to bind the sub-sequent authentication request with the Credential Issuer to a context set up during previous steps. If the client receives a value for this parameter, it MUST include it in the subsequent Authentication Request to the Credential Issuer as the op_state parameter value. MUST NOT be used in Authorization Code flow when pre-authorized_code is present.'
         claim_endpoint:
+          deprecated: true
           type: string
           description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
         grant_type:
@@ -1464,11 +1469,17 @@ components:
           type: boolean
           description: Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
         claim_data:
+          deprecated: true
           type: object
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
         wallet_initiated_issuance:
           type: boolean
           description: Boolean flags indicates whether given transaction is initiated by Wallet.
+        credential_configuration:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/InitiateIssuanceCredentialConfiguration'
+          description: An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.
       x-tags:
         - issuer
     InitiateOIDC4CIResponse:
@@ -1972,6 +1983,34 @@ components:
           description: 'An array of objects, where each object contains the display properties of the supported credential for a certain language.'
           items:
             $ref: '#/components/schemas/CredentialDisplay'
+      required:
+        - format
+    InitiateIssuanceCredentialConfiguration:
+      title: InitiateIssuanceCredentialConfiguration object definition.
+      x-tags:
+        - issuer
+      type: object
+      description: An object that describes specifics of the Multiple Credential Issuance.
+      properties:
+        claim_data:
+          type: object
+          description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+        claim_endpoint:
+          type: string
+          description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
+        credential_template_id:
+          type: string
+          description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'
+        credential_expires_at:
+          type: string
+          format: date-time
+          description: Date when credentials should be consider as expired
+        credential_name:
+          type: string
+          description: Credential name
+        credential_description:
+          type: string
+          description: Credential description
       required:
         - format
     CredentialResponseEncryptionSupported:

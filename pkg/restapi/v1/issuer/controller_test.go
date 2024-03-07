@@ -740,14 +740,15 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 	}
 
 	req, err := json.Marshal(&InitiateOIDC4CIRequest{
-		CredentialTemplateId:      lo.ToPtr("templateID"),
-		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
-		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
-		OpState:                   lo.ToPtr("eyJhbGciOiJSU0Et"),
-		ClaimEndpoint:             lo.ToPtr("https://vcs.pb.example.com/claim"),
-		GrantType:                 lo.ToPtr("authorization_code"),
-		Scope:                     lo.ToPtr([]string{"openid"}),
-		ResponseType:              lo.ToPtr("token"),
+		CredentialTemplateId:       lo.ToPtr("templateID"),
+		CredentialConfigurationIds: lo.ToPtr([]string{"VerifiedEmployeeIdentifier"}),
+		ClientInitiateIssuanceUrl:  lo.ToPtr("https://wallet.example.com/initiate_issuance"),
+		ClientWellknown:            lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
+		OpState:                    lo.ToPtr("eyJhbGciOiJSU0Et"),
+		ClaimEndpoint:              lo.ToPtr("https://vcs.pb.example.com/claim"),
+		GrantType:                  lo.ToPtr("authorization_code"),
+		Scope:                      lo.ToPtr([]string{"openid"}),
+		ResponseType:               lo.ToPtr("token"),
 	})
 	require.NoError(t, err)
 

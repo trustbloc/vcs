@@ -65,34 +65,38 @@ type TransactionStore transactionStore
 type TransactionData struct {
 	ProfileID                          profileapi.ID
 	ProfileVersion                     profileapi.Version
-	OrgID                              string
-	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
-	OIDCCredentialFormat               vcsverifiable.OIDCFormat
+	IsPreAuthFlow                      bool
+	PreAuthCode                        string
+	OrgID                              string
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
-	ClaimEndpoint                      string
+	OpState                            string
 	RedirectURI                        string
 	GrantType                          string
 	ResponseType                       string
 	Scope                              []string
-	AuthorizationDetails               *AuthorizationDetails
 	IssuerAuthCode                     string
 	IssuerToken                        string
-	OpState                            string
-	IsPreAuthFlow                      bool
-	PreAuthCode                        string
-	PreAuthCodeExpiresAt               *time.Time
-	ClaimDataID                        string
 	State                              TransactionState
 	WebHookURL                         string
 	UserPin                            string
 	DID                                string
-	CredentialExpiresAt                *time.Time
-	CredentialName                     string
-	CredentialDescription              string
 	WalletInitiatedIssuance            bool
+	CredentialConfiguration            map[string]TxCredentialConfiguration
+}
+
+type TxCredentialConfiguration struct {
+	CredentialTemplate    *profileapi.CredentialTemplate
+	OIDCCredentialFormat  vcsverifiable.OIDCFormat
+	ClaimEndpoint         string
+	ClaimDataID           string
+	CredentialName        string
+	CredentialDescription string
+	CredentialExpiresAt   *time.Time
+	PreAuthCodeExpiresAt  *time.Time
+	AuthorizationDetails  *AuthorizationDetails
 }
 
 // AuthorizationDetails represents the domain model for Authorization Details request.
@@ -149,20 +153,37 @@ type IssuerIDPOIDCConfiguration struct {
 
 // InitiateIssuanceRequest is the request used by the Issuer to initiate the OIDC VC issuance interaction.
 type InitiateIssuanceRequest struct {
+	// Deprecated. Use CredentialConfiguration instead.
 	CredentialTemplateID      string
 	ClientInitiateIssuanceURL string
 	ClientWellKnownURL        string
-	ClaimEndpoint             string
-	GrantType                 string
-	ResponseType              string
-	Scope                     []string
-	OpState                   string
-	ClaimData                 map[string]interface{}
-	UserPinRequired           bool
-	CredentialExpiresAt       *time.Time
-	CredentialName            string
-	CredentialDescription     string
-	WalletInitiatedIssuance   bool
+	// Deprecated. Use CredentialConfiguration instead.
+	ClaimEndpoint string
+	GrantType     string
+	ResponseType  string
+	Scope         []string
+	OpState       string
+	// Deprecated. Use CredentialConfiguration instead.
+	ClaimData       map[string]interface{}
+	UserPinRequired bool
+	// Deprecated. Use CredentialConfiguration instead.
+	CredentialExpiresAt *time.Time
+	// Deprecated. Use CredentialConfiguration instead.
+	CredentialName string
+	// Deprecated. Use CredentialConfiguration instead.
+	CredentialDescription   string
+	WalletInitiatedIssuance bool
+	// CredentialConfiguration aimed to initialise multi credential issuance.
+	CredentialConfiguration map[string]InitiateIssuanceCredentialConfiguration
+}
+
+type InitiateIssuanceCredentialConfiguration struct {
+	ClaimData             map[string]interface{} `json:"claim_data,omitempty"`
+	ClaimEndpoint         string                 `json:"claim_endpoint,omitempty"`
+	CredentialTemplateId  string                 `json:"credential_template_id,omitempty"`
+	CredentialExpiresAt   *time.Time             `json:"credential_expires_at,omitempty"`
+	CredentialName        string                 `json:"credential_name,omitempty"`
+	CredentialDescription string                 `json:"credential_description,omitempty"`
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.

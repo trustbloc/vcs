@@ -129,6 +129,27 @@ type ExchangeAuthorizationCodeResponse struct {
 	TxId                 string                               `json:"tx_id"`
 }
 
+// An object that describes specifics of the Multiple Credential Issuance.
+type InitiateIssuanceCredentialConfiguration struct {
+	// Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+	ClaimData *map[string]interface{} `json:"claim_data,omitempty"`
+
+	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
+	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
+
+	// Credential description
+	CredentialDescription *string `json:"credential_description,omitempty"`
+
+	// Date when credentials should be consider as expired
+	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
+
+	// Credential name
+	CredentialName *string `json:"credential_name,omitempty"`
+
+	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
+	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
+}
+
 // Model for Initiate OIDC Credential Issuance Request.
 type InitiateOIDC4CIRequest struct {
 	// Customizes what kind of access Issuer wants to give to VCS.
@@ -145,6 +166,9 @@ type InitiateOIDC4CIRequest struct {
 
 	// String containing wallet/holder application OIDC client wellknown configuration URL.
 	ClientWellknown *string `json:"client_wellknown,omitempty"`
+
+	// An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.
+	CredentialConfiguration *InitiateOIDC4CIRequest_CredentialConfiguration `json:"credential_configuration,omitempty"`
 
 	// Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
@@ -175,6 +199,11 @@ type InitiateOIDC4CIRequest struct {
 
 	// Boolean flags indicates whether given transaction is initiated by Wallet.
 	WalletInitiatedIssuance *bool `json:"wallet_initiated_issuance,omitempty"`
+}
+
+// An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.
+type InitiateOIDC4CIRequest_CredentialConfiguration struct {
+	AdditionalProperties map[string]InitiateIssuanceCredentialConfiguration `json:"-"`
 }
 
 // Model for Initiate OIDC Credential Issuance Response.
@@ -496,6 +525,59 @@ type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// Getter for additional properties for InitiateOIDC4CIRequest_CredentialConfiguration. Returns the specified
+// element and whether it was found
+func (a InitiateOIDC4CIRequest_CredentialConfiguration) Get(fieldName string) (value InitiateIssuanceCredentialConfiguration, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for InitiateOIDC4CIRequest_CredentialConfiguration
+func (a *InitiateOIDC4CIRequest_CredentialConfiguration) Set(fieldName string, value InitiateIssuanceCredentialConfiguration) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]InitiateIssuanceCredentialConfiguration)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for InitiateOIDC4CIRequest_CredentialConfiguration to handle AdditionalProperties
+func (a *InitiateOIDC4CIRequest_CredentialConfiguration) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]InitiateIssuanceCredentialConfiguration)
+		for fieldName, fieldBuf := range object {
+			var fieldVal InitiateIssuanceCredentialConfiguration
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for InitiateOIDC4CIRequest_CredentialConfiguration to handle AdditionalProperties
+func (a InitiateOIDC4CIRequest_CredentialConfiguration) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // Getter for additional properties for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported. Returns the specified
 // element and whether it was found

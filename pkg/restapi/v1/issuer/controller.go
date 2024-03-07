@@ -449,6 +449,18 @@ func (c *Controller) initiateIssuance(
 		CredentialName:            lo.FromPtr(req.CredentialName),
 		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
 		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
+		CredentialConfiguration:   make(map[string]oidc4ci.InitiateIssuanceCredentialConfiguration),
+	}
+
+	for credentialConfigurationID, multiCredentialIssuance := range req.CredentialConfiguration.AdditionalProperties {
+		issuanceReq.CredentialConfiguration[credentialConfigurationID] = oidc4ci.InitiateIssuanceCredentialConfiguration{
+			ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
+			ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
+			CredentialTemplateId:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
+			CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
+			CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
+			CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
+		}
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
@@ -673,9 +685,11 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	}
 
 	var authorizationDetailsDTOList []common.AuthorizationDetails
-	if transaction.AuthorizationDetails != nil {
-		authorizationDetailsDTO := transaction.AuthorizationDetails.ToDTO()
-		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+
+	for _, credentialConfig := range transaction.CredentialConfiguration {
+		if credentialConfig.AuthorizationDetails != nil {
+			authorizationDetailsDTOList = append(authorizationDetailsDTOList, credentialConfig.AuthorizationDetails.ToDTO())
+		}
 	}
 
 	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
