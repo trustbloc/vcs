@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistryService=MockTrustRegistryService
+//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry
 
 package oidc4vp
 
@@ -92,13 +92,8 @@ type presentationVerifier interface {
 	)
 }
 
-type trustRegistryService interface {
-	ValidatePresentation(
-		ctx context.Context,
-		profile *profileapi.Verifier,
-		jwtVP string,
-		metadata []trustregistry.CredentialMetadata,
-	) error
+type trustRegistry interface {
+	trustregistry.ValidatePresentation
 }
 
 type RequestObjectClaims struct {
@@ -136,7 +131,7 @@ type Config struct {
 	EventTopic               string
 	PresentationVerifier     presentationVerifier
 	VDR                      vdrapi.Registry
-	TrustRegistryService     trustRegistryService
+	TrustRegistry            trustRegistry
 
 	RedirectURL   string
 	TokenLifetime time.Duration
@@ -157,7 +152,7 @@ type Service struct {
 	profileService           profileService
 	presentationVerifier     presentationVerifier
 	vdr                      vdrapi.Registry
-	trustRegistryService     trustRegistryService
+	trustRegistry            trustRegistry
 
 	redirectURL   string
 	tokenLifetime time.Duration
@@ -192,7 +187,7 @@ func NewService(cfg *Config) *Service {
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
 		vdr:                      cfg.VDR,
-		trustRegistryService:     cfg.TrustRegistryService,
+		trustRegistry:            cfg.TrustRegistry,
 		metrics:                  metrics,
 	}
 }
@@ -506,7 +501,14 @@ func (s *Service) checkPolicy(
 		}
 	}
 
-	if err := s.trustRegistryService.ValidatePresentation(ctx, profile, attestationVP, metadata); err != nil {
+	if err := s.trustRegistry.ValidatePresentation(
+		ctx,
+		profile,
+		&trustregistry.ValidatePresentationData{
+			AttestationVP:      attestationVP,
+			CredentialMetadata: metadata,
+		},
+	); err != nil {
 		return fmt.Errorf("check policy: %w", err)
 	}
 

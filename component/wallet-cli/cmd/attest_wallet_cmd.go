@@ -65,7 +65,7 @@ func NewAttestWalletCommand() *cobra.Command {
 				return fmt.Errorf("create attestation service: %w", err)
 			}
 
-			if _, err = attestationService.GetAttestation(context.Background()); err != nil {
+			if _, err = attestationService.GetAttestation(context.Background(), "", ""); err != nil {
 				return fmt.Errorf("get attestation: %w", err)
 			}
 

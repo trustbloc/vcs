@@ -43,6 +43,8 @@ const (
 
 	issuancePolicyURL     = "https://trust-registry.dev/issuer/policies/{policyID}/{policyVersion}/interactions/issuance"
 	presentationPolicyURL = "https://trust-registry.dev/verifier/policies/{policyID}/{policyVersion}/interactions/presentation" //nolint:lll
+
+	testNonce = "nonce"
 )
 
 func TestService_ValidateIssuance(t *testing.T) {
@@ -68,6 +70,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 
 	var (
 		attestationVP string
+		nonce         string
 		profile       *profileapi.Issuer
 	)
 
@@ -94,7 +97,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
 
 				// prepare wallet attestation VP (in jwt_vp format) signed by wallet DID
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 				profile = createIssuerProfile(t)
 			},
 			check: func(t *testing.T, err error) {
@@ -102,17 +106,52 @@ func TestService_ValidateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "fail to parse attestation vp",
+			name: "fail to parse jwt vp",
 			setup: func() {
 				proofChecker = defaultProofChecker
 
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVP = "invalid-jwt-vp"
+				nonce = testNonce
 				profile = createIssuerProfile(t)
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "parse attestation vp")
+				require.ErrorContains(t, err, "parse jwt")
+			},
+		},
+		{
+			name: "invalid attestation vp audience",
+			setup: func() {
+				proofChecker = defaultProofChecker
+
+				httpClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "some issuer", testNonce)
+				nonce = testNonce
+
+				profile = createIssuerProfile(t)
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "invalid audience")
+			},
+		},
+		{
+			name: "invalid nonce",
+			setup: func() {
+				proofChecker = defaultProofChecker
+
+				httpClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, "invalid nonce")
+				nonce = testNonce
+
+				profile = createIssuerProfile(t)
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "invalid nonce")
 			},
 		},
 		{
@@ -123,7 +162,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = createIssuerProfile(t)
 			},
@@ -139,7 +179,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, "invalid-subject", false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = createIssuerProfile(t)
 			},
@@ -155,7 +196,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = &profileapi.Issuer{
 					SigningDID: &profileapi.SigningDID{
@@ -179,7 +221,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = createIssuerProfile(t)
 			},
@@ -202,7 +245,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = createIssuerProfile(t)
 			},
@@ -225,7 +269,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = createIssuerProfile(t)
 			},
@@ -248,7 +293,8 @@ func TestService_ValidateIssuance(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
+				nonce = testNonce
 
 				profile = createIssuerProfile(t)
 			},
@@ -268,7 +314,15 @@ func TestService_ValidateIssuance(t *testing.T) {
 						DocumentLoader: testutil.DocumentLoader(t),
 						ProofChecker:   proofChecker,
 					},
-				).ValidateIssuance(context.Background(), profile, attestationVP, nil),
+				).ValidateIssuance(
+					context.Background(),
+					profile,
+					&trustregistry.ValidateIssuanceData{
+						AttestationVP:   attestationVP,
+						Nonce:           nonce,
+						CredentialTypes: nil,
+					},
+				),
 			)
 		})
 	}
@@ -332,7 +386,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				)
 
 				// prepare wallet attestation VP (in jwt_vp format) signed by wallet DID
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, requestedVC)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "", "", requestedVC)
 				profile = createVerifierProfile(t)
 			},
 			check: func(t *testing.T, err error) {
@@ -344,7 +398,6 @@ func TestService_ValidatePresentation(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVP = "invalid-jwt-vp"
@@ -359,11 +412,10 @@ func TestService_ValidatePresentation(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, true)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "", "")
 
 				profile = createVerifierProfile(t)
 			},
@@ -376,11 +428,10 @@ func TestService_ValidatePresentation(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, "invalid-subject", false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "", "")
 
 				profile = createVerifierProfile(t)
 			},
@@ -393,12 +444,10 @@ func TestService_ValidatePresentation(t *testing.T) {
 			setup: func() {
 				proofChecker = defaultProofChecker
 
-				// vcStatusVerifier.EXPECT().ValidateVCStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
 				httpClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "", "")
 
 				profile = &profileapi.Verifier{
 					SigningDID: &profileapi.SigningDID{
@@ -426,7 +475,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "", "")
 
 				profile = createVerifierProfile(t)
 			},
@@ -449,7 +498,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				)
 
 				attestationVC := createAttestationVC(t, attestationProofCreator, walletDID, false)
-				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator)
+				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, "", "")
 
 				profile = createVerifierProfile(t)
 			},
@@ -469,7 +518,14 @@ func TestService_ValidatePresentation(t *testing.T) {
 						DocumentLoader: testutil.DocumentLoader(t),
 						ProofChecker:   proofChecker,
 					},
-				).ValidatePresentation(context.Background(), profile, attestationVP, nil),
+				).ValidatePresentation(
+					context.Background(),
+					profile,
+					&trustregistry.ValidatePresentationData{
+						AttestationVP:      attestationVP,
+						CredentialMetadata: nil,
+					},
+				),
 			)
 		})
 	}
@@ -551,6 +607,8 @@ func createAttestationVP(
 	t *testing.T,
 	attestationVC *verifiable.Credential,
 	proofCreator jwt.ProofCreator,
+	audience string,
+	nonce string,
 	requestedVCs ...*verifiable.Credential,
 ) string {
 	t.Helper()
@@ -566,7 +624,19 @@ func createAttestationVP(
 
 	vp.ID = uuid.New().String()
 
-	claims, err := vp.JWTClaims([]string{}, false)
+	if nonce != "" {
+		vp.CustomFields = map[string]interface{}{
+			"nonce": nonce,
+		}
+	}
+
+	var aud []string
+
+	if audience != "" {
+		aud = []string{audience}
+	}
+
+	claims, err := vp.JWTClaims(aud, false)
 	require.NoError(t, err)
 
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ECDSAP256TypeDER)

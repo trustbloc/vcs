@@ -68,7 +68,7 @@ const (
 )
 
 type AttestationService interface {
-	GetAttestation(ctx context.Context) (string, error)
+	GetAttestation(ctx context.Context, audience, nonce string) (string, error)
 }
 
 type TrustRegistry interface {
@@ -365,7 +365,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 		if attestationRequired {
 			var jwtVP string
 
-			jwtVP, err = f.attestationService.GetAttestation(ctx)
+			jwtVP, err = f.attestationService.GetAttestation(ctx, issuerDID, preAuthorizationGrant.PreAuthorizedCode)
 			if err != nil {
 				return nil, fmt.Errorf("get attestation: %w", err)
 			}
