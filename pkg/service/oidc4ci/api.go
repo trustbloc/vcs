@@ -63,9 +63,9 @@ type TransactionStore transactionStore
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
-	ProfileID                          profileapi.ID
-	ProfileVersion                     profileapi.Version
-	CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
+	ProfileID      profileapi.ID
+	ProfileVersion profileapi.Version
+	//CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
 	OrgID                              string
@@ -84,7 +84,7 @@ type TransactionData struct {
 	UserPin                            string
 	DID                                string
 	WalletInitiatedIssuance            bool
-	CredentialConfiguration            map[string]TxCredentialConfiguration
+	CredentialConfiguration            map[string]*TxCredentialConfiguration
 }
 
 type TxCredentialConfiguration struct {
@@ -96,15 +96,18 @@ type TxCredentialConfiguration struct {
 	CredentialDescription string
 	CredentialExpiresAt   *time.Time
 	PreAuthCodeExpiresAt  *time.Time
-	AuthorizationDetails  *AuthorizationDetails
+	// AuthorizationDetails may be defined on Authorization Request via using "authorization_details" parameter.
+	// If "scope" param is used, this field will stay empty.
+	AuthorizationDetails *AuthorizationDetails
 }
 
 // AuthorizationDetails represents the domain model for Authorization Details request.
+// This object is used to convey the details about the Credentials the Wallet wants to obtain.
 //
 // Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 type AuthorizationDetails struct {
 	Type                      string
-	Format                    vcsverifiable.Format
+	Format                    vcsverifiable.OIDCFormat
 	Locations                 []string
 	CredentialConfigurationID string
 	CredentialDefinition      *CredentialDefinition
@@ -200,7 +203,7 @@ type PrepareClaimDataAuthorizationRequest struct {
 	ResponseType         string
 	Scope                []string
 	OpState              string
-	AuthorizationDetails *AuthorizationDetails
+	AuthorizationDetails []*AuthorizationDetails
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
@@ -301,7 +304,7 @@ type ServiceInterface interface {
 		req *InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
 	) (*InitiateIssuanceResponse, error)
-	PushAuthorizationDetails(ctx context.Context, opState string, ad *AuthorizationDetails) error
+	PushAuthorizationDetails(ctx context.Context, opState string, ad []*AuthorizationDetails) error
 	PrepareClaimDataAuthorizationRequest(
 		ctx context.Context,
 		req *PrepareClaimDataAuthorizationRequest,
@@ -348,7 +351,9 @@ type AckRemote struct {
 }
 
 type ExchangeAuthorizationCodeResult struct {
-	TxID                 TxID
+	TxID TxID
+	// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
+	// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
 	AuthorizationDetails *AuthorizationDetails
 }
 

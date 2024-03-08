@@ -304,8 +304,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			return err
 		}
 
-		// only single authorization_details supported for now.
-		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails[:1])
+		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails)
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,

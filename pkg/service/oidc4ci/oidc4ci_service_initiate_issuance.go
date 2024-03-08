@@ -27,7 +27,12 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
-const TxCodeLength = 6
+const (
+	TxCodeLength = 6
+
+	grantTypeAuthorizationCode = "authorization_code"
+	grantTypePreAuthorizedCode = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+)
 
 // InitiateIssuance creates credential issuance transaction and builds initiate issuance URL.
 func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
@@ -47,18 +52,24 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrVCOptionsNotConfigured
 	}
 
-	issuedCredentialConfiguration := make(map[string]TxCredentialConfiguration)
+	if req.GrantType != grantTypeAuthorizationCode &&
+		req.GrantType != grantTypePreAuthorizedCode {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "grant_type",
+			fmt.Errorf("unexpected grant_type supplied %s", req.GrantType))
+	}
 
-	var (
-		isPreAuthFlowCredentialTemplateID    bool
-		isPreAuthFlowCredentialConfiguration bool
-	)
+	isPreAuthFlow := req.GrantType == grantTypePreAuthorizedCode
+	if !isPreAuthFlow && profile.OIDCConfig == nil {
+		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
+	}
+
+	issuedCredentialConfiguration := make(map[string]*TxCredentialConfiguration)
 
 	// If req.CredentialTemplateID supplied - create TxCredentialConfiguration based on it.
 	if req.CredentialTemplateID != "" {
-		isPreAuthFlowCredentialTemplateID = len(req.ClaimData) > 0
-		if !isPreAuthFlowCredentialTemplateID && profile.OIDCConfig == nil {
-			return nil, resterr.ErrAuthorizedCodeFlowNotSupported
+		if isPreAuthFlow != (len(req.ClaimData) > 0) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "claim_data",
+				errors.New("claim_data param is not supported for given grant_type"))
 		}
 
 		credentialTemplate, err := findCredentialTemplate(req.CredentialTemplateID, profile)
@@ -71,7 +82,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			return nil, err
 		}
 
-		txCredentialConfiguration := TxCredentialConfiguration{
+		txCredentialConfiguration := &TxCredentialConfiguration{
 			CredentialTemplate:    credentialTemplate,
 			OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, credentialTemplate),
 			ClaimEndpoint:         req.ClaimEndpoint,
@@ -83,8 +94,8 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			AuthorizationDetails:  nil,
 		}
 
-		if isPreAuthFlowCredentialTemplateID {
-			err = s.applyPreAuthFlowModifications(ctx, req.ClaimData, credentialTemplate, &txCredentialConfiguration)
+		if isPreAuthFlow {
+			err = s.applyPreAuthFlowModifications(ctx, req.ClaimData, credentialTemplate, txCredentialConfiguration)
 			if err != nil {
 				return nil, err
 			}
@@ -96,13 +107,12 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	// Multiple credential issuance - use req.CredentialConfiguration to create TxCredentialConfiguration.
 	for credentialConfigurationID, credentialConfiguration := range req.CredentialConfiguration {
 		if _, ok := profile.CredentialMetaData.CredentialsConfigurationSupported[credentialConfigurationID]; !ok {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_configuration",
-				fmt.Errorf("unexpected credential_configuration_id supplied %s", credentialConfigurationID))
+			return nil, resterr.ErrInvalidCredentialConfigurationID
 		}
 
-		isPreAuthFlowCredentialConfiguration = len(credentialConfiguration.ClaimData) > 0
-		if !isPreAuthFlowCredentialConfiguration && profile.OIDCConfig == nil {
-			return nil, resterr.ErrAuthorizedCodeFlowNotSupported
+		if isPreAuthFlow != (len(credentialConfiguration.ClaimData) > 0) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "claim_data",
+				errors.New("claim_data param is not supported for given grant_type"))
 		}
 
 		credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateId, profile)
@@ -110,7 +120,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			return nil, err
 		}
 
-		txCredentialConfiguration := TxCredentialConfiguration{
+		txCredentialConfiguration := &TxCredentialConfiguration{
 			CredentialTemplate:    credentialTemplate,
 			OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, credentialTemplate),
 			ClaimEndpoint:         credentialConfiguration.ClaimEndpoint,
@@ -122,20 +132,14 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			AuthorizationDetails:  nil,
 		}
 
-		if isPreAuthFlowCredentialConfiguration {
-			err = s.applyPreAuthFlowModifications(ctx, credentialConfiguration.ClaimData, credentialTemplate, &txCredentialConfiguration)
+		if isPreAuthFlow {
+			err = s.applyPreAuthFlowModifications(ctx, credentialConfiguration.ClaimData, credentialTemplate, txCredentialConfiguration)
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		issuedCredentialConfiguration[credentialConfigurationID] = txCredentialConfiguration
-	}
-
-	// Flow mismatch case.
-	if isPreAuthFlowCredentialTemplateID != isPreAuthFlowCredentialConfiguration {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "claim_data",
-			fmt.Errorf("invalid configuration supplied"))
 	}
 
 	txState := TransactionStateIssuanceInitiated
@@ -146,7 +150,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	opState := req.OpState
 
 	var preAuthCode string
-	if isPreAuthFlowCredentialTemplateID {
+	if isPreAuthFlow {
 		preAuthCode = generatePreAuthCode()
 		opState = preAuthCode // set opState as it will be empty for pre-auth
 	}
@@ -154,14 +158,13 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	txData := &TransactionData{
 		ProfileID:               profile.ID,
 		ProfileVersion:          profile.Version,
-		CredentialFormat:        profile.VCConfig.Format,
 		OrgID:                   profile.OrganizationID,
 		ResponseType:            req.ResponseType,
 		State:                   txState,
 		WebHookURL:              profile.WebHook,
 		DID:                     profile.SigningDID.DID,
 		WalletInitiatedIssuance: req.WalletInitiatedIssuance,
-		IsPreAuthFlow:           isPreAuthFlowCredentialTemplateID,
+		IsPreAuthFlow:           isPreAuthFlow,
 		CredentialConfiguration: issuedCredentialConfiguration,
 		PreAuthCode:             preAuthCode,
 		OpState:                 opState,

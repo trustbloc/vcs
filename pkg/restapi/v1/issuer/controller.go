@@ -543,7 +543,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	var (
-		ad  *oidc4ci.AuthorizationDetails
+		ad  []*oidc4ci.AuthorizationDetails
 		err error
 	)
 
