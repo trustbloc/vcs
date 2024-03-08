@@ -138,18 +138,18 @@ func TestExchangeCodeProfileGetError(t *testing.T) {
 	assert.ErrorContains(t, err, "get profile error")
 }
 
-func TestExchangeCodeAuthenticateClientError(t *testing.T) {
+func TestExchangeCodeCheckPolicyError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	eventMock := NewMockEventService(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
-	trustRegistryService := NewMockTrustRegistryService(gomock.NewController(t))
+	trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
 
 	svc, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:     store,
-		ProfileService:       profileService,
-		TrustRegistryService: trustRegistryService,
-		EventService:         eventMock,
-		EventTopic:           spi.IssuerEventTopic,
+		TransactionStore: store,
+		ProfileService:   profileService,
+		TrustRegistry:    trustRegistry,
+		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 

@@ -54,7 +54,7 @@ const (
 )
 
 type AttestationService interface {
-	GetAttestation(ctx context.Context) (string, error)
+	GetAttestation(ctx context.Context, audience, nonce string) (string, error)
 }
 
 type TrustRegistry interface {
@@ -620,7 +620,7 @@ func (f *Flow) createIDToken(
 	if attestationRequired {
 		var jwtVP string
 
-		jwtVP, err = f.attestationService.GetAttestation(ctx)
+		jwtVP, err = f.attestationService.GetAttestation(ctx, "", "")
 		if err != nil {
 			return "", fmt.Errorf("get attestation: %w", err)
 		}
