@@ -58,7 +58,7 @@ func (w *Wrapper) InitiateIssuance(
 	return resp, nil
 }
 
-func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad *oidc4ci.AuthorizationDetails) error {
+func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad []*oidc4ci.AuthorizationDetails) error {
 	return w.svc.PushAuthorizationDetails(ctx, opState, ad)
 }
 

@@ -48,6 +48,8 @@ const (
 	vcsIssuerURL                        = vcsAPIGateway + "/oidc/idp/%s/%s"
 	oidcProviderURL                     = "http://cognito-auth.local:8094/cognito"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
+	preAuthorizedCodeGrantType          = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+	authorizedCodeGrantType             = "authorization_code"
 )
 
 func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, password string) error {
@@ -166,6 +168,7 @@ func (s *Steps) runOIDC4VCIPreAuthWithInvalidClaims() error {
 			"spouse":             "did:example:c276e12ec21ebfeb1f712ebc6f1",
 			"totallyRandomField": "abcd",
 		},
+		GrantType:       preAuthorizedCodeGrantType,
 		UserPinRequired: true,
 	}
 
@@ -190,6 +193,7 @@ func (s *Steps) initiateCredentialIssuanceWithClaimsSchemaValidationError() erro
 			},
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
 		},
+		GrantType:       preAuthorizedCodeGrantType,
 		UserPinRequired: true,
 	}
 
@@ -243,6 +247,7 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 		CredentialTemplateId: s.issuedCredentialTemplateID,
 		ClaimData:            &claims,
 		UserPinRequired:      true,
+		GrantType:            preAuthorizedCodeGrantType,
 	}
 
 	return s.runOIDC4VCIPreAuth(initiateIssuanceRequest)
@@ -262,6 +267,7 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		CredentialTemplateId: s.issuedCredentialTemplateID,
 		ClaimData:            &claims,
 		UserPinRequired:      true,
+		GrantType:            preAuthorizedCodeGrantType,
 	}
 
 	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(req)
@@ -324,7 +330,7 @@ func (s *Steps) credentialTypeTemplateID(issuedCredentialType, issuedCredentialT
 }
 
 func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorContains string) error {
-	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 	if err != nil {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
@@ -449,7 +455,7 @@ func (s *Steps) runOIDC4VCIAuthWithErrorInvalidNonce(errorContains string) error
 }
 
 func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...oidc4vci.Opt) error {
-	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 	if err != nil {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
@@ -485,7 +491,7 @@ func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...o
 }
 
 func (s *Steps) runOIDC4VCIAuth() error {
-	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 	if err != nil {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
@@ -518,7 +524,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 }
 
 func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID(credentialConfigurationID string) error {
-	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 	if err != nil {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
@@ -641,7 +647,7 @@ func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 		return fmt.Errorf("marshal claims: %w", err)
 	}
 
-	issuanceReq := s.getInitiateIssuanceRequest()
+	issuanceReq := s.getInitiateIssuanceRequestAuthFlow()
 	issuanceReq.ClaimEndpoint += fmt.Sprintf("&claim_data=%s", base64.URLEncoding.EncodeToString(claimsDataBytes))
 
 	resp, err := s.initiateCredentialIssuance(issuanceReq)
@@ -676,7 +682,7 @@ func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 }
 
 func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error {
-	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 	if err != nil {
 		return fmt.Errorf("initiate credential issuance: %w", err)
 	}
@@ -779,11 +785,11 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 	return r.ClientId, nil
 }
 
-func (s *Steps) getInitiateIssuanceRequest() initiateOIDC4VCIRequest {
+func (s *Steps) getInitiateIssuanceRequestAuthFlow() initiateOIDC4VCIRequest {
 	return initiateOIDC4VCIRequest{
 		ClaimEndpoint:        claimDataURL + "?credentialType=" + s.issuedCredentialType,
 		CredentialTemplateId: s.issuedCredentialTemplateID,
-		GrantType:            "authorization_code",
+		GrantType:            authorizedCodeGrantType,
 		OpState:              uuid.New().String(),
 		ResponseType:         "code",
 		Scope:                []string{"openid", "profile"},
@@ -987,7 +993,7 @@ func (s *Steps) saveCredentialsInWallet() error {
 }
 
 func (s *Steps) initiateCredentialIssuanceWithError(errorContains string) error {
-	_, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequest())
+	_, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 
 	if !strings.Contains(err.Error(), errorContains) {
 		return fmt.Errorf("unexpected error on initiateCredentialIssuance: %w", err)

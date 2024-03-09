@@ -150,9 +150,10 @@ Feature: OIDC4VC REST API
       | bank_issuer_sdjwt_v5/v1.0      | UniversityDegreeCredential | universityDegreeTemplateID      | v_myprofile_jwt_whitelist/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                            |
       | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID | v_myprofile_jwt_whitelist/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification |
 
-
+  @oidc4vc_rest_pre_auth_flow_invalid_claims
   Scenario: OIDC credential issuance and verification Pre Auth flow (Invalid Claims)
     Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
     Then User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims
 
   @oidc4vc_rest_pre_auth_schema_validation_error
@@ -236,6 +237,7 @@ Feature: OIDC4VC REST API
 #      LDP issuer, LDP verifier, limit disclosure enabled in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
 
+  @oidc4vc_rest_wallet_initiated_unsupported_vp_token_format
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow (OIDC4VP flow - unsupported vp_token format)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"

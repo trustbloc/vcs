@@ -16,8 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -35,32 +33,23 @@ type mongoDocument struct {
 	ProfileID                          string
 	ProfileVersion                     string
 	OrgID                              string
-	CredentialTemplate                 *profileapi.CredentialTemplate
-	CredentialFormat                   vcsverifiable.Format
-	OIDCCredentialFormat               vcsverifiable.OIDCFormat
-	ClaimEndpoint                      string
 	GrantType                          string
 	ResponseType                       string
 	Scope                              []string
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
-	AuthorizationDetails               *oidc4ci.AuthorizationDetails
 	RedirectURI                        string
 	IssuerAuthCode                     string
 	IssuerToken                        string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
-	ClaimDataID                        string
 	Status                             oidc4ci.TransactionState
 	WebHookURL                         string
 	DID                                string
 	UserPin                            string
-	CredentialExpiresAt                *time.Time
-	PreAuthCodeExpiresAt               *time.Time
-	CredentialName                     string
-	CredentialDescription              string
 	WalletInitiatedIssuance            bool
+	CredentialConfiguration            map[string]*oidc4ci.TxCredentialConfiguration
 }
 
 // Store stores oidc transactions in mongo.
@@ -204,32 +193,23 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		ProfileID:                          data.ProfileID,
 		ProfileVersion:                     data.ProfileVersion,
 		OrgID:                              data.OrgID,
-		CredentialTemplate:                 data.CredentialTemplate,
-		CredentialFormat:                   data.CredentialFormat,
-		OIDCCredentialFormat:               data.OIDCCredentialFormat,
-		ClaimEndpoint:                      data.ClaimEndpoint,
 		GrantType:                          data.GrantType,
 		ResponseType:                       data.ResponseType,
 		Scope:                              data.Scope,
 		AuthorizationEndpoint:              data.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: data.PushedAuthorizationRequestEndpoint,
 		TokenEndpoint:                      data.TokenEndpoint,
-		AuthorizationDetails:               data.AuthorizationDetails,
 		RedirectURI:                        data.RedirectURI,
 		IssuerAuthCode:                     data.IssuerAuthCode,
 		IssuerToken:                        data.IssuerToken,
 		UserPin:                            data.UserPin,
 		IsPreAuthFlow:                      data.IsPreAuthFlow,
 		PreAuthCode:                        data.PreAuthCode,
-		ClaimDataID:                        data.ClaimDataID,
 		Status:                             data.State,
 		WebHookURL:                         data.WebHookURL,
 		DID:                                data.DID,
-		CredentialExpiresAt:                data.CredentialExpiresAt,
-		PreAuthCodeExpiresAt:               data.PreAuthCodeExpiresAt,
-		CredentialDescription:              data.CredentialDescription,
-		CredentialName:                     data.CredentialName,
 		WalletInitiatedIssuance:            data.WalletInitiatedIssuance,
+		CredentialConfiguration:            data.CredentialConfiguration,
 	}
 }
 
@@ -240,33 +220,24 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			ProfileID:                          doc.ProfileID,
 			ProfileVersion:                     doc.ProfileVersion,
 			OrgID:                              doc.OrgID,
-			CredentialTemplate:                 doc.CredentialTemplate,
-			CredentialFormat:                   doc.CredentialFormat,
-			OIDCCredentialFormat:               doc.OIDCCredentialFormat,
 			AuthorizationEndpoint:              doc.AuthorizationEndpoint,
 			PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
 			TokenEndpoint:                      doc.TokenEndpoint,
-			ClaimEndpoint:                      doc.ClaimEndpoint,
 			RedirectURI:                        doc.RedirectURI,
 			GrantType:                          doc.GrantType,
 			ResponseType:                       doc.ResponseType,
 			Scope:                              doc.Scope,
-			AuthorizationDetails:               doc.AuthorizationDetails,
 			IssuerAuthCode:                     doc.IssuerAuthCode,
 			IssuerToken:                        doc.IssuerToken,
 			OpState:                            doc.OpState,
 			UserPin:                            doc.UserPin,
 			IsPreAuthFlow:                      doc.IsPreAuthFlow,
 			PreAuthCode:                        doc.PreAuthCode,
-			ClaimDataID:                        doc.ClaimDataID,
 			State:                              doc.Status,
 			WebHookURL:                         doc.WebHookURL,
 			DID:                                doc.DID,
-			CredentialExpiresAt:                doc.CredentialExpiresAt,
-			PreAuthCodeExpiresAt:               doc.PreAuthCodeExpiresAt,
-			CredentialDescription:              doc.CredentialDescription,
-			CredentialName:                     doc.CredentialName,
 			WalletInitiatedIssuance:            doc.WalletInitiatedIssuance,
+			CredentialConfiguration:            doc.CredentialConfiguration,
 		},
 	}
 }

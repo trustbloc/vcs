@@ -452,14 +452,16 @@ func (c *Controller) initiateIssuance(
 		CredentialConfiguration:   make(map[string]oidc4ci.InitiateIssuanceCredentialConfiguration),
 	}
 
-	for credentialConfigurationID, multiCredentialIssuance := range req.CredentialConfiguration.AdditionalProperties {
-		issuanceReq.CredentialConfiguration[credentialConfigurationID] = oidc4ci.InitiateIssuanceCredentialConfiguration{
-			ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
-			ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
-			CredentialTemplateId:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
-			CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
-			CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
-			CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
+	if req.CredentialConfiguration != nil {
+		for credentialConfigurationID, multiCredentialIssuance := range req.CredentialConfiguration.AdditionalProperties {
+			issuanceReq.CredentialConfiguration[credentialConfigurationID] = oidc4ci.InitiateIssuanceCredentialConfiguration{
+				ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
+				ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
+				CredentialTemplateId:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
+				CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
+				CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
+				CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
+			}
 		}
 	}
 
@@ -652,9 +654,8 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 	}
 
 	var authorizationDetailsDTOList []common.AuthorizationDetails
-	if exchangeAuthorizationCodeResult.AuthorizationDetails != nil {
-		authorizationDetailsDTO := exchangeAuthorizationCodeResult.AuthorizationDetails.ToDTO()
-		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+	for _, ad := range exchangeAuthorizationCodeResult.AuthorizationDetails {
+		authorizationDetailsDTOList = append(authorizationDetailsDTOList, ad.ToDTO())
 	}
 
 	return util.WriteOutput(ctx)(
@@ -709,7 +710,8 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return err
 	}
 
-	vcFormat, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(body.Format)))
+	requestedFormat := lo.FromPtr(body.Format)
+	_, err := common.ValidateVCFormat(common.VCFormat(requestedFormat))
 	if err != nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
@@ -721,7 +723,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		&oidc4ci.PrepareCredential{
 			TxID:             oidc4ci.TxID(body.TxId),
 			CredentialTypes:  body.Types,
-			CredentialFormat: vcFormat,
+			CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
 			DID:              lo.FromPtr(body.Did),
 			AudienceClaim:    body.AudienceClaim,
 			HashedToken:      body.HashedToken,
