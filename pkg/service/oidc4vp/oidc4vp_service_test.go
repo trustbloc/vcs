@@ -263,7 +263,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	trustRegistry := NewMockTrustRegistryService(gomock.NewController(t))
+	trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
 
 	vp, pd, issuer, vdr, loader := newVPWithPD(t, w)
 
@@ -275,7 +275,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		ProfileService:       profileService,
 		DocumentLoader:       loader,
 		VDR:                  vdr,
-		TrustRegistryService: trustRegistry,
+		TrustRegistry:        trustRegistry,
 	})
 
 	txManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -307,7 +307,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	presentationVerifier.EXPECT().VerifyPresentation(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil, nil, nil)
 
-	trustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	trustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil)
 
 	t.Run("Success without custom claims", func(t *testing.T) {
@@ -335,7 +335,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
-			TrustRegistryService: trustRegistry,
+			TrustRegistry:        trustRegistry,
 		})
 
 		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -410,7 +410,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       testLoader,
 			VDR:                  combinedDIDResolver,
-			TrustRegistryService: trustRegistry,
+			TrustRegistry:        trustRegistry,
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -533,7 +533,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       testLoader,
 			VDR:                  combinedDIDResolver,
-			TrustRegistryService: trustRegistry,
+			TrustRegistry:        trustRegistry,
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -739,7 +739,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
-			TrustRegistryService: trustRegistry,
+			TrustRegistry:        trustRegistry,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -787,7 +787,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
-			TrustRegistryService: trustRegistry,
+			TrustRegistry:        trustRegistry,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
@@ -804,8 +804,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Trust Registry error", func(t *testing.T) {
-		errTrustRegistry := NewMockTrustRegistryService(gomock.NewController(t))
-		errTrustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		errTrustRegistry := NewMockTrustRegistry(gomock.NewController(t))
+		errTrustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return(errors.New("validate error"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
@@ -816,7 +816,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
-			TrustRegistryService: errTrustRegistry,
+			TrustRegistry:        errTrustRegistry,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",

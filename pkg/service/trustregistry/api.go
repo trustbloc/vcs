@@ -15,6 +15,35 @@ import (
 
 var ErrInteractionRestricted = errors.New("interaction restricted")
 
+// ValidateIssuance requests evaluation of the given policy to validate that the wallet has satisfied attestation
+// requirements.
+type ValidateIssuance interface {
+	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, data *ValidateIssuanceData) error
+}
+
+type ValidateIssuanceData struct {
+	AttestationVP   string
+	CredentialTypes []string
+	Nonce           string
+}
+
+// ValidatePresentation requests evaluation of the given policy to validate that the presented credential is presented
+// as per policy (by type, by issuer DID, etc.).
+type ValidatePresentation interface {
+	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, data *ValidatePresentationData) error
+}
+
+type ValidatePresentationData struct {
+	AttestationVP      string
+	CredentialMetadata []CredentialMetadata
+}
+
+// ServiceInterface defines an interface for Trust Registry service.
+type ServiceInterface interface {
+	ValidateIssuance
+	ValidatePresentation
+}
+
 // CredentialMetadata represents metadata of matched credentials for policy evaluation.
 type CredentialMetadata struct {
 	// Credential ID
@@ -47,11 +76,4 @@ type PresentationPolicyEvaluationRequest struct {
 type PolicyEvaluationResponse struct {
 	Allowed bool                   `json:"allowed"`
 	Payload map[string]interface{} `json:"payload,omitempty"`
-}
-
-// ServiceInterface defines an interface for client attestation service. The task of service is to validate and confirm
-// the device binding and authentication of the client instance by validating attestation VP and evaluating policy.
-type ServiceInterface interface {
-	ValidateIssuance(ctx context.Context, profile *profileapi.Issuer, attestationVP string, credentialTypes []string) error            //nolint: lll
-	ValidatePresentation(ctx context.Context, profile *profileapi.Verifier, attestationVP string, metadata []CredentialMetadata) error //nolint: lll
 }

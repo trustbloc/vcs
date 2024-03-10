@@ -718,7 +718,7 @@ func buildEchoHandler(
 		KMSRegistry:                   kmsRegistry,
 		CryptoJWTSigner:               vcCrypto,
 		JSONSchemaValidator:           jsonSchemaValidator,
-		TrustRegistryService:          trustRegistryService,
+		TrustRegistry:                 trustRegistryService,
 		AckService:                    ackService,
 	})
 	if err != nil {
@@ -952,7 +952,7 @@ func buildEchoHandler(
 		DocumentLoader:           documentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,
-		TrustRegistryService:     trustRegistryService,
+		TrustRegistry:            trustRegistryService,
 		RedirectURL:              conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
 		TokenLifetime:            15 * time.Minute,
 		Metrics:                  metrics,
