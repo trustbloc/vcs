@@ -671,8 +671,10 @@ func (s *Service) checkPolicy(
 	if profile.Checks.Policy.PolicyURL != "" {
 		var credentialTypes []string
 
-		if tx.CredentialTemplate != nil {
-			credentialTypes = []string{tx.CredentialTemplate.Type}
+		for _, credentialConfig := range tx.CredentialConfiguration {
+			if credentialConfig.CredentialTemplate != nil {
+				credentialTypes = []string{credentialConfig.CredentialTemplate.Type}
+			}
 		}
 
 		if err := s.trustRegistry.ValidateIssuance(
