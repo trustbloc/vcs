@@ -51,15 +51,7 @@ func (s *Service) ExchangeAuthorizationCode(
 		return nil, e
 	}
 
-	var credentialTypes []string
-
-	for _, credentialConfiguration := range tx.CredentialConfiguration {
-		if credentialConfiguration.CredentialTemplate != nil {
-			credentialTypes = append(credentialTypes, credentialConfiguration.CredentialTemplate.Type)
-		}
-	}
-
-	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion, credentialTypes); err != nil {
+	if err = s.checkPolicy(ctx, profile, tx, clientAssertionType, clientAssertion); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
 	}

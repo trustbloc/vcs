@@ -28,6 +28,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 func TestService_PushAuthorizationDetails(t *testing.T) {
@@ -1726,6 +1727,69 @@ func TestValidatePreAuthCode(t *testing.T) {
 		assert.NotNil(t, resp)
 	})
 
+	t.Run("success with policy check", func(t *testing.T) {
+		profileService := NewMockProfileService(gomock.NewController(t))
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+		trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
+
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			ProfileService:   profileService,
+			TrustRegistry:    trustRegistry,
+			TransactionStore: storeMock,
+			EventService:     eventMock,
+			EventTopic:       spi.IssuerEventTopic,
+		})
+		assert.NoError(t, err)
+
+		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+			Return(&profileapi.Issuer{
+				OIDCConfig: &profileapi.OIDCConfig{
+					PreAuthorizedGrantAnonymousAccessSupported: true,
+					TokenEndpointAuthMethodsSupported:          []string{"attest_jwt_client_auth"},
+				},
+				Checks: profileapi.IssuanceChecks{
+					Policy: profileapi.PolicyCheck{
+						PolicyURL: "https://localhost/policy",
+					},
+				},
+			}, nil)
+
+		trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(),
+			&trustregistry.ValidateIssuanceData{
+				AttestationVP:   "attestation_vp_jwt",
+				CredentialTypes: []string{"UniversityDegreeCredential"},
+				Nonce:           "1234",
+			},
+		).Return(nil)
+
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
+
+				return nil
+			})
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode:          "1234",
+				PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+				UserPin:              "",
+				State:                oidc4ci.TransactionStateIssuanceInitiated,
+				CredentialTemplate: &profileapi.CredentialTemplate{
+					Type: "UniversityDegreeCredential",
+				},
+			},
+		}, nil)
+		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "attest_jwt_client_auth",
+			"attestation_vp_jwt")
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+	})
+
 	t.Run("error with pin during publishing", func(t *testing.T) {
 		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
@@ -1942,38 +2006,6 @@ func TestValidatePreAuthCode(t *testing.T) {
 		assert.Nil(t, resp)
 	})
 
-	t.Run("fail to authenticate client", func(t *testing.T) {
-		profileService := NewMockProfileService(gomock.NewController(t))
-		trustRegistryService := NewMockTrustRegistryService(gomock.NewController(t))
-		storeMock := NewMockTransactionStore(gomock.NewController(t))
-
-		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			ProfileService:       profileService,
-			TrustRegistryService: trustRegistryService,
-			TransactionStore:     storeMock,
-		})
-		assert.NoError(t, err)
-
-		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{
-			OIDCConfig: &profileapi.OIDCConfig{
-				TokenEndpointAuthMethodsSupported: []string{"attest_jwt_client_auth"},
-			},
-			Checks: profileapi.IssuanceChecks{
-				Policy: profileapi.PolicyCheck{
-					PolicyURL: "https://localhost/policy",
-				},
-			},
-		}, nil)
-
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{}, nil)
-
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "client_id",
-			"attest_jwt_client_auth", "")
-
-		assert.ErrorContains(t, err, "client_assertion is required")
-		assert.Nil(t, resp)
-	})
-
 	t.Run("valid pre auth code", func(t *testing.T) {
 		profileService := NewMockProfileService(gomock.NewController(t))
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
@@ -2051,6 +2083,185 @@ func TestValidatePreAuthCode(t *testing.T) {
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
 		assert.ErrorContains(t, err, "store update error")
 		assert.Nil(t, resp)
+	})
+
+	t.Run("check policy failure", func(t *testing.T) {
+		t.Run("no client assertion type specified", func(t *testing.T) {
+			profileService := NewMockProfileService(gomock.NewController(t))
+			storeMock := NewMockTransactionStore(gomock.NewController(t))
+			trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
+
+			srv, err := oidc4ci.NewService(&oidc4ci.Config{
+				ProfileService:   profileService,
+				TrustRegistry:    trustRegistry,
+				TransactionStore: storeMock,
+			})
+			assert.NoError(t, err)
+
+			profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+				Return(&profileapi.Issuer{
+					OIDCConfig: &profileapi.OIDCConfig{
+						PreAuthorizedGrantAnonymousAccessSupported: true,
+						TokenEndpointAuthMethodsSupported:          []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						Policy: profileapi.PolicyCheck{
+							PolicyURL: "https://localhost/policy",
+						},
+					},
+				}, nil)
+
+			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+				TransactionData: oidc4ci.TransactionData{
+					PreAuthCode:          "1234",
+					PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+					UserPin:              "",
+					State:                oidc4ci.TransactionStateIssuanceInitiated,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						Type: "UniversityDegreeCredential",
+					},
+				},
+			}, nil)
+
+			resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "attestation_vp_jwt")
+			assert.ErrorContains(t, err, "no client assertion type specified")
+			assert.Nil(t, resp)
+		})
+		t.Run("only supported client assertion type is attest_jwt_client_auth", func(t *testing.T) {
+			profileService := NewMockProfileService(gomock.NewController(t))
+			storeMock := NewMockTransactionStore(gomock.NewController(t))
+			trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
+
+			srv, err := oidc4ci.NewService(&oidc4ci.Config{
+				ProfileService:   profileService,
+				TrustRegistry:    trustRegistry,
+				TransactionStore: storeMock,
+			})
+			assert.NoError(t, err)
+
+			profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+				Return(&profileapi.Issuer{
+					OIDCConfig: &profileapi.OIDCConfig{
+						PreAuthorizedGrantAnonymousAccessSupported: true,
+						TokenEndpointAuthMethodsSupported:          []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						Policy: profileapi.PolicyCheck{
+							PolicyURL: "https://localhost/policy",
+						},
+					},
+				}, nil)
+
+			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+				TransactionData: oidc4ci.TransactionData{
+					PreAuthCode:          "1234",
+					PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+					UserPin:              "",
+					State:                oidc4ci.TransactionStateIssuanceInitiated,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						Type: "UniversityDegreeCredential",
+					},
+				},
+			}, nil)
+
+			resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "invalid_assertion_type",
+				"attestation_vp_jwt")
+			assert.ErrorContains(t, err, "only supported client assertion type is attest_jwt_client_auth")
+			assert.Nil(t, resp)
+		})
+		t.Run("client_assertion is required", func(t *testing.T) {
+			profileService := NewMockProfileService(gomock.NewController(t))
+			storeMock := NewMockTransactionStore(gomock.NewController(t))
+			trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
+
+			srv, err := oidc4ci.NewService(&oidc4ci.Config{
+				ProfileService:   profileService,
+				TrustRegistry:    trustRegistry,
+				TransactionStore: storeMock,
+			})
+			assert.NoError(t, err)
+
+			profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+				Return(&profileapi.Issuer{
+					OIDCConfig: &profileapi.OIDCConfig{
+						PreAuthorizedGrantAnonymousAccessSupported: true,
+						TokenEndpointAuthMethodsSupported:          []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						Policy: profileapi.PolicyCheck{
+							PolicyURL: "https://localhost/policy",
+						},
+					},
+				}, nil)
+
+			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+				TransactionData: oidc4ci.TransactionData{
+					PreAuthCode:          "1234",
+					PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+					UserPin:              "",
+					State:                oidc4ci.TransactionStateIssuanceInitiated,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						Type: "UniversityDegreeCredential",
+					},
+				},
+			}, nil)
+
+			resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "attest_jwt_client_auth",
+				"")
+			assert.ErrorContains(t, err, "client_assertion is required")
+			assert.Nil(t, resp)
+		})
+		t.Run("validate issuance error", func(t *testing.T) {
+			profileService := NewMockProfileService(gomock.NewController(t))
+			storeMock := NewMockTransactionStore(gomock.NewController(t))
+			trustRegistry := NewMockTrustRegistry(gomock.NewController(t))
+
+			srv, err := oidc4ci.NewService(&oidc4ci.Config{
+				ProfileService:   profileService,
+				TrustRegistry:    trustRegistry,
+				TransactionStore: storeMock,
+			})
+			assert.NoError(t, err)
+
+			profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
+				Return(&profileapi.Issuer{
+					OIDCConfig: &profileapi.OIDCConfig{
+						PreAuthorizedGrantAnonymousAccessSupported: true,
+						TokenEndpointAuthMethodsSupported:          []string{"attest_jwt_client_auth"},
+					},
+					Checks: profileapi.IssuanceChecks{
+						Policy: profileapi.PolicyCheck{
+							PolicyURL: "https://localhost/policy",
+						},
+					},
+				}, nil)
+
+			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(errors.New("validate issuance error"))
+
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+				TransactionData: oidc4ci.TransactionData{
+					PreAuthCode:          "1234",
+					PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
+					UserPin:              "",
+					State:                oidc4ci.TransactionStateIssuanceInitiated,
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						Type: "UniversityDegreeCredential",
+					},
+				},
+			}, nil)
+
+			resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "attest_jwt_client_auth",
+				"attestation_vp_jwt")
+			assert.ErrorContains(t, err, "oidc-client-authentication-failed: validate issuance error")
+			assert.Nil(t, resp)
+		})
 	})
 }
 

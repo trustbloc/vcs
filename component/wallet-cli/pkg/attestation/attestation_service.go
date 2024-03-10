@@ -102,7 +102,7 @@ func NewService(
 	}, nil
 }
 
-func (s *Service) GetAttestation(ctx context.Context) (string, error) {
+func (s *Service) GetAttestation(ctx context.Context, audience, nonce string) (string, error) {
 	b, err := s.store.Get(attestationVCKey)
 	if err != nil {
 		if errors.Is(err, storageapi.ErrDataNotFound) {
@@ -135,7 +135,19 @@ func (s *Service) GetAttestation(ctx context.Context) (string, error) {
 
 	attestationVP.ID = uuid.New().String()
 
-	claims, err := attestationVP.JWTClaims([]string{}, false)
+	if nonce != "" {
+		attestationVP.CustomFields = map[string]interface{}{
+			"nonce": nonce,
+		}
+	}
+
+	var aud []string
+
+	if audience != "" {
+		aud = []string{audience}
+	}
+
+	claims, err := attestationVP.JWTClaims(aud, false)
 	if err != nil {
 		return "", fmt.Errorf("get attestation claims: %w", err)
 	}

@@ -29,20 +29,23 @@ import (
 
 const WalletAttestationVCType = "WalletAttestationCredential"
 
+var _ ServiceInterface = (*Service)(nil)
+
 var logger = log.New("client-attestation")
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// Config defines configuration for Service.
+// Config defines dependencies for Service.
 type Config struct {
 	HTTPClient     httpClient
 	DocumentLoader ld.DocumentLoader
 	ProofChecker   verifiable.CombinedProofChecker
 }
 
-// Service implements attestation functionality for OAuth 2.0 Attestation-Based Client Authentication.
+// Service requests policy evaluation from Trust Registry to validate that the wallet has satisfied
+// attestation requirements.
 type Service struct {
 	httpClient     httpClient
 	documentLoader ld.DocumentLoader
@@ -62,15 +65,14 @@ func NewService(config *Config) *Service {
 func (s *Service) ValidateIssuance(
 	ctx context.Context,
 	profile *profileapi.Issuer,
-	attestationVP string,
-	credentialTypes []string,
+	data *ValidateIssuanceData,
 ) error {
 	logger.Debugc(ctx, "validate issuance",
 		zap.String("profileID", profile.ID),
 		zap.String("profileVersion", profile.Version),
 		zap.String("policyURL", profile.Checks.Policy.PolicyURL),
-		zap.String("attestationVP", attestationVP),
-		zap.Strings("credentialTypes", credentialTypes),
+		zap.String("attestationVP", data.AttestationVP),
+		zap.Strings("credentialTypes", data.CredentialTypes),
 	)
 
 	if profile.Checks.Policy.PolicyURL == "" {
@@ -79,11 +81,15 @@ func (s *Service) ValidateIssuance(
 
 	req := &IssuancePolicyEvaluationRequest{
 		IssuerDID:       profile.SigningDID.DID,
-		CredentialTypes: credentialTypes,
+		CredentialTypes: data.CredentialTypes,
 	}
 
-	if attestationVP != "" {
-		attestationVCs, err := s.parseAttestationVP(attestationVP)
+	if data.AttestationVP != "" {
+		if err := verifyAudience(data.AttestationVP, profile.SigningDID.DID); err != nil {
+			return fmt.Errorf("verify audience: %w", err)
+		}
+
+		attestationVCs, err := s.parseAttestationVP(data.AttestationVP, data.Nonce, true)
 		if err != nil {
 			return err
 		}
@@ -103,6 +109,25 @@ func (s *Service) ValidateIssuance(
 
 	if !resp.Allowed {
 		return ErrInteractionRestricted
+	}
+
+	return nil
+}
+
+func verifyAudience(jwtVP string, issuerDID string) error {
+	token, _, err := jwt.Parse(jwtVP)
+	if err != nil {
+		return fmt.Errorf("parse jwt: %w", err)
+	}
+
+	var claims verifiable.JWTCredClaims
+
+	if err = token.DecodeClaims(&claims); err != nil {
+		return fmt.Errorf("decode claims: %w", err)
+	}
+
+	if !claims.Audience.Contains(issuerDID) {
+		return fmt.Errorf("invalid audience")
 	}
 
 	return nil
@@ -114,14 +139,13 @@ func (s *Service) ValidateIssuance(
 func (s *Service) ValidatePresentation(
 	ctx context.Context,
 	profile *profileapi.Verifier,
-	attestationVP string,
-	metadata []CredentialMetadata,
+	data *ValidatePresentationData,
 ) error {
 	logger.Debugc(ctx, "validate presentation",
 		zap.String("profileID", profile.ID),
 		zap.String("profileVersion", profile.Version),
 		zap.String("policyURL", profile.Checks.Policy.PolicyURL),
-		zap.String("attestationVP", attestationVP),
+		zap.String("attestationVP", data.AttestationVP),
 	)
 
 	if profile.Checks.Policy.PolicyURL == "" {
@@ -130,11 +154,11 @@ func (s *Service) ValidatePresentation(
 
 	req := &PresentationPolicyEvaluationRequest{
 		VerifierDID:        profile.SigningDID.DID,
-		CredentialMetadata: metadata,
+		CredentialMetadata: data.CredentialMetadata,
 	}
 
-	if attestationVP != "" {
-		attestationVCs, err := s.parseAttestationVP(attestationVP)
+	if data.AttestationVP != "" {
+		attestationVCs, err := s.parseAttestationVP(data.AttestationVP, "", false)
 		if err != nil {
 			return err
 		}
@@ -159,7 +183,7 @@ func (s *Service) ValidatePresentation(
 	return nil
 }
 
-func (s *Service) parseAttestationVP(jwtVP string) ([]string, error) {
+func (s *Service) parseAttestationVP(jwtVP, nonce string, requireNonce bool) ([]string, error) {
 	attestationVP, err := verifiable.ParsePresentation(
 		[]byte(jwtVP),
 		// The verification of proof is conducted manually, along with an extra verification to ensure that signer of
@@ -169,6 +193,12 @@ func (s *Service) parseAttestationVP(jwtVP string) ([]string, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("parse attestation vp: %w", err)
+	}
+
+	if requireNonce {
+		if attestationVP.CustomFields["nonce"] != nonce {
+			return nil, fmt.Errorf("invalid nonce")
+		}
 	}
 
 	attestationVCs := make([]string, 0)

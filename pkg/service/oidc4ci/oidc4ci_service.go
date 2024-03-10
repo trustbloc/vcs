@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,trustRegistryService=MockTrustRegistryService,ackStore=MockAckStore,ackService=MockAckService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,trustRegistry=MockTrustRegistry,ackStore=MockAckStore,ackService=MockAckService
 
 package oidc4ci
 
@@ -31,12 +31,14 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 const (
-	defaultGrantType    = "authorization_code"
-	defaultResponseType = "token"
-	defaultCtx          = "https://www.w3.org/2018/credentials/v1"
+	defaultGrantType        = "authorization_code"
+	defaultResponseType     = "token"
+	defaultCtx              = "https://www.w3.org/2018/credentials/v1"
+	attestJWTClientAuthType = "attest_jwt_client_auth"
 )
 
 var _ ServiceInterface = (*Service)(nil)
@@ -119,13 +121,8 @@ type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
-type trustRegistryService interface {
-	ValidateIssuance(
-		ctx context.Context,
-		profile *profileapi.Issuer,
-		attestationVP string,
-		credentialTypes []string,
-	) error
+type trustRegistry interface {
+	trustregistry.ValidateIssuance
 }
 
 type ackStore interface {
@@ -162,7 +159,7 @@ type Config struct {
 	KMSRegistry                   kmsRegistry
 	CryptoJWTSigner               cryptoJWTSigner
 	JSONSchemaValidator           jsonSchemaValidator
-	TrustRegistryService          trustRegistryService
+	TrustRegistry                 trustRegistry
 	AckService                    ackService
 }
 
@@ -183,7 +180,7 @@ type Service struct {
 	kmsRegistry                   kmsRegistry
 	cryptoJWTSigner               cryptoJWTSigner
 	schemaValidator               jsonSchemaValidator
-	trustRegistryService          trustRegistryService
+	trustRegistry                 trustRegistry
 	ackService                    ackService
 }
 
@@ -205,7 +202,7 @@ func NewService(config *Config) (*Service, error) {
 		kmsRegistry:                   config.KMSRegistry,
 		cryptoJWTSigner:               config.CryptoJWTSigner,
 		schemaValidator:               config.JSONSchemaValidator,
-		trustRegistryService:          config.TrustRegistryService,
+		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
 	}, nil
 }
@@ -620,18 +617,6 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		}
 	}
 
-	var credentialTypes []string
-
-	for _, credentialConfiguration := range tx.CredentialConfiguration {
-		if credentialConfiguration.CredentialTemplate != nil {
-			credentialTypes = append(credentialTypes, credentialConfiguration.CredentialTemplate.Type)
-		}
-	}
-
-	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion, credentialTypes); err != nil {
-		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
-	}
-
 	newState := TransactionStatePreAuthCodeValidated
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		return nil, err
@@ -652,6 +637,10 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidPin, fmt.Errorf("invalid pin"))
 	}
 
+	if err = s.checkPolicy(ctx, profile, tx, clientAssertionType, clientAssertion); err != nil {
+		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+	}
+
 	if err = s.store.Update(ctx, tx); err != nil {
 		return nil, err
 	}
@@ -661,6 +650,64 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	}
 
 	return tx, nil
+}
+
+func (s *Service) checkPolicy(
+	ctx context.Context,
+	profile *profileapi.Issuer,
+	tx *Transaction,
+	clientAssertionType,
+	clientAssertion string,
+) error {
+	if profile.OIDCConfig == nil ||
+		!lo.Contains(profile.OIDCConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType) {
+		return nil
+	}
+
+	if err := s.validateClientAssertionParams(clientAssertionType, clientAssertion); err != nil {
+		return err
+	}
+
+	if profile.Checks.Policy.PolicyURL != "" {
+		var credentialTypes []string
+
+		if tx.CredentialTemplate != nil {
+			credentialTypes = []string{tx.CredentialTemplate.Type}
+		}
+
+		if err := s.trustRegistry.ValidateIssuance(
+			ctx,
+			profile,
+			&trustregistry.ValidateIssuanceData{
+				AttestationVP:   clientAssertion,
+				CredentialTypes: credentialTypes,
+				Nonce:           tx.PreAuthCode,
+			},
+		); err != nil {
+			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) validateClientAssertionParams(clientAssertionType, clientAssertion string) error {
+	if clientAssertionType == "" {
+		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
+			errors.New("no client assertion type specified"))
+	}
+
+	if clientAssertionType != attestJWTClientAuthType {
+		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
+			errors.New("only supported client assertion type is attest_jwt_client_auth"))
+	}
+
+	if clientAssertion == "" {
+		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
+			errors.New("client_assertion is required"))
+	}
+
+	return nil
 }
 
 func (s *Service) PrepareCredential( //nolint:funlen
