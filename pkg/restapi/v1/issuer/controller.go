@@ -772,6 +772,11 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}, nil)
 }
 
+func (c *Controller) PrepareBatchCredential(ctx echo.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 // CredentialIssuanceHistory returns Credential Issuance history.
 // GET /issuer/profiles/{profileID}/issued-credentials.
 func (c *Controller) CredentialIssuanceHistory(e echo.Context, profileID string) error {

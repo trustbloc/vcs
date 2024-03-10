@@ -623,7 +623,7 @@
               }
             },
             "CrudeProductCredentialIdentifier": {
-              "format": "jwt_vc_json-ld",
+              "format": "jwt_vc_json",
               "scope": "CrudeProductCredential_001",
               "credential_definition": {
                 "type": [

@@ -166,6 +166,7 @@ Feature: OIDC4VC REST API
     Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     Then User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema
 
+  @oidc4vc_rest_preauth_schema_invalid_field_in_pd
   Scenario: OIDC credential issuance and verification Pre Auth flow (Invalid Field in Presentation Definition)
     Given Profile "i_myprofile_ud_es256k_jwt/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "CrudeProductCredential" with templateID "crudeProductCredentialTemplateID"

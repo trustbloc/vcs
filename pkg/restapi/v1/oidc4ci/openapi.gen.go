@@ -78,6 +78,11 @@ type CredentialRequest struct {
 	Types []string `json:"types"`
 }
 
+// Model for OIDC batch Credential request.
+type CredentialRequestBatch struct {
+	CredentialRequests []CredentialRequest `json:"credential_requests"`
+}
+
 // Model for OIDC Credential response.
 type CredentialResponse struct {
 	// A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
@@ -92,6 +97,25 @@ type CredentialResponse struct {
 
 	// JSON string denoting the format of the issued Credential.
 	Format string `json:"format"`
+
+	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+	NotificationId *string `json:"notification_id,omitempty"`
+}
+
+// Model for OIDC Batch Credential response.
+type CredentialResponseBatch struct {
+	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+	CNonce *string `json:"c_nonce,omitempty"`
+
+	// JSON integer denoting the lifetime in seconds of the c_nonce.
+	CNonceExpiresIn     *int          `json:"c_nonce_expires_in,omitempty"`
+	CredentialResponses []interface{} `json:"credential_responses"`
+}
+
+// Credential element Batch Credential Response.
+type CredentialResponseBatchCredential struct {
+	// Contains issued Credential.
+	Credential interface{} `json:"credential"`
 
 	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
 	NotificationId *string `json:"notification_id,omitempty"`
@@ -289,6 +313,9 @@ type OidcAuthorizeParams struct {
 	ClientIdScheme *string `form:"client_id_scheme,omitempty" json:"client_id_scheme,omitempty"`
 }
 
+// OidcCredentialBatchJSONBody defines parameters for OidcCredentialBatch.
+type OidcCredentialBatchJSONBody = CredentialRequestBatch
+
 // OidcCredentialJSONBody defines parameters for OidcCredential.
 type OidcCredentialJSONBody = CredentialRequest
 
@@ -307,6 +334,9 @@ type OidcRedirectParams struct {
 // OidcRegisterClientJSONBody defines parameters for OidcRegisterClient.
 type OidcRegisterClientJSONBody = RegisterOAuthClientRequest
 
+// OidcCredentialBatchJSONRequestBody defines body for OidcCredentialBatch for application/json ContentType.
+type OidcCredentialBatchJSONRequestBody = OidcCredentialBatchJSONBody
+
 // OidcCredentialJSONRequestBody defines body for OidcCredential for application/json ContentType.
 type OidcCredentialJSONRequestBody = OidcCredentialJSONBody
 
@@ -321,6 +351,9 @@ type ServerInterface interface {
 	// OIDC Authorization Request
 	// (GET /oidc/authorize)
 	OidcAuthorize(ctx echo.Context, params OidcAuthorizeParams) error
+	// OIDC Batch Credential
+	// (POST /oidc/batch_credential)
+	OidcCredentialBatch(ctx echo.Context) error
 	// OIDC Credential
 	// (POST /oidc/credential)
 	OidcCredential(ctx echo.Context) error
@@ -441,6 +474,15 @@ func (w *ServerInterfaceWrapper) OidcAuthorize(ctx echo.Context) error {
 	return err
 }
 
+// OidcCredentialBatch converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcCredentialBatch(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OidcCredentialBatch(ctx)
+	return err
+}
+
 // OidcCredential converts echo context to params.
 func (w *ServerInterfaceWrapper) OidcCredential(ctx echo.Context) error {
 	var err error
@@ -555,6 +597,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/oidc/authorize", wrapper.OidcAuthorize)
+	router.POST(baseURL+"/oidc/batch_credential", wrapper.OidcCredentialBatch)
 	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/notification", wrapper.OidcAcknowledgement)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)
