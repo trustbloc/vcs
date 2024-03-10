@@ -264,18 +264,25 @@ func (s *Service) checkScopes(
 	txCredentialConfigurations map[string]*TxCredentialConfiguration,
 	requestedCredentialConfigurationIDsViaAuthDetails map[string]struct{},
 ) ([]string, error) {
+	var validScopes []string
+
 	for _, reqScope := range reqScopes {
 		if !lo.Contains(txScope, reqScope) {
 			return nil, resterr.ErrInvalidScope
 		}
+
+		if !lo.Contains(profile.OIDCConfig.ScopesSupported, reqScope) {
+			// Credential Issuers MUST ignore unknown scope values in a request.
+			continue
+		}
+
+		validScopes = append(validScopes, reqScope)
 	}
 
 	var credentialsConfigurationSupported map[string]*profileapi.CredentialsConfigurationSupported
 	if meta := profile.CredentialMetaData; meta != nil {
 		credentialsConfigurationSupported = meta.CredentialsConfigurationSupported
 	}
-
-	var validScopes []string
 
 	// Check each request scope.
 	for _, reqScope := range reqScopes {
@@ -316,15 +323,10 @@ func (s *Service) checkScopes(
 				return nil, resterr.ErrCredentialTypeNotSupported
 			}
 
-			// Credential Issuers MUST ignore unknown scope values in a request.
 			validScopes = append(validScopes, reqScope)
 			requestedCredentialConfigurationIDsViaAuthDetails[credentialConfigurationID] = struct{}{}
 			break
 		}
-	}
-
-	if len(validScopes) == 0 {
-		return nil, resterr.ErrInvalidScope
 	}
 
 	return validScopes, nil
@@ -620,8 +622,10 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 
 	var credentialTypes []string
 
-	if tx.CredentialTemplate != nil {
-		credentialTypes = append(credentialTypes, tx.CredentialTemplate.Type)
+	for _, credentialConfiguration := range tx.CredentialConfiguration {
+		if credentialConfiguration.CredentialTemplate != nil {
+			credentialTypes = append(credentialTypes, credentialConfiguration.CredentialTemplate.Type)
+		}
 	}
 
 	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion, credentialTypes); err != nil {
@@ -634,8 +638,10 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	}
 	tx.State = newState
 
-	if tx.PreAuthCodeExpiresAt.UTC().Before(time.Now().UTC()) {
-		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorization code"))
+	for _, credentialConfiguration := range tx.CredentialConfiguration {
+		if credentialConfiguration.PreAuthCodeExpiresAt.UTC().Before(time.Now().UTC()) {
+			return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorization code"))
+		}
 	}
 
 	if tx.PreAuthCode != preAuthorizedCode {
@@ -666,11 +672,34 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		return nil, fmt.Errorf("get tx: %w", err)
 	}
 
-	if tx.CredentialTemplate == nil {
-		s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTemplateNotConfigured)
+	var (
+		credentialConfigurationID string
+		txCredentialConfiguration *TxCredentialConfiguration
+	)
+	for _, credentialConfiguration := range tx.CredentialConfiguration {
+		if credentialConfiguration.OIDCCredentialFormat != req.CredentialFormat {
+			continue
+		}
 
-		return nil, resterr.ErrCredentialTemplateNotConfigured
+		if credentialConfiguration.CredentialTemplate == nil {
+			s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTemplateNotConfigured)
+
+			return nil, resterr.ErrCredentialTemplateNotConfigured
+		}
+
+		if lo.Contains(req.CredentialTypes, credentialConfiguration.CredentialTemplate.Type) {
+			txCredentialConfiguration = credentialConfiguration
+		}
 	}
+
+	if txCredentialConfiguration == nil {
+		s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTypeNotSupported)
+
+		return nil, resterr.ErrCredentialTypeNotSupported
+	}
+
+	// Remove relevant record from tx.CredentialConfiguration
+	delete(tx.CredentialConfiguration, credentialConfigurationID)
 
 	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, tx.ProfileID, tx.ProfileVersion)
 
@@ -683,7 +712,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		return nil, e
 	}
 
-	claimData, err := s.getClaimsData(ctx, tx)
+	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
 	if err != nil {
 		e := fmt.Errorf("get claims data: %w", err)
 
@@ -692,7 +721,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		return nil, e
 	}
 
-	contexts := tx.CredentialTemplate.Contexts
+	contexts := txCredentialConfiguration.CredentialTemplate.Contexts
 	if len(contexts) == 0 {
 		contexts = []string{defaultCtx}
 	}
@@ -701,22 +730,22 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	vcc := verifiable.CredentialContents{
 		Context: contexts,
 		ID:      uuid.New().URN(),
-		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
+		Types:   []string{"VerifiableCredential", txCredentialConfiguration.CredentialTemplate.Type},
 		Issuer:  &verifiable.Issuer{ID: tx.DID},
 		Issued:  util.NewTime(time.Now()),
 	}
 
 	customFields := map[string]interface{}{}
 
-	if tx.CredentialDescription != "" {
-		customFields["description"] = tx.CredentialDescription
+	if txCredentialConfiguration.CredentialDescription != "" {
+		customFields["description"] = txCredentialConfiguration.CredentialDescription
 	}
-	if tx.CredentialName != "" {
-		customFields["name"] = tx.CredentialName
+	if txCredentialConfiguration.CredentialName != "" {
+		customFields["name"] = txCredentialConfiguration.CredentialName
 	}
 
-	if tx.CredentialExpiresAt != nil {
-		vcc.Expired = util.NewTime(*tx.CredentialExpiresAt)
+	if txCredentialConfiguration.CredentialExpiresAt != nil {
+		vcc.Expired = util.NewTime(*txCredentialConfiguration.CredentialExpiresAt)
 	}
 
 	if claimData != nil {
@@ -758,15 +787,17 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		return nil, errSendEvent
 	}
 
+	vcFormat, _ := common.ValidateVCFormat(common.VCFormat(txCredentialConfiguration.OIDCCredentialFormat))
+
 	return &PrepareCredentialResult{
 		ProfileID:               tx.ProfileID,
 		ProfileVersion:          tx.ProfileVersion,
 		Credential:              cred,
-		Format:                  tx.CredentialFormat,
-		OidcFormat:              tx.OIDCCredentialFormat,
+		Format:                  vcFormat,
+		OidcFormat:              txCredentialConfiguration.OIDCCredentialFormat,
 		Retry:                   false,
-		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
-		CredentialTemplate:      tx.CredentialTemplate,
+		EnforceStrictValidation: txCredentialConfiguration.CredentialTemplate.Checks.Strict,
+		CredentialTemplate:      txCredentialConfiguration.CredentialTemplate,
 		NotificationID:          ack,
 	}, nil
 }
@@ -774,9 +805,10 @@ func (s *Service) PrepareCredential( //nolint:funlen
 func (s *Service) getClaimsData(
 	ctx context.Context,
 	tx *Transaction,
+	txCredentialConfiguration *TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	if !tx.IsPreAuthFlow {
-		claims, err := s.requestClaims(ctx, tx)
+		claims, err := s.requestClaims(ctx, tx, txCredentialConfiguration)
 		if err != nil {
 			return nil, resterr.NewSystemError(resterr.IssuerSvcComponent, "RequestClaims", err)
 		}
@@ -784,7 +816,7 @@ func (s *Service) getClaimsData(
 		return claims, nil
 	}
 
-	tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID)
+	tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, txCredentialConfiguration.ClaimDataID)
 	if claimDataErr != nil {
 		return nil, resterr.NewSystemError(resterr.ClaimDataStoreComponent, "GetAndDelete", claimDataErr)
 	}
@@ -797,8 +829,12 @@ func (s *Service) getClaimsData(
 	return decryptedClaims, nil
 }
 
-func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[string]interface{}, error) {
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
+func (s *Service) requestClaims(
+	ctx context.Context,
+	tx *Transaction,
+	txCredentialConfiguration *TxCredentialConfiguration,
+) (map[string]interface{}, error) {
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, txCredentialConfiguration.ClaimEndpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -818,7 +854,7 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 			log.ReadRequestBodyError(logger, ioErr)
 		} else {
 			logger.Errorc(ctx, "Failed to fetch claims data",
-				log.WithURL(tx.ClaimEndpoint),
+				log.WithURL(txCredentialConfiguration.ClaimEndpoint),
 				log.WithHTTPStatus(resp.StatusCode),
 				log.WithResponse(b),
 			)
@@ -891,12 +927,13 @@ func (s *Service) sendFailedTransactionEvent(
 	}
 }
 
+// todo: align event pyload
 func createTxEventPayload(tx *Transaction) *EventPayload {
 	var credentialTemplateID string
 
-	if tx.CredentialTemplate != nil {
-		credentialTemplateID = tx.CredentialTemplate.ID
-	}
+	//if tx.CredentialTemplate != nil {
+	//	credentialTemplateID = tx.CredentialTemplate.ID
+	//}
 
 	return &EventPayload{
 		WebHook:              tx.WebHookURL,
@@ -905,9 +942,9 @@ func createTxEventPayload(tx *Transaction) *EventPayload {
 		OrgID:                tx.OrgID,
 		WalletInitiatedFlow:  tx.WalletInitiatedIssuance,
 		CredentialTemplateID: credentialTemplateID,
-		Format:               string(tx.CredentialFormat),
-		PinRequired:          tx.UserPin != "",
-		PreAuthFlow:          tx.IsPreAuthFlow,
+		//Format:               string(tx.CredentialFormat),
+		PinRequired: tx.UserPin != "",
+		PreAuthFlow: tx.IsPreAuthFlow,
 	}
 }
 

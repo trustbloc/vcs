@@ -95,6 +95,7 @@ type Flow struct {
 	credentialType             string
 	oidcCredentialFormat       vcsverifiable.OIDCFormat
 	clientID                   string
+	credentialConfigurationID  string
 	scopes                     []string
 	redirectURI                string
 	enableDiscoverableClientID bool
@@ -206,6 +207,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		credentialType:             o.credentialType,
 		oidcCredentialFormat:       o.oidcCredentialFormat,
 		clientID:                   o.clientID,
+		credentialConfigurationID:  o.credentialConfigurationID,
 		scopes:                     o.scopes,
 		redirectURI:                o.redirectURI,
 		enableDiscoverableClientID: o.enableDiscoverableClientID,
@@ -743,7 +745,7 @@ func (f *Flow) receiveVC(
 
 	b, err := json.Marshal(CredentialRequest{
 		Format: oidcCredentialFormat,
-		Types:  []string{"VerifiableCredential", f.credentialType},
+		Types:  []string{"VerifiableCredential", f.credentialType}, //todo: remove. Is not a part of spec
 		Proof:  *proof,
 	})
 	if err != nil {
@@ -882,6 +884,7 @@ func (f *Flow) getCredentialRequestOIDCCredentialFormat(
 
 	return "", errors.New("obtain OIDC credential format")
 }
+
 func (f *Flow) handleIssuanceAck(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credResponse *CredentialResponse,
@@ -959,7 +962,16 @@ func (f *Flow) getAuthorizationDetailsRequestBody(
 	res := make([]common.AuthorizationDetails, 0)
 
 	switch {
-	case credentialOfferResponse != nil: // Priority 1. Based on credentialConfigurationID.
+	case f.credentialConfigurationID != "": // Priority 1. Based on credentialConfigurationID.
+		res = append(res, common.AuthorizationDetails{
+			CredentialConfigurationId: &f.credentialConfigurationID,
+			CredentialDefinition:      nil,
+			Format:                    nil,
+			Locations:                 nil, // Not supported for now.
+			Type:                      "openid_credential",
+		})
+	// For FlowTypeWalletInitiated credentialOfferResponse might be empty.
+	case credentialOfferResponse != nil: // Priority 2. Based on credentialOfferResponse request all credentials from credential offer.
 		for _, credentialConfigurationID := range credentialOfferResponse.CredentialConfigurationIDs {
 			res = append(res, common.AuthorizationDetails{
 				CredentialConfigurationId: &credentialConfigurationID,
@@ -969,7 +981,7 @@ func (f *Flow) getAuthorizationDetailsRequestBody(
 				Type:                      "openid_credential",
 			})
 		}
-	case oidcCredentialFormat != "": // Priority 2. Based on credentialFormat.
+	case oidcCredentialFormat != "": // Priority 3. Based on credentialFormat.
 		res = append(res, common.AuthorizationDetails{
 			CredentialConfigurationId: nil,
 			CredentialDefinition: &common.CredentialDefinition{
@@ -1042,6 +1054,7 @@ type options struct {
 	credentialType             string
 	oidcCredentialFormat       vcsverifiable.OIDCFormat
 	clientID                   string
+	credentialConfigurationID  string
 	scopes                     []string
 	redirectURI                string
 	enableDiscoverableClientID bool
@@ -1135,5 +1148,11 @@ func WithPin(pin string) Opt {
 func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
 		opts.walletDIDIndex = idx
+	}
+}
+
+func WithCredentialConfigurationID(credentialConfigurationID string) Opt {
+	return func(opts *options) {
+		opts.credentialConfigurationID = credentialConfigurationID
 	}
 }

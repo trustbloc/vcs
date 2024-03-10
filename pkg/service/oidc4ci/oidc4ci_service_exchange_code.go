@@ -53,8 +53,10 @@ func (s *Service) ExchangeAuthorizationCode(
 
 	var credentialTypes []string
 
-	if tx.CredentialTemplate != nil {
-		credentialTypes = append(credentialTypes, tx.CredentialTemplate.Type)
+	for _, credentialConfiguration := range tx.CredentialConfiguration {
+		if credentialConfiguration.CredentialTemplate != nil {
+			credentialTypes = append(credentialTypes, credentialConfiguration.CredentialTemplate.Type)
+		}
 	}
 
 	if err = s.CheckPolicies(ctx, profile, clientAssertionType, clientAssertion, credentialTypes); err != nil {
@@ -93,10 +95,20 @@ func (s *Service) ExchangeAuthorizationCode(
 		return nil, err
 	}
 
-	return &ExchangeAuthorizationCodeResult{
+	exchangeAuthorizationCodeResult := &ExchangeAuthorizationCodeResult{
 		TxID: tx.ID,
+	}
+
+	for _, credentialConfiguration := range tx.CredentialConfiguration {
 		// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
 		// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
-		AuthorizationDetails: tx.AuthorizationDetails, //TODO: add tx.AuthorizationDetails.CredentialIdentifiers
-	}, nil
+		if credentialConfiguration.AuthorizationDetails != nil {
+			exchangeAuthorizationCodeResult.AuthorizationDetails = append(
+				exchangeAuthorizationCodeResult.AuthorizationDetails,
+				credentialConfiguration.AuthorizationDetails,
+			)
+		}
+	}
+
+	return exchangeAuthorizationCodeResult, nil
 }

@@ -220,7 +220,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 type PrepareCredential struct {
 	TxID             TxID
 	CredentialTypes  []string
-	CredentialFormat vcsverifiable.Format
+	CredentialFormat vcsverifiable.OIDCFormat
 	DID              string
 	AudienceClaim    string
 	HashedToken      string
@@ -251,20 +251,20 @@ type AuthorizeState struct {
 }
 
 type EventPayload struct {
-	WebHook               string `json:"webHook,omitempty"`
-	ProfileID             string `json:"profileID,omitempty"`
-	ProfileVersion        string `json:"profileVersion,omitempty"`
-	CredentialTemplateID  string `json:"credentialTemplateID,omitempty"`
-	OrgID                 string `json:"orgID,omitempty"`
-	WalletInitiatedFlow   bool   `json:"walletInitiatedFlow"`
-	PinRequired           bool   `json:"pinRequired"`
-	PreAuthFlow           bool   `json:"preAuthFlow"`
-	Format                string `json:"format,omitempty"`
-	InitiateIssuanceURL   string `json:"initiateIssuanceURL,omitempty"`
-	AuthorizationEndpoint string `json:"authorizationEndpoint,omitempty"`
-	Error                 string `json:"error,omitempty"`
-	ErrorCode             string `json:"errorCode,omitempty"`
-	ErrorComponent        string `json:"errorComponent,omitempty"`
+	WebHook               string               `json:"webHook,omitempty"`
+	ProfileID             string               `json:"profileID,omitempty"`
+	ProfileVersion        string               `json:"profileVersion,omitempty"`
+	CredentialTemplateID  string               `json:"credentialTemplateID,omitempty"`
+	OrgID                 string               `json:"orgID,omitempty"`
+	WalletInitiatedFlow   bool                 `json:"walletInitiatedFlow"`
+	PinRequired           bool                 `json:"pinRequired"`
+	PreAuthFlow           bool                 `json:"preAuthFlow"`
+	Format                vcsverifiable.Format `json:"format,omitempty"`
+	InitiateIssuanceURL   string               `json:"initiateIssuanceURL,omitempty"`
+	AuthorizationEndpoint string               `json:"authorizationEndpoint,omitempty"`
+	Error                 string               `json:"error,omitempty"`
+	ErrorCode             string               `json:"errorCode,omitempty"`
+	ErrorComponent        string               `json:"errorComponent,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {
@@ -354,7 +354,7 @@ type ExchangeAuthorizationCodeResult struct {
 	TxID TxID
 	// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
 	// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
-	AuthorizationDetails *AuthorizationDetails
+	AuthorizationDetails []*AuthorizationDetails
 }
 
 var ErrDataNotFound = errors.New("data not found")
