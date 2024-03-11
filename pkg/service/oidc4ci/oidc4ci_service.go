@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"io"
 	"net/http"
 	"strings"
@@ -721,54 +722,123 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		return nil, fmt.Errorf("get tx: %w", err)
 	}
 
-	var (
-		credentialConfigurationID string
-		txCredentialConfiguration *TxCredentialConfiguration
-	)
-	for _, credentialConfiguration := range tx.CredentialConfiguration {
-		if credentialConfiguration.OIDCCredentialFormat != req.CredentialFormat {
+	prepareCredentialResult := &PrepareCredentialResult{
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		Credentials:    make([]*PrepareCredentialResultData, 0, len(req.CredentialRequests)),
+	}
+
+	for _, requestedCredential := range req.CredentialRequests {
+		if err = s.validateRequestAudienceClaim(
+			tx.ProfileID, tx.ProfileVersion, requestedCredential.AudienceClaim); err != nil {
+			s.sendFailedTransactionEvent(ctx, tx, err)
+
+			return nil, err
+		}
+
+		var txCredentialConfiguration *TxCredentialConfiguration
+		txCredentialConfiguration, err = s.findTxCredentialConfiguration(
+			tx.CredentialConfiguration,
+			requestedCredential.CredentialFormat,
+			requestedCredential.CredentialTypes,
+		)
+		if err != nil {
+			s.sendFailedTransactionEvent(ctx, tx, err)
+
+			return nil, err
+		}
+
+		cred, ask, err := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
+		if err != nil {
+			s.sendFailedTransactionEvent(ctx, tx, err)
+
+			return nil, err
+		}
+
+		vcFormat, _ := common.ValidateVCFormat(common.VCFormat(txCredentialConfiguration.OIDCCredentialFormat))
+
+		prepareCredentialResultData := &PrepareCredentialResultData{
+			Credential:              cred,
+			Format:                  vcFormat,
+			OidcFormat:              txCredentialConfiguration.OIDCCredentialFormat,
+			CredentialTemplate:      txCredentialConfiguration.CredentialTemplate,
+			Retry:                   false,
+			EnforceStrictValidation: txCredentialConfiguration.CredentialTemplate.Checks.Strict,
+			NotificationID:          ask,
+		}
+
+		prepareCredentialResult.Credentials = append(prepareCredentialResult.Credentials, prepareCredentialResultData)
+	}
+
+	tx.State = TransactionStateCredentialsIssued
+	if err = s.store.Update(ctx, tx); err != nil {
+		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+
+		s.sendFailedTransactionEvent(ctx, tx, e)
+
+		return nil, e
+	}
+
+	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		return nil, errSendEvent
+	}
+
+	return prepareCredentialResult, nil
+}
+
+func (s *Service) findTxCredentialConfiguration( //nolint:funlen
+	txCredentialConfigurations map[string]*TxCredentialConfiguration,
+	credentialFormat vcsverifiable.OIDCFormat,
+	credentialTypes []string,
+) (*TxCredentialConfiguration, error) {
+	var txCredentialConfiguration *TxCredentialConfiguration
+	for _, credentialConfiguration := range txCredentialConfigurations {
+		if credentialConfiguration.OIDCCredentialFormat != credentialFormat {
 			continue
 		}
 
 		if credentialConfiguration.CredentialTemplate == nil {
-			s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTemplateNotConfigured)
-
 			return nil, resterr.ErrCredentialTemplateNotConfigured
 		}
 
-		if lo.Contains(req.CredentialTypes, credentialConfiguration.CredentialTemplate.Type) {
+		if lo.Contains(credentialTypes, credentialConfiguration.CredentialTemplate.Type) {
 			txCredentialConfiguration = credentialConfiguration
+			break
 		}
 	}
 
 	if txCredentialConfiguration == nil {
-		s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTypeNotSupported)
-
 		return nil, resterr.NewCustomError(resterr.OIDCInvalidCredentialRequest,
 			fmt.Errorf("tx credential configuration not found"))
 	}
 
-	// Remove relevant record from tx.CredentialConfiguration
-	delete(tx.CredentialConfiguration, credentialConfigurationID)
+	return txCredentialConfiguration, nil
+}
 
-	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, tx.ProfileID, tx.ProfileVersion)
+func (s *Service) validateRequestAudienceClaim( //nolint:funlen
+	profileID profileapi.ID,
+	profileVersion profileapi.Version,
+	requestAudienceClaim string,
+) error {
+	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, profileID, profileVersion)
 
-	if req.AudienceClaim == "" || req.AudienceClaim != expectedAudience {
-		e := resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, req.AudienceClaim,
+	if requestAudienceClaim == "" || requestAudienceClaim != expectedAudience {
+		return resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, requestAudienceClaim,
 			errors.New("invalid aud"))
-
-		s.sendFailedTransactionEvent(ctx, tx, e)
-
-		return nil, e
 	}
 
+	return nil
+}
+
+func (s *Service) prepareCredential( //nolint:funlen
+	ctx context.Context,
+	tx *Transaction,
+	txCredentialConfiguration *TxCredentialConfiguration,
+	prepareCredentialRequest *PrepareCredentialRequest,
+) (*verifiable.Credential, *string, error) {
 	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
 	if err != nil {
-		e := fmt.Errorf("get claims data: %w", err)
-
-		s.sendFailedTransactionEvent(ctx, tx, e)
-
-		return nil, e
+		return nil, nil, fmt.Errorf("get claims data: %w", err)
 	}
 
 	contexts := txCredentialConfiguration.CredentialTemplate.Contexts
@@ -800,29 +870,15 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 	if claimData != nil {
 		vcc.Subject = []verifiable.Subject{{
-			ID:           req.DID,
+			ID:           prepareCredentialRequest.DID,
 			CustomFields: claimData,
 		}}
 	} else {
-		vcc.Subject = []verifiable.Subject{{ID: req.DID}}
-	}
-
-	tx.State = TransactionStateCredentialsIssued
-	if err = s.store.Update(ctx, tx); err != nil {
-		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
-
-		s.sendFailedTransactionEvent(ctx, tx, e)
-
-		return nil, e
-	}
-
-	cred, err := verifiable.CreateCredential(vcc, customFields)
-	if err != nil {
-		return nil, fmt.Errorf("create cred: %w", err)
+		vcc.Subject = []verifiable.Subject{{ID: prepareCredentialRequest.DID}}
 	}
 
 	ack, err := s.ackService.CreateAck(ctx, &Ack{
-		HashedToken:    req.HashedToken,
+		HashedToken:    prepareCredentialRequest.HashedToken,
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,
 		TxID:           tx.ID,
@@ -833,23 +889,12 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
 	}
 
-	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		return nil, errSendEvent
+	cred, err := verifiable.CreateCredential(vcc, customFields)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create cred: %w", err)
 	}
 
-	vcFormat, _ := common.ValidateVCFormat(common.VCFormat(txCredentialConfiguration.OIDCCredentialFormat))
-
-	return &PrepareCredentialResult{
-		ProfileID:               tx.ProfileID,
-		ProfileVersion:          tx.ProfileVersion,
-		Credential:              cred,
-		Format:                  vcFormat,
-		OidcFormat:              txCredentialConfiguration.OIDCCredentialFormat,
-		Retry:                   false,
-		EnforceStrictValidation: txCredentialConfiguration.CredentialTemplate.Checks.Strict,
-		CredentialTemplate:      txCredentialConfiguration.CredentialTemplate,
-		NotificationID:          ack,
-	}, nil
+	return cred, ack, nil
 }
 
 func (s *Service) getClaimsData(

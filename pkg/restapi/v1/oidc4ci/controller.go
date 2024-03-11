@@ -873,27 +873,7 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		parsedErr := parseInteractionError(resp.Body)
-		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
-			resp.StatusCode,
-			parsedErr)
-
-		var interactionErr *interactionError
-
-		if errors.As(parsedErr, &interactionErr) {
-			switch interactionErr.Code { //nolint:exhaustive
-			case resterr.OIDCInvalidCredentialRequest:
-				return resterr.NewOIDCError("invalid_credential_request", finalErr)
-			case resterr.OIDCCredentialFormatNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
-			case resterr.OIDCCredentialTypeNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
-			case resterr.OIDCInvalidEncryptionParameters:
-				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
-			case resterr.InvalidOrMissingProofOIDCErr:
-				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
-			}
-		}
+		finalErr := parsePrepareCredentialErrorResponse(resp)
 
 		return finalErr
 	}
@@ -940,14 +920,14 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	return apiUtil.WriteOutput(e)(credentialResp, nil)
 }
 
-// OidcCredentialBatch handles OIDC batch credential request (POST /oidc/batch_credential).
-func (c *Controller) OidcCredentialBatch(e echo.Context) error {
+// OidcBatchCredential handles OIDC batch credential request (POST /oidc/batch_credential).
+func (c *Controller) OidcBatchCredential(e echo.Context) error {
 	req := e.Request()
 
-	ctx, span := c.tracer.Start(req.Context(), "OidcCredentialBatch")
+	ctx, span := c.tracer.Start(req.Context(), "OidcBatchCredential")
 	defer span.End()
 
-	var credentialReq CredentialRequestBatch
+	var credentialReq BatchCredentialRequest
 
 	if err := e.Bind(&credentialReq); err != nil {
 		return err
@@ -1012,25 +992,7 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		parsedErr := parseInteractionError(resp.Body)
-		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
-			resp.StatusCode,
-			parsedErr)
-
-		var interactionErr *interactionError
-
-		if errors.As(parsedErr, &interactionErr) {
-			switch interactionErr.Code { //nolint:exhaustive
-			case resterr.OIDCCredentialFormatNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
-			case resterr.OIDCCredentialTypeNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
-			case resterr.OIDCInvalidEncryptionParameters:
-				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
-			case resterr.InvalidOrMissingProofOIDCErr:
-				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
-			}
-		}
+		finalErr := parsePrepareCredentialErrorResponse(resp)
 
 		return finalErr
 	}
@@ -1055,7 +1017,7 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
-	credentialResponseBatch := CredentialResponseBatch{
+	credentialResponseBatch := BatchCredentialResponse{
 		CNonce:              lo.ToPtr(nonce),
 		CNonceExpiresIn:     lo.ToPtr(int(cNonceTTL.Seconds())),
 		CredentialResponses: make([]interface{}, 0, len(result)),
@@ -1065,6 +1027,7 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 		credentialResponse := CredentialResponseBatchCredential{
 			Credential:     credentialData.Credential,
 			NotificationId: credentialData.NotificationId,
+			TransactionId:  nil, // Deferred Issuance transaction is not supported for now.
 		}
 
 		// Each element within the array matches the corresponding Credential Request
@@ -1083,15 +1046,41 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 
 			credentialResponseBatch.CredentialResponses = append(
 				credentialResponseBatch.CredentialResponses, encryptedResponse)
+
+			continue
 		}
 
 		credentialResponseBatch.CredentialResponses = append(
 			credentialResponseBatch.CredentialResponses, credentialResponse)
 	}
 
-	return apiUtil.WriteOutput(e)(nil, nil)
+	return apiUtil.WriteOutput(e)(credentialResponseBatch, nil)
 
 	return nil
+}
+
+func parsePrepareCredentialErrorResponse(resp *http.Response) error {
+	parsedErr := parseInteractionError(resp.Body)
+	finalErr := fmt.Errorf("prepare credential: status code %d, %w",
+		resp.StatusCode,
+		parsedErr)
+
+	var interactionErr *interactionError
+
+	if errors.As(parsedErr, &interactionErr) {
+		switch interactionErr.Code { //nolint:exhaustive
+		case resterr.OIDCCredentialFormatNotSupported:
+			return resterr.NewOIDCError("unsupported_credential_format", finalErr)
+		case resterr.OIDCCredentialTypeNotSupported:
+			return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+		case resterr.OIDCInvalidEncryptionParameters:
+			return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
+		case resterr.InvalidOrMissingProofOIDCErr:
+			return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
+		}
+	}
+
+	return finalErr
 }
 
 func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {

@@ -721,12 +721,16 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID:             oidc4ci.TxID(body.TxId),
-			CredentialTypes:  body.Types,
-			CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
-			DID:              lo.FromPtr(body.Did),
-			AudienceClaim:    body.AudienceClaim,
-			HashedToken:      body.HashedToken,
+			TxID: oidc4ci.TxID(body.TxId),
+			CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
+				{
+					CredentialTypes:  body.Types,
+					CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
+					DID:              lo.FromPtr(body.Did),
+					AudienceClaim:    body.AudienceClaim,
+					HashedToken:      body.HashedToken,
+				},
+			},
 		},
 	)
 
@@ -739,42 +743,143 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential", err)
 	}
 
+	if len(result.Credentials) == 0 {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
+			errors.New("credentials should not be empty"))
+	}
+
 	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
 	if err != nil {
 		return err
 	}
 
-	if result.Credential == nil {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
-			errors.New("credentials should not be nil"))
-	}
-
-	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
-		return resterr.NewCustomError(resterr.ClaimsValidationErr, err)
-	}
-
-	if err = validateCredentialResponseEncryption(profile, body.RequestedCredentialResponseEncryption); err != nil {
-		return resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
-	}
-
-	signedCredential, err := c.signCredential(
-		ctx, result.Credential, profile, issuecredential.WithTransactionID(body.TxId))
+	prepareCredentialResult, err := c.prepareCredential(
+		ctx,
+		body.TxId,
+		profile,
+		result.Credentials,
+		[]*RequestedCredentialResponseEncryption{body.RequestedCredentialResponseEncryption},
+	)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(e)(PrepareCredentialResult{
-		Credential:     signedCredential,
-		Format:         string(result.Format),
-		OidcFormat:     string(result.OidcFormat),
-		Retry:          result.Retry,
-		NotificationId: result.NotificationID,
-	}, nil)
+	return util.WriteOutput(e)(prepareCredentialResult[0], nil)
 }
 
-func (c *Controller) PrepareBatchCredential(ctx echo.Context) error {
-	//TODO implement me
-	panic("implement me")
+func (c *Controller) prepareCredential(
+	ctx context.Context,
+	txID string,
+	profile *profileapi.Issuer,
+	credentials []*oidc4ci.PrepareCredentialResultData,
+	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
+) ([]PrepareCredentialResult, error) {
+	var result []PrepareCredentialResult
+	for index, credentialData := range credentials {
+		if credentialData.Credential == nil {
+			return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
+				errors.New("credentials should not be nil"))
+		}
+
+		if err := c.validateClaims(credentialData.Credential, credentialData.CredentialTemplate, credentialData.EnforceStrictValidation); err != nil {
+			return nil, resterr.NewCustomError(resterr.ClaimsValidationErr, err)
+		}
+
+		if err := validateCredentialResponseEncryption(profile, requestedCredentialResponseEncryption[index]); err != nil {
+			return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
+		}
+
+		signedCredential, err := c.signCredential(
+			ctx, credentialData.Credential, profile, issuecredential.WithTransactionID(txID))
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, PrepareCredentialResult{
+			Credential:     signedCredential,
+			Format:         string(credentialData.Format),
+			OidcFormat:     string(credentialData.OidcFormat),
+			Retry:          credentialData.Retry,
+			NotificationId: credentialData.NotificationID,
+		})
+	}
+
+	return result, nil
+}
+
+// PrepareBatchCredential requests claim data and prepares batch of requested VC for signing by issuer.
+// POST /issuer/interactions/prepare-credential-batch.
+func (c *Controller) PrepareBatchCredential(e echo.Context) error {
+	var body PrepareBatchCredential
+
+	if err := util.ReadBody(e, &body); err != nil {
+		return err
+	}
+
+	ctx := e.Request().Context()
+
+	var (
+		credentialRequests                    []*oidc4ci.PrepareCredentialRequest
+		requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption
+	)
+	for _, credentialRequested := range body.CredentialRequests {
+		requestedFormat := lo.FromPtr(credentialRequested.Format)
+		_, err := common.ValidateVCFormat(common.VCFormat(requestedFormat))
+		if err != nil {
+			return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+		}
+
+		credentialRequests = append(credentialRequests, &oidc4ci.PrepareCredentialRequest{
+			CredentialTypes:  credentialRequested.Types,
+			CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
+			DID:              lo.FromPtr(credentialRequested.Did),
+			AudienceClaim:    credentialRequested.AudienceClaim,
+			HashedToken:      credentialRequested.HashedToken,
+		})
+
+		requestedCredentialResponseEncryption = append(
+			requestedCredentialResponseEncryption, credentialRequested.RequestedCredentialResponseEncryption)
+	}
+
+	result, err := c.oidc4ciService.PrepareCredential(
+		ctx,
+		&oidc4ci.PrepareCredential{
+			TxID:               oidc4ci.TxID(body.TxId),
+			CredentialRequests: credentialRequests,
+		},
+	)
+
+	if err != nil {
+		var custom *resterr.CustomError
+		if errors.As(err, &custom) {
+			return custom
+		}
+
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential", err)
+	}
+
+	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
+	if err != nil {
+		return err
+	}
+
+	if len(result.Credentials) == 0 {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential",
+			errors.New("credentials should not be empty"))
+	}
+
+	prepareCredentialResult, err := c.prepareCredential(
+		ctx,
+		body.TxId,
+		profile,
+		result.Credentials,
+		requestedCredentialResponseEncryption,
+	)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(prepareCredentialResult, nil)
 }
 
 // CredentialIssuanceHistory returns Credential Issuance history.

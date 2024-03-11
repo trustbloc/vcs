@@ -218,7 +218,11 @@ type PrepareClaimDataAuthorizationResponse struct {
 }
 
 type PrepareCredential struct {
-	TxID             TxID
+	TxID               TxID
+	CredentialRequests []*PrepareCredentialRequest
+}
+
+type PrepareCredentialRequest struct {
 	CredentialTypes  []string
 	CredentialFormat vcsverifiable.OIDCFormat
 	DID              string
@@ -227,14 +231,18 @@ type PrepareCredential struct {
 }
 
 type PrepareCredentialResult struct {
-	ProfileID               profileapi.ID
-	ProfileVersion          profileapi.Version
+	ProfileID      profileapi.ID
+	ProfileVersion profileapi.Version
+	Credentials    []*PrepareCredentialResultData
+}
+
+type PrepareCredentialResultData struct {
 	Credential              *verifiable.Credential
 	Format                  vcsverifiable.Format
-	Retry                   bool
-	EnforceStrictValidation bool
 	OidcFormat              vcsverifiable.OIDCFormat
 	CredentialTemplate      *profileapi.CredentialTemplate
+	Retry                   bool
+	EnforceStrictValidation bool
 	NotificationID          *string
 }
 

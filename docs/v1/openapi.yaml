@@ -345,7 +345,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PrepareCredentialBatch'
+              $ref: '#/components/schemas/PrepareBatchCredential'
   '/verifier/profiles/{profileID}/{profileVersion}/credentials/verify':
     parameters:
       - schema:
@@ -813,17 +813,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CredentialResponseBatch'
+                $ref: '#/components/schemas/BatchCredentialResponse'
             application/jwt:
               schema:
                 type: string
-      operationId: oidc-credential-batch
+      operationId: oidc-batch-credential
       description: The Batch Credential Endpoint issues multiple Credentials in one Batch Credential Response as approved by the End-User upon presentation of a valid Access Token representing this approval.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CredentialRequestBatch'
+              $ref: '#/components/schemas/BatchCredentialRequest'
       parameters: []
   /oidc/notification:
     post:
@@ -1809,8 +1809,8 @@ components:
               description: Transaction ID.
           required:
           - tx_id
-    PrepareCredentialBatch:
-      title: PrepareCredentialBatch
+    PrepareBatchCredential:
+      title: PrepareBatchCredential
       x-tags:
         - issuer
       type: object
@@ -1932,8 +1932,8 @@ components:
           description: REQUIRED if proof_type equals ldp_vp. Linked Data Proof as proof of key possession.
       required:
         - proof_type
-    CredentialRequestBatch:
-      title: CredentialRequestBatch
+    BatchCredentialRequest:
+      title: BatchCredentialRequest
       x-tags:
         - oidc4ci
       type: object
@@ -2018,8 +2018,8 @@ components:
       required:
         - format
         - credential
-    CredentialResponseBatch:
-      title: CredentialResponseBatch
+    BatchCredentialResponse:
+      title: BatchCredentialResponse
       x-tags:
         - oidc4ci
       type: object
@@ -2051,6 +2051,9 @@ components:
           oneOf:
             - type: string
             - type: object
+        transaction_id:
+          type: string
+          description: OPTIONAL. String identifying a Deferred Issuance transaction. This claim is contained in the response if the Credential Issuer was unable to immediately issue the Credential. The value is subsequently used to obtain the respective Credential with the Deferred Credential Endpoint.
         notification_id:
           type: string
           description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
