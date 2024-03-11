@@ -218,20 +218,11 @@ type PrepareClaimDataAuthorizationResponse struct {
 }
 
 type PrepareCredential struct {
-	TxID             TxID
-	CredentialTypes  []string
-	CredentialFormat vcsverifiable.OIDCFormat
-	DID              string
-	AudienceClaim    string
-	HashedToken      string
-}
-
-type PrepareBatchCredential struct {
 	TxID               TxID
-	CredentialRequests []*PrepareBatchCredentialRequests
+	CredentialRequests []*PrepareCredentialRequest
 }
 
-type PrepareBatchCredentialRequests struct {
+type PrepareCredentialRequest struct {
 	CredentialTypes  []string
 	CredentialFormat vcsverifiable.OIDCFormat
 	DID              string
@@ -240,30 +231,18 @@ type PrepareBatchCredentialRequests struct {
 }
 
 type PrepareCredentialResult struct {
-	ProfileID               profileapi.ID
-	ProfileVersion          profileapi.Version
-	Credential              *verifiable.Credential
-	Format                  vcsverifiable.Format
-	Retry                   bool
-	EnforceStrictValidation bool
-	OidcFormat              vcsverifiable.OIDCFormat
-	CredentialTemplate      *profileapi.CredentialTemplate
-	NotificationID          *string
-}
-
-type PrepareBatchCredentialResult struct {
 	ProfileID      profileapi.ID
 	ProfileVersion profileapi.Version
-	Credentials    []*PrepareBatchCredentialResultCredentials
+	Credentials    []*PrepareCredentialResultData
 }
 
-type PrepareBatchCredentialResultCredentials struct {
+type PrepareCredentialResultData struct {
 	Credential              *verifiable.Credential
 	Format                  vcsverifiable.Format
-	Retry                   bool
-	EnforceStrictValidation bool
 	OidcFormat              vcsverifiable.OIDCFormat
 	CredentialTemplate      *profileapi.CredentialTemplate
+	Retry                   bool
+	EnforceStrictValidation bool
 	NotificationID          *string
 }
 
@@ -360,7 +339,6 @@ type ServiceInterface interface {
 		clientAssertion string,
 	) (*Transaction, error)
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
-	PrepareBatchCredential(ctx context.Context, req *PrepareBatchCredential) (*PrepareBatchCredentialResult, error)
 }
 
 type Ack struct {

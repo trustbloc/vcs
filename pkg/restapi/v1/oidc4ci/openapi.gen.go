@@ -119,6 +119,9 @@ type CredentialResponseBatchCredential struct {
 
 	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
 	NotificationId *string `json:"notification_id,omitempty"`
+
+	// OPTIONAL. String identifying a Deferred Issuance transaction. This claim is contained in the response if the Credential Issuer was unable to immediately issue the Credential. The value is subsequently used to obtain the respective Credential with the Deferred Credential Endpoint.
+	TransactionId *string `json:"transaction_id,omitempty"`
 }
 
 // Object containing information for encrypting the Credential Response.

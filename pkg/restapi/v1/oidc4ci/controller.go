@@ -1027,6 +1027,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 		credentialResponse := CredentialResponseBatchCredential{
 			Credential:     credentialData.Credential,
 			NotificationId: credentialData.NotificationId,
+			TransactionId:  nil, // Deferred Issuance transaction is not supported for now.
 		}
 
 		// Each element within the array matches the corresponding Credential Request
@@ -1045,13 +1046,15 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 
 			credentialResponseBatch.CredentialResponses = append(
 				credentialResponseBatch.CredentialResponses, encryptedResponse)
+
+			continue
 		}
 
 		credentialResponseBatch.CredentialResponses = append(
 			credentialResponseBatch.CredentialResponses, credentialResponse)
 	}
 
-	return apiUtil.WriteOutput(e)(nil, nil)
+	return apiUtil.WriteOutput(e)(credentialResponseBatch, nil)
 
 	return nil
 }
