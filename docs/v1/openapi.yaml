@@ -817,7 +817,7 @@ paths:
             application/jwt:
               schema:
                 type: string
-      operationId: oidc-credential-batch
+      operationId: oidc-batch-credential
       description: The Batch Credential Endpoint issues multiple Credentials in one Batch Credential Response as approved by the End-User upon presentation of a valid Access Token representing this approval.
       requestBody:
         content:

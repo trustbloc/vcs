@@ -313,8 +313,8 @@ type OidcAuthorizeParams struct {
 	ClientIdScheme *string `form:"client_id_scheme,omitempty" json:"client_id_scheme,omitempty"`
 }
 
-// OidcCredentialBatchJSONBody defines parameters for OidcCredentialBatch.
-type OidcCredentialBatchJSONBody = BatchCredentialRequest
+// OidcBatchCredentialJSONBody defines parameters for OidcBatchCredential.
+type OidcBatchCredentialJSONBody = BatchCredentialRequest
 
 // OidcCredentialJSONBody defines parameters for OidcCredential.
 type OidcCredentialJSONBody = CredentialRequest
@@ -334,8 +334,8 @@ type OidcRedirectParams struct {
 // OidcRegisterClientJSONBody defines parameters for OidcRegisterClient.
 type OidcRegisterClientJSONBody = RegisterOAuthClientRequest
 
-// OidcCredentialBatchJSONRequestBody defines body for OidcCredentialBatch for application/json ContentType.
-type OidcCredentialBatchJSONRequestBody = OidcCredentialBatchJSONBody
+// OidcBatchCredentialJSONRequestBody defines body for OidcBatchCredential for application/json ContentType.
+type OidcBatchCredentialJSONRequestBody = OidcBatchCredentialJSONBody
 
 // OidcCredentialJSONRequestBody defines body for OidcCredential for application/json ContentType.
 type OidcCredentialJSONRequestBody = OidcCredentialJSONBody
@@ -353,7 +353,7 @@ type ServerInterface interface {
 	OidcAuthorize(ctx echo.Context, params OidcAuthorizeParams) error
 	// OIDC Batch Credential
 	// (POST /oidc/batch_credential)
-	OidcCredentialBatch(ctx echo.Context) error
+	OidcBatchCredential(ctx echo.Context) error
 	// OIDC Credential
 	// (POST /oidc/credential)
 	OidcCredential(ctx echo.Context) error
@@ -474,12 +474,12 @@ func (w *ServerInterfaceWrapper) OidcAuthorize(ctx echo.Context) error {
 	return err
 }
 
-// OidcCredentialBatch converts echo context to params.
-func (w *ServerInterfaceWrapper) OidcCredentialBatch(ctx echo.Context) error {
+// OidcBatchCredential converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcBatchCredential(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.OidcCredentialBatch(ctx)
+	err = w.Handler.OidcBatchCredential(ctx)
 	return err
 }
 
@@ -597,7 +597,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/oidc/authorize", wrapper.OidcAuthorize)
-	router.POST(baseURL+"/oidc/batch_credential", wrapper.OidcCredentialBatch)
+	router.POST(baseURL+"/oidc/batch_credential", wrapper.OidcBatchCredential)
 	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/notification", wrapper.OidcAcknowledgement)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)

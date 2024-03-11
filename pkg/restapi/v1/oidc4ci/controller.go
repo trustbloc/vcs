@@ -920,11 +920,11 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	return apiUtil.WriteOutput(e)(credentialResp, nil)
 }
 
-// OidcCredentialBatch handles OIDC batch credential request (POST /oidc/batch_credential).
-func (c *Controller) OidcCredentialBatch(e echo.Context) error {
+// OidcBatchCredential handles OIDC batch credential request (POST /oidc/batch_credential).
+func (c *Controller) OidcBatchCredential(e echo.Context) error {
 	req := e.Request()
 
-	ctx, span := c.tracer.Start(req.Context(), "OidcCredentialBatch")
+	ctx, span := c.tracer.Start(req.Context(), "OidcBatchCredential")
 	defer span.End()
 
 	var credentialReq BatchCredentialRequest
