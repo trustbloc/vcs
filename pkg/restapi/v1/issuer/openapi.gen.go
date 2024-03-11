@@ -299,7 +299,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
-// Model for Prepare Credential request.
+// PrepareCredential defines model for PrepareCredential.
 type PrepareCredential struct {
 	// The "aud" claim received from the client.
 	AudienceClaim string `json:"audienceClaim"`
@@ -321,6 +321,35 @@ type PrepareCredential struct {
 
 	// Array of types of the credential being issued.
 	Types []string `json:"types"`
+}
+
+// PrepareCredential Base model.
+type PrepareCredentialBase struct {
+	// The "aud" claim received from the client.
+	AudienceClaim string `json:"audienceClaim"`
+
+	// DID to which issued credential has to be bound.
+	Did *string `json:"did,omitempty"`
+
+	// Format of the credential being issued.
+	Format *string `json:"format,omitempty"`
+
+	// Hashed token received from the client.
+	HashedToken string `json:"hashed_token"`
+
+	// Object containing requested information for encrypting the Credential Response.
+	RequestedCredentialResponseEncryption *RequestedCredentialResponseEncryption `json:"requested_credential_response_encryption,omitempty"`
+
+	// Array of types of the credential being issued.
+	Types []string `json:"types"`
+}
+
+// Model for Prepare Batch Credential request.
+type PrepareCredentialBatch struct {
+	CredentialRequests []PrepareCredentialBase `json:"credential_requests"`
+
+	// Transaction ID.
+	TxId string `json:"tx_id"`
 }
 
 // Model for Prepare Credential response.
@@ -484,6 +513,9 @@ type PrepareAuthorizationRequestJSONBody = PrepareClaimDataAuthorizationRequest
 // PrepareCredentialJSONBody defines parameters for PrepareCredential.
 type PrepareCredentialJSONBody = PrepareCredential
 
+// PrepareBatchCredentialJSONBody defines parameters for PrepareBatchCredential.
+type PrepareBatchCredentialJSONBody = PrepareCredentialBatch
+
 // PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
 type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
 
@@ -510,6 +542,9 @@ type PrepareAuthorizationRequestJSONRequestBody = PrepareAuthorizationRequestJSO
 
 // PrepareCredentialJSONRequestBody defines body for PrepareCredential for application/json ContentType.
 type PrepareCredentialJSONRequestBody = PrepareCredentialJSONBody
+
+// PrepareBatchCredentialJSONRequestBody defines body for PrepareBatchCredential for application/json ContentType.
+type PrepareBatchCredentialJSONRequestBody = PrepareBatchCredentialJSONBody
 
 // PushAuthorizationDetailsJSONRequestBody defines body for PushAuthorizationDetails for application/json ContentType.
 type PushAuthorizationDetailsJSONRequestBody = PushAuthorizationDetailsJSONBody
@@ -728,6 +763,11 @@ type ClientInterface interface {
 
 	PrepareCredential(ctx context.Context, body PrepareCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PrepareBatchCredential request with any body
+	PrepareBatchCredentialWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PrepareBatchCredential(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PushAuthorizationDetails request with any body
 	PushAuthorizationDetailsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -861,6 +901,30 @@ func (c *Client) PrepareCredentialWithBody(ctx context.Context, contentType stri
 
 func (c *Client) PrepareCredential(ctx context.Context, body PrepareCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPrepareCredentialRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PrepareBatchCredentialWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareBatchCredentialRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PrepareBatchCredential(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareBatchCredentialRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1209,6 +1273,46 @@ func NewPrepareCredentialRequestWithBody(server string, contentType string, body
 	}
 
 	operationPath := fmt.Sprintf("/issuer/interactions/prepare-credential")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPrepareBatchCredentialRequest calls the generic PrepareBatchCredential builder with application/json body
+func NewPrepareBatchCredentialRequest(server string, body PrepareBatchCredentialJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPrepareBatchCredentialRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPrepareBatchCredentialRequestWithBody generates requests for PrepareBatchCredential with any type of body
+func NewPrepareBatchCredentialRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/prepare-credential-batch")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1638,6 +1742,11 @@ type ClientWithResponsesInterface interface {
 
 	PrepareCredentialWithResponse(ctx context.Context, body PrepareCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareCredentialResponse, error)
 
+	// PrepareBatchCredential request with any body
+	PrepareBatchCredentialWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error)
+
+	PrepareBatchCredentialWithResponse(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error)
+
 	// PushAuthorizationDetails request with any body
 	PushAuthorizationDetailsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error)
 
@@ -1777,6 +1886,28 @@ func (r PrepareCredentialResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PrepareCredentialResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PrepareBatchCredentialResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]PrepareCredentialResult
+}
+
+// Status returns HTTPResponse.Status
+func (r PrepareBatchCredentialResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PrepareBatchCredentialResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2035,6 +2166,23 @@ func (c *ClientWithResponses) PrepareCredentialWithResponse(ctx context.Context,
 	return ParsePrepareCredentialResponse(rsp)
 }
 
+// PrepareBatchCredentialWithBodyWithResponse request with arbitrary body returning *PrepareBatchCredentialResponse
+func (c *ClientWithResponses) PrepareBatchCredentialWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error) {
+	rsp, err := c.PrepareBatchCredentialWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareBatchCredentialResponse(rsp)
+}
+
+func (c *ClientWithResponses) PrepareBatchCredentialWithResponse(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error) {
+	rsp, err := c.PrepareBatchCredential(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareBatchCredentialResponse(rsp)
+}
+
 // PushAuthorizationDetailsWithBodyWithResponse request with arbitrary body returning *PushAuthorizationDetailsResponse
 func (c *ClientWithResponses) PushAuthorizationDetailsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error) {
 	rsp, err := c.PushAuthorizationDetailsWithBody(ctx, contentType, body, reqEditors...)
@@ -2277,6 +2425,32 @@ func ParsePrepareCredentialResponse(rsp *http.Response) (*PrepareCredentialRespo
 	return response, nil
 }
 
+// ParsePrepareBatchCredentialResponse parses an HTTP response from a PrepareBatchCredentialWithResponse call
+func ParsePrepareBatchCredentialResponse(rsp *http.Response) (*PrepareBatchCredentialResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PrepareBatchCredentialResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []PrepareCredentialResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePushAuthorizationDetailsResponse parses an HTTP response from a PushAuthorizationDetailsWithResponse call
 func ParsePushAuthorizationDetailsResponse(rsp *http.Response) (*PushAuthorizationDetailsResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2492,6 +2666,9 @@ type ServerInterface interface {
 	// Prepare Credential
 	// (POST /issuer/interactions/prepare-credential)
 	PrepareCredential(ctx echo.Context) error
+	// Prepare Batch Credential
+	// (POST /issuer/interactions/prepare-credential-batch)
+	PrepareBatchCredential(ctx echo.Context) error
 	// Push Authorization Details
 	// (POST /issuer/interactions/push-authorization-request)
 	PushAuthorizationDetails(ctx echo.Context) error
@@ -2580,6 +2757,15 @@ func (w *ServerInterfaceWrapper) PrepareCredential(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PrepareCredential(ctx)
+	return err
+}
+
+// PrepareBatchCredential converts echo context to params.
+func (w *ServerInterfaceWrapper) PrepareBatchCredential(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PrepareBatchCredential(ctx)
 	return err
 }
 
@@ -2755,6 +2941,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/exchange-authorization-code", wrapper.ExchangeAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareAuthorizationRequest)
 	router.POST(baseURL+"/issuer/interactions/prepare-credential", wrapper.PrepareCredential)
+	router.POST(baseURL+"/issuer/interactions/prepare-credential-batch", wrapper.PrepareBatchCredential)
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
 	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)

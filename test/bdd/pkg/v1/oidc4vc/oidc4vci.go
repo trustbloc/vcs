@@ -1003,13 +1003,14 @@ func (s *Steps) initiateCredentialIssuanceWithError(errorContains string) error 
 }
 
 func (s *Steps) getIssuerOIDCCredentialFormat(credentialType string) vcsverifiable.OIDCFormat {
-	//TODO: key in this map is not credential type, but issuedCredentialIdentifier
-	if credentialConfigSupported, ok := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported[credentialType]; ok {
-		return credentialConfigSupported.Format
-	}
+	for _, credentialConf := range s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported {
+		if credentialConf.CredentialDefinition == nil {
+			continue
+		}
 
-	for _, c := range s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported {
-		return c.Format
+		if lo.Contains(credentialConf.CredentialDefinition.Type, credentialType) {
+			return credentialConf.Format
+		}
 	}
 
 	return ""

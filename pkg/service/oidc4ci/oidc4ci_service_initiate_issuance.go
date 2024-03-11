@@ -77,14 +77,14 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			return nil, err
 		}
 
-		credentialConfigurationID, err := findCredentialConfigurationID(req.CredentialTemplateID, credentialTemplate.Type, profile)
+		credentialConfigurationID, credentialConfiguration, err := findCredentialConfigurationID(req.CredentialTemplateID, credentialTemplate.Type, profile)
 		if err != nil {
 			return nil, err
 		}
 
 		txCredentialConfiguration := &TxCredentialConfiguration{
 			CredentialTemplate:    credentialTemplate,
-			OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, credentialTemplate),
+			OIDCCredentialFormat:  credentialConfiguration.Format,
 			ClaimEndpoint:         req.ClaimEndpoint,
 			CredentialName:        req.CredentialName,
 			CredentialDescription: req.CredentialDescription,
@@ -106,7 +106,8 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 	// Multiple credential issuance - use req.CredentialConfiguration to create TxCredentialConfiguration.
 	for credentialConfigurationID, credentialConfiguration := range req.CredentialConfiguration {
-		if _, ok := profile.CredentialMetaData.CredentialsConfigurationSupported[credentialConfigurationID]; !ok {
+		metaCredentialConfiguration, ok := profile.CredentialMetaData.CredentialsConfigurationSupported[credentialConfigurationID]
+		if !ok {
 			return nil, resterr.ErrInvalidCredentialConfigurationID
 		}
 
@@ -122,7 +123,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 		txCredentialConfiguration := &TxCredentialConfiguration{
 			CredentialTemplate:    credentialTemplate,
-			OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, credentialTemplate),
+			OIDCCredentialFormat:  metaCredentialConfiguration.Format,
 			ClaimEndpoint:         credentialConfiguration.ClaimEndpoint,
 			CredentialName:        credentialConfiguration.CredentialName,
 			CredentialDescription: credentialConfiguration.CredentialDescription,
@@ -387,14 +388,14 @@ func findCredentialConfigurationID(
 	requestedTemplateID string,
 	credentialType string,
 	profile *profileapi.Issuer,
-) (string, error) {
+) (string, *profileapi.CredentialsConfigurationSupported, error) {
 	for k, v := range profile.CredentialMetaData.CredentialsConfigurationSupported {
 		if lo.Contains(v.CredentialDefinition.Type, credentialType) {
-			return k, nil
+			return k, v, nil
 		}
 	}
 
-	return "", resterr.NewValidationError(resterr.InvalidValue, "credential_template_id",
+	return "", nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id",
 		fmt.Errorf("credential configuration not found for requested template id %s", requestedTemplateID))
 }
 

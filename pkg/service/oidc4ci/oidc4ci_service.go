@@ -744,7 +744,8 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	if txCredentialConfiguration == nil {
 		s.sendFailedTransactionEvent(ctx, tx, resterr.ErrCredentialTypeNotSupported)
 
-		return nil, resterr.ErrCredentialTypeNotSupported
+		return nil, resterr.NewCustomError(resterr.OIDCInvalidCredentialRequest,
+			fmt.Errorf("tx credential configuration not found"))
 	}
 
 	// Remove relevant record from tx.CredentialConfiguration

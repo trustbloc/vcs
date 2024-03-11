@@ -325,6 +325,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PrepareCredential'
+  /issuer/interactions/prepare-credential-batch:
+    post:
+      summary: Prepare Batch Credential
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PrepareCredentialResult'
+      operationId: prepare-batch-credential
+      description: Used by VCS OIDC credential endpoint to request batch of credential to conclude OIDC issuance flow.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareCredentialBatch'
   '/verifier/profiles/{profileID}/{profileVersion}/credentials/verify':
     parameters:
       - schema:
@@ -780,6 +801,29 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CredentialRequest'
+      parameters: []
+  /oidc/batch_credential:
+    post:
+      summary: OIDC Batch Credential
+      tags:
+        - oidc4ci
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResponseBatch'
+            application/jwt:
+              schema:
+                type: string
+      operationId: oidc-credential-batch
+      description: The Batch Credential Endpoint issues multiple Credentials in one Batch Credential Response as approved by the End-User upon presentation of a valid Access Token representing this approval.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialRequestBatch'
       parameters: []
   /oidc/notification:
     post:
@@ -1721,16 +1765,13 @@ components:
       required:
         - op_state
         - authorization_details
-    PrepareCredential:
-      title: PrepareCredential
+    PrepareCredentialBase:
+      title: PrepareCredentialBase
       x-tags:
         - issuer
       type: object
-      description: Model for Prepare Credential request.
+      description: PrepareCredential Base model.
       properties:
-        tx_id:
-          type: string
-          description: Transaction ID.
         types:
           type: array
           description: Array of types of the credential being issued.
@@ -1751,10 +1792,40 @@ components:
         requested_credential_response_encryption:
           $ref: '#/components/schemas/RequestedCredentialResponseEncryption'
       required:
-        - tx_id
         - types
         - audienceClaim
         - hashed_token
+    PrepareCredential:
+      allOf:  # Combines the PrepareCredentialBase and the inline model
+        - $ref: '#/components/schemas/PrepareCredentialBase'
+        - title: PrepareCredential
+          x-tags:
+            - issuer
+          type: object
+          description: Model for Prepare Credential request.
+          properties:
+            tx_id:
+              type: string
+              description: Transaction ID.
+          required:
+          - tx_id
+    PrepareCredentialBatch:
+      title: PrepareCredentialBatch
+      x-tags:
+        - issuer
+      type: object
+      description: Model for Prepare Batch Credential request.
+      properties:
+        tx_id:
+          type: string
+          description: Transaction ID.
+        credential_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrepareCredentialBase'
+      required:
+        - tx_id
+        - credential_requests
     RequestedCredentialResponseEncryption:
       title: RequestedCredentialResponseEncryption
       x-tags:
@@ -1861,6 +1932,19 @@ components:
           description: REQUIRED if proof_type equals ldp_vp. Linked Data Proof as proof of key possession.
       required:
         - proof_type
+    CredentialRequestBatch:
+      title: CredentialRequestBatch
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Model for OIDC batch Credential request.
+      properties:
+        credential_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/CredentialRequest'
+      required:
+        - credential_requests
     AckRequest:
       title: AckRequest
       x-tags:
@@ -1933,6 +2017,44 @@ components:
           description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
       required:
         - format
+        - credential
+    CredentialResponseBatch:
+      title: CredentialResponseBatch
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Model for OIDC Batch Credential response.
+      properties:
+        credential_responses:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/CredentialResponseBatchCredential'
+        c_nonce:
+          type: string
+          description: JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+        c_nonce_expires_in:
+          type: integer
+          description: JSON integer denoting the lifetime in seconds of the c_nonce.
+      required:
+        - credential_responses
+    CredentialResponseBatchCredential:
+      title: CredentialResponseBatchCredential
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Credential element Batch Credential Response.
+      properties:
+        credential:
+          description: Contains issued Credential.
+          oneOf:
+            - type: string
+            - type: object
+        notification_id:
+          type: string
+          description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+      required:
         - credential
     CredentialConfigurationsSupported:
       title: CredentialConfigurationsSupported object definition.
