@@ -772,9 +772,71 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}, nil)
 }
 
-func (c *Controller) PrepareBatchCredential(ctx echo.Context) error {
-	//TODO implement me
-	panic("implement me")
+// PrepareBatchCredential requests claim data and prepares batch of requested VC for signing by issuer.
+// POST /issuer/interactions/prepare-credential-batch.
+func (c *Controller) PrepareBatchCredential(e echo.Context) error {
+	var body PrepareBatchCredential
+
+	if err := util.ReadBody(e, &body); err != nil {
+		return err
+	}
+
+	ctx := e.Request().Context()
+
+	result, err := c.oidc4ciService.PrepareCredential(
+		ctx,
+		&oidc4ci.PrepareCredential{
+			//TxID:             oidc4ci.TxID(body.TxId),
+			//CredentialTypes:  body.Types,
+			//CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
+			//DID:              lo.FromPtr(body.Did),
+			//AudienceClaim:    body.AudienceClaim,
+			//HashedToken:      body.HashedToken,
+		},
+	)
+
+	if err != nil {
+		var custom *resterr.CustomError
+		if errors.As(err, &custom) {
+			return custom
+		}
+
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential", err)
+	}
+
+	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
+	if err != nil {
+		return err
+	}
+
+	if result.Credential == nil {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
+			errors.New("credentials should not be nil"))
+	}
+
+	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
+		return resterr.NewCustomError(resterr.ClaimsValidationErr, err)
+	}
+
+	if err = validateCredentialResponseEncryption(profile, nil); err != nil {
+		return resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
+	}
+
+	signedCredential, err := c.signCredential(
+		ctx, result.Credential, profile, issuecredential.WithTransactionID(body.TxId))
+	if err != nil {
+		return err
+	}
+
+	//result []PrepareCredentialResult
+
+	return util.WriteOutput(e)(PrepareCredentialResult{
+		Credential:     signedCredential,
+		Format:         string(result.Format),
+		OidcFormat:     string(result.OidcFormat),
+		Retry:          result.Retry,
+		NotificationId: result.NotificationID,
+	}, nil)
 }
 
 // CredentialIssuanceHistory returns Credential Issuance history.

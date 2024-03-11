@@ -65,6 +65,21 @@ type AcpRequestItem struct {
 	NotificationId string `json:"notification_id"`
 }
 
+// Model for OIDC batch Credential request.
+type BatchCredentialRequest struct {
+	CredentialRequests []CredentialRequest `json:"credential_requests"`
+}
+
+// Model for OIDC Batch Credential response.
+type BatchCredentialResponse struct {
+	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+	CNonce *string `json:"c_nonce,omitempty"`
+
+	// JSON integer denoting the lifetime in seconds of the c_nonce.
+	CNonceExpiresIn     *int          `json:"c_nonce_expires_in,omitempty"`
+	CredentialResponses []interface{} `json:"credential_responses"`
+}
+
 // Model for OIDC Credential request.
 type CredentialRequest struct {
 	// Object containing information for encrypting the Credential Response.
@@ -76,11 +91,6 @@ type CredentialRequest struct {
 
 	// Array of types of the credential being issued.
 	Types []string `json:"types"`
-}
-
-// Model for OIDC batch Credential request.
-type CredentialRequestBatch struct {
-	CredentialRequests []CredentialRequest `json:"credential_requests"`
 }
 
 // Model for OIDC Credential response.
@@ -100,16 +110,6 @@ type CredentialResponse struct {
 
 	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
 	NotificationId *string `json:"notification_id,omitempty"`
-}
-
-// Model for OIDC Batch Credential response.
-type CredentialResponseBatch struct {
-	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
-	CNonce *string `json:"c_nonce,omitempty"`
-
-	// JSON integer denoting the lifetime in seconds of the c_nonce.
-	CNonceExpiresIn     *int          `json:"c_nonce_expires_in,omitempty"`
-	CredentialResponses []interface{} `json:"credential_responses"`
 }
 
 // Credential element Batch Credential Response.
@@ -314,7 +314,7 @@ type OidcAuthorizeParams struct {
 }
 
 // OidcCredentialBatchJSONBody defines parameters for OidcCredentialBatch.
-type OidcCredentialBatchJSONBody = CredentialRequestBatch
+type OidcCredentialBatchJSONBody = BatchCredentialRequest
 
 // OidcCredentialJSONBody defines parameters for OidcCredential.
 type OidcCredentialJSONBody = CredentialRequest

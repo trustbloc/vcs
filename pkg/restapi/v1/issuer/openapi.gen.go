@@ -273,6 +273,14 @@ type OAuthParameters struct {
 	Scope        []string `json:"scope"`
 }
 
+// Model for Prepare Batch Credential request.
+type PrepareBatchCredential struct {
+	CredentialRequests []PrepareCredentialBase `json:"credential_requests"`
+
+	// Transaction ID.
+	TxId string `json:"tx_id"`
+}
+
 // Model for Prepare Claim Data Authorization Request.
 type PrepareClaimDataAuthorizationRequest struct {
 	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
@@ -342,14 +350,6 @@ type PrepareCredentialBase struct {
 
 	// Array of types of the credential being issued.
 	Types []string `json:"types"`
-}
-
-// Model for Prepare Batch Credential request.
-type PrepareCredentialBatch struct {
-	CredentialRequests []PrepareCredentialBase `json:"credential_requests"`
-
-	// Transaction ID.
-	TxId string `json:"tx_id"`
 }
 
 // Model for Prepare Credential response.
@@ -514,7 +514,7 @@ type PrepareAuthorizationRequestJSONBody = PrepareClaimDataAuthorizationRequest
 type PrepareCredentialJSONBody = PrepareCredential
 
 // PrepareBatchCredentialJSONBody defines parameters for PrepareBatchCredential.
-type PrepareBatchCredentialJSONBody = PrepareCredentialBatch
+type PrepareBatchCredentialJSONBody = PrepareBatchCredential
 
 // PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
 type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest

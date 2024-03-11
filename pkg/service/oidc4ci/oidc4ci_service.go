@@ -184,6 +184,11 @@ type Service struct {
 	ackService                    ackService
 }
 
+func (s *Service) PrepareBatchCredential(ctx context.Context, req *PrepareBatchCredential) (*PrepareBatchCredentialResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{

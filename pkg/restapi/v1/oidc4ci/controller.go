@@ -927,7 +927,7 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 	ctx, span := c.tracer.Start(req.Context(), "OidcCredentialBatch")
 	defer span.End()
 
-	var credentialReq CredentialRequestBatch
+	var credentialReq BatchCredentialRequest
 
 	if err := e.Bind(&credentialReq); err != nil {
 		return err
@@ -1017,7 +1017,7 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
-	credentialResponseBatch := CredentialResponseBatch{
+	credentialResponseBatch := BatchCredentialResponse{
 		CNonce:              lo.ToPtr(nonce),
 		CNonceExpiresIn:     lo.ToPtr(int(cNonceTTL.Seconds())),
 		CredentialResponses: make([]interface{}, 0, len(result)),
