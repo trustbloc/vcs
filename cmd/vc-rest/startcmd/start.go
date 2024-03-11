@@ -1175,13 +1175,25 @@ func getOIDC4CITransactionStore(
 	return store, nil
 }
 
+type ackStoreAPI interface {
+	Create(ctx context.Context, data *oidc4ci.Ack) (string, error)
+	Get(ctx context.Context, id string) (*oidc4ci.Ack, error)
+	Delete(ctx context.Context, id string) error
+}
+
+type noopAckStore struct{}
+
+func (n *noopAckStore) Create(ctx context.Context, data *oidc4ci.Ack) (string, error) { return "", nil }
+func (n *noopAckStore) Get(ctx context.Context, id string) (*oidc4ci.Ack, error)      { return nil, nil }
+func (n *noopAckStore) Delete(ctx context.Context, id string) error                   { return nil }
+
 func getAckStore(
 	redisClient *redis.Client,
 	oidc4ciTransactionDataTTL int32,
-) *ackstore.Store {
+) ackStoreAPI {
 	if redisClient == nil {
 		logger.Warn("Redis client is not configured. Acknowledgement store will not be used")
-		return nil
+		return &noopAckStore{}
 	}
 
 	return ackstore.New(redisClient, oidc4ciTransactionDataTTL)
