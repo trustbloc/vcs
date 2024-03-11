@@ -873,27 +873,7 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		parsedErr := parseInteractionError(resp.Body)
-		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
-			resp.StatusCode,
-			parsedErr)
-
-		var interactionErr *interactionError
-
-		if errors.As(parsedErr, &interactionErr) {
-			switch interactionErr.Code { //nolint:exhaustive
-			case resterr.OIDCInvalidCredentialRequest:
-				return resterr.NewOIDCError("invalid_credential_request", finalErr)
-			case resterr.OIDCCredentialFormatNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
-			case resterr.OIDCCredentialTypeNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
-			case resterr.OIDCInvalidEncryptionParameters:
-				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
-			case resterr.InvalidOrMissingProofOIDCErr:
-				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
-			}
-		}
+		finalErr := parsePrepareCredentialErrorResponse(resp)
 
 		return finalErr
 	}
@@ -1012,25 +992,7 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		parsedErr := parseInteractionError(resp.Body)
-		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
-			resp.StatusCode,
-			parsedErr)
-
-		var interactionErr *interactionError
-
-		if errors.As(parsedErr, &interactionErr) {
-			switch interactionErr.Code { //nolint:exhaustive
-			case resterr.OIDCCredentialFormatNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
-			case resterr.OIDCCredentialTypeNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
-			case resterr.OIDCInvalidEncryptionParameters:
-				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
-			case resterr.InvalidOrMissingProofOIDCErr:
-				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
-			}
-		}
+		finalErr := parsePrepareCredentialErrorResponse(resp)
 
 		return finalErr
 	}
@@ -1092,6 +1054,30 @@ func (c *Controller) OidcCredentialBatch(e echo.Context) error {
 	return apiUtil.WriteOutput(e)(nil, nil)
 
 	return nil
+}
+
+func parsePrepareCredentialErrorResponse(resp *http.Response) error {
+	parsedErr := parseInteractionError(resp.Body)
+	finalErr := fmt.Errorf("prepare credential: status code %d, %w",
+		resp.StatusCode,
+		parsedErr)
+
+	var interactionErr *interactionError
+
+	if errors.As(parsedErr, &interactionErr) {
+		switch interactionErr.Code { //nolint:exhaustive
+		case resterr.OIDCCredentialFormatNotSupported:
+			return resterr.NewOIDCError("unsupported_credential_format", finalErr)
+		case resterr.OIDCCredentialTypeNotSupported:
+			return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+		case resterr.OIDCInvalidEncryptionParameters:
+			return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
+		case resterr.InvalidOrMissingProofOIDCErr:
+			return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
+		}
+	}
+
+	return finalErr
 }
 
 func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
