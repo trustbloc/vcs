@@ -65,20 +65,28 @@ type ServiceInterface interface {
 }
 
 type EventPayload struct {
-	WebHook                  string  `json:"webHook,omitempty"`
-	ProfileID                string  `json:"profileID,omitempty"`
-	ProfileVersion           string  `json:"profileVersion,omitempty"`
-	OrgID                    string  `json:"orgID,omitempty"`
-	PresentationDefinitionID string  `json:"presentationDefinitionID,omitempty"`
-	Filter                   *Filter `json:"filter,omitempty"`
-	AuthorizationRequest     string  `json:"authorizationRequest,omitempty"`
-	Error                    string  `json:"error,omitempty"`
-	ErrorCode                string  `json:"errorCode,omitempty"`
-	ErrorComponent           string  `json:"errorComponent,omitempty"`
+	WebHook                  string                    `json:"webHook,omitempty"`
+	ProfileID                string                    `json:"profileID,omitempty"`
+	ProfileVersion           string                    `json:"profileVersion,omitempty"`
+	OrgID                    string                    `json:"orgID,omitempty"`
+	PresentationDefinitionID string                    `json:"presentationDefinitionID,omitempty"`
+	Filter                   *Filter                   `json:"filter,omitempty"`
+	AuthorizationRequest     string                    `json:"authorizationRequest,omitempty"`
+	Error                    string                    `json:"error,omitempty"`
+	ErrorCode                string                    `json:"errorCode,omitempty"`
+	ErrorComponent           string                    `json:"errorComponent,omitempty"`
+	Credentials              []*CredentialEventPayload `json:"credentials,omitempty"`
 }
 
 type Filter struct {
 	Fields []string `json:"fields"`
+}
+
+type CredentialEventPayload struct {
+	ID        string   `json:"id,omitempty"`
+	Types     []string `json:"types,omitempty"`
+	SubjectID string   `json:"subjectID,omitempty"`
+	IssuerID  string   `json:"issuerID,omitempty"`
 }
 
 type TxNonceStore txNonceStore
