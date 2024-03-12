@@ -19,11 +19,6 @@ import (
 
 func ValidateAuthorizationDetails(
 	authorizationDetails []common.AuthorizationDetails) ([]*oidc4ci.AuthorizationDetails, error) {
-	if len(authorizationDetails) != 1 {
-		return nil, resterr.NewOIDCError("invalid_request",
-			errors.New("only single authorization_details supported"))
-	}
-
 	var authorizationDetailsDomain []*oidc4ci.AuthorizationDetails
 
 	for _, ad := range authorizationDetails {

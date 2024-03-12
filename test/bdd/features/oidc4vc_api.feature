@@ -15,7 +15,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
@@ -34,6 +34,61 @@ Feature: OIDC4VC REST API
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0    | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
+  @oidc4vc_rest_auth_flow_bunch_credential_configuration_id
+  Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credentialConfigurationID)
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate bunch credential issuance using authorization code flow with credential configuration ID "<credentialConfigurationID>"
+    Then "<issuedCredentialsAmount>" credentials are issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | credentialConfigurationID                                                                        | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredentialIdentifier,CrudeProductCredentialIdentifier,VerifiedEmployeeIdentifier | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredentialIdentifier,CrudeProductCredentialIdentifier                            | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+
+  @oidc4vc_rest_auth_flow_bunch_credential_filters
+  Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credential type)
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "nil"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate bunch credential issuance using authorization code flow
+    Then "<issuedCredentialsAmount>" credentials are issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | credentialType                                                     | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+
+  @oidc4vc_rest_auth_flow_bunch_additional_scopes
+  Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by scopes)
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate bunch credential issuance using authorization code flow with scopes "<scopes>"
+    Then "<issuedCredentialsAmount>" credentials are issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | scopes                                                                                   | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredential_001,CrudeProductCredential_001,VerifiedEmployeeCredential_001 | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential_001,CrudeProductCredential_001                                | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+
   @oidc4vc_rest_auth_flow_credential_conf_id
   Scenario Outline: OIDC credential issuance and verification Auth flow using credential configuration ID to request specific credential type
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
@@ -41,7 +96,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using authorization code flow with credential configuration ID "<credentialConfigurationID>"
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
@@ -59,7 +114,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using authorization code flow with scopes "<scopes>"
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
@@ -78,7 +133,7 @@ Feature: OIDC4VC REST API
     And proofType is "<proofType>"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
@@ -106,7 +161,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
@@ -123,7 +178,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and custom scopes "<customScopes>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims with additional claims associated with custom scopes "<customScopes>"
     Then we wait 2 seconds
@@ -143,7 +198,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "is not a member of trustlist" error
     Examples:
       | issuerProfile                  | credentialType             | credentialTemplate              | verifierProfile                | presentationDefinitionID                     | fields                                                    |
@@ -173,7 +228,7 @@ Feature: OIDC4VC REST API
     And Profile "v_myprofile_jwt/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
-    Then credential is issued
+    Then "1" credentials are issued
     And User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile with presentation definition ID "32f54163-no-limit-disclosure-optional-fields" and fields "lpr_category_id,commuter_classification,invalidfield" and receives "field invalidfield not found" error
 
   Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker stealing auth code & calling token endpoint with it)
@@ -208,7 +263,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using authorization code flow with wallet-initiated
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" waits for interaction succeeded event
     Then we wait 15 seconds
@@ -226,7 +281,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
-    Then credential is issued
+    Then "1" credentials are issued
     And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "no matching credentials found" error
     Then we wait 15 seconds
     And Verifier with profile "<verifierProfile>" requests expired interactions claims
@@ -245,7 +300,7 @@ Feature: OIDC4VC REST API
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow
-    Then credential is issued
+    Then "1" credentials are issued
     And wallet configured to use hardcoded vp_token format "jwt" for OIDC4VP interaction
     And User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "no matching credentials found" error
     Then we wait 15 seconds
@@ -276,7 +331,7 @@ Feature: OIDC4VC REST API
 
 
     When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>" and receives "expected status code 200 but got status code 403" error
     Examples:
       | issuerProfile    | credentialType             | clientRegistrationMethod | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         |
@@ -290,7 +345,7 @@ Feature: OIDC4VC REST API
     And Profile "v_myprofile_jwt_client_attestation/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled
-    Then credential is issued
+    Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt_client_attestation/v1.0" profile with presentation definition ID "attestation-vc-single-field" and fields "degree_type_id"
     And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" retrieves interactions claims
     Then we wait 2 seconds
