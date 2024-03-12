@@ -115,7 +115,7 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 		CredentialIssuer:                  &issuerURL,
 		AuthorizationEndpoint:             lo.ToPtr(fmt.Sprintf("%soidc/authorize", host)),
 		CredentialEndpoint:                lo.ToPtr(fmt.Sprintf("%soidc/credential", host)),
-		BatchCredentialEndpoint:           nil, // no support for now
+		BatchCredentialEndpoint:           lo.ToPtr(fmt.Sprintf("%soidc/batch_credential", host)),
 		DeferredCredentialEndpoint:        nil,
 		CredentialResponseEncryption:      nil,
 		CredentialIdentifiersSupported:    nil,
