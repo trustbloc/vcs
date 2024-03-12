@@ -688,7 +688,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Invalid _scope 3", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: map[string]oidc4vp.Claims{
 					customScope: {},
@@ -714,7 +714,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -742,7 +742,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -756,7 +756,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Match failed", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -790,7 +790,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -819,7 +819,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        errTrustRegistry,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -830,6 +830,63 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				}}})
 
 		require.Contains(t, err.Error(), "check policy")
+	})
+
+	t.Run("Event publish error", func(t *testing.T) {
+		txManager2 := NewMockTransactionManager(gomock.NewController(t))
+
+		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
+			ID:                     "txID1",
+			ProfileID:              profileID,
+			ProfileVersion:         profileVersion,
+			PresentationDefinition: pd,
+		}, true, nil)
+
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).Times(1)
+
+		errExpected := errors.New("injected publish error")
+
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(2).
+			DoAndReturn(
+				func(ctx context.Context, topic string, messages ...*spi.Event) error {
+					require.Len(t, messages, 1)
+
+					switch messages[0].Type { //nolint:exhaustive
+					case spi.VerifierOIDCInteractionQRScanned:
+						return nil
+					case spi.VerifierOIDCInteractionSucceeded:
+						return errExpected
+					default:
+						return fmt.Errorf("unexpected event type: %s", messages[0].Type)
+					}
+				},
+			)
+
+		s2 := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:             mockEventSvc,
+			EventTopic:           spi.VerifierEventTopic,
+			TransactionManager:   txManager2,
+			PresentationVerifier: presentationVerifier,
+			ProfileService:       profileService,
+			DocumentLoader:       loader,
+			VDR:                  vdr,
+			TrustRegistryService: trustRegistry,
+		})
+
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+			&oidc4vp.AuthorizationResponseParsed{
+				CustomScopeClaims: nil,
+				VPTokens: []*oidc4vp.ProcessedVPToken{{
+					Nonce:         "nonce1",
+					Presentation:  vp,
+					SignerDIDID:   issuer,
+					VpTokenFormat: vcsverifiable.Jwt,
+				}},
+			},
+		)
+
+		require.ErrorContains(t, err, errExpected.Error())
 	})
 }
 
@@ -884,7 +941,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 	t.Run("Success JWT with custom claims", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved),
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, nil),
 		)
 
 		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
@@ -926,7 +983,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 	t.Run("Success JsonLD without custom claims", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved),
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, nil),
 		)
 
 		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
@@ -956,7 +1013,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 	t.Run("Empty claims", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved),
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, nil),
 		)
 
 		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
@@ -975,6 +1032,48 @@ func TestService_RetrieveClaims(t *testing.T) {
 			}}}, &profileapi.Verifier{})
 
 		require.Empty(t, claims)
+	})
+
+	t.Run("Success with publish event error", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, errors.New("injected publish error")),
+		)
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
+
+		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
+			verifiable.WithJSONLDDocumentLoader(loader),
+			verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{
+				Credentials: map[string]*verifiable.Credential{
+					"id": jwtvc,
+				},
+				CustomScopeClaims: map[string]oidc4vp.Claims{
+					customScope: {
+						"key1": "value1",
+					},
+				},
+			},
+		}, &profileapi.Verifier{})
+
+		require.NotNil(t, claims)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
+
+		require.True(t, ok)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0]["id"])
+
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
+		require.Empty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
+		require.Equal(t,
+			oidc4vp.CredentialMetadata{CustomClaims: map[string]oidc4vp.Claims{customScope: {"key1": "value1"}}},
+			claims["_scope"],
+		)
 	})
 }
 
@@ -1390,13 +1489,13 @@ func Test_GetSupportedVPFormats(t *testing.T) {
 
 type eventPublishFunc func(ctx context.Context, topic string, messages ...*spi.Event) error
 
-func expectedPublishEventFunc(t *testing.T, eventType spi.EventType) eventPublishFunc {
+func expectedPublishEventFunc(t *testing.T, eventType spi.EventType, err error) eventPublishFunc { //nolint:unparam
 	t.Helper()
 
 	return func(ctx context.Context, topic string, messages ...*spi.Event) error {
 		require.Len(t, messages, 1)
 		require.Equal(t, eventType, messages[0].Type)
 
-		return nil
+		return err
 	}
 }
