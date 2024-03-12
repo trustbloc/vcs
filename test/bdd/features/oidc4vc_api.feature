@@ -89,6 +89,25 @@ Feature: OIDC4VC REST API
       | bank_issuer/v1.0 | UniversityDegreeCredential_001,CrudeProductCredential_001,VerifiedEmployeeCredential_001 | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
       | bank_issuer/v1.0 | UniversityDegreeCredential_001,CrudeProductCredential_001                                | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
+  @oidc4vc_rest_preauth_flow_bunch_credential_filters
+  Scenario Outline: OIDC Batch credential issuance and verification Pre Auth flow (request all credentials by credential type)
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "nil"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate bunch credential issuance using pre authorization code flow
+    Then "<issuedCredentialsAmount>" credentials are issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile    | credentialType                                                     | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+
   @oidc4vc_rest_auth_flow_credential_conf_id
   Scenario Outline: OIDC credential issuance and verification Auth flow using credential configuration ID to request specific credential type
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"

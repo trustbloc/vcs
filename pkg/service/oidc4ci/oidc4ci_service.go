@@ -879,7 +879,7 @@ func (s *Service) prepareCredential( //nolint:funlen
 		HashedToken:    prepareCredentialRequest.HashedToken,
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,
-		TxID:           tx.ID,
+		TxID:           generateAckTxID(tx.ID),
 		WebHookURL:     tx.WebHookURL,
 		OrgID:          tx.OrgID,
 	})

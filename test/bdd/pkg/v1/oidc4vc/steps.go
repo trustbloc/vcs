@@ -99,6 +99,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "([^"]*)"$`, s.runOIDC4CIAuthWithClientRegistrationMethod)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with wallet-initiated$`, s.runOIDC4VCIAuthWalletInitiatedFlow)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow$`, s.runOIDC4CIPreAuthWithValidClaims)
+	sc.Step(`^User interacts with Wallet to initiate bunch credential issuance using pre authorization code flow$`, s.runOIDC4VCIPreAuthBunch)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema$`, s.runOIDC4VCIAuthWithInvalidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled$`, s.runOIDC4CIPreAuthWithClientAttestation)
 	sc.Step(`^proofType is "([^"]*)"$`, s.setProofType)

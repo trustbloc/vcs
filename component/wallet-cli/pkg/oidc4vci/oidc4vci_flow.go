@@ -779,15 +779,9 @@ func (f *Flow) receiveVC(
 			})
 	}
 
-	credentials := make([]*verifiable.Credential, 0, len(parseCredentialResponseDataList))
-
-	for _, credentialRsp := range parseCredentialResponseDataList {
-		vc, err := f.parseCredentialsResponse(credentialRsp, token, wellKnown)
-		if err != nil {
-			return nil, fmt.Errorf("parseCredentialsResponse: %w", err)
-		}
-
-		credentials = append(credentials, vc)
+	credentials, err := f.parseCredentialsResponse(parseCredentialResponseDataList, token, wellKnown)
+	if err != nil {
+		return nil, fmt.Errorf("parseCredentialsResponse: %w", err)
 	}
 
 	return credentials, nil
@@ -864,61 +858,69 @@ func (f *Flow) batchCredentialRequest(
 }
 
 func (f *Flow) parseCredentialsResponse(
-	parseCredentialResponseData *parseCredentialResponseData,
+	parseCredentialResponseDataList []*parseCredentialResponseData,
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
-) (*verifiable.Credential, error) {
-	vcBytes, err := json.Marshal(parseCredentialResponseData.credential)
-	if err != nil {
-		return nil, fmt.Errorf("marshal credential response: %w", err)
-	}
+) ([]*verifiable.Credential, error) {
+	notificationIDs := make([]string, 0, len(parseCredentialResponseDataList))
+	credentials := make([]*verifiable.Credential, 0, len(parseCredentialResponseDataList))
 
-	parsedVC, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithJSONLDDocumentLoader(f.documentLoader),
-		verifiable.WithDisabledProofCheck(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("parse credential: %w", err)
-	}
-
-	if err = f.wallet.Add(vcBytes); err != nil {
-		return nil, fmt.Errorf("add credential to wallet: %w", err)
-	}
-
-	var cslURL, statusListIndex, statusListType string
-
-	if vcc := parsedVC.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
-		statusListType = vcc.Status.Type
-
-		u, ok := vcc.Status.CustomFields["statusListCredential"].(string)
-		if ok {
-			cslURL = u
+	for _, parseCredentialData := range parseCredentialResponseDataList {
+		vcBytes, err := json.Marshal(parseCredentialData.credential)
+		if err != nil {
+			return nil, fmt.Errorf("marshal credential response: %w", err)
 		}
 
-		i, ok := vcc.Status.CustomFields["statusListIndex"].(string)
-		if ok {
-			statusListIndex = i
+		parsedVC, err := verifiable.ParseCredential(vcBytes,
+			verifiable.WithJSONLDDocumentLoader(f.documentLoader),
+			verifiable.WithDisabledProofCheck(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("parse credential: %w", err)
 		}
+
+		if err = f.wallet.Add(vcBytes); err != nil {
+			return nil, fmt.Errorf("add credential to wallet: %w", err)
+		}
+
+		var cslURL, statusListIndex, statusListType string
+
+		if vcc := parsedVC.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
+			statusListType = vcc.Status.Type
+
+			u, ok := vcc.Status.CustomFields["statusListCredential"].(string)
+			if ok {
+				cslURL = u
+			}
+
+			i, ok := vcc.Status.CustomFields["statusListIndex"].(string)
+			if ok {
+				statusListIndex = i
+			}
+		}
+
+		predicate := func(item string, i int) bool {
+			return !strings.EqualFold(item, "VerifiableCredential")
+		}
+
+		slog.Info("credential added to wallet",
+			"credential_id", parsedVC.Contents().ID,
+			"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
+			"issuer_id", parsedVC.Contents().Issuer.ID,
+			"csl_url", cslURL,
+			"status_list_index", statusListIndex,
+			"status_list_type", statusListType,
+		)
+
+		credentials = append(credentials, parsedVC)
+		notificationIDs = append(notificationIDs, lo.FromPtr(parseCredentialData.notificationID))
 	}
 
-	predicate := func(item string, i int) bool {
-		return !strings.EqualFold(item, "VerifiableCredential")
+	if err := f.handleIssuanceAck(wellKnown, notificationIDs, token); err != nil {
+		return nil, fmt.Errorf("handleIssuanceAck: %w", err)
 	}
 
-	slog.Info("credential added to wallet",
-		"credential_id", parsedVC.Contents().ID,
-		"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
-		"issuer_id", parsedVC.Contents().Issuer.ID,
-		"csl_url", cslURL,
-		"status_list_index", statusListIndex,
-		"status_list_type", statusListType,
-	)
-
-	if err = f.handleIssuanceAck(wellKnown, parseCredentialResponseData.notificationID, token); err != nil {
-		return nil, err
-	}
-
-	return parsedVC, nil
+	return credentials, nil
 }
 
 func (f *Flow) buildProof(
@@ -1075,15 +1077,15 @@ func (f *Flow) getCredentialRequestOIDCCredentialFilters(
 
 func (f *Flow) handleIssuanceAck(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
-	notificationID *string,
+	notificationIDs []string,
 	token *oauth2.Token,
 ) error {
-	if wellKnown == nil || notificationID == nil {
+	if wellKnown == nil || len(notificationIDs) == 0 {
 		return nil
 	}
 
 	notificationEndpoint := lo.FromPtr(wellKnown.NotificationEndpoint)
-	if notificationEndpoint == "" || lo.FromPtr(notificationID) == "" {
+	if notificationEndpoint == "" {
 		return nil
 	}
 
@@ -1093,20 +1095,28 @@ func (f *Flow) handleIssuanceAck(
 	}()
 
 	slog.Info("Sending wallet notification",
-		"notification_id", notificationID,
+		"notification_ids", notificationIDs,
 		"endpoint", notificationEndpoint,
 	)
 
-	b, err := json.Marshal(oidc4civ1.AckRequest{
-		Credentials: []oidc4civ1.AcpRequestItem{
-			{
-				NotificationId:   *notificationID,
-				EventDescription: nil,
-				Event:            "credential_accepted",
-				IssuerIdentifier: wellKnown.CredentialIssuer,
-			},
-		},
-	})
+	ackRequest := oidc4civ1.AckRequest{
+		Credentials: []oidc4civ1.AcpRequestItem{},
+	}
+
+	for _, notificationID := range notificationIDs {
+		if notificationID == "" {
+			continue
+		}
+
+		ackRequest.Credentials = append(ackRequest.Credentials, oidc4civ1.AcpRequestItem{
+			Event:            "credential_accepted",
+			EventDescription: nil,
+			IssuerIdentifier: wellKnown.CredentialIssuer,
+			NotificationId:   notificationID,
+		})
+	}
+
+	b, err := json.Marshal(ackRequest)
 	if err != nil {
 		return err
 	}

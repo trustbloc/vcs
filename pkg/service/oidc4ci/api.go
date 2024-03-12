@@ -345,7 +345,7 @@ type Ack struct {
 	HashedToken    string `json:"hashed_token"`
 	ProfileID      string `json:"profile_id"`
 	ProfileVersion string `json:"profile_version"`
-	TxID           TxID   `json:"tx_id"`
+	TxID           string `json:"tx_id"` // [tx ID]-[short uuid]
 	WebHookURL     string `json:"webhook_url"`
 	OrgID          string `json:"org_id"`
 }
