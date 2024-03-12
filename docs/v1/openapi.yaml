@@ -2136,8 +2136,6 @@ components:
         credential_description:
           type: string
           description: Credential description
-      required:
-        - format
     CredentialResponseEncryptionSupported:
       title: CredentialResponseEncryption object definition.
       x-tags:

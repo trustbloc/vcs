@@ -1065,14 +1065,9 @@ func (f *Flow) getCredentialRequestOIDCCredentialFilters(
 					oidcCredentialFormat: vcsverifiable.OIDCFormat(format),
 				})
 			}
-
-			return credentialFilters, nil
 		}
 
-		return nil, fmt.Errorf(
-			"unable to obtain OIDC credential format from issuer well-known configuration. "+
-				"Check if `issuer.credentialMetadata.credential_configurations_supported` contains nested object "+
-				"with `scope` field equals to one of the %v", f.scopes)
+		return credentialFilters, nil
 	}
 
 	return nil, errors.New("obtain OIDC credential format")
@@ -1154,7 +1149,7 @@ func (f *Flow) getAuthorizationDetailsRequestBody() ([]byte, error) {
 	case len(f.credentialConfigurationIDs) > 0: // Priority 1. Based on credentialConfigurationIDs.
 		for _, credentialConfigurationID := range f.credentialConfigurationIDs {
 			res = append(res, common.AuthorizationDetails{
-				CredentialConfigurationId: &credentialConfigurationID,
+				CredentialConfigurationId: lo.ToPtr(credentialConfigurationID),
 				CredentialDefinition:      nil,
 				Format:                    nil,
 				Locations:                 nil, // Not supported for now.

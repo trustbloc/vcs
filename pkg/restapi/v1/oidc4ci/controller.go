@@ -969,7 +969,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 			AudienceClaim:                         aud,
 			Did:                                   &did,
 			Format:                                cr.Format,
-			HashedToken:                           hashToken(token + uuid.NewString()),
+			HashedToken:                           hashToken(token),
 			Types:                                 cr.Types,
 			RequestedCredentialResponseEncryption: nil,
 		}

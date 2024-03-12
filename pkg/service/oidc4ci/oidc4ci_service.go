@@ -262,31 +262,28 @@ func (s *Service) checkScopes(
 	txCredentialConfigurations map[string]*TxCredentialConfiguration,
 	requestedCredentialConfigurationIDsViaAuthDetails map[string]struct{},
 ) ([]string, error) {
-	var validScopes []string
-
-	for _, reqScope := range reqScopes {
-		if !lo.Contains(txScope, reqScope) {
-			return nil, resterr.ErrInvalidScope
-		}
-
-		if !lo.Contains(profile.OIDCConfig.ScopesSupported, reqScope) {
-			// Credential Issuers MUST ignore unknown scope values in a request.
-			continue
-		}
-
-		validScopes = append(validScopes, reqScope)
-	}
-
 	var credentialsConfigurationSupported map[string]*profileapi.CredentialsConfigurationSupported
 	if meta := profile.CredentialMetaData; meta != nil {
 		credentialsConfigurationSupported = meta.CredentialsConfigurationSupported
 	}
 
+	var validScopes []string
+
 	// Check each request scope.
 	for _, reqScope := range reqScopes {
 		for credentialConfigurationID, metaCredentialConfiguration := range credentialsConfigurationSupported {
+			if !lo.Contains(txScope, reqScope) {
+				return nil, resterr.ErrInvalidScope
+			}
+
+			if !lo.Contains(profile.OIDCConfig.ScopesSupported, reqScope) {
+				// Credential Issuers MUST ignore unknown scope values in a request.
+				continue
+			}
+
 			// Find metaCredentialConfiguration based on reqScope.
 			if !strings.EqualFold(reqScope, metaCredentialConfiguration.Scope) {
+				// Credential Issuers MUST ignore unknown scope values in a request.
 				continue
 			}
 
@@ -377,7 +374,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 			fmt.Errorf("update tx auth details: get profile: %w", err))
 	}
 
-	authorizationDetailsSupplied := req.AuthorizationDetails != nil
+	authorizationDetailsSupplied := len(req.AuthorizationDetails) > 0
 	requestedCredentialConfigurationIDs := make(map[string]struct{})
 
 	if authorizationDetailsSupplied {
@@ -748,7 +745,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			return nil, err
 		}
 
-		cred, ask, err := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
+		cred, ackID, err := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
 		if err != nil {
 			s.sendFailedTransactionEvent(ctx, tx, err)
 
@@ -764,7 +761,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			CredentialTemplate:      txCredentialConfiguration.CredentialTemplate,
 			Retry:                   false,
 			EnforceStrictValidation: txCredentialConfiguration.CredentialTemplate.Checks.Strict,
-			NotificationID:          ask,
+			NotificationID:          ackID,
 		}
 
 		prepareCredentialResult.Credentials = append(prepareCredentialResult.Credentials, prepareCredentialResultData)

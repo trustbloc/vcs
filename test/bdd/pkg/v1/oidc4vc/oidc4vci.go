@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -518,6 +520,176 @@ func (s *Steps) runOIDC4VCIAuth() error {
 	return nil
 }
 
+func (s *Steps) runOIDC4VCIAuthBunchByCredentialConfigurationID(credentialConfigurationIDRaw string) error {
+	initiateRequest, err := s.getInitiateAuthIssuanceRequestOfAllSupportedCredentials()
+	if err != nil {
+		return fmt.Errorf("getInitiateAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
+	}
+
+	resp, err := s.initiateCredentialIssuance(*initiateRequest)
+	if err != nil {
+		return fmt.Errorf("initiate credential issuance: %w", err)
+	}
+
+	credentialConfigurationIDs := strings.Split(credentialConfigurationIDRaw, ",")
+
+	opts := []oidc4vci.Opt{
+		oidc4vci.WithBatchCredentialIssuance(),
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithCredentialConfigurationIDs(credentialConfigurationIDs),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+	}
+
+	opts = s.addProofBuilder(opts)
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
+	)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
+
+	if _, err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run auth flow: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4VCIAuthBunch() error {
+	initiateRequest, err := s.getInitiateAuthIssuanceRequestOfAllSupportedCredentials()
+	if err != nil {
+		return fmt.Errorf("getInitiateAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
+	}
+
+	resp, err := s.initiateCredentialIssuance(*initiateRequest)
+	if err != nil {
+		return fmt.Errorf("initiate credential issuance: %w", err)
+	}
+
+	credentialTypes := strings.Split(s.issuedCredentialType, ",")
+
+	opts := []oidc4vci.Opt{
+		oidc4vci.WithBatchCredentialIssuance(),
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithScopes([]string{"openid", "profile"}),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+	}
+
+	// Set option filters
+	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	for _, credentialType := range credentialTypes {
+		for _, credentialConf := range profileCredentialConf {
+			if !lo.Contains(credentialConf.CredentialDefinition.Type, credentialType) {
+				continue
+			}
+
+			opts = append(opts, oidc4vci.WithCredentialFilter(credentialType, credentialConf.Format))
+		}
+	}
+
+	opts = s.addProofBuilder(opts)
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
+	)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
+
+	if _, err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run auth flow: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) runOIDC4VCIAuthBunchWithScopes(scopes string) error {
+	initiateRequest, err := s.getInitiateAuthIssuanceRequestOfAllSupportedCredentials()
+	if err != nil {
+		return fmt.Errorf("getInitiateAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
+	}
+
+	resp, err := s.initiateCredentialIssuance(*initiateRequest)
+	if err != nil {
+		return fmt.Errorf("initiate credential issuance: %w", err)
+	}
+
+	authRequestScopes := strings.Split(scopes, ",")
+
+	opts := []oidc4vci.Opt{
+		oidc4vci.WithBatchCredentialIssuance(),
+		oidc4vci.WithFlowType(oidc4vci.FlowTypeAuthorizationCode),
+		oidc4vci.WithClientID("oidc4vc_client"),
+		oidc4vci.WithScopes(authRequestScopes),
+		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
+		oidc4vci.WithUserLogin("bdd-test"),
+		oidc4vci.WithUserPassword("bdd-test-pass"),
+		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
+	}
+
+	opts = s.addProofBuilder(opts)
+
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
+		opts...,
+	)
+	if err != nil {
+		return fmt.Errorf("init auth flow: %w", err)
+	}
+
+	if _, err = flow.Run(context.Background()); err != nil {
+		return fmt.Errorf("run auth flow: %w", err)
+	}
+
+	return nil
+}
+
+// getInitiateAuthIssuanceRequestOfAllSupportedCredentials returns Initiate issuance request body
+// for all supported credential types by given Issuer.
+// Returned structure contains CredentialConfiguration field, that is aimed for batch credentials issuance.
+// Although, API supports format returned by getInitiateIssuanceRequestAuthFlow func.
+func (s *Steps) getInitiateAuthIssuanceRequestOfAllSupportedCredentials() (*initiateOIDC4VCIRequest, error) {
+	initiateRequest := &initiateOIDC4VCIRequest{
+		GrantType:               authorizedCodeGrantType,
+		OpState:                 uuid.New().String(),
+		ResponseType:            "code",
+		Scope:                   []string{"openid", "profile"},
+		UserPinRequired:         false,
+		CredentialConfiguration: map[string]InitiateIssuanceCredentialConfiguration{},
+	}
+
+	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	for credentialConfigurationID, credentialConf := range profileCredentialConf {
+		credentialType := credentialConf.CredentialDefinition.Type[1]
+
+		credentialTemplate, ok := lo.Find(s.issuerProfile.CredentialTemplates, func(item *profileapi.CredentialTemplate) bool {
+			return item.Type == credentialType
+		})
+
+		if !ok {
+			return nil, fmt.Errorf("unable to find credential template with type %s", credentialTemplate)
+		}
+
+		initiateRequest.CredentialConfiguration[credentialConfigurationID] = InitiateIssuanceCredentialConfiguration{
+			ClaimEndpoint:        claimDataURL + "?credentialType=" + credentialType,
+			CredentialTemplateId: credentialTemplate.ID,
+		}
+
+		initiateRequest.Scope = append(initiateRequest.Scope, credentialConf.Scope)
+	}
+
+	return initiateRequest, nil
+}
+
 func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID(credentialConfigurationIDRaw string) error {
 	resp, err := s.initiateCredentialIssuance(s.getInitiateIssuanceRequestAuthFlow())
 	if err != nil {
@@ -796,10 +968,16 @@ func getOrgAuthTokenKey(org string) string {
 	return org + "-accessToken"
 }
 
-func (s *Steps) checkIssuedCredential() error {
+func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
 		return fmt.Errorf("wallet.GetAll(): %w", err)
+	}
+
+	amount, _ := strconv.Atoi(expectedCredentialsAmount)
+	if len(credentialMap) != amount {
+		return fmt.Errorf(
+			"unexpected amount of credentials issued. Expected %d, got %d", amount, len(credentialMap))
 	}
 
 	var vcParsed *verifiable.Credential

@@ -86,11 +86,14 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
-	sc.Step(`^credential is issued$`, s.checkIssuedCredential)
+	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// OIDC4VCI
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow$`, s.runOIDC4VCIAuth)
+	sc.Step(`^User interacts with Wallet to initiate bunch credential issuance using authorization code flow$`, s.runOIDC4VCIAuthBunch)
+	sc.Step(`^User interacts with Wallet to initiate bunch credential issuance using authorization code flow with credential configuration ID "([^"]*)"$`, s.runOIDC4VCIAuthBunchByCredentialConfigurationID)
+	sc.Step(`^User interacts with Wallet to initiate bunch credential issuance using authorization code flow with scopes "([^"]*)"$`, s.runOIDC4VCIAuthBunchWithScopes)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with credential configuration ID "([^"]*)"$`, s.runOIDC4VCIAuthWithCredentialConfigurationID)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with scopes "([^"]*)"$`, s.runOIDC4VCIAuthWithScopes)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "([^"]*)"$`, s.runOIDC4CIAuthWithClientRegistrationMethod)
