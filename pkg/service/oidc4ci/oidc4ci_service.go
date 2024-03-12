@@ -874,6 +874,7 @@ func (s *Service) prepareCredential( //nolint:funlen
 		vcc.Subject = []verifiable.Subject{{ID: prepareCredentialRequest.DID}}
 	}
 
+	// Create cpredential-specific record.
 	ack, err := s.ackService.CreateAck(ctx, &Ack{
 		HashedToken:    prepareCredentialRequest.HashedToken,
 		ProfileID:      tx.ProfileID,
