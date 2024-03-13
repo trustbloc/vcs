@@ -27,7 +27,12 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
-const TxCodeLength = 6
+const (
+	TxCodeLength = 6
+
+	grantTypeAuthorizationCode = "authorization_code"
+	grantTypePreAuthorizedCode = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+)
 
 // InitiateIssuance creates credential issuance transaction and builds initiate issuance URL.
 func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
@@ -47,45 +52,126 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrVCOptionsNotConfigured
 	}
 
-	isPreAuthorizeFlow := len(req.ClaimData) > 0
+	if req.GrantType != grantTypeAuthorizationCode &&
+		req.GrantType != grantTypePreAuthorizedCode {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "grant_type",
+			fmt.Errorf("unexpected grant_type supplied %s", req.GrantType))
+	}
 
-	if !isPreAuthorizeFlow && profile.OIDCConfig == nil {
+	isPreAuthFlow := req.GrantType == grantTypePreAuthorizedCode
+	if !isPreAuthFlow && profile.OIDCConfig == nil {
 		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
 
-	template, err := findCredentialTemplate(req.CredentialTemplateID, profile)
-	if err != nil {
-		return nil, err
+	issuedCredentialConfiguration := make(map[string]*TxCredentialConfiguration)
+
+	// If req.CredentialTemplateID supplied - create TxCredentialConfiguration based on it.
+	if req.CredentialTemplateID != "" {
+		if isPreAuthFlow != (len(req.ClaimData) > 0) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "claim_data",
+				errors.New("claim_data param is not supported for given grant_type"))
+		}
+
+		credentialTemplate, err := findCredentialTemplate(req.CredentialTemplateID, profile)
+		if err != nil {
+			return nil, err
+		}
+
+		credentialConfigurationID, credentialConfiguration, err := findCredentialConfigurationID(req.CredentialTemplateID, credentialTemplate.Type, profile)
+		if err != nil {
+			return nil, err
+		}
+
+		txCredentialConfiguration := &TxCredentialConfiguration{
+			CredentialTemplate:    credentialTemplate,
+			OIDCCredentialFormat:  credentialConfiguration.Format,
+			ClaimEndpoint:         req.ClaimEndpoint,
+			CredentialName:        req.CredentialName,
+			CredentialDescription: req.CredentialDescription,
+			CredentialExpiresAt:   lo.ToPtr(s.GetCredentialsExpirationTime(req.CredentialExpiresAt, credentialTemplate)),
+			ClaimDataID:           "",
+			PreAuthCodeExpiresAt:  nil,
+			AuthorizationDetails:  nil,
+		}
+
+		if isPreAuthFlow {
+			err = s.applyPreAuthFlowModifications(ctx, req.ClaimData, credentialTemplate, txCredentialConfiguration)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		issuedCredentialConfiguration[credentialConfigurationID] = txCredentialConfiguration
 	}
 
-	credentialConfigurationID, err := findCredentialConfigurationID(req.CredentialTemplateID, template.Type, profile)
-	if err != nil {
-		return nil, err
+	// Multiple credential issuance - use req.CredentialConfiguration to create TxCredentialConfiguration.
+	for credentialConfigurationID, credentialConfiguration := range req.CredentialConfiguration {
+		metaCredentialConfiguration, ok := profile.CredentialMetaData.CredentialsConfigurationSupported[credentialConfigurationID]
+		if !ok {
+			return nil, resterr.ErrInvalidCredentialConfigurationID
+		}
+
+		if isPreAuthFlow != (len(credentialConfiguration.ClaimData) > 0) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "claim_data",
+				errors.New("claim_data param is not supported for given grant_type"))
+		}
+
+		credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateId, profile)
+		if err != nil {
+			return nil, err
+		}
+
+		txCredentialConfiguration := &TxCredentialConfiguration{
+			CredentialTemplate:    credentialTemplate,
+			OIDCCredentialFormat:  metaCredentialConfiguration.Format,
+			ClaimEndpoint:         credentialConfiguration.ClaimEndpoint,
+			CredentialName:        credentialConfiguration.CredentialName,
+			CredentialDescription: credentialConfiguration.CredentialDescription,
+			CredentialExpiresAt:   lo.ToPtr(s.GetCredentialsExpirationTime(credentialConfiguration.CredentialExpiresAt, credentialTemplate)),
+			ClaimDataID:           "",
+			PreAuthCodeExpiresAt:  nil,
+			AuthorizationDetails:  nil,
+		}
+
+		if isPreAuthFlow {
+			err = s.applyPreAuthFlowModifications(ctx, credentialConfiguration.ClaimData, credentialTemplate, txCredentialConfiguration)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		issuedCredentialConfiguration[credentialConfigurationID] = txCredentialConfiguration
+	}
+
+	txState := TransactionStateIssuanceInitiated
+	if req.WalletInitiatedIssuance {
+		txState = TransactionStateAwaitingIssuerOIDCAuthorization
+	}
+
+	opState := req.OpState
+
+	var preAuthCode string
+	if isPreAuthFlow {
+		preAuthCode = generatePreAuthCode()
+		opState = preAuthCode // set opState as it will be empty for pre-auth
 	}
 
 	txData := &TransactionData{
 		ProfileID:               profile.ID,
 		ProfileVersion:          profile.Version,
 		OrgID:                   profile.OrganizationID,
-		CredentialTemplate:      template,
-		CredentialFormat:        profile.VCConfig.Format,
-		OIDCCredentialFormat:    s.SelectProperOIDCFormat(profile.VCConfig.Format, template),
-		ClaimEndpoint:           req.ClaimEndpoint,
 		ResponseType:            req.ResponseType,
-		OpState:                 req.OpState,
-		State:                   TransactionStateIssuanceInitiated,
+		State:                   txState,
 		WebHookURL:              profile.WebHook,
 		DID:                     profile.SigningDID.DID,
-		CredentialExpiresAt:     lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
-		CredentialName:          req.CredentialName,
-		CredentialDescription:   req.CredentialDescription,
 		WalletInitiatedIssuance: req.WalletInitiatedIssuance,
+		IsPreAuthFlow:           isPreAuthFlow,
+		CredentialConfiguration: issuedCredentialConfiguration,
+		PreAuthCode:             preAuthCode,
+		OpState:                 opState,
 	}
 
-	if req.WalletInitiatedIssuance {
-		txData.State = TransactionStateAwaitingIssuerOIDCAuthorization
-	}
-
+	var err error
 	if err = s.extendTransactionWithOIDCConfig(ctx, profile, txData); err != nil {
 		return nil, err
 	}
@@ -102,40 +188,6 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		txData.ResponseType = defaultResponseType
 	}
 
-	if isPreAuthorizeFlow {
-		if logger.IsEnabled(log.DEBUG) {
-			claimKeys := make([]string, 0)
-			for k := range req.ClaimData {
-				claimKeys = append(claimKeys, k)
-			}
-
-			logger.Debugc(ctx, "issuer claim keys", logfields.WithClaimKeys(claimKeys))
-		}
-
-		if e := s.validateClaims(req.ClaimData, template); e != nil {
-			return nil, resterr.NewCustomError(resterr.ClaimsValidationErr,
-				fmt.Errorf("validate claims: %w", e))
-		}
-
-		claimData, errEncrypt := s.EncryptClaims(ctx, req.ClaimData)
-		if errEncrypt != nil {
-			return nil, errEncrypt
-		}
-
-		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, claimData)
-		if claimDataErr != nil {
-			return nil, resterr.NewSystemError(resterr.ClaimDataStoreComponent, "create",
-				fmt.Errorf("store claim data: %w", claimDataErr))
-		}
-
-		txData.ClaimDataID = claimDataID
-
-		txData.IsPreAuthFlow = true
-		txData.PreAuthCode = generatePreAuthCode()
-		txData.PreAuthCodeExpiresAt = lo.ToPtr(time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second))
-		txData.OpState = txData.PreAuthCode // set opState as it will be empty for pre-auth
-	}
-
 	if req.UserPinRequired {
 		txData.UserPin = s.pinGenerator.Generate(uuid.NewString())
 	}
@@ -146,7 +198,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			fmt.Errorf("store tx: %w", err))
 	}
 
-	finalURL, contentType, err := s.buildInitiateIssuanceURL(ctx, req, tx, profile, credentialConfigurationID)
+	finalURL, contentType, err := s.buildInitiateIssuanceURL(ctx, req, tx, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +214,44 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		Tx:                  tx,
 		ContentType:         contentType,
 	}, nil
+}
+
+func (s *Service) applyPreAuthFlowModifications(
+	ctx context.Context,
+	claimData map[string]interface{},
+	credentialTemplate *profileapi.CredentialTemplate,
+	txCredentialConfiguration *TxCredentialConfiguration,
+) error {
+	if logger.IsEnabled(log.DEBUG) {
+		claimKeys := make([]string, 0)
+		for k := range claimData {
+			claimKeys = append(claimKeys, k)
+		}
+
+		logger.Debugc(ctx, "issuer claim keys", logfields.WithClaimKeys(claimKeys))
+	}
+
+	if e := s.validateClaims(claimData, credentialTemplate); e != nil {
+		return resterr.NewCustomError(resterr.ClaimsValidationErr,
+			fmt.Errorf("validate claims: %w", e))
+	}
+
+	claimDataEncrypted, errEncrypt := s.EncryptClaims(ctx, claimData)
+	if errEncrypt != nil {
+		return errEncrypt
+	}
+
+	claimDataID, claimDataErr := s.claimDataStore.Create(ctx, claimDataEncrypted)
+	if claimDataErr != nil {
+		return resterr.NewSystemError(resterr.ClaimDataStoreComponent, "create",
+			fmt.Errorf("store claim data: %w", claimDataErr))
+	}
+
+	txCredentialConfiguration.ClaimDataID = claimDataID
+
+	txCredentialConfiguration.PreAuthCodeExpiresAt = lo.ToPtr(time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second))
+
+	return nil
 }
 
 func setScopes(data *TransactionData, scopesSupported []string, requestScopes []string) error {
@@ -214,11 +304,11 @@ func (s *Service) SelectProperOIDCFormat(
 }
 
 func (s *Service) GetCredentialsExpirationTime(
-	req *InitiateIssuanceRequest,
+	credentialExpiresAt *time.Time,
 	template *profileapi.CredentialTemplate,
 ) time.Time {
-	if req != nil && req.CredentialExpiresAt != nil {
-		return *req.CredentialExpiresAt
+	if credentialExpiresAt != nil {
+		return *credentialExpiresAt
 	}
 
 	if template != nil && template.CredentialDefaultExpirationDuration != nil {
@@ -298,27 +388,26 @@ func findCredentialConfigurationID(
 	requestedTemplateID string,
 	credentialType string,
 	profile *profileapi.Issuer,
-) (string, error) {
+) (string, *profileapi.CredentialsConfigurationSupported, error) {
 	for k, v := range profile.CredentialMetaData.CredentialsConfigurationSupported {
 		if lo.Contains(v.CredentialDefinition.Type, credentialType) {
-			return k, nil
+			return k, v, nil
 		}
 	}
 
-	return "", resterr.NewValidationError(resterr.InvalidValue, "credential_template_id",
+	return "", nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id",
 		fmt.Errorf("credential configuration not found for requested template id %s", requestedTemplateID))
 }
 
 func (s *Service) prepareCredentialOffer(
 	req *InitiateIssuanceRequest,
 	tx *Transaction,
-	credentialConfigurationID string,
 ) *CredentialOfferResponse {
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
 	resp := &CredentialOfferResponse{
 		CredentialIssuer:           issuerURL,
-		CredentialConfigurationIDs: []string{credentialConfigurationID},
+		CredentialConfigurationIDs: lo.Keys(tx.CredentialConfiguration),
 		Grants:                     CredentialOfferGrant{},
 	}
 
@@ -424,9 +513,8 @@ func (s *Service) buildInitiateIssuanceURL(
 	req *InitiateIssuanceRequest,
 	tx *Transaction,
 	profile *profileapi.Issuer,
-	credentialConfigurationID string,
 ) (string, InitiateIssuanceResponseContentType, error) {
-	credentialOffer := s.prepareCredentialOffer(req, tx, credentialConfigurationID)
+	credentialOffer := s.prepareCredentialOffer(req, tx)
 
 	var (
 		signedCredentialOfferJWT string

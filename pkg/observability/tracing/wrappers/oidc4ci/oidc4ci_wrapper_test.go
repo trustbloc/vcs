@@ -45,7 +45,7 @@ func TestWrapper_PushAuthorizationDetails(t *testing.T) {
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	err := w.PushAuthorizationDetails(context.Background(), "opState", &oidc4ci.AuthorizationDetails{})
+	err := w.PushAuthorizationDetails(context.Background(), "opState", []*oidc4ci.AuthorizationDetails{{}})
 	require.NoError(t, err)
 }
 

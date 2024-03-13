@@ -8,21 +8,36 @@ package oidc4vc
 
 import (
 	util "github.com/trustbloc/did-go/doc/util/time"
+	"time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 type initiateOIDC4VCIRequest struct {
-	ClaimData                 *map[string]interface{} `json:"claim_data,omitempty"`
-	ClaimEndpoint             string                  `json:"claim_endpoint,omitempty"`
-	ClientInitiateIssuanceUrl string                  `json:"client_initiate_issuance_url,omitempty"`
-	ClientWellknown           string                  `json:"client_wellknown,omitempty"`
-	CredentialTemplateId      string                  `json:"credential_template_id,omitempty"`
-	GrantType                 string                  `json:"grant_type,omitempty"`
-	OpState                   string                  `json:"op_state,omitempty"`
-	ResponseType              string                  `json:"response_type,omitempty"`
-	Scope                     []string                `json:"scope,omitempty"`
-	UserPinRequired           bool                    `json:"user_pin_required,omitempty"`
+	// Deprecated. Use CredentialConfiguration instead.
+	ClaimData *map[string]interface{} `json:"claim_data,omitempty"`
+	// Deprecated. Use CredentialConfiguration instead.
+	ClaimEndpoint             string `json:"claim_endpoint,omitempty"`
+	ClientInitiateIssuanceUrl string `json:"client_initiate_issuance_url,omitempty"`
+	ClientWellknown           string `json:"client_wellknown,omitempty"`
+	// Deprecated. Use CredentialConfiguration instead.
+	CredentialTemplateId string   `json:"credential_template_id,omitempty"`
+	GrantType            string   `json:"grant_type,omitempty"`
+	OpState              string   `json:"op_state,omitempty"`
+	ResponseType         string   `json:"response_type,omitempty"`
+	Scope                []string `json:"scope,omitempty"`
+	UserPinRequired      bool     `json:"user_pin_required,omitempty"`
+	// MultiCredentialIssuance aimed to initialise multi credential issuance.
+	CredentialConfiguration map[string]InitiateIssuanceCredentialConfiguration `json:"credential_configuration,omitempty"` //CredentialConfigurationID -> MultiCredentialIssuance
+}
+
+type InitiateIssuanceCredentialConfiguration struct {
+	ClaimData             map[string]interface{} `json:"claim_data,omitempty"`
+	ClaimEndpoint         string                 `json:"claim_endpoint,omitempty"`
+	CredentialTemplateId  string                 `json:"credential_template_id,omitempty"`
+	CredentialExpiresAt   *time.Time             `json:"credential_expires_at,omitempty"`
+	CredentialName        string                 `json:"credential_name,omitempty"`
+	CredentialDescription string                 `json:"credential_description,omitempty"`
 }
 
 type initiateOIDC4VCIResponse struct {
