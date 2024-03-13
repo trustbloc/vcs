@@ -129,6 +129,27 @@ type ExchangeAuthorizationCodeResponse struct {
 	TxId                 string                               `json:"tx_id"`
 }
 
+// An object that describes specifics of the Multiple Credential Issuance.
+type InitiateIssuanceCredentialConfiguration struct {
+	// Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+	ClaimData *map[string]interface{} `json:"claim_data,omitempty"`
+
+	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
+	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
+
+	// Credential description
+	CredentialDescription *string `json:"credential_description,omitempty"`
+
+	// Date when credentials should be consider as expired
+	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
+
+	// Credential name
+	CredentialName *string `json:"credential_name,omitempty"`
+
+	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
+	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
+}
+
 // Model for Initiate OIDC Credential Issuance Request.
 type InitiateOIDC4CIRequest struct {
 	// Customizes what kind of access Issuer wants to give to VCS.
@@ -145,6 +166,9 @@ type InitiateOIDC4CIRequest struct {
 
 	// String containing wallet/holder application OIDC client wellknown configuration URL.
 	ClientWellknown *string `json:"client_wellknown,omitempty"`
+
+	// An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.
+	CredentialConfiguration *InitiateOIDC4CIRequest_CredentialConfiguration `json:"credential_configuration,omitempty"`
 
 	// Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
@@ -175,6 +199,11 @@ type InitiateOIDC4CIRequest struct {
 
 	// Boolean flags indicates whether given transaction is initiated by Wallet.
 	WalletInitiatedIssuance *bool `json:"wallet_initiated_issuance,omitempty"`
+}
+
+// An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.
+type InitiateOIDC4CIRequest_CredentialConfiguration struct {
+	AdditionalProperties map[string]InitiateIssuanceCredentialConfiguration `json:"-"`
 }
 
 // Model for Initiate OIDC Credential Issuance Response.
@@ -244,6 +273,14 @@ type OAuthParameters struct {
 	Scope        []string `json:"scope"`
 }
 
+// Model for Prepare Batch Credential request.
+type PrepareBatchCredential struct {
+	CredentialRequests []PrepareCredentialBase `json:"credential_requests"`
+
+	// Transaction ID.
+	TxId string `json:"tx_id"`
+}
+
 // Model for Prepare Claim Data Authorization Request.
 type PrepareClaimDataAuthorizationRequest struct {
 	AuthorizationDetails *[]externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
@@ -270,7 +307,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 	WalletInitiatedFlow *externalRef0.WalletInitiatedFlowData `json:"wallet_initiated_flow"`
 }
 
-// Model for Prepare Credential request.
+// PrepareCredential defines model for PrepareCredential.
 type PrepareCredential struct {
 	// The "aud" claim received from the client.
 	AudienceClaim string `json:"audienceClaim"`
@@ -289,6 +326,27 @@ type PrepareCredential struct {
 
 	// Transaction ID.
 	TxId string `json:"tx_id"`
+
+	// Array of types of the credential being issued.
+	Types []string `json:"types"`
+}
+
+// PrepareCredential Base model.
+type PrepareCredentialBase struct {
+	// The "aud" claim received from the client.
+	AudienceClaim string `json:"audienceClaim"`
+
+	// DID to which issued credential has to be bound.
+	Did *string `json:"did,omitempty"`
+
+	// Format of the credential being issued.
+	Format *string `json:"format,omitempty"`
+
+	// Hashed token received from the client.
+	HashedToken string `json:"hashed_token"`
+
+	// Object containing requested information for encrypting the Credential Response.
+	RequestedCredentialResponseEncryption *RequestedCredentialResponseEncryption `json:"requested_credential_response_encryption,omitempty"`
 
 	// Array of types of the credential being issued.
 	Types []string `json:"types"`
@@ -455,6 +513,9 @@ type PrepareAuthorizationRequestJSONBody = PrepareClaimDataAuthorizationRequest
 // PrepareCredentialJSONBody defines parameters for PrepareCredential.
 type PrepareCredentialJSONBody = PrepareCredential
 
+// PrepareBatchCredentialJSONBody defines parameters for PrepareBatchCredential.
+type PrepareBatchCredentialJSONBody = PrepareBatchCredential
+
 // PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
 type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
 
@@ -482,6 +543,9 @@ type PrepareAuthorizationRequestJSONRequestBody = PrepareAuthorizationRequestJSO
 // PrepareCredentialJSONRequestBody defines body for PrepareCredential for application/json ContentType.
 type PrepareCredentialJSONRequestBody = PrepareCredentialJSONBody
 
+// PrepareBatchCredentialJSONRequestBody defines body for PrepareBatchCredential for application/json ContentType.
+type PrepareBatchCredentialJSONRequestBody = PrepareBatchCredentialJSONBody
+
 // PushAuthorizationDetailsJSONRequestBody defines body for PushAuthorizationDetails for application/json ContentType.
 type PushAuthorizationDetailsJSONRequestBody = PushAuthorizationDetailsJSONBody
 
@@ -496,6 +560,59 @@ type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// Getter for additional properties for InitiateOIDC4CIRequest_CredentialConfiguration. Returns the specified
+// element and whether it was found
+func (a InitiateOIDC4CIRequest_CredentialConfiguration) Get(fieldName string) (value InitiateIssuanceCredentialConfiguration, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for InitiateOIDC4CIRequest_CredentialConfiguration
+func (a *InitiateOIDC4CIRequest_CredentialConfiguration) Set(fieldName string, value InitiateIssuanceCredentialConfiguration) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]InitiateIssuanceCredentialConfiguration)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for InitiateOIDC4CIRequest_CredentialConfiguration to handle AdditionalProperties
+func (a *InitiateOIDC4CIRequest_CredentialConfiguration) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]InitiateIssuanceCredentialConfiguration)
+		for fieldName, fieldBuf := range object {
+			var fieldVal InitiateIssuanceCredentialConfiguration
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for InitiateOIDC4CIRequest_CredentialConfiguration to handle AdditionalProperties
+func (a InitiateOIDC4CIRequest_CredentialConfiguration) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // Getter for additional properties for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported. Returns the specified
 // element and whether it was found
@@ -646,6 +763,11 @@ type ClientInterface interface {
 
 	PrepareCredential(ctx context.Context, body PrepareCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PrepareBatchCredential request with any body
+	PrepareBatchCredentialWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PrepareBatchCredential(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PushAuthorizationDetails request with any body
 	PushAuthorizationDetailsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -779,6 +901,30 @@ func (c *Client) PrepareCredentialWithBody(ctx context.Context, contentType stri
 
 func (c *Client) PrepareCredential(ctx context.Context, body PrepareCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPrepareCredentialRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PrepareBatchCredentialWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareBatchCredentialRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PrepareBatchCredential(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareBatchCredentialRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1127,6 +1273,46 @@ func NewPrepareCredentialRequestWithBody(server string, contentType string, body
 	}
 
 	operationPath := fmt.Sprintf("/issuer/interactions/prepare-credential")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPrepareBatchCredentialRequest calls the generic PrepareBatchCredential builder with application/json body
+func NewPrepareBatchCredentialRequest(server string, body PrepareBatchCredentialJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPrepareBatchCredentialRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPrepareBatchCredentialRequestWithBody generates requests for PrepareBatchCredential with any type of body
+func NewPrepareBatchCredentialRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/prepare-credential-batch")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1556,6 +1742,11 @@ type ClientWithResponsesInterface interface {
 
 	PrepareCredentialWithResponse(ctx context.Context, body PrepareCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareCredentialResponse, error)
 
+	// PrepareBatchCredential request with any body
+	PrepareBatchCredentialWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error)
+
+	PrepareBatchCredentialWithResponse(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error)
+
 	// PushAuthorizationDetails request with any body
 	PushAuthorizationDetailsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error)
 
@@ -1695,6 +1886,28 @@ func (r PrepareCredentialResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PrepareCredentialResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PrepareBatchCredentialResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]PrepareCredentialResult
+}
+
+// Status returns HTTPResponse.Status
+func (r PrepareBatchCredentialResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PrepareBatchCredentialResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1953,6 +2166,23 @@ func (c *ClientWithResponses) PrepareCredentialWithResponse(ctx context.Context,
 	return ParsePrepareCredentialResponse(rsp)
 }
 
+// PrepareBatchCredentialWithBodyWithResponse request with arbitrary body returning *PrepareBatchCredentialResponse
+func (c *ClientWithResponses) PrepareBatchCredentialWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error) {
+	rsp, err := c.PrepareBatchCredentialWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareBatchCredentialResponse(rsp)
+}
+
+func (c *ClientWithResponses) PrepareBatchCredentialWithResponse(ctx context.Context, body PrepareBatchCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareBatchCredentialResponse, error) {
+	rsp, err := c.PrepareBatchCredential(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareBatchCredentialResponse(rsp)
+}
+
 // PushAuthorizationDetailsWithBodyWithResponse request with arbitrary body returning *PushAuthorizationDetailsResponse
 func (c *ClientWithResponses) PushAuthorizationDetailsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error) {
 	rsp, err := c.PushAuthorizationDetailsWithBody(ctx, contentType, body, reqEditors...)
@@ -2195,6 +2425,32 @@ func ParsePrepareCredentialResponse(rsp *http.Response) (*PrepareCredentialRespo
 	return response, nil
 }
 
+// ParsePrepareBatchCredentialResponse parses an HTTP response from a PrepareBatchCredentialWithResponse call
+func ParsePrepareBatchCredentialResponse(rsp *http.Response) (*PrepareBatchCredentialResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PrepareBatchCredentialResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []PrepareCredentialResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePushAuthorizationDetailsResponse parses an HTTP response from a PushAuthorizationDetailsWithResponse call
 func ParsePushAuthorizationDetailsResponse(rsp *http.Response) (*PushAuthorizationDetailsResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2410,6 +2666,9 @@ type ServerInterface interface {
 	// Prepare Credential
 	// (POST /issuer/interactions/prepare-credential)
 	PrepareCredential(ctx echo.Context) error
+	// Prepare Batch Credential
+	// (POST /issuer/interactions/prepare-credential-batch)
+	PrepareBatchCredential(ctx echo.Context) error
 	// Push Authorization Details
 	// (POST /issuer/interactions/push-authorization-request)
 	PushAuthorizationDetails(ctx echo.Context) error
@@ -2498,6 +2757,15 @@ func (w *ServerInterfaceWrapper) PrepareCredential(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PrepareCredential(ctx)
+	return err
+}
+
+// PrepareBatchCredential converts echo context to params.
+func (w *ServerInterfaceWrapper) PrepareBatchCredential(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PrepareBatchCredential(ctx)
 	return err
 }
 
@@ -2673,6 +2941,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/exchange-authorization-code", wrapper.ExchangeAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareAuthorizationRequest)
 	router.POST(baseURL+"/issuer/interactions/prepare-credential", wrapper.PrepareCredential)
+	router.POST(baseURL+"/issuer/interactions/prepare-credential-batch", wrapper.PrepareBatchCredential)
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
 	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)

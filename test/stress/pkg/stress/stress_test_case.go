@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -322,8 +323,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	vciFlow, err := oidc4vci.NewFlow(c.oidc4vciProvider,
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(credentialOfferURL),
-		oidc4vci.WithCredentialType(c.credentialType),
-		oidc4vci.WithOIDCCredentialFormat(c.oidcCredentialFormat),
+		oidc4vci.WithCredentialFilter(c.credentialType, c.oidcCredentialFormat),
 		oidc4vci.WithPin(pin),
 	)
 	if err != nil {
@@ -335,15 +335,19 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 		return "", nil, fmt.Errorf("run pre-auth flow: %w", err)
 	}
 
-	credID := ""
-
-	if credentials != nil {
-		credID = credentials.Contents().ID
+	var (
+		credID     string
+		credential *verifiable.Credential
+	)
+	if len(credentials) > 0 {
+		credential = credentials[0]
 	}
 
-	if err != nil {
-		return credID, nil, fmt.Errorf("cred id [%v]; run pre-auth issuance: %w", credID, err)
+	if credential == nil {
+		return "", nil, errors.New("run pre-auth issuance: no credential returned")
 	}
+
+	credID = credential.Contents().ID
 
 	perfInfo := make(stressTestPerfInfo)
 
@@ -403,9 +407,9 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 		perfInfo[k] = v
 	}
 
-	if !c.disableRevokeTestCase && credentials.Contents().Status != nil && credentials.Contents().Status.Type != "" {
+	if !c.disableRevokeTestCase && credential.Contents().Status != nil && credential.Contents().Status.Type != "" {
 		st := time.Now()
-		if err = c.revokeVC(credentials); err != nil {
+		if err = c.revokeVC(credential); err != nil {
 			return credID, nil, fmt.Errorf("cred id [%v]; can not revokeVc; %w", credID, err)
 		}
 

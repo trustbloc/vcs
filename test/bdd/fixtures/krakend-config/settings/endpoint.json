@@ -132,6 +132,14 @@
       ]
     },
     {
+      "endpoint": "/oidc/batch_credential",
+      "method": "POST",
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/oidc/notification",
       "method": "POST",
       "input_headers": [

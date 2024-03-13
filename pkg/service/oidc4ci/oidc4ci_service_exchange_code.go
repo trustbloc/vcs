@@ -87,8 +87,20 @@ func (s *Service) ExchangeAuthorizationCode(
 		return nil, err
 	}
 
-	return &ExchangeAuthorizationCodeResult{
-		TxID:                 tx.ID,
-		AuthorizationDetails: tx.AuthorizationDetails, //TODO: add tx.AuthorizationDetails.CredentialIdentifiers
-	}, nil
+	exchangeAuthorizationCodeResult := &ExchangeAuthorizationCodeResult{
+		TxID: tx.ID,
+	}
+
+	for _, credentialConfiguration := range tx.CredentialConfiguration {
+		// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
+		// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
+		if credentialConfiguration.AuthorizationDetails != nil {
+			exchangeAuthorizationCodeResult.AuthorizationDetails = append(
+				exchangeAuthorizationCodeResult.AuthorizationDetails,
+				credentialConfiguration.AuthorizationDetails,
+			)
+		}
+	}
+
+	return exchangeAuthorizationCodeResult, nil
 }
