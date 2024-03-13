@@ -1041,7 +1041,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 				credentialResponse,
 				correspondingRequestedCredential.CredentialResponseEncryption,
 			); err != nil {
-				return fmt.Errorf("encrypt credential response: %w", err)
+				return fmt.Errorf("encrypt batch credential response: %w", err)
 			}
 
 			credentialResponseBatch.CredentialResponses = append(
@@ -1077,6 +1077,8 @@ func parsePrepareCredentialErrorResponse(resp *http.Response) error {
 			return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
 		case resterr.InvalidOrMissingProofOIDCErr:
 			return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
+		case resterr.OIDCInvalidCredentialRequest:
+			return resterr.NewOIDCError(string(resterr.OIDCInvalidCredentialRequest), finalErr)
 		}
 	}
 
