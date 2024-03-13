@@ -446,16 +446,25 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 		return err
 	}
 
-	err = s.extractClaimData(ctx, tx, authResponse, profile, verifiedPresentations)
+	receivedClaims, err := s.extractClaimData(ctx, tx, authResponse, profile, verifiedPresentations)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, profile, err)
 
 		return err
 	}
 
+	err = s.transactionManager.StoreReceivedClaims(tx.ID, receivedClaims)
+	if err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, profile, err)
+
+		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "store-received-claims",
+			fmt.Errorf("store received claims: %w", err))
+	}
+
 	logger.Debugc(ctx, "extractClaimData claims stored")
 
-	if err = s.sendTxEvent(ctx, spi.VerifierOIDCInteractionSucceeded, tx, profile); err != nil {
+	err = s.sendOIDCInteractionEvent(ctx, spi.VerifierOIDCInteractionSucceeded, tx, profile, receivedClaims)
+	if err != nil {
 		return err
 	}
 
@@ -580,7 +589,8 @@ func (s *Service) RetrieveClaims(
 
 	logger.Debugc(ctx, "RetrieveClaims succeed")
 
-	if err := s.sendTxEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile); err != nil {
+	err := s.sendOIDCInteractionEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile, tx.ReceivedClaims)
+	if err != nil {
 		logger.Warnc(ctx, "Failed to send event", log.WithError(err))
 	}
 
@@ -612,7 +622,7 @@ func (s *Service) extractClaimData(
 	authResponse *AuthorizationResponseParsed,
 	profile *profileapi.Verifier,
 	verifiedPresentations map[string]*ProcessedVPToken,
-) error {
+) (*ReceivedClaims, error) {
 	var presentations []*verifiable.Presentation
 
 	for _, token := range authResponse.VPTokens {
@@ -622,7 +632,7 @@ func (s *Service) extractClaimData(
 	}
 	diVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
-		return resterr.NewSystemError(resterr.VerifierDataIntegrityVerifier, "create-verifier",
+		return nil, resterr.NewSystemError(resterr.VerifierDataIntegrityVerifier, "create-verifier",
 			fmt.Errorf("get data integrity verifier: %w", err))
 	}
 
@@ -642,7 +652,7 @@ func (s *Service) extractClaimData(
 
 	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader, opts...)
 	if err != nil {
-		return resterr.NewCustomError(resterr.PresentationDefinitionMismatch,
+		return nil, resterr.NewCustomError(resterr.PresentationDefinitionMismatch,
 			fmt.Errorf("presentation definition match: %w", err))
 	}
 
@@ -653,12 +663,12 @@ func (s *Service) extractClaimData(
 			token, ok := verifiedPresentations[mc.PresentationID]
 			if !ok {
 				// this should never happen
-				return fmt.Errorf("missing verified presentation ID: %s", mc.PresentationID)
+				return nil, fmt.Errorf("missing verified presentation ID: %s", mc.PresentationID)
 			}
 
 			err = checkVCSubject(mc.Credential, token)
 			if err != nil {
-				return fmt.Errorf("extractClaimData vc subject: %w", err)
+				return nil, fmt.Errorf("extractClaimData vc subject: %w", err)
 			}
 
 			logger.Debugc(ctx, "vc subject verified")
@@ -672,13 +682,7 @@ func (s *Service) extractClaimData(
 		Credentials:       storeCredentials,
 	}
 
-	err = s.transactionManager.StoreReceivedClaims(tx.ID, receivedClaims)
-	if err != nil {
-		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "store-received-claims",
-			fmt.Errorf("store received claims: %w", err))
-	}
-
-	return nil
+	return receivedClaims, nil
 }
 
 func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error {
@@ -845,6 +849,49 @@ func (s *Service) createRequestObject(
 			presentationDefinition,
 		}},
 	}
+}
+
+func (s *Service) sendOIDCInteractionEvent(
+	ctx context.Context,
+	eventType spi.EventType,
+	tx *Transaction,
+	profile *profileapi.Verifier,
+	receivedClaims *ReceivedClaims,
+) error {
+	ep := createTxEventPayload(tx, profile)
+
+	for _, c := range receivedClaims.Credentials {
+		cred := c.Contents()
+
+		subjectID, err := verifiable.SubjectID(cred.Subject)
+		if err != nil {
+			logger.Warnc(ctx, "Unable to extract ID from credential subject: %w", log.WithError(err))
+		}
+
+		var issuerID string
+		if cred.Issuer != nil {
+			issuerID = cred.Issuer.ID
+		}
+
+		ep.Credentials = append(ep.Credentials, &CredentialEventPayload{
+			ID:        cred.ID,
+			Types:     cred.Types,
+			IssuerID:  issuerID,
+			SubjectID: subjectID,
+		})
+	}
+
+	event, err := CreateEvent(eventType, tx.ID, ep)
+	if err != nil {
+		return fmt.Errorf("create OIDC verifier event: %w", err)
+	}
+
+	err = s.eventSvc.Publish(ctx, s.eventTopic, event)
+	if err != nil {
+		return fmt.Errorf("send OIDC verifier event: %w", err)
+	}
+
+	return nil
 }
 
 func getScope(customScopes []string) string {

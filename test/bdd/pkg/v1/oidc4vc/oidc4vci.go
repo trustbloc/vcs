@@ -128,7 +128,7 @@ func (s *Steps) checkInitiateIssuanceURL(initiateIssuanceURL string) error {
 	return nil
 }
 
-func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIRequest) error {
+func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIRequest, options ...oidc4vci.Opt) error {
 	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(initiateOIDC4CIRequest)
 	if err != nil {
 		return fmt.Errorf("init credential issuance: %w", err)
@@ -137,8 +137,17 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 	opts := []oidc4vci.Opt{
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
-		oidc4vci.WithCredentialFilter(s.issuedCredentialType, s.getIssuerOIDCCredentialFormat(s.issuedCredentialType)),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
+	}
+
+	opts = append(opts, options...)
+
+	credentialTypes := strings.Split(s.issuedCredentialType, ",")
+
+	// Set option filters
+	for _, credentialType := range credentialTypes {
+		format := s.getIssuerOIDCCredentialFormat(credentialType)
+		opts = append(opts, oidc4vci.WithCredentialFilter(credentialType, format))
 	}
 
 	opts = s.addProofBuilder(opts)
@@ -586,15 +595,9 @@ func (s *Steps) runOIDC4VCIAuthBunch() error {
 	}
 
 	// Set option filters
-	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
 	for _, credentialType := range credentialTypes {
-		for _, credentialConf := range profileCredentialConf {
-			if !lo.Contains(credentialConf.CredentialDefinition.Type, credentialType) {
-				continue
-			}
-
-			opts = append(opts, oidc4vci.WithCredentialFilter(credentialType, credentialConf.Format))
-		}
+		format := s.getIssuerOIDCCredentialFormat(credentialType)
+		opts = append(opts, oidc4vci.WithCredentialFilter(credentialType, format))
 	}
 
 	opts = s.addProofBuilder(opts)
@@ -653,6 +656,15 @@ func (s *Steps) runOIDC4VCIAuthBunchWithScopes(scopes string) error {
 	return nil
 }
 
+func (s *Steps) runOIDC4VCIPreAuthBunch() error {
+	initiateRequest, err := s.getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials()
+	if err != nil {
+		return fmt.Errorf("getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
+	}
+
+	return s.runOIDC4VCIPreAuth(*initiateRequest, oidc4vci.WithBatchCredentialIssuance())
+}
+
 // getInitiateAuthIssuanceRequestOfAllSupportedCredentials returns Initiate issuance request body
 // for all supported credential types by given Issuer.
 // Returned structure contains CredentialConfiguration field, that is aimed for batch credentials issuance.
@@ -681,6 +693,47 @@ func (s *Steps) getInitiateAuthIssuanceRequestOfAllSupportedCredentials() (*init
 
 		initiateRequest.CredentialConfiguration[credentialConfigurationID] = InitiateIssuanceCredentialConfiguration{
 			ClaimEndpoint:        claimDataURL + "?credentialType=" + credentialType,
+			CredentialTemplateId: credentialTemplate.ID,
+		}
+
+		initiateRequest.Scope = append(initiateRequest.Scope, credentialConf.Scope)
+	}
+
+	return initiateRequest, nil
+}
+
+// getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials returns Pre Auth Initiate issuance request body
+// for all supported credential types by given Issuer.
+// Returned structure contains CredentialConfiguration field, that is aimed for batch credentials issuance.
+func (s *Steps) getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials() (*initiateOIDC4VCIRequest, error) {
+	initiateRequest := &initiateOIDC4VCIRequest{
+		GrantType:               preAuthorizedCodeGrantType,
+		OpState:                 uuid.New().String(),
+		ResponseType:            "code",
+		Scope:                   []string{"openid", "profile"},
+		UserPinRequired:         true,
+		CredentialConfiguration: map[string]InitiateIssuanceCredentialConfiguration{},
+	}
+
+	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
+	for credentialConfigurationID, credentialConf := range profileCredentialConf {
+		credentialType := credentialConf.CredentialDefinition.Type[1]
+
+		credentialTemplate, ok := lo.Find(s.issuerProfile.CredentialTemplates, func(item *profileapi.CredentialTemplate) bool {
+			return item.Type == credentialType
+		})
+
+		if !ok {
+			return nil, fmt.Errorf("unable to find credential template with type %s", credentialTemplate)
+		}
+
+		claims, err := s.fetchClaimData(credentialType)
+		if err != nil {
+			return nil, fmt.Errorf("fetchClaimData: %w", err)
+		}
+
+		initiateRequest.CredentialConfiguration[credentialConfigurationID] = InitiateIssuanceCredentialConfiguration{
+			ClaimData:            claims,
 			CredentialTemplateId: credentialTemplate.ID,
 		}
 
