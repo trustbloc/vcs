@@ -34,12 +34,12 @@ Feature: OIDC4VC REST API
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0    | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
-  @oidc4vc_rest_auth_flow_bunch_credential_configuration_id
+  @oidc4vc_rest_auth_flow_batch_credential_configuration_id
   Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credentialConfigurationID)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-    When User interacts with Wallet to initiate bunch credential issuance using authorization code flow with credential configuration ID "<credentialConfigurationID>"
+    When User interacts with Wallet to initiate batch credential issuance using authorization code flow with credential configuration ID "<credentialConfigurationID>"
     Then "<issuedCredentialsAmount>" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
@@ -52,13 +52,13 @@ Feature: OIDC4VC REST API
       | bank_issuer/v1.0 | UniversityDegreeCredentialIdentifier,CrudeProductCredentialIdentifier,VerifiedEmployeeIdentifier | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
       | bank_issuer/v1.0 | UniversityDegreeCredentialIdentifier,CrudeProductCredentialIdentifier                            | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
-  @oidc4vc_rest_auth_flow_bunch_credential_filters
+  @oidc4vc_rest_auth_flow_batch_credential_filters
   Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credential type)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "nil"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-    When User interacts with Wallet to initiate bunch credential issuance using authorization code flow
+    When User interacts with Wallet to initiate batch credential issuance using authorization code flow
     Then "<issuedCredentialsAmount>" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
@@ -71,12 +71,12 @@ Feature: OIDC4VC REST API
       | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
       | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
-  @oidc4vc_rest_auth_flow_bunch_additional_scopes
+  @oidc4vc_rest_auth_flow_batch_additional_scopes
   Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by scopes)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-    When User interacts with Wallet to initiate bunch credential issuance using authorization code flow with scopes "<scopes>"
+    When User interacts with Wallet to initiate batch credential issuance using authorization code flow with scopes "<scopes>"
     Then "<issuedCredentialsAmount>" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
@@ -89,13 +89,13 @@ Feature: OIDC4VC REST API
       | bank_issuer/v1.0 | UniversityDegreeCredential_001,CrudeProductCredential_001,VerifiedEmployeeCredential_001 | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
       | bank_issuer/v1.0 | UniversityDegreeCredential_001,CrudeProductCredential_001                                | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
-  @oidc4vc_rest_preauth_flow_bunch_credential_filters
+  @oidc4vc_rest_preauth_flow_batch_credential_filters
   Scenario Outline: OIDC Batch credential issuance and verification Pre Auth flow (request all credentials by credential type)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "nil"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
-    When User interacts with Wallet to initiate bunch credential issuance using pre authorization code flow
+    When User interacts with Wallet to initiate batch credential issuance using pre authorization code flow
     Then "<issuedCredentialsAmount>" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims

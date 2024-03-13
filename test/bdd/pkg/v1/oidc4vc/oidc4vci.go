@@ -529,7 +529,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 	return nil
 }
 
-func (s *Steps) runOIDC4VCIAuthBunchByCredentialConfigurationID(credentialConfigurationIDRaw string) error {
+func (s *Steps) runOIDC4VCIAuthBatchByCredentialConfigurationID(credentialConfigurationIDRaw string) error {
 	initiateRequest, err := s.getInitiateAuthIssuanceRequestOfAllSupportedCredentials()
 	if err != nil {
 		return fmt.Errorf("getInitiateAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
@@ -570,7 +570,7 @@ func (s *Steps) runOIDC4VCIAuthBunchByCredentialConfigurationID(credentialConfig
 	return nil
 }
 
-func (s *Steps) runOIDC4VCIAuthBunch() error {
+func (s *Steps) runOIDC4VCIAuthBatch() error {
 	initiateRequest, err := s.getInitiateAuthIssuanceRequestOfAllSupportedCredentials()
 	if err != nil {
 		return fmt.Errorf("getInitiateAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
@@ -616,7 +616,7 @@ func (s *Steps) runOIDC4VCIAuthBunch() error {
 	return nil
 }
 
-func (s *Steps) runOIDC4VCIAuthBunchWithScopes(scopes string) error {
+func (s *Steps) runOIDC4VCIAuthBatchWithScopes(scopes string) error {
 	initiateRequest, err := s.getInitiateAuthIssuanceRequestOfAllSupportedCredentials()
 	if err != nil {
 		return fmt.Errorf("getInitiateAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
@@ -656,7 +656,7 @@ func (s *Steps) runOIDC4VCIAuthBunchWithScopes(scopes string) error {
 	return nil
 }
 
-func (s *Steps) runOIDC4VCIPreAuthBunch() error {
+func (s *Steps) runOIDC4VCIPreAuthBatch() error {
 	initiateRequest, err := s.getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials()
 	if err != nil {
 		return fmt.Errorf("getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
