@@ -63,9 +63,8 @@ type TransactionStore transactionStore
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
-	ProfileID      profileapi.ID
-	ProfileVersion profileapi.Version
-	//CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
+	ProfileID                          profileapi.ID
+	ProfileVersion                     profileapi.Version
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
 	OrgID                              string
@@ -156,24 +155,24 @@ type IssuerIDPOIDCConfiguration struct {
 
 // InitiateIssuanceRequest is the request used by the Issuer to initiate the OIDC VC issuance interaction.
 type InitiateIssuanceRequest struct {
-	// Deprecated. Use CredentialConfiguration instead.
+	// Deprecated: Use CredentialConfiguration instead.
 	CredentialTemplateID      string
 	ClientInitiateIssuanceURL string
 	ClientWellKnownURL        string
-	// Deprecated. Use CredentialConfiguration instead.
+	// Deprecated: Use CredentialConfiguration instead.
 	ClaimEndpoint string
 	GrantType     string
 	ResponseType  string
 	Scope         []string
 	OpState       string
-	// Deprecated. Use CredentialConfiguration instead.
+	// Deprecated: Use CredentialConfiguration instead.
 	ClaimData       map[string]interface{}
 	UserPinRequired bool
-	// Deprecated. Use CredentialConfiguration instead.
+	// Deprecated: Use CredentialConfiguration instead.
 	CredentialExpiresAt *time.Time
-	// Deprecated. Use CredentialConfiguration instead.
+	// Deprecated: Use CredentialConfiguration instead.
 	CredentialName string
-	// Deprecated. Use CredentialConfiguration instead.
+	// Deprecated: Use CredentialConfiguration instead.
 	CredentialDescription   string
 	WalletInitiatedIssuance bool
 	// CredentialConfiguration aimed to initialise multi credential issuance.
@@ -183,7 +182,7 @@ type InitiateIssuanceRequest struct {
 type InitiateIssuanceCredentialConfiguration struct {
 	ClaimData             map[string]interface{} `json:"claim_data,omitempty"`
 	ClaimEndpoint         string                 `json:"claim_endpoint,omitempty"`
-	CredentialTemplateId  string                 `json:"credential_template_id,omitempty"`
+	CredentialTemplateID  string                 `json:"credential_template_id,omitempty"`
 	CredentialExpiresAt   *time.Time             `json:"credential_expires_at,omitempty"`
 	CredentialName        string                 `json:"credential_name,omitempty"`
 	CredentialDescription string                 `json:"credential_description,omitempty"`

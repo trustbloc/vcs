@@ -10,8 +10,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )

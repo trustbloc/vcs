@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"io"
 	"net/http"
 	"strings"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -388,7 +388,8 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		}
 	}
 
-	validScopes, err := s.checkScopes(profile, req.Scope, tx.Scope, tx.CredentialConfiguration, requestedCredentialConfigurationIDs)
+	validScopes, err := s.checkScopes(
+		profile, req.Scope, tx.Scope, tx.CredentialConfiguration, requestedCredentialConfigurationIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -745,11 +746,11 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			return nil, err
 		}
 
-		cred, ackID, err := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
-		if err != nil {
-			s.sendFailedTransactionEvent(ctx, tx, err)
+		cred, ackID, prepareCredError := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
+		if prepareCredError != nil {
+			s.sendFailedTransactionEvent(ctx, tx, prepareCredError)
 
-			return nil, err
+			return nil, prepareCredError
 		}
 
 		vcFormat, _ := common.ValidateVCFormat(common.VCFormat(txCredentialConfiguration.OIDCCredentialFormat))
@@ -1024,7 +1025,7 @@ func (s *Service) sendFailedTransactionEvent(
 func createTxEventPayload(tx *Transaction) *EventPayload {
 	var credentialTemplateID string
 
-	//if tx.CredentialTemplate != nil {
+	// if tx.CredentialTemplate != nil {
 	//	credentialTemplateID = tx.CredentialTemplate.ID
 	//}
 

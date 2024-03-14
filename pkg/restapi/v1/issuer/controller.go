@@ -457,7 +457,7 @@ func (c *Controller) initiateIssuance(
 			issuanceReq.CredentialConfiguration[credentialConfigurationID] = oidc4ci.InitiateIssuanceCredentialConfiguration{
 				ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
 				ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
-				CredentialTemplateId:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
+				CredentialTemplateID:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
 				CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
 				CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
 				CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
@@ -781,12 +781,17 @@ func (c *Controller) prepareCredential(
 				errors.New("credentials should not be nil"))
 		}
 
-		if err := c.validateClaims(credentialData.Credential, credentialData.CredentialTemplate, credentialData.EnforceStrictValidation); err != nil {
+		if err := c.validateClaims(
+			credentialData.Credential,
+			credentialData.CredentialTemplate,
+			credentialData.EnforceStrictValidation,
+		); err != nil {
 			return nil, resterr.NewCustomError(resterr.ClaimsValidationErr, err)
 		}
 
 		if err := validateCredentialResponseEncryption(profile, requestedCredentialResponseEncryption[index]); err != nil {
-			return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
+			return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters,
+				"credential_response_encryption", err)
 		}
 
 		signedCredential, err := c.signCredential(

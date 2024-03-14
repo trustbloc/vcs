@@ -41,7 +41,7 @@ func TestWrapper_PushAuthorizationDetails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", &oidc4ci.AuthorizationDetails{}).Times(1)
+	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", []*oidc4ci.AuthorizationDetails{{}}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 

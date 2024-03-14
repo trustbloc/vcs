@@ -921,7 +921,7 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 }
 
 // OidcBatchCredential handles OIDC batch credential request (POST /oidc/batch_credential).
-func (c *Controller) OidcBatchCredential(e echo.Context) error {
+func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen,gocognit
 	req := e.Request()
 
 	ctx, span := c.tracer.Start(req.Context(), "OidcBatchCredential")
@@ -934,7 +934,8 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 	}
 
 	for _, cr := range credentialReq.CredentialRequests {
-		if err := validateCredentialRequest(e, &cr); err != nil {
+		credentialRequest := cr
+		if err := validateCredentialRequest(e, &credentialRequest); err != nil {
 			return err
 		}
 	}
@@ -960,7 +961,8 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 
 	var did, aud string
 	for _, cr := range credentialReq.CredentialRequests {
-		did, aud, err = c.HandleProof(ar.GetClient().GetID(), &cr, session)
+		credentialRequest := cr
+		did, aud, err = c.HandleProof(ar.GetClient().GetID(), &credentialRequest, session)
 		if err != nil {
 			return fmt.Errorf("handle proof: %w", err)
 		}
@@ -968,16 +970,16 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 		prepareCredential := issuer.PrepareCredentialBase{
 			AudienceClaim:                         aud,
 			Did:                                   &did,
-			Format:                                cr.Format,
+			Format:                                credentialRequest.Format,
 			HashedToken:                           hashToken(token),
-			Types:                                 cr.Types,
+			Types:                                 credentialRequest.Types,
 			RequestedCredentialResponseEncryption: nil,
 		}
 
 		if cr.CredentialResponseEncryption != nil {
 			prepareCredential.RequestedCredentialResponseEncryption = &issuer.RequestedCredentialResponseEncryption{
-				Alg: cr.CredentialResponseEncryption.Alg,
-				Enc: cr.CredentialResponseEncryption.Enc,
+				Alg: credentialRequest.CredentialResponseEncryption.Alg,
+				Enc: credentialRequest.CredentialResponseEncryption.Enc,
 			}
 		}
 
@@ -1055,8 +1057,6 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error {
 	}
 
 	return apiUtil.WriteOutput(e)(credentialResponseBatch, nil)
-
-	return nil
 }
 
 func parsePrepareCredentialErrorResponse(resp *http.Response) error {
@@ -1085,7 +1085,7 @@ func parsePrepareCredentialErrorResponse(resp *http.Response) error {
 	return finalErr
 }
 
-func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
+func validateCredentialRequest(_ echo.Context, req *CredentialRequest) error {
 	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
 	if err != nil {
 		return resterr.NewOIDCError(invalidRequestOIDCErr, err)

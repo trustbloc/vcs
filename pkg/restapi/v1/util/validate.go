@@ -8,10 +8,10 @@ package util
 
 import (
 	"errors"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 
 	"github.com/samber/lo"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"

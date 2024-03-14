@@ -810,7 +810,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 						"key2": "value2",
 					},
 					ClaimEndpoint:         "https://vcs.pb.example.com/claim2",
-					CredentialTemplateId:  "templateID1",
+					CredentialTemplateID:  "templateID1",
 					CredentialExpiresAt:   now,
 					CredentialName:        "name2",
 					CredentialDescription: "description2",
@@ -819,7 +819,8 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		}
 
 		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
-		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), expectedInitiateIssuanceReq, issuerProfile).Times(1).Return(resp, nil)
+		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), expectedInitiateIssuanceReq, issuerProfile).
+			Times(1).Return(resp, nil)
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
 
 		controller := NewController(&Config{
@@ -1296,7 +1297,8 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 		}
 
 		ctx := echoContext(withRequestBody([]byte(`{{`)))
-		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "invalid character '{' looking for beginning of object key string")
+		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx),
+			"invalid character '{' looking for beginning of object key string")
 	})
 
 	t.Run("invalid authorization_details.type", func(t *testing.T) {
