@@ -44,8 +44,8 @@ func (w *Wrapper) InitiateIssuance(
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
 	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", req, attributeutil.WithRedacted("ClaimData")))
 
-	if req.ClaimData != nil {
-		span.SetAttributes(attribute.StringSlice("claim_keys", lo.Keys(req.ClaimData)))
+	if len(req.ClaimData) > 0 { //nolint:staticcheck
+		span.SetAttributes(attribute.StringSlice("claim_keys", lo.Keys(req.ClaimData))) //nolint:staticcheck
 	}
 
 	resp, err := w.svc.InitiateIssuance(ctx, req, profile)

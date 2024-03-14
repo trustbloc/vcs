@@ -13,6 +13,7 @@ import (
 
 	"github.com/samber/lo"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -25,7 +26,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          args
-		want          *oidc4ci.AuthorizationDetails
+		want          []*oidc4ci.AuthorizationDetails
 		wantErr       bool
 		errorContains string
 	}{
@@ -40,14 +41,30 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 						CredentialDefinition:      nil,
 						Format:                    nil,
 					},
+					{
+						CredentialConfigurationId: lo.ToPtr("PermanentResidentCard"),
+						Locations:                 lo.ToPtr([]string{"https://example.com/rs1", "https://example.com/rs2"}),
+						Type:                      "openid_credential",
+						CredentialDefinition:      nil,
+						Format:                    nil,
+					},
 				},
 			},
-			want: &oidc4ci.AuthorizationDetails{
-				Type:                      "openid_credential",
-				Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
-				CredentialConfigurationID: "UniversityDegreeCredential",
-				Format:                    "",
-				CredentialDefinition:      nil,
+			want: []*oidc4ci.AuthorizationDetails{
+				{
+					Type:                      "openid_credential",
+					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+					CredentialConfigurationID: "UniversityDegreeCredential",
+					Format:                    "",
+					CredentialDefinition:      nil,
+				},
+				{
+					Type:                      "openid_credential",
+					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+					CredentialConfigurationID: "PermanentResidentCard",
+					Format:                    "",
+					CredentialDefinition:      nil,
+				},
 			},
 			wantErr:       false,
 			errorContains: "",
@@ -69,39 +86,51 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 						},
 						Format: lo.ToPtr("jwt_vc_json"),
 					},
+					{
+						CredentialConfigurationId: nil,
+						Locations:                 lo.ToPtr([]string{"https://example.com/rs1", "https://example.com/rs2"}),
+						Type:                      "openid_credential",
+						CredentialDefinition: &common.CredentialDefinition{
+							Context: lo.ToPtr([]string{"https://example.com/context/1", "https://example.com/context/2"}),
+							CredentialSubject: lo.ToPtr(map[string]interface{}{
+								"key": "value",
+							}),
+							Type: []string{"VerifiableCredential", "PermanentResidentCard"},
+						},
+						Format: lo.ToPtr("jwt_vc_json"),
+					},
 				},
 			},
-			want: &oidc4ci.AuthorizationDetails{
-				Type:                      "openid_credential",
-				Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
-				CredentialConfigurationID: "",
-				Format:                    "jwt",
-				CredentialDefinition: &oidc4ci.CredentialDefinition{
-					Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
-					CredentialSubject: map[string]interface{}{
-						"key": "value",
+			want: []*oidc4ci.AuthorizationDetails{
+				{
+					Type:                      "openid_credential",
+					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+					CredentialConfigurationID: "",
+					Format:                    vcsverifiable.OIDCFormat("jwt_vc_json"),
+					CredentialDefinition: &oidc4ci.CredentialDefinition{
+						Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
+						CredentialSubject: map[string]interface{}{
+							"key": "value",
+						},
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					},
-					Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+				{
+					Type:                      "openid_credential",
+					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
+					CredentialConfigurationID: "",
+					Format:                    vcsverifiable.OIDCFormat("jwt_vc_json"),
+					CredentialDefinition: &oidc4ci.CredentialDefinition{
+						Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
+						CredentialSubject: map[string]interface{}{
+							"key": "value",
+						},
+						Type: []string{"VerifiableCredential", "PermanentResidentCard"},
+					},
 				},
 			},
 			wantErr:       false,
 			errorContains: "",
-		},
-		{
-			name: "Error multiple authorization details supplied",
-			args: args{
-				ad: []common.AuthorizationDetails{
-					{
-						Type: "unknown",
-					},
-					{
-						Type: "unknown",
-					},
-				},
-			},
-			want:          nil,
-			wantErr:       true,
-			errorContains: "oidc-error: only single authorization_details supported",
 		},
 		{
 			name: "Error invalid type",

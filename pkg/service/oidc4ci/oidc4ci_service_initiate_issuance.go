@@ -66,7 +66,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	issuedCredentialConfiguration := make(map[string]*TxCredentialConfiguration)
 
 	// If req.CredentialTemplateID supplied - create TxCredentialConfiguration based on it.
-	if req.CredentialTemplateID != "" {
+	if req.CredentialTemplateID != "" { //nolint:nestif
 		if isPreAuthFlow != (len(req.ClaimData) > 0) {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "claim_data",
 				errors.New("claim_data param is not supported for given grant_type"))
@@ -77,7 +77,8 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			return nil, err
 		}
 
-		credentialConfigurationID, credentialConfiguration, err := findCredentialConfigurationID(req.CredentialTemplateID, credentialTemplate.Type, profile)
+		credentialConfigurationID, credentialConfiguration, err := findCredentialConfigurationID(
+			req.CredentialTemplateID, credentialTemplate.Type, profile)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +107,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 	// Multiple credential issuance - use req.CredentialConfiguration to create TxCredentialConfiguration.
 	for credentialConfigurationID, credentialConfiguration := range req.CredentialConfiguration {
-		metaCredentialConfiguration, ok := profile.CredentialMetaData.CredentialsConfigurationSupported[credentialConfigurationID]
+		profileMeta := profile.CredentialMetaData
+
+		metaCredentialConfiguration, ok := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
 		if !ok {
 			return nil, resterr.ErrInvalidCredentialConfigurationID
 		}
@@ -116,7 +119,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 				errors.New("claim_data param is not supported for given grant_type"))
 		}
 
-		credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateId, profile)
+		credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
 		if err != nil {
 			return nil, err
 		}
@@ -127,14 +130,16 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			ClaimEndpoint:         credentialConfiguration.ClaimEndpoint,
 			CredentialName:        credentialConfiguration.CredentialName,
 			CredentialDescription: credentialConfiguration.CredentialDescription,
-			CredentialExpiresAt:   lo.ToPtr(s.GetCredentialsExpirationTime(credentialConfiguration.CredentialExpiresAt, credentialTemplate)),
-			ClaimDataID:           "",
-			PreAuthCodeExpiresAt:  nil,
-			AuthorizationDetails:  nil,
+			CredentialExpiresAt: lo.ToPtr(
+				s.GetCredentialsExpirationTime(credentialConfiguration.CredentialExpiresAt, credentialTemplate)),
+			ClaimDataID:          "",
+			PreAuthCodeExpiresAt: nil,
+			AuthorizationDetails: nil,
 		}
 
 		if isPreAuthFlow {
-			err = s.applyPreAuthFlowModifications(ctx, credentialConfiguration.ClaimData, credentialTemplate, txCredentialConfiguration)
+			err = s.applyPreAuthFlowModifications(
+				ctx, credentialConfiguration.ClaimData, credentialTemplate, txCredentialConfiguration)
 			if err != nil {
 				return nil, err
 			}
@@ -249,7 +254,8 @@ func (s *Service) applyPreAuthFlowModifications(
 
 	txCredentialConfiguration.ClaimDataID = claimDataID
 
-	txCredentialConfiguration.PreAuthCodeExpiresAt = lo.ToPtr(time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second))
+	exp := time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second)
+	txCredentialConfiguration.PreAuthCodeExpiresAt = lo.ToPtr(exp)
 
 	return nil
 }
