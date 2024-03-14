@@ -30,8 +30,8 @@ import (
 const (
 	TxCodeLength = 6
 
-	grantTypeAuthorizationCode = "authorization_code"
-	grantTypePreAuthorizedCode = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+	GrantTypeAuthorizationCode = "authorization_code"
+	GrantTypePreAuthorizedCode = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 )
 
 // InitiateIssuance creates credential issuance transaction and builds initiate issuance URL.
@@ -52,13 +52,13 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrVCOptionsNotConfigured
 	}
 
-	if req.GrantType != grantTypeAuthorizationCode &&
-		req.GrantType != grantTypePreAuthorizedCode {
+	if req.GrantType != GrantTypeAuthorizationCode &&
+		req.GrantType != GrantTypePreAuthorizedCode {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "grant_type",
 			fmt.Errorf("unexpected grant_type supplied %s", req.GrantType))
 	}
 
-	isPreAuthFlow := req.GrantType == grantTypePreAuthorizedCode
+	isPreAuthFlow := req.GrantType == GrantTypePreAuthorizedCode
 	if !isPreAuthFlow && profile.OIDCConfig == nil {
 		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
