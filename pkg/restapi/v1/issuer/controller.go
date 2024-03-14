@@ -745,7 +745,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 
 	if len(result.Credentials) == 0 {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
-			errors.New("credentials should not be empty"))
+			errors.New("empty credentials list"))
 	}
 
 	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
@@ -858,14 +858,14 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential", err)
 	}
 
+	if len(result.Credentials) == 0 {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential",
+			errors.New("empty credentials list"))
+	}
+
 	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
 	if err != nil {
 		return err
-	}
-
-	if len(result.Credentials) == 0 {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential",
-			errors.New("credentials should not be empty"))
 	}
 
 	prepareCredentialResult, err := c.prepareCredential(
