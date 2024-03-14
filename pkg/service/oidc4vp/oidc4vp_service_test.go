@@ -871,7 +871,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
 			VDR:                  vdr,
-			TrustRegistryService: trustRegistry,
+			TrustRegistry:        trustRegistry,
 		})
 
 		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",

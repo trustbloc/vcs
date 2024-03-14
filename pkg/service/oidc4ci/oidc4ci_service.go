@@ -595,13 +595,11 @@ func (s *Service) checkPolicy(
 	clientAssertionType,
 	clientAssertion string,
 ) error {
-	if profile.OIDCConfig == nil ||
-		!lo.Contains(profile.OIDCConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType) {
-		return nil
-	}
-
-	if err := s.validateClientAssertionParams(clientAssertionType, clientAssertion); err != nil {
-		return err
+	if profile.OIDCConfig != nil &&
+		lo.Contains(profile.OIDCConfig.TokenEndpointAuthMethodsSupported, attestJWTClientAuthType) {
+		if err := s.validateClientAssertionParams(clientAssertionType, clientAssertion); err != nil {
+			return err
+		}
 	}
 
 	if profile.Checks.Policy.PolicyURL != "" {
