@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -55,29 +54,48 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID:   "UniversityDegreeCredential",
+									ID:   "UniversityDegreeCredentialID",
 									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "PermanentResidentCardID",
+									Type: "PermanentResidentCard",
 								},
 							},
 						},
 					},
 				}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
-
-				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
-					&profileapi.Issuer{
-						CredentialMetaData: &profileapi.CredentialMetaData{
-							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
-								"UniversityDegreeCredentialIdentifier": {
-									CredentialDefinition: &profileapi.CredentialDefinition{
-										Type: []string{
-											"VerifiableCredential", "UniversityDegreeCredential",
-										},
+				mockTransactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": { // only single CredentialConfiguration expected.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredentialID",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+									CredentialDefinition: &oidc4ci.CredentialDefinition{
+										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
 								},
 							},
+						},
+					},
+				}).Return(nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{},
 						},
 					}, nil)
 
@@ -89,7 +107,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 		},
 		{
@@ -104,8 +122,15 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID:   "UniversityDegreeCredential",
+									ID:   "UniversityDegreeCredentialID",
 									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "PermanentResidentCardID",
+									Type: "PermanentResidentCard",
 								},
 							},
 						},
@@ -124,18 +149,44 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
 								},
+								"PermanentResidentCardIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "PermanentResidentCard",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
 							},
 						},
 					}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+				mockTransactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": { // only single CredentialConfiguration expected.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredentialID",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+								},
+							},
+						},
+					},
+				}).Return(nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 		},
 		{
@@ -152,7 +203,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "find tx by op state")
+				assert.ErrorContains(t, err, "find tx by op state")
 			},
 		},
 		{
@@ -183,12 +234,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				var customErr *resterr.CustomError
 				is := errors.As(err, &customErr)
-				require.True(t, is)
+				assert.True(t, is)
 
-				require.Equal(t, resterr.ProfileNotFound, customErr.Code)
-				require.Empty(t, customErr.FailedOperation)
-				require.Empty(t, customErr.Component)
-				require.ErrorContains(t, customErr.Err, "not found")
+				assert.Equal(t, resterr.ProfileNotFound, customErr.Code)
+				assert.Empty(t, customErr.FailedOperation)
+				assert.Empty(t, customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "not found")
 			},
 		},
 		{
@@ -219,12 +270,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				var customErr *resterr.CustomError
 				is := errors.As(err, &customErr)
-				require.True(t, is)
+				assert.True(t, is)
 
-				require.Equal(t, resterr.SystemError, customErr.Code)
-				require.Equal(t, "GetProfile", customErr.FailedOperation)
-				require.Equal(t, "issuer.profile-service", customErr.Component)
-				require.ErrorContains(t, customErr.Err, "some error")
+				assert.Equal(t, resterr.SystemError, customErr.Code)
+				assert.Equal(t, "GetProfile", customErr.FailedOperation)
+				assert.Equal(t, "issuer.profile-service", customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "some error")
 			},
 		},
 		{
@@ -258,12 +309,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				var customErr *resterr.CustomError
 				is := errors.As(err, &customErr)
-				require.True(t, is)
+				assert.True(t, is)
 
-				require.Equal(t, resterr.InvalidCredentialConfigurationID, customErr.Code)
-				require.Empty(t, customErr.FailedOperation)
-				require.Empty(t, customErr.Component)
-				require.ErrorContains(t, customErr.Err, "invalid credential configuration ID")
+				assert.Equal(t, resterr.InvalidCredentialConfigurationID, customErr.Code)
+				assert.Empty(t, customErr.FailedOperation)
+				assert.Empty(t, customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "invalid credential configuration ID")
 			},
 		},
 		{
@@ -309,12 +360,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				var customErr *resterr.CustomError
 				is := errors.As(err, &customErr)
-				require.True(t, is)
+				assert.True(t, is)
 
-				require.Equal(t, resterr.InvalidCredentialConfigurationID, customErr.Code)
-				require.Empty(t, customErr.FailedOperation)
-				require.Empty(t, customErr.Component)
-				require.ErrorContains(t, customErr.Err, "invalid credential configuration ID")
+				assert.Equal(t, resterr.InvalidCredentialConfigurationID, customErr.Code)
+				assert.Empty(t, customErr.FailedOperation)
+				assert.Empty(t, customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "invalid credential configuration ID")
 			},
 		},
 		{
@@ -359,12 +410,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				var customErr *resterr.CustomError
 				is := errors.As(err, &customErr)
-				require.True(t, is)
+				assert.True(t, is)
 
-				require.Equal(t, resterr.CredentialFormatNotSupported, customErr.Code)
-				require.Empty(t, customErr.FailedOperation)
-				require.Empty(t, customErr.Component)
-				require.ErrorContains(t, customErr.Err, "credential format not supported")
+				assert.Equal(t, resterr.CredentialFormatNotSupported, customErr.Code)
+				assert.Empty(t, customErr.FailedOperation)
+				assert.Empty(t, customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "credential format not supported")
 			},
 		},
 		{
@@ -409,12 +460,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				var customErr *resterr.CustomError
 				is := errors.As(err, &customErr)
-				require.True(t, is)
+				assert.True(t, is)
 
-				require.Equal(t, resterr.CredentialTypeNotSupported, customErr.Code)
-				require.Empty(t, customErr.FailedOperation)
-				require.Empty(t, customErr.Component)
-				require.ErrorContains(t, customErr.Err, "credential type not supported")
+				assert.Equal(t, resterr.CredentialTypeNotSupported, customErr.Code)
+				assert.Empty(t, customErr.FailedOperation)
+				assert.Empty(t, customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "credential type not supported")
 			},
 		},
 		{
@@ -460,7 +511,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -509,7 +560,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "update error")
+				assert.ErrorContains(t, err, "update error")
 			},
 		},
 		{
@@ -554,7 +605,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "neither credentialFormat nor credentialConfigurationID supplied")
+				assert.ErrorContains(t, err, "neither credentialFormat nor credentialConfigurationID supplied")
 			},
 		},
 	}
@@ -566,7 +617,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				ProfileService:   profileSvc,
 				TransactionStore: mockTransactionStore,
 			})
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			err = svc.PushAuthorizationDetails(context.Background(), "opState", []*oidc4ci.AuthorizationDetails{ad})
 			tt.check(t, err)
@@ -585,6 +636,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		setup func(mocks *mocks)
 		check func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error)
 	}{
+		// Success.
 		{
 			name: "Success AuthorizationDetails contains Format field",
 			setup: func(mocks *mocks) {
@@ -594,21 +646,52 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
-						Scope:          []string{"openid", "profile", "address"},
+						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
 							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID:   "UniversityDegreeCredential",
+									ID:   "credetnialTempalteID",
 									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "PermanentResidentCard",
 								},
 							},
 						},
 					},
 				}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": { // Expect only single CredentialConfiguration.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialDefinition: &oidc4ci.CredentialDefinition{
+										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					},
+				}).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
@@ -620,20 +703,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						OIDCConfig: &profileapi.OIDCConfig{
 							ScopesSupported: []string{"openid", "profile", "address"},
 						},
-						CredentialMetaData: &profileapi.CredentialMetaData{
-							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
-								"UniversityDegreeCredentialIdentifier": {
-									CredentialDefinition: &profileapi.CredentialDefinition{
-										Type: []string{
-											"VerifiableCredential", "UniversityDegreeCredential",
-										},
-									},
-									Format: vcsverifiable.JwtVCJsonLD,
-									Scope:  "openid",
-								},
-							},
-						},
-						Checks: profileapi.IssuanceChecks{},
+						CredentialMetaData: &profileapi.CredentialMetaData{},
+						Checks:             profileapi.IssuanceChecks{},
 					}, nil)
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -654,9 +725,126 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
-				require.Equal(t, []string{"openid", "profile"}, resp.Scope)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, []string{"openid", "profile"}, resp.Scope)
+			},
+		},
+		{
+			name: "Success AuthorizationDetails contains either Format and " +
+				"CredentialConfigurationID field - different credentials",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "PermanentResidentCard",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": { // Expect UniversityDegreeCredentialIdentifier CredentialConfiguration.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialDefinition: &oidc4ci.CredentialDefinition{
+										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+							"PermanentResidentCardIdentifier": { // Expect PermanentResidentCardIdentifier CredentialConfiguration.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "PermanentResidentCard",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialConfigurationID: "PermanentResidentCardIdentifier",
+								},
+							},
+						},
+					},
+				}).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+						return nil
+					}).Times(1)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile", "address"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"PermanentResidentCardIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "PermanentResidentCard",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(expectedPublishEventFunc(t, spi.IssuerOIDCInteractionAuthorizationRequestPrepared))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialDefinition: &oidc4ci.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Format: vcsverifiable.JwtVCJsonLD,
+						},
+						{
+							CredentialConfigurationID: "PermanentResidentCardIdentifier",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, []string{"openid", "profile"}, resp.Scope)
 			},
 		},
 		{
@@ -674,7 +862,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "templateID",
+									ID:   "templateID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "templateID",
+									Type: "PermanentResidentCard",
 								},
 							},
 						},
@@ -683,6 +879,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
 					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile", "address"},
+						},
 						CredentialMetaData: &profileapi.CredentialMetaData{
 							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
 								"UniversityDegreeCredentialIdentifier": {
@@ -693,11 +892,40 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
 								},
+								"PermanentResidentCardIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "PermanentResidentCard",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
 							},
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": { // Expect single CredentialConfiguration.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "templateID",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field
+									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+								},
+							},
+						},
+					},
+				}).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
@@ -718,9 +946,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
-				require.Equal(t, []string{"openid", "profile"}, resp.Scope)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, []string{"openid", "profile"}, resp.Scope)
 			},
 		},
 		{
@@ -733,7 +961,6 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						Scope: []string{
 							"openid",
 							"profile",
-							"address",
 							"UniversityDegreeCredential_001",
 							"UniversityDegreeCredential_002",
 							"UniversityDegreeCredential_003",
@@ -743,10 +970,25 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"ConfigurationID": {
+							"UniversityDegreeCredentialIdentifier_1": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"UniversityDegreeCredentialIdentifier_2": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"UniversityDegreeCredentialIdentifier_3": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
 								},
 							},
 						},
@@ -755,6 +997,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
 					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+								"UniversityDegreeCredential_002",
+								"UniversityDegreeCredential_003",
+							},
+						},
 						CredentialMetaData: &profileapi.CredentialMetaData{
 							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
 								"UniversityDegreeCredentialIdentifier_1": {
@@ -788,7 +1039,35 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"UniversityDegreeCredential_001", // expect only valid scopes.
+							"UniversityDegreeCredential_002",
+						},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{ // expect 2 CredentialConfigurations.
+							"UniversityDegreeCredentialIdentifier_1": { // do not expect AuthorizationDetails.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"UniversityDegreeCredentialIdentifier_2": { // do not expect AuthorizationDetails.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
@@ -810,11 +1089,234 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
-				require.Equal(t, []string{"UniversityDegreeCredential_001", "UniversityDegreeCredential_002"}, resp.Scope)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, []string{"UniversityDegreeCredential_001", "UniversityDegreeCredential_002"}, resp.Scope)
 			},
 		},
+		{
+			name: "Success Scope and AuthorizationDetails based - different credentials",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+							"UniversityDegreeCredential_001",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "TemplateID1",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier_2": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "TemplateID2",
+									Type: "PermanentResidentCard",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+							},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier_1": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "UniversityDegreeCredential",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+									Scope:  "UniversityDegreeCredential_001",
+								},
+								"PermanentResidentCardIdentifier_2": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "PermanentResidentCard",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
+
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"UniversityDegreeCredential_001", // expect only valid scopes.
+						},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": { // Do not expect AuthorizationDetails.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "TemplateID1",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier_2": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "TemplateID2",
+									Type: "PermanentResidentCard",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+									CredentialConfigurationID: "PermanentResidentCardIdentifier_2",
+								},
+							},
+						},
+					},
+				}).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+						return nil
+					}).Times(1)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(expectedPublishEventFunc(t, spi.IssuerOIDCInteractionAuthorizationRequestPrepared))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"UniversityDegreeCredential_001"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "PermanentResidentCardIdentifier_2",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, []string{"UniversityDegreeCredential_001"}, resp.Scope)
+			},
+		},
+		{
+			name: "Success Scope and AuthorizationDetails based - same credentials",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+							"UniversityDegreeCredential_001",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "TemplateID1",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+							},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier_1": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "UniversityDegreeCredential",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+									Scope:  "UniversityDegreeCredential_001",
+								},
+							},
+						},
+					}, nil)
+
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"UniversityDegreeCredential_001", // expect only valid scopes.
+						},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": { // Do not expect AuthorizationDetails.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "TemplateID1",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier_1",
+								},
+							},
+						},
+					},
+				}).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+						return nil
+					}).Times(1)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(expectedPublishEventFunc(t, spi.IssuerOIDCInteractionAuthorizationRequestPrepared))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"UniversityDegreeCredential_001"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier_1",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, []string{"UniversityDegreeCredential_001"}, resp.Scope)
+			},
+		},
+		// Errors.
 		{
 			name: "Fail to find transaction by op state",
 			setup: func(mocks *mocks) {
@@ -826,27 +1328,17 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "find tx error")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "find tx error")
+				assert.Nil(t, resp)
 			},
 		},
 		{
-			name: "invalid state",
+			name: "invalid tx state",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope:        []string{"openid"},
-						State:        oidc4ci.TransactionStateCredentialsIssued,
-						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"ConfigurationID": {
-								OIDCCredentialFormat: vcsverifiable.LdpVC,
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
-								},
-							},
-						},
+						State: oidc4ci.TransactionStateCredentialsIssued,
 					},
 				}, nil)
 
@@ -859,22 +1351,13 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				)
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:      "opState",
-					ResponseType: "code",
-					Scope:        []string{"openid"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
-						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
-								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
-							},
-							Format: vcsverifiable.JwtVCJsonLD,
-						},
-					},
+					OpState: "opState",
+					Scope:   []string{"openid"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "unexpected transition from 5 to 3")
-				require.Empty(t, resp)
+				assert.ErrorContains(t, err, "unexpected transition from 5 to 3")
+				assert.Empty(t, resp)
 			},
 		},
 		{
@@ -886,13 +1369,6 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:        oidc4ci.TransactionStateIssuanceInitiated,
 						ResponseType: "code",
 						Scope:        []string{"openid"},
-						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"UniversityDegreeCredentialIdentifier": {
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
-								},
-							},
-						},
 					},
 				}, nil)
 
@@ -903,7 +1379,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorIs(t, err, resterr.ErrResponseTypeMismatch)
+				assert.ErrorIs(t, err, resterr.ErrResponseTypeMismatch)
 			},
 		},
 		{
@@ -912,9 +1388,11 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope:        []string{"openid", "profile"},
-						State:        oidc4ci.TransactionStateIssuanceInitiated,
+						ResponseType:   "code",
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
 							"UniversityDegreeCredentialIdentifier": {
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -924,6 +1402,19 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.InvalidScope,
+							"invalid scope",
+							"",
+						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					ResponseType: "code",
@@ -932,34 +1423,19 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorIs(t, err, resterr.ErrInvalidScope)
+				assert.ErrorIs(t, err, resterr.ErrInvalidScope)
 			},
 		},
 		{
-			name: "Error invalid scope: AuthorizationDetails not supplied: get profile: not found",
+			name: "get profile: not found",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope: []string{
-							"openid",
-							"profile",
-							"address",
-							"UniversityDegreeCredential_001",
-							"UniversityDegreeCredential_002",
-						},
+						ResponseType:   "code",
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"UniversityDegreeCredentialIdentifier": {
-								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
-								},
-							},
-						},
 					},
 				}, nil)
 
@@ -967,48 +1443,31 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					nil, errors.New("not found"))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:              "opState",
-					ResponseType:         "code",
-					Scope:                []string{"UniversityDegreeCredential_001", "UniversityDegreeCredential_002"},
-					AuthorizationDetails: nil,
+					OpState:      "opState",
+					ResponseType: "code",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.Nil(t, resp)
+				assert.Nil(t, resp)
 
 				var customError *resterr.CustomError
-				require.ErrorAs(t, err, &customError)
-				require.Equal(t, resterr.ProfileNotFound, customError.Code)
-				require.Empty(t, customError.Component)
-				require.Empty(t, customError.FailedOperation)
-				require.ErrorContains(t, err, "get profile: not found")
+				assert.ErrorAs(t, err, &customError)
+				assert.Equal(t, resterr.ProfileNotFound, customError.Code)
+				assert.Empty(t, customError.Component)
+				assert.Empty(t, customError.FailedOperation)
+				assert.ErrorContains(t, err, "get profile: not found")
 			},
 		},
 		{
-			name: "Error invalid scope: AuthorizationDetails not supplied: get profile: system error",
+			name: "get profile: system error",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope: []string{
-							"openid",
-							"profile",
-							"address",
-							"UniversityDegreeCredential_001",
-							"UniversityDegreeCredential_002",
-						},
+						ResponseType:   "code",
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"UniversityDegreeCredentialIdentifier": {
-								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
-								},
-							},
-						},
 					},
 				}, nil)
 
@@ -1016,45 +1475,40 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					nil, errors.New("some error"))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:              "opState",
-					ResponseType:         "code",
-					Scope:                []string{"UniversityDegreeCredential_001", "UniversityDegreeCredential_002"},
-					AuthorizationDetails: nil,
+					OpState:      "opState",
+					ResponseType: "code",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.Nil(t, resp)
+				assert.Nil(t, resp)
 
 				var customError *resterr.CustomError
-				require.ErrorAs(t, err, &customError)
-				require.Equal(t, resterr.SystemError, customError.Code)
-				require.Equal(t, "GetProfile", customError.FailedOperation)
-				require.Equal(t, resterr.IssuerProfileSvcComponent, customError.Component)
-				require.ErrorContains(t, err, "get profile: some error")
+				assert.ErrorAs(t, err, &customError)
+				assert.Equal(t, resterr.SystemError, customError.Code)
+				assert.Equal(t, "GetProfile", customError.FailedOperation)
+				assert.Equal(t, resterr.IssuerProfileSvcComponent, customError.Component)
+				assert.ErrorContains(t, err, "get profile: some error")
 			},
 		},
+		// Ad errors.
 		{
-			name: "Error invalid scope: AuthorizationDetails not supplied: empty issuer metadata",
+			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
+				"duplicated CredentialConfigurationID: resterr.ErrInvalidCredentialConfigurationID",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope: []string{
-							"openid",
-							"profile",
-							"address",
-							"UniversityDegreeCredential_001",
-							"UniversityDegreeCredential_002",
-						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
 							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
 								},
 							},
 						},
@@ -1063,94 +1517,117 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
 					&profileapi.Issuer{
-						CredentialMetaData: nil,
-					}, nil)
-
-				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:              "opState",
-					ResponseType:         "code",
-					Scope:                []string{"UniversityDegreeCredential_001", "UniversityDegreeCredential_002"},
-					AuthorizationDetails: nil,
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.Nil(t, resp)
-				require.Equal(t, resterr.ErrInvalidScope, err)
-			},
-		},
-		{
-			name: "Error invalid scope: AuthorizationDetails not supplied: no issuer credential config with requested scope",
-			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
-					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope: []string{
-							"openid",
-							"profile",
-							"address",
-							"UniversityDegreeCredential_001",
-							"UniversityDegreeCredential_002",
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						ProfileID:      "bank_issuer1",
-						ProfileVersion: "v1.0",
-						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"UniversityDegreeCredentialIdentifier": {
-								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
-								},
-							},
-						},
-					},
-				}, nil)
-
-				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
-					&profileapi.Issuer{
 						CredentialMetaData: &profileapi.CredentialMetaData{
 							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
-								"UniversityDegreeCredentialIdentifier_3": {
+								"UniversityDegreeCredentialIdentifier": {
 									CredentialDefinition: &profileapi.CredentialDefinition{
 										Type: []string{
 											"VerifiableCredential", "UniversityDegreeCredential",
 										},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
-									Scope:  "UniversityDegreeCredential_003",
 								},
 							},
 						},
 					}, nil)
 
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.InvalidCredentialConfigurationID,
+							"invalid credential configuration ID",
+							"",
+						))
+
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:              "opState",
-					ResponseType:         "code",
-					Scope:                []string{"UniversityDegreeCredential_001"},
-					AuthorizationDetails: nil,
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.Nil(t, resp)
-				require.Equal(t, resterr.ErrInvalidScope, err)
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrInvalidCredentialConfigurationID)
 			},
 		},
 		{
-			name: "Error invalid scope: AuthorizationDetails not supplied: invalid format",
+			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
+				"empty profile.CredentialMetaData: resterr.ErrInvalidCredentialConfigurationID",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType:   "code",
-						Scope:          []string{"openid", "profile", "address", "UniversityDegreeCredential_001"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
+						CredentialMetaData: nil, // error cause.
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.InvalidCredentialConfigurationID,
+							"invalid credential configuration ID",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrInvalidCredentialConfigurationID)
+			},
+		},
+		{
+			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
+				"format mismatch: resterr.ErrCredentialFormatNotSupported",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
 							"UniversityDegreeCredentialIdentifier": {
-								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								OIDCCredentialFormat: vcsverifiable.LdpVC, // error cause.
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
 								},
 							},
 						},
@@ -1159,93 +1636,361 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
 					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
 						CredentialMetaData: &profileapi.CredentialMetaData{
 							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
-								"UniversityDegreeCredentialIdentifier_3": {
-									CredentialDefinition: &profileapi.CredentialDefinition{
-										Type: []string{
-											"VerifiableCredential", "UniversityDegreeCredential",
-										},
-									},
-									Format: vcsverifiable.LdpVC,
-									Scope:  "UniversityDegreeCredential_001",
-								},
-							},
-						},
-					}, nil)
-
-				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:              "opState",
-					ResponseType:         "code",
-					Scope:                []string{"UniversityDegreeCredential_001"},
-					AuthorizationDetails: nil,
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.Nil(t, resp)
-				require.Equal(t, resterr.ErrCredentialFormatNotSupported, err)
-			},
-		},
-		{
-			name: "Error invalid scope: AuthorizationDetails not supplied: invalid type",
-			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
-					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
-						ResponseType:   "code",
-						Scope:          []string{"openid", "profile", "address", "UniversityDegreeCredential_001"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						ProfileID:      "bank_issuer1",
-						ProfileVersion: "v1.0",
-						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"UniversityDegreeCredentialIdentifier": {
-								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "PermanentResidentCard",
-								},
-							},
-						},
-					},
-				}, nil)
-
-				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
-					&profileapi.Issuer{
-						CredentialMetaData: &profileapi.CredentialMetaData{
-							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
-								"UniversityDegreeCredentialIdentifier_3": {
+								"UniversityDegreeCredentialIdentifier": {
 									CredentialDefinition: &profileapi.CredentialDefinition{
 										Type: []string{
 											"VerifiableCredential", "UniversityDegreeCredential",
 										},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
-									Scope:  "UniversityDegreeCredential_001",
 								},
 							},
 						},
 					}, nil)
 
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialFormatNotSupported,
+							"credential format not supported",
+							"",
+						))
+
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
-					OpState:              "opState",
-					ResponseType:         "code",
-					Scope:                []string{"UniversityDegreeCredential_001"},
-					AuthorizationDetails: nil,
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.Nil(t, resp)
-				require.Equal(t, resterr.ErrCredentialTypeNotSupported, err)
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
-			name: "Error invalid Authorization Details",
+			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
+				"empty meta credential definition: resterr.ErrCredentialTypeNotSupported",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope:        []string{"openid", "profile", "address"},
-						State:        oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier": {
+									CredentialDefinition: nil, // error cause
+									Format:               vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialTypeNotSupported,
+							"credential type not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrCredentialTypeNotSupported)
+			},
+		},
+		{
+			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
+				"CredentialDefinition.Type mismatch: resterr.ErrCredentialTypeNotSupported",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{"VerifiableCredentials", "PermanentResidentCard"},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialTypeNotSupported,
+							"credential type not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrCredentialTypeNotSupported)
+			},
+		},
+		{
+			name: "Error AuthorizationDetails contains Format field: no txCredentialConfigurations: " +
+				"requested credential format is not valid",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:               "bank_issuer1",
+						ProfileVersion:          "v1.0",
+						ResponseType:            "code",
+						Scope:                   []string{"openid", "profile"},
+						State:                   oidc4ci.TransactionStateIssuanceInitiated,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialFormatNotSupported,
+							"credential format not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialDefinition: &oidc4ci.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Format: vcsverifiable.JwtVCJsonLD,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+			},
+		},
+		{
+			name: "Error AuthorizationDetails contains Format field: CredentialTemplate.Type mismatch: " +
+				"requested credential format is not valid",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "PermanentResidentCard",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialFormatNotSupported,
+							"credential format not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialDefinition: &oidc4ci.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Format: vcsverifiable.JwtVCJsonLD,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+			},
+		},
+		{
+			name: "Error AuthorizationDetails contains Format field: txCredentialConfig.OIDCCredentialFormat mismatch: " +
+				"requested credential format is not valid",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.LdpVC, // cause of mismatch.
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialFormatNotSupported,
+							"credential format not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialDefinition: &oidc4ci.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Format: vcsverifiable.JwtVCJsonLD,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+			},
+		},
+		{
+			name: "Error invalid Authorization Details: neither credentialFormat nor credentialConfigurationID supplied",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile", "address"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
 							"ConfigurationID": {
 								OIDCCredentialFormat: vcsverifiable.LdpVC,
@@ -1256,6 +2001,17 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+							},
+						},
+					}, nil)
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(
@@ -1273,48 +2029,80 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "neither credentialFormat nor credentialConfigurationID supplied")
-				require.Empty(t, resp)
+				assert.ErrorContains(t, err, "neither credentialFormat nor credentialConfigurationID supplied")
+				assert.Empty(t, resp)
 			},
 		},
 		{
-			name: "Error update transaction",
+			name: "Error AuthorizationDetails contains either Format and CredentialConfigurationID field: " +
+				"Same credentials: case 1 of order of AuthorizationDetails in reqeust",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope:        []string{"openid"},
-						State:        oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"ConfigurationID": {
+							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "PermanentResidentCard",
 								},
 							},
 						},
 					},
 				}, nil)
 
-				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).DoAndReturn(
-					expectedPublishErrorEventFunc(t,
-						resterr.SystemError,
-						"update error",
-						resterr.TransactionStoreComponent,
-					),
-				)
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile", "address"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"PermanentResidentCardIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "PermanentResidentCard",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialFormatNotSupported,
+							"credential format not supported",
+							"",
+						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
 					ResponseType: "code",
-					Scope:        []string{"openid"},
+					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
 						{
+							CredentialConfigurationID: "PermanentResidentCardIdentifier",
+						},
+						{
 							CredentialDefinition: &oidc4ci.CredentialDefinition{
-								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+								Type: []string{"VerifiableCredential", "PermanentResidentCard"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
 						},
@@ -1322,40 +2110,68 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "update error")
-				require.Empty(t, resp)
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrCredentialFormatNotSupported, err)
 			},
 		},
 		{
-			name: "Error store update",
+			name: "Error AuthorizationDetails contains either Format and CredentialConfigurationID field: " +
+				"Same credentials: case 2 of order of AuthorizationDetails in reqeust",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope:        []string{"openid", "profile", "address"},
-						State:        oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"ConfigurationID": {
+							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+							"PermanentResidentCardIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "credetnialTempalteID",
+									Type: "PermanentResidentCard",
 								},
 							},
 						},
 					},
 				}, nil)
 
-				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).DoAndReturn(
-					expectedPublishErrorEventFunc(t,
-						resterr.SystemError,
-						"store update error",
-						resterr.TransactionStoreComponent,
-					),
-				)
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile", "address"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"PermanentResidentCardIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "PermanentResidentCard",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					Return(errors.New("store update error"))
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.InvalidCredentialConfigurationID,
+							"invalid credential configuration ID",
+							"",
+						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
@@ -1364,16 +2180,466 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
 						{
 							CredentialDefinition: &oidc4ci.CredentialDefinition{
-								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+								Type: []string{"VerifiableCredential", "PermanentResidentCard"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
+						},
+						{
+							CredentialConfigurationID: "PermanentResidentCardIdentifier",
 						},
 					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "store update error")
-				require.Nil(t, resp)
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrInvalidCredentialConfigurationID, err)
+			},
+		},
+		// Scope errors.
+		{
+			name: "Error Scope based: scope is not in tx",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.InvalidScope,
+							"invalid scope",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:              "opState",
+					ResponseType:         "code",
+					Scope:                []string{"UniversityDegreeCredential_001"},
+					AuthorizationDetails: nil,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrInvalidScope, err)
+			},
+		},
+		{
+			name: "Error Scope based: txCredentialConfiguration does not contain credentialConfigurationID defined by scope",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+							"UniversityDegreeCredential_001",
+							"UniversityDegreeCredential_002",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_002",
+							},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier_2": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "UniversityDegreeCredential",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+									Scope:  "UniversityDegreeCredential_002",
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.InvalidScope,
+							"invalid scope",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope: []string{
+						"UniversityDegreeCredential_002",
+					},
+					AuthorizationDetails: nil,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrInvalidScope, err)
+			},
+		},
+		{
+			name: "Error Scope based: meta and tx credential config firmat mismatch",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+							"UniversityDegreeCredential_001",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": {
+								OIDCCredentialFormat: vcsverifiable.LdpVC, // error cause.
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+							},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier_1": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "UniversityDegreeCredential",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+									Scope:  "UniversityDegreeCredential_001",
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialFormatNotSupported,
+							"credential format not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope: []string{
+						"UniversityDegreeCredential_001",
+					},
+					AuthorizationDetails: nil,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrCredentialFormatNotSupported, err)
+			},
+		},
+		{
+			name: "Error Scope based: credential type mismatch: metaCredentialConfiguration.CredentialDefinition is empty",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+							"UniversityDegreeCredential_001",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+							},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier_1": {
+									CredentialDefinition: nil, // error cause.
+									Format:               vcsverifiable.JwtVCJsonLD,
+									Scope:                "UniversityDegreeCredential_001",
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialTypeNotSupported,
+							"credential type not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope: []string{
+						"UniversityDegreeCredential_001",
+					},
+					AuthorizationDetails: nil,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrCredentialTypeNotSupported, err)
+			},
+		},
+		{
+			name: "Error Scope based: credential type mismatch: metaCredentialConfiguration.CredentialDefinition " +
+				"contains different credential type",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType: "code",
+						Scope: []string{
+							"openid",
+							"profile",
+							"UniversityDegreeCredential_001",
+						},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier_1": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "UniversityDegreeCredential",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{
+								"openid",
+								"profile",
+								"UniversityDegreeCredential_001",
+							},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier_1": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Context:           nil,
+										CredentialSubject: nil,
+										Type:              []string{"VerifiableCredential", "UniversityDegreeCredentialDifferentType"},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+									Scope:  "UniversityDegreeCredential_001",
+								},
+							},
+						},
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.CredentialTypeNotSupported,
+							"credential type not supported",
+							"",
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope: []string{
+						"UniversityDegreeCredential_001",
+					},
+					AuthorizationDetails: nil,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				assert.Nil(t, resp)
+				assert.Equal(t, resterr.ErrCredentialTypeNotSupported, err)
+			},
+		},
+		// Rest errors.
+		{
+			name: "Error tx store update",
+			setup: func(mocks *mocks) {
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile", "address"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "templateID",
+									Type: "UniversityDegreeCredential",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile", "address"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{
+							CredentialsConfigurationSupported: map[string]*profileapi.CredentialsConfigurationSupported{
+								"UniversityDegreeCredentialIdentifier": {
+									CredentialDefinition: &profileapi.CredentialDefinition{
+										Type: []string{
+											"VerifiableCredential", "UniversityDegreeCredential",
+										},
+									},
+									Format: vcsverifiable.JwtVCJsonLD,
+								},
+							},
+						},
+					}, nil)
+
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"UniversityDegreeCredentialIdentifier": { // Expect single CredentialConfiguration.
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "templateID",
+									Type: "UniversityDegreeCredential",
+								},
+								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field
+									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+								},
+							},
+						},
+					},
+				}).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+
+						return errors.New("some error")
+					}).Times(1)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(
+						expectedPublishErrorEventFunc(t,
+							resterr.SystemError,
+							"some error",
+							resterr.TransactionStoreComponent,
+						))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+						{
+							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				var customErr *resterr.CustomError
+				is := errors.As(err, &customErr)
+				assert.True(t, is)
+
+				assert.Equal(t, resterr.SystemError, customErr.Code)
+				assert.Equal(t, "Update", customErr.FailedOperation)
+				assert.Equal(t, "transaction-store", customErr.Component)
+				assert.ErrorContains(t, customErr.Err, "some error")
 			},
 		},
 		{
@@ -1382,14 +2648,17 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
-						ResponseType: "code",
-						Scope:        []string{"openid", "profile", "address"},
-						State:        oidc4ci.TransactionStateIssuanceInitiated,
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						ResponseType:   "code",
+						Scope:          []string{"openid", "profile"},
+						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-							"ConfigurationID": {
+							"UniversityDegreeCredentialIdentifier": {
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "UniversityDegreeCredential",
+									ID:   "credetnialTempalteID",
+									Type: "UniversityDegreeCredential",
 								},
 							},
 						},
@@ -1401,6 +2670,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
+
+				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
+					&profileapi.Issuer{
+						Active: true,
+						OIDCConfig: &profileapi.OIDCConfig{
+							ScopesSupported: []string{"openid", "profile", "address"},
+						},
+						CredentialMetaData: &profileapi.CredentialMetaData{},
+					}, nil)
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1425,8 +2703,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "publish event")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "publish event")
+				assert.Nil(t, resp)
 			},
 		},
 	}
@@ -1445,7 +2723,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				EventService:     m.eventService,
 				EventTopic:       spi.IssuerEventTopic,
 			})
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			resp, err := svc.PrepareClaimDataAuthorizationRequest(context.Background(), req)
 			tt.check(t, resp, err)
@@ -1486,7 +2764,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			},
 		)
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "get profile: not found")
+		assert.ErrorContains(t, err, "profile-not-found: not found")
 	})
 
 	t.Run("profile not found", func(t *testing.T) {
@@ -1521,7 +2799,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		)
 
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "wallet initiated flow get profile")
+		assert.ErrorContains(t, err, "profile-not-found: not found")
 	})
 	t.Run("profile wallet flow not supported", func(t *testing.T) {
 		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
@@ -1634,7 +2912,6 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "no credential templates configured")
 	})
-
 	t.Run("profile wallet flow well-known err", func(t *testing.T) {
 		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
 		eventMock := NewMockEventService(gomock.NewController(t))
@@ -2568,9 +3845,9 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
-				require.Equal(t, "ackID", *resp.Credentials[0].NotificationID)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, "ackID", *resp.Credentials[0].NotificationID)
 			},
 		},
 		{
@@ -2640,8 +3917,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
 					resp.Credentials[0].Credential.Contents().Expired.Time.Truncate(time.Hour*24))
 
-				require.NoError(t, err)
-				require.NotNil(t, resp)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
 			},
 		},
 		{
@@ -2713,12 +3990,12 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
 					resp.Credentials[0].Credential.Contents().Expired.Time.Truncate(time.Hour*24))
 
-				require.Equal(t, resp.Credentials[0].Credential.CustomField("description"),
+				assert.Equal(t, resp.Credentials[0].Credential.CustomField("description"),
 					"awesome-description")
-				require.Equal(t, resp.Credentials[0].Credential.CustomField("name"),
+				assert.Equal(t, resp.Credentials[0].Credential.CustomField("name"),
 					"awesome-credential")
-				require.NoError(t, err)
-				require.NotNil(t, resp)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
 			},
 		},
 		{
@@ -2746,8 +4023,8 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						require.Equal(t, "asdasd", ack.OrgID)
-						require.Equal(t, "aaaaa", ack.WebHookURL)
+						assert.Equal(t, "asdasd", ack.OrgID)
+						assert.Equal(t, "aaaaa", ack.WebHookURL)
 
 						return lo.ToPtr("ackID"), nil
 					})
@@ -2793,8 +4070,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
 			},
 		},
 		{
@@ -2865,9 +4142,9 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
-				require.Nil(t, resp.Credentials[0].NotificationID)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Nil(t, resp.Credentials[0].NotificationID)
 			},
 		},
 		{
@@ -2915,8 +4192,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "get claims data")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "get claims data")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -2981,8 +4258,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "publish error")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "publish error")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3005,6 +4282,11 @@ func TestService_PrepareCredential(t *testing.T) {
 						},
 					},
 				}, nil)
+
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
+						return lo.ToPtr("ackID"), nil
+					})
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
@@ -3045,8 +4327,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "store err")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "store err")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3060,8 +4342,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "get tx")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "get tx")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3109,8 +4391,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "http error")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "http error")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3161,8 +4443,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "claim endpoint returned status code")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "claim endpoint returned status code")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3213,8 +4495,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "claim endpoint returned status code")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "claim endpoint returned status code")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3265,8 +4547,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "decode claim data")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "decode claim data")
+				assert.Nil(t, resp)
 			},
 		},
 		{
@@ -3322,8 +4604,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "invalid aud")
-				require.Nil(t, resp)
+				assert.ErrorContains(t, err, "invalid aud")
+				assert.Nil(t, resp)
 			},
 		},
 	}
@@ -3348,7 +4630,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				DataProtector:    m.crypto,
 				AckService:       m.ackService,
 			})
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			resp, err := svc.PrepareCredential(context.Background(), req)
 			tt.check(t, resp, err)
@@ -3393,13 +4675,13 @@ type eventPublishFunc func(ctx context.Context, topic string, messages ...*spi.E
 
 func expectedPublishEventFunc(
 	t *testing.T,
-	eventType spi.EventType,
+	eventType spi.EventType, //nolint:unparam
 ) eventPublishFunc {
 	t.Helper()
 
 	return func(ctx context.Context, topic string, messages ...*spi.Event) error {
-		require.Len(t, messages, 1)
-		require.Equal(t, eventType, messages[0].Type)
+		assert.Len(t, messages, 1)
+		assert.Equal(t, eventType, messages[0].Type)
 
 		return nil
 	}
@@ -3414,15 +4696,15 @@ func expectedPublishErrorEventFunc(
 	t.Helper()
 
 	return func(ctx context.Context, topic string, messages ...*spi.Event) error {
-		require.Len(t, messages, 1)
-		require.Equal(t, spi.IssuerOIDCInteractionFailed, messages[0].Type)
+		assert.Len(t, messages, 1)
+		assert.Equal(t, spi.IssuerOIDCInteractionFailed, messages[0].Type)
 
 		var ep oidc4ci.EventPayload
 
 		jsonData, err := json.Marshal(messages[0].Data.(map[string]interface{}))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.NoError(t, json.Unmarshal(jsonData, &ep))
+		assert.NoError(t, json.Unmarshal(jsonData, &ep))
 
 		assert.Equalf(t, string(errCode), ep.ErrorCode, "unexpected error code")
 		assert.Equalf(t, errComponent, ep.ErrorComponent, "unexpected error component")

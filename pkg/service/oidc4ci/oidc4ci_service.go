@@ -271,19 +271,21 @@ func (s *Service) checkScopes(
 
 	// Check each request scope.
 	for _, reqScope := range reqScopes {
+		if !lo.Contains(txScope, reqScope) {
+			return nil, resterr.ErrInvalidScope
+		}
+
+		if !lo.Contains(profile.OIDCConfig.ScopesSupported, reqScope) {
+			// Credential Issuers MUST ignore unknown scope values in a request.
+			continue
+		}
+
+		validScopes = append(validScopes, reqScope)
+
+		// Find metaCredentialConfiguration based on reqScope.
+		// Check if some metaCredentialConfiguration was requsted using the scope.
 		for credentialConfigurationID, metaCredentialConfiguration := range credentialsConfigurationSupported {
-			if !lo.Contains(txScope, reqScope) {
-				return nil, resterr.ErrInvalidScope
-			}
-
-			if !lo.Contains(profile.OIDCConfig.ScopesSupported, reqScope) {
-				// Credential Issuers MUST ignore unknown scope values in a request.
-				continue
-			}
-
-			// Find metaCredentialConfiguration based on reqScope.
 			if !strings.EqualFold(reqScope, metaCredentialConfiguration.Scope) {
-				// Credential Issuers MUST ignore unknown scope values in a request.
 				continue
 			}
 
@@ -318,13 +320,12 @@ func (s *Service) checkScopes(
 				return nil, resterr.ErrCredentialTypeNotSupported
 			}
 
-			validScopes = append(validScopes, reqScope)
 			requestedCredentialConfigurationIDsViaAuthDetails[credentialConfigurationID] = struct{}{}
 			break
 		}
 	}
 
-	return validScopes, nil
+	return lo.Uniq(validScopes), nil
 }
 
 func (s *Service) PrepareClaimDataAuthorizationRequest(
@@ -391,6 +392,8 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	validScopes, err := s.checkScopes(
 		profile, req.Scope, tx.Scope, tx.CredentialConfiguration, requestedCredentialConfigurationIDs)
 	if err != nil {
+		s.sendFailedTransactionEvent(ctx, tx, err)
+
 		return nil, err
 	}
 
@@ -559,6 +562,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 				requestedCredentialFormatValid = true
 				txCredentialConfig.AuthorizationDetails = ad
 				requestedCredentialConfigurationIDs[credentialConfigurationID] = struct{}{}
+				break
 			}
 
 			if !requestedCredentialFormatValid {
