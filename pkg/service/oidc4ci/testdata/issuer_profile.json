@@ -23,7 +23,8 @@
       "profile"
     ],
     "grant_types_supported": [
-      "authorization_code"
+      "authorization_code",
+      "urn:ietf:params:oauth:grant-type:pre-authorized_code"
     ]
   },
   "credentialTemplates": [
