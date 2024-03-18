@@ -339,34 +339,38 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 			return nil, fmt.Errorf("no credential configuration id defined in credential offer")
 		}
 
-		configurationID := credentialOfferResponse.CredentialConfigurationIDs[0]
-		credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
-
-		var credentialType string
-
-		for _, t := range credentialConfiguration.CredentialDefinition.Type {
-			if t != "VerifiableCredential" {
-				credentialType = t
-				break
-			}
-		}
-
 		var attestationRequired bool
 
 		if f.trustRegistry != nil && !reflect.ValueOf(f.trustRegistry).IsNil() {
-			attestationRequired, err = f.trustRegistry.ValidateIssuer(ctx,
-				issuerDID,
-				"",
-				[]trustregistry.CredentialOffer{
-					{
-						ClientAttestationRequested: lo.Contains(
-							lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported),
-							attestJWTClientAuthType,
-						),
-						CredentialFormat: credentialConfiguration.Format,
-						CredentialType:   credentialType,
+			var credentialOffers []trustregistry.CredentialOffer
+
+			clientAttestationRequested := lo.Contains(
+				lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported),
+				attestJWTClientAuthType,
+			)
+
+			for _, configurationID := range credentialOfferResponse.CredentialConfigurationIDs {
+				credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
+
+				var credentialType string
+
+				for _, t := range credentialConfiguration.CredentialDefinition.Type {
+					if t != "VerifiableCredential" {
+						credentialType = t
+						break
+					}
+				}
+
+				credentialOffers = append(credentialOffers,
+					trustregistry.CredentialOffer{
+						ClientAttestationRequested: clientAttestationRequested,
+						CredentialFormat:           credentialConfiguration.Format,
+						CredentialType:             credentialType,
 					},
-				})
+				)
+			}
+
+			attestationRequired, err = f.trustRegistry.ValidateIssuer(ctx, issuerDID, "", credentialOffers)
 			if err != nil {
 				return nil, fmt.Errorf("validate issuer: %w", err)
 			}
