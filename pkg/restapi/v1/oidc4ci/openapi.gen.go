@@ -82,15 +82,18 @@ type BatchCredentialResponse struct {
 
 // Model for OIDC Credential request.
 type CredentialRequest struct {
+	// Object containing the detailed description of the credential type.
+	CredentialDefinition *externalRef0.CredentialDefinition `json:"credential_definition,omitempty"`
+
+	// String that identifies a Credential that is being requested to be issued. When this parameter is used, the format parameter and any other Credential format specific parameters MUST NOT be present.
+	CredentialIdentifier *string `json:"credential_identifier,omitempty"`
+
 	// Object containing information for encrypting the Credential Response.
 	CredentialResponseEncryption *CredentialResponseEncryption `json:"credential_response_encryption,omitempty"`
 
 	// Format of the credential being issued.
 	Format *string   `json:"format,omitempty"`
 	Proof  *JWTProof `json:"proof,omitempty"`
-
-	// Array of types of the credential being issued.
-	Types []string `json:"types"`
 }
 
 // Model for OIDC Credential response.

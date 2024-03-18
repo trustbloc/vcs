@@ -20,11 +20,21 @@ type ProofClaims struct {
 }
 
 type CredentialRequest struct {
-	Format verifiable.OIDCFormat `json:"format,omitempty"`
-	Types  []string              `json:"types"`
-	Proof  Proof                 `json:"proof,omitempty"`
-	// Object containing information for encrypting the Credential Response.
+	Format                       verifiable.OIDCFormat         `json:"format,omitempty"`
+	CredentialDefinition         *CredentialDefinition         `json:"credential_definition,omitempty"`
+	CredentialIdentifier         *string                       `json:"credential_identifier,omitempty"`
+	Proof                        Proof                         `json:"proof,omitempty"`
 	CredentialResponseEncryption *CredentialResponseEncryption `json:"credential_response_encryption,omitempty"`
+}
+
+// CredentialDefinition contains the detailed description of the credential type.
+type CredentialDefinition struct {
+	// For ldp_vc only. Array as defined in https://www.w3.org/TR/vc-data-model/#contexts.
+	Context *[]string `json:"@context,omitempty"`
+	// An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
+	CredentialSubject *map[string]interface{} `json:"credentialSubject,omitempty"`
+	// Array designating the types a certain credential type supports
+	Type []string `json:"type"`
 }
 
 // CredentialResponseEncryption containing information for encrypting the Credential Response.
