@@ -20,6 +20,12 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
+// Defines values for InitiateOIDC4CIRequestGrantType.
+const (
+	AuthorizationCode                            InitiateOIDC4CIRequestGrantType = "authorization_code"
+	UrnIetfParamsOauthGrantTypePreAuthorizedCode InitiateOIDC4CIRequestGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+)
+
 // An object that describes specifics of the Credential that the Credential Issuer supports issuance of.
 type CredentialConfigurationsSupported struct {
 	// For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs, where each name identifies a claim about the subject offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
@@ -182,8 +188,8 @@ type InitiateOIDC4CIRequest struct {
 	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 
-	// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps. If not provided then default to authorization_code.
-	GrantType *string `json:"grant_type,omitempty"`
+	// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+	GrantType *InitiateOIDC4CIRequestGrantType `json:"grant_type,omitempty"`
 
 	// String value created by the Credential Issuer and opaque to the Wallet that is used to bind the sub-sequent authentication request with the Credential Issuer to a context set up during previous steps. If the client receives a value for this parameter, it MUST include it in the subsequent Authentication Request to the Credential Issuer as the op_state parameter value. MUST NOT be used in Authorization Code flow when pre-authorized_code is present.
 	OpState *string `json:"op_state,omitempty"`
@@ -200,6 +206,9 @@ type InitiateOIDC4CIRequest struct {
 	// Boolean flags indicates whether given transaction is initiated by Wallet.
 	WalletInitiatedIssuance *bool `json:"wallet_initiated_issuance,omitempty"`
 }
+
+// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+type InitiateOIDC4CIRequestGrantType string
 
 // Model for Initiate OIDC Credential Issuance Response.
 type InitiateOIDC4CIResponse struct {
