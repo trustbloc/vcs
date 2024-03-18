@@ -676,11 +676,11 @@ func (s *Steps) getInitiateAuthIssuanceRequestOfAllSupportedCredentials() (*init
 		ResponseType:            "code",
 		Scope:                   []string{"openid", "profile"},
 		UserPinRequired:         false,
-		CredentialConfiguration: map[string]InitiateIssuanceCredentialConfiguration{},
+		CredentialConfiguration: []InitiateIssuanceCredentialConfiguration{},
 	}
 
 	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
-	for credentialConfigurationID, credentialConf := range profileCredentialConf {
+	for _, credentialConf := range profileCredentialConf {
 		credentialType := credentialConf.CredentialDefinition.Type[1]
 
 		credentialTemplate, ok := lo.Find(s.issuerProfile.CredentialTemplates, func(item *profileapi.CredentialTemplate) bool {
@@ -691,10 +691,10 @@ func (s *Steps) getInitiateAuthIssuanceRequestOfAllSupportedCredentials() (*init
 			return nil, fmt.Errorf("unable to find credential template with type %s", credentialTemplate)
 		}
 
-		initiateRequest.CredentialConfiguration[credentialConfigurationID] = InitiateIssuanceCredentialConfiguration{
+		initiateRequest.CredentialConfiguration = append(initiateRequest.CredentialConfiguration, InitiateIssuanceCredentialConfiguration{
 			ClaimEndpoint:        claimDataURL + "?credentialType=" + credentialType,
 			CredentialTemplateId: credentialTemplate.ID,
-		}
+		})
 
 		initiateRequest.Scope = append(initiateRequest.Scope, credentialConf.Scope)
 	}
@@ -712,11 +712,11 @@ func (s *Steps) getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials() (*i
 		ResponseType:            "code",
 		Scope:                   []string{"openid", "profile"},
 		UserPinRequired:         true,
-		CredentialConfiguration: map[string]InitiateIssuanceCredentialConfiguration{},
+		CredentialConfiguration: []InitiateIssuanceCredentialConfiguration{},
 	}
 
 	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
-	for credentialConfigurationID, credentialConf := range profileCredentialConf {
+	for _, credentialConf := range profileCredentialConf {
 		credentialType := credentialConf.CredentialDefinition.Type[1]
 
 		credentialTemplate, ok := lo.Find(s.issuerProfile.CredentialTemplates, func(item *profileapi.CredentialTemplate) bool {
@@ -732,10 +732,10 @@ func (s *Steps) getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials() (*i
 			return nil, fmt.Errorf("fetchClaimData: %w", err)
 		}
 
-		initiateRequest.CredentialConfiguration[credentialConfigurationID] = InitiateIssuanceCredentialConfiguration{
+		initiateRequest.CredentialConfiguration = append(initiateRequest.CredentialConfiguration, InitiateIssuanceCredentialConfiguration{
 			ClaimData:            claims,
 			CredentialTemplateId: credentialTemplate.ID,
-		}
+		})
 
 		initiateRequest.Scope = append(initiateRequest.Scope, credentialConf.Scope)
 	}

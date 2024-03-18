@@ -176,7 +176,7 @@ type InitiateIssuanceRequest struct {
 	CredentialDescription   string
 	WalletInitiatedIssuance bool
 	// CredentialConfiguration aimed to initialise multi credential issuance.
-	CredentialConfiguration map[string]InitiateIssuanceCredentialConfiguration
+	CredentialConfiguration []InitiateIssuanceCredentialConfiguration
 }
 
 type InitiateIssuanceCredentialConfiguration struct {

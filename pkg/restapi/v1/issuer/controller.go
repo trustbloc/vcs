@@ -449,19 +449,20 @@ func (c *Controller) initiateIssuance(
 		CredentialName:            lo.FromPtr(req.CredentialName),
 		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
 		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
-		CredentialConfiguration:   make(map[string]oidc4ci.InitiateIssuanceCredentialConfiguration),
+		CredentialConfiguration:   []oidc4ci.InitiateIssuanceCredentialConfiguration{},
 	}
 
-	if req.CredentialConfiguration != nil {
-		for credentialConfigurationID, multiCredentialIssuance := range req.CredentialConfiguration.AdditionalProperties {
-			issuanceReq.CredentialConfiguration[credentialConfigurationID] = oidc4ci.InitiateIssuanceCredentialConfiguration{
-				ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
-				ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
-				CredentialTemplateID:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
-				CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
-				CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
-				CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
-			}
+	if req.CredentialConfiguration != nil && len(*req.CredentialConfiguration) > 0 {
+		for _, multiCredentialIssuance := range lo.FromPtr(req.CredentialConfiguration) {
+			issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
+				oidc4ci.InitiateIssuanceCredentialConfiguration{
+					ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
+					ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
+					CredentialTemplateID:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
+					CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
+					CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
+					CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
+				})
 		}
 	}
 

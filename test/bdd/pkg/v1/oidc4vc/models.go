@@ -28,7 +28,7 @@ type initiateOIDC4VCIRequest struct {
 	Scope                []string `json:"scope,omitempty"`
 	UserPinRequired      bool     `json:"user_pin_required,omitempty"`
 	// MultiCredentialIssuance aimed to initialise multi credential issuance.
-	CredentialConfiguration map[string]InitiateIssuanceCredentialConfiguration `json:"credential_configuration,omitempty"` //CredentialConfigurationID -> MultiCredentialIssuance
+	CredentialConfiguration []InitiateIssuanceCredentialConfiguration `json:"credential_configuration,omitempty"`
 }
 
 type InitiateIssuanceCredentialConfiguration struct {

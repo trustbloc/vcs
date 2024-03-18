@@ -187,8 +187,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					CredentialName:          "vc_name1",
 					CredentialDescription:   "vc_desc1",
 					WalletInitiatedIssuance: false,
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"UniversityDegreeCredentialIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							ClaimData: map[string]interface{}{
 								"key2": "value2",
 							},
@@ -339,8 +339,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					CredentialName:          "vc_name1",
 					CredentialDescription:   "vc_desc1",
 					WalletInitiatedIssuance: false,
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"UniversityDegreeCredentialIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							ClaimData: map[string]interface{}{
 								"key2": "value2",
 							},
@@ -673,8 +673,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					UserPinRequired:    false,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
 					Scope:              []string{"openid", "profile"},
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCardIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							ClaimData: claimData,
 						},
 					},
@@ -802,8 +802,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:            initialOpState,
 					UserPinRequired:    true,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCardIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							ClaimData: nil,
 						},
 					},
@@ -832,8 +832,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:            initialOpState,
 					UserPinRequired:    true,
 					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCardIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							ClaimEndpoint: "",
 						},
 					},
@@ -865,8 +865,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					UserPinRequired:    false,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
 					Scope:              []string{"openid", "profile"},
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCardIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							ClaimData: claimData,
 						},
 					},
@@ -878,12 +878,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "Fail PreAuth via CredentialConfiguration: invalid credential configuration ID",
+			name: "Fail PreAuth via CredentialConfiguration: unable to find credential configuration ID",
 			setup: func(mocks *mocks) {
 				initialOpState := ""
 				claimData := degreeClaims
 
 				profile = &testProfile
+
+				delete(profile.CredentialMetaData.CredentialsConfigurationSupported, "UniversityDegreeCredentialIdentifier")
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
@@ -892,15 +894,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 					UserPinRequired:    false,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
 					Scope:              []string{"openid", "profile"},
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"unexpectedCredentialConfigurationID": {
-							ClaimData: claimData,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							CredentialTemplateID: "templateID2",
+							ClaimData:            claimData,
 						},
 					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
-				require.ErrorContains(t, err, "invalid credential configuration ID")
+				require.ErrorContains(t, err, "credential configuration not found for requested template id")
 				require.Nil(t, resp)
 			},
 		},
@@ -1053,8 +1056,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
-					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCardIdentifier": {
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
 							CredentialTemplateID: "",
 							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 						},

@@ -1520,10 +1520,10 @@ components:
           type: boolean
           description: Boolean flags indicates whether given transaction is initiated by Wallet.
         credential_configuration:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/InitiateIssuanceCredentialConfiguration'
-          description: 'An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.'
+          description: 'An array of objects that describes specifics of the Multiple Credential Issuance.'
       x-tags:
         - issuer
     InitiateOIDC4CIResponse:
