@@ -12,7 +12,6 @@ import (
 	"text/template"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -34,7 +33,7 @@ func (c *CredentialComposer) Compose(
 		return credential, nil
 	}
 
-	if idTemplate := lo.FromPtr(txCredentialConfiguration.CredentialComposeConfiguration.IDTemplate); idTemplate != "" {
+	if idTemplate := txCredentialConfiguration.CredentialComposeConfiguration.IDTemplate; idTemplate != "" {
 		id, err := c.renderRaw(idTemplate, c.baseParams(tx))
 		if err != nil {
 			return nil, err

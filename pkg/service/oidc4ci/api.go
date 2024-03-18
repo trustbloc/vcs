@@ -110,8 +110,8 @@ type TxCredentialConfiguration struct {
 }
 
 type CredentialComposeConfiguration struct {
-	IDTemplate     *string `json:"id_template"`
-	OverrideIssuer bool    `json:"override_issuer"`
+	IDTemplate     string `json:"id_template"`
+	OverrideIssuer bool   `json:"override_issuer"`
 }
 
 // AuthorizationDetails represents the domain model for Authorization Details request.
@@ -205,7 +205,7 @@ type InitiateIssuanceCredentialConfiguration struct {
 
 type InitiateIssuanceComposeCredential struct {
 	Credential     *map[string]interface{} `json:"credential,omitempty"`
-	IDTemplate     *string                 `json:"id_template"`
+	IDTemplate     string                  `json:"id_template"`
 	OverrideIssuer bool                    `json:"override_issuer"`
 }
 
