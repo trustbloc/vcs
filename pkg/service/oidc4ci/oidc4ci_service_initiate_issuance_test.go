@@ -44,6 +44,7 @@ type mocks struct {
 	wellKnownService    *MockWellKnownService
 	claimDataStore      *MockClaimDataStore
 	eventService        *MockEventService
+	composer            *MockComposer
 	pinGenerator        *MockPinGenerator
 	crypto              *MockDataProtector
 	jsonSchemaValidator *MockJSONSchemaValidator
@@ -1515,6 +1516,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				PinGenerator:        m.pinGenerator,
 				DataProtector:       m.crypto,
 				JSONSchemaValidator: m.jsonSchemaValidator,
+				Composer:            m.composer,
 			})
 			require.NoError(t, err)
 
