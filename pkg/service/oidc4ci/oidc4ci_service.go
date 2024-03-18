@@ -674,7 +674,7 @@ func (s *Service) checkPolicy(
 
 		for _, credentialConfig := range tx.CredentialConfiguration {
 			if credentialConfig.CredentialTemplate != nil {
-				credentialTypes = []string{credentialConfig.CredentialTemplate.Type}
+				credentialTypes = append(credentialTypes, credentialConfig.CredentialTemplate.Type)
 			}
 		}
 
