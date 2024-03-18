@@ -136,10 +136,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
 								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+									"PermanentResidentCardIdentifier": {
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
+										},
+									},
+									"UniversityDegreeCredentialIdentifier": {
+										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
+										CredentialTemplate: &profileapi.CredentialTemplate{
+											ID: "templateID2",
 										},
 									},
 								},
@@ -166,6 +172,25 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						payload, ok := messages[0].Data.(map[string]interface{})
+						assert.True(t, ok)
+
+						assert.NotEmpty(t, payload["credentialTemplateID"])
+						assert.Equal(t, payload["format"], "jwt_vc_json-ld")
+
+						credentialsData, ok := payload["credentials"].(map[string]interface{})
+						assert.True(t, ok)
+
+						assert.Len(t, credentialsData, 2)
+
+						format, ok := credentialsData["templateID"]
+						assert.True(t, ok)
+						assert.Equal(t, format, "jwt_vc_json-ld")
+
+						format, ok = credentialsData["templateID2"]
+						assert.True(t, ok)
+						assert.Equal(t, format, "jwt_vc_json-ld")
 
 						return nil
 					})
@@ -206,7 +231,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
@@ -272,10 +297,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
 								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+									"PermanentResidentCardIdentifier": {
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
+										},
+									},
+									"UniversityDegreeCredentialIdentifier": {
+										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
+										CredentialTemplate: &profileapi.CredentialTemplate{
+											ID: "templateID2",
 										},
 									},
 								},
@@ -319,6 +350,25 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
+						payload, ok := messages[0].Data.(map[string]interface{})
+						assert.True(t, ok)
+
+						assert.NotEmpty(t, payload["credentialTemplateID"])
+						assert.Equal(t, payload["format"], "jwt_vc_json-ld")
+
+						credentialsData, ok := payload["credentials"].(map[string]interface{})
+						assert.True(t, ok)
+
+						assert.Len(t, credentialsData, 2)
+
+						format, ok := credentialsData["templateID"]
+						assert.True(t, ok)
+						assert.Equal(t, format, "jwt_vc_json-ld")
+
+						format, ok = credentialsData["templateID2"]
+						assert.True(t, ok)
+						assert.Equal(t, format, "jwt_vc_json-ld")
+
 						return nil
 					})
 
@@ -358,7 +408,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},

@@ -1023,13 +1023,29 @@ func (s *Service) sendFailedTransactionEvent(
 	}
 }
 
-// todo: align event pyload
 func createTxEventPayload(tx *Transaction) *EventPayload {
-	var credentialTemplateID string
+	var (
+		credentialTemplateID string
+		credentialFormat     vcsverifiable.OIDCFormat
+		oldParamsFilled      bool
+	)
 
-	// if tx.CredentialTemplate != nil {
-	//	credentialTemplateID = tx.CredentialTemplate.ID
-	//}
+	credentialsData := map[string]vcsverifiable.OIDCFormat{}
+
+	for _, txCredentialConf := range tx.CredentialConfiguration {
+		var templateID string
+		if txCredentialConf.CredentialTemplate != nil {
+			templateID = txCredentialConf.CredentialTemplate.ID
+		}
+
+		if !oldParamsFilled {
+			credentialTemplateID = templateID
+			credentialFormat = txCredentialConf.OIDCCredentialFormat
+			oldParamsFilled = true
+		}
+
+		credentialsData[templateID] = txCredentialConf.OIDCCredentialFormat
+	}
 
 	return &EventPayload{
 		WebHook:              tx.WebHookURL,
@@ -1038,9 +1054,10 @@ func createTxEventPayload(tx *Transaction) *EventPayload {
 		OrgID:                tx.OrgID,
 		WalletInitiatedFlow:  tx.WalletInitiatedIssuance,
 		CredentialTemplateID: credentialTemplateID,
-		//Format:               string(tx.CredentialFormat),
-		PinRequired: tx.UserPin != "",
-		PreAuthFlow: tx.IsPreAuthFlow,
+		Format:               credentialFormat,
+		PinRequired:          tx.UserPin != "",
+		PreAuthFlow:          tx.IsPreAuthFlow,
+		Credentials:          credentialsData,
 	}
 }
 
@@ -1081,6 +1098,9 @@ func (s *Service) sendIssuanceAuthRequestPreparedEvent(
 			WalletInitiatedFlow:   walletInitiatedFlow,
 			CredentialTemplateID:  credTemplateID,
 			AuthorizationEndpoint: authorizationEndpoint,
+			Credentials: map[string]vcsverifiable.OIDCFormat{
+				credTemplateID: "",
+			},
 		},
 	)
 }
