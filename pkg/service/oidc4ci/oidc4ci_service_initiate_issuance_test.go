@@ -632,7 +632,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.EqualValues(t, oidc4ci.ClaimDataTypeVC, configuration.ClaimDataType)
 
 						assert.EqualValues(t, "some-template",
-							configuration.CredentialComposeConfiguration.IdTemplate)
+							*configuration.CredentialComposeConfiguration.IDTemplate)
 
 						assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
 
@@ -692,7 +692,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 							CredentialTemplateID: "templateID",
 							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
 								Credential:     &claimData,
-								IdTemplate:     lo.ToPtr("some-template"),
+								IDTemplate:     lo.ToPtr("some-template"),
 								OverrideIssuer: true,
 							},
 						},

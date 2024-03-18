@@ -110,7 +110,7 @@ type TxCredentialConfiguration struct {
 }
 
 type CredentialComposeConfiguration struct {
-	IdTemplate     *string `json:"id_template"`
+	IDTemplate     *string `json:"id_template"`
 	OverrideIssuer bool    `json:"override_issuer"`
 }
 
@@ -205,7 +205,7 @@ type InitiateIssuanceCredentialConfiguration struct {
 
 type InitiateIssuanceComposeCredential struct {
 	Credential     *map[string]interface{} `json:"credential,omitempty"`
-	IdTemplate     *string                 `json:"id_template"`
+	IDTemplate     *string                 `json:"id_template"`
 	OverrideIssuer bool                    `json:"override_issuer"`
 }
 

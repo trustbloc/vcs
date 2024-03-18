@@ -1,3 +1,9 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package oidc4ci
 
 import (
@@ -28,7 +34,7 @@ func (c *CredentialComposer) Compose(
 		return credential, nil
 	}
 
-	if idTemplate := lo.FromPtr(txCredentialConfiguration.CredentialComposeConfiguration.IdTemplate); idTemplate != "" {
+	if idTemplate := lo.FromPtr(txCredentialConfiguration.CredentialComposeConfiguration.IDTemplate); idTemplate != "" {
 		id, err := c.renderRaw(idTemplate, c.baseParams(tx))
 		if err != nil {
 			return nil, err

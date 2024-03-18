@@ -4163,7 +4163,7 @@ func TestService_PrepareCredential(t *testing.T) {
 									Type: "VerifiedEmployee",
 								},
 								CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-									IdTemplate:     lo.ToPtr("some-template"),
+									IDTemplate:     lo.ToPtr("some-template"),
 									OverrideIssuer: true,
 								},
 							},
@@ -4209,7 +4209,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						request *oidc4ci.PrepareCredentialRequest,
 					) (*verifiable.Credential, error) {
 						assert.EqualValues(t, "some-template",
-							*configuration.CredentialComposeConfiguration.IdTemplate)
+							*configuration.CredentialComposeConfiguration.IDTemplate)
 
 						assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
 						return credential, nil

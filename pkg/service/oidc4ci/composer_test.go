@@ -29,7 +29,7 @@ func TestComposer(t *testing.T) {
 			},
 			&oidc4ci.TxCredentialConfiguration{
 				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IdTemplate:     lo.ToPtr("hardcoded:{{.TxID}}:suffix"),
+					IDTemplate:     lo.ToPtr("hardcoded:{{.TxID}}:suffix"),
 					OverrideIssuer: true,
 				},
 			},
@@ -60,7 +60,7 @@ func TestComposer(t *testing.T) {
 			},
 			&oidc4ci.TxCredentialConfiguration{
 				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IdTemplate:     lo.ToPtr("hardcoded:{{.NotExistingValue.$x}}:suffix"),
+					IDTemplate:     lo.ToPtr("hardcoded:{{.NotExistingValue.$x}}:suffix"),
 					OverrideIssuer: true,
 				},
 			},

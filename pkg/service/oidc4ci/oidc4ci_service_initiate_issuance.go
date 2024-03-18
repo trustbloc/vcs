@@ -308,14 +308,13 @@ func (s *Service) applyPreAuthFlowModifications(
 
 		targetClaims = req.ClaimData
 		txCredentialConfiguration.ClaimDataType = ClaimDataTypeClaims
-
 	} else if req.ComposeCredential != nil {
 		targetClaims = lo.FromPtr(req.ComposeCredential.Credential)
 
 		txCredentialConfiguration.ClaimDataType = ClaimDataTypeVC
 
 		txCredentialConfiguration.CredentialComposeConfiguration = &CredentialComposeConfiguration{
-			IdTemplate:     req.ComposeCredential.IdTemplate,
+			IDTemplate:     req.ComposeCredential.IDTemplate,
 			OverrideIssuer: req.ComposeCredential.OverrideIssuer,
 		}
 	}
