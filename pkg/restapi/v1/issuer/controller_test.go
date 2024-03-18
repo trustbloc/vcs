@@ -747,20 +747,18 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		ClaimEndpoint:             lo.ToPtr("https://vcs.pb.example.com/claim"),
 		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
 		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
-		CredentialConfiguration: &InitiateOIDC4CIRequest_CredentialConfiguration{
-			AdditionalProperties: map[string]InitiateIssuanceCredentialConfiguration{
-				"credentialConfiguration1": {
-					ClaimData: lo.ToPtr(map[string]interface{}{
-						"key2": "value2",
-					}),
-					ClaimEndpoint:         lo.ToPtr("https://vcs.pb.example.com/claim2"),
-					CredentialDescription: lo.ToPtr("description2"),
-					CredentialExpiresAt:   now,
-					CredentialName:        lo.ToPtr("name2"),
-					CredentialTemplateId:  lo.ToPtr("templateID1"),
-				},
+		CredentialConfiguration: lo.ToPtr([]InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimData: lo.ToPtr(map[string]interface{}{
+					"key2": "value2",
+				}),
+				ClaimEndpoint:         lo.ToPtr("https://vcs.pb.example.com/claim2"),
+				CredentialDescription: lo.ToPtr("description2"),
+				CredentialExpiresAt:   now,
+				CredentialName:        lo.ToPtr("name2"),
+				CredentialTemplateId:  lo.ToPtr("templateID1"),
 			},
-		},
+		}),
 		CredentialDescription:   lo.ToPtr("description1"),
 		CredentialExpiresAt:     now,
 		CredentialName:          lo.ToPtr("name1"),
@@ -804,8 +802,8 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			CredentialName:          "name1",
 			CredentialDescription:   "description1",
 			WalletInitiatedIssuance: true,
-			CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-				"credentialConfiguration1": {
+			CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+				{
 					ClaimData: map[string]interface{}{
 						"key2": "value2",
 					},

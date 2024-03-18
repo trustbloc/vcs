@@ -76,9 +76,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}
 
 	// Multiple credential issuance - use req.CredentialConfiguration to create TxCredentialConfiguration.
-	for credentialConfigurationID, credentialConfiguration := range req.CredentialConfiguration {
-		txCredentialConf, err := s.newTxConfUsingCredentialConf(
-			ctx, credentialConfigurationID, credentialConfiguration, isPreAuthFlow, profile)
+	for _, credentialConfiguration := range req.CredentialConfiguration {
+		credentialConfigurationID, txCredentialConf, err := s.newTxConfUsingCredentialConf(
+			ctx, credentialConfiguration, isPreAuthFlow, profile)
 		if err != nil {
 			return nil, err
 		}
@@ -225,28 +225,30 @@ func (s *Service) newTxConfUsingTemplateID(
 
 func (s *Service) newTxConfUsingCredentialConf(
 	ctx context.Context,
-	credentialConfigurationID string,
 	credentialConfiguration InitiateIssuanceCredentialConfiguration,
 	isPreAuthFlow bool,
 	profile *profileapi.Issuer,
-) (*TxCredentialConfiguration, error) {
+) (string, *TxCredentialConfiguration, error) {
 	err := s.validateFlowSpecificRequestParams(
 		isPreAuthFlow, credentialConfiguration.ClaimEndpoint, credentialConfiguration.ClaimData)
 	if err != nil {
-		return nil, err
-	}
-
-	profileMeta := profile.CredentialMetaData
-
-	metaCredentialConfiguration, ok := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
-	if !ok {
-		return nil, resterr.ErrInvalidCredentialConfigurationID
+		return "", nil, err
 	}
 
 	credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
+
+	credentialConfigurationID, _, err := findCredentialConfigurationID(
+		credentialTemplate.ID, credentialTemplate.Type, profile)
+	if err != nil {
+		return "", nil, err
+	}
+
+	profileMeta := profile.CredentialMetaData
+
+	metaCredentialConfiguration := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
 
 	txCredentialConfiguration := &TxCredentialConfiguration{
 		CredentialTemplate:    credentialTemplate,
@@ -265,11 +267,11 @@ func (s *Service) newTxConfUsingCredentialConf(
 		err = s.applyPreAuthFlowModifications(
 			ctx, credentialConfiguration.ClaimData, credentialTemplate, txCredentialConfiguration)
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
 	}
 
-	return txCredentialConfiguration, nil
+	return credentialConfigurationID, txCredentialConfiguration, nil
 }
 
 func (s *Service) applyPreAuthFlowModifications(
