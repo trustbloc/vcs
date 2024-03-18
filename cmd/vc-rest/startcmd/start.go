@@ -720,6 +720,7 @@ func buildEchoHandler(
 		JSONSchemaValidator:           jsonSchemaValidator,
 		TrustRegistry:                 trustRegistryService,
 		AckService:                    ackService,
+		Composer:                      oidc4ci.NewCredentialComposer(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)

@@ -1460,6 +1460,19 @@ components:
         - profileVersion
         - claimEndpoint
         - credentialTemplateID
+    ComposeOIDC4CICredential:
+      title: ComposeOIDC4CICredential
+      type: object
+      description: Model for composing OIDC4CI credential.
+      properties:
+        id_template:
+          type: string
+          description: ID of the credential template.
+          nullable: true
+        credential:
+          type: object
+          description: Raw Complete credential for sign and customization
+          nullable: false
     InitiateOIDC4CIRequest:
       title: InitiateOIDC4CIRequest
       type: object
@@ -2118,6 +2131,8 @@ components:
       type: object
       description: An object that describes specifics of the Multiple Credential Issuance.
       properties:
+        compose:
+          $ref: '#/components/schemas/ComposeOIDC4CICredential'
         claim_data:
           type: object
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
