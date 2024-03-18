@@ -279,20 +279,23 @@ type AuthorizeState struct {
 }
 
 type EventPayload struct {
-	WebHook               string               `json:"webHook,omitempty"`
-	ProfileID             string               `json:"profileID,omitempty"`
-	ProfileVersion        string               `json:"profileVersion,omitempty"`
-	CredentialTemplateID  string               `json:"credentialTemplateID,omitempty"`
-	OrgID                 string               `json:"orgID,omitempty"`
-	WalletInitiatedFlow   bool                 `json:"walletInitiatedFlow"`
-	PinRequired           bool                 `json:"pinRequired"`
-	PreAuthFlow           bool                 `json:"preAuthFlow"`
-	Format                vcsverifiable.Format `json:"format,omitempty"`
-	InitiateIssuanceURL   string               `json:"initiateIssuanceURL,omitempty"`
-	AuthorizationEndpoint string               `json:"authorizationEndpoint,omitempty"`
-	Error                 string               `json:"error,omitempty"`
-	ErrorCode             string               `json:"errorCode,omitempty"`
-	ErrorComponent        string               `json:"errorComponent,omitempty"`
+	WebHook               string `json:"webHook,omitempty"`
+	ProfileID             string `json:"profileID,omitempty"`
+	ProfileVersion        string `json:"profileVersion,omitempty"`
+	OrgID                 string `json:"orgID,omitempty"`
+	WalletInitiatedFlow   bool   `json:"walletInitiatedFlow"`
+	PinRequired           bool   `json:"pinRequired"`
+	PreAuthFlow           bool   `json:"preAuthFlow"`
+	InitiateIssuanceURL   string `json:"initiateIssuanceURL,omitempty"`
+	AuthorizationEndpoint string `json:"authorizationEndpoint,omitempty"`
+	Error                 string `json:"error,omitempty"`
+	ErrorCode             string `json:"errorCode,omitempty"`
+	ErrorComponent        string `json:"errorComponent,omitempty"`
+	// Deprecated: use Credentials instead.
+	CredentialTemplateID string `json:"credentialTemplateID,omitempty"`
+	// Deprecated: use Credentials instead.
+	Format      vcsverifiable.OIDCFormat            `json:"format,omitempty"`
+	Credentials map[string]vcsverifiable.OIDCFormat `json:"credentials"`
 }
 
 type AuthorizationCodeGrant struct {
