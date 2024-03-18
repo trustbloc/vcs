@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -29,7 +28,7 @@ func TestComposer(t *testing.T) {
 			},
 			&oidc4ci.TxCredentialConfiguration{
 				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:     lo.ToPtr("hardcoded:{{.TxID}}:suffix"),
+					IDTemplate:     "hardcoded:{{.TxID}}:suffix",
 					OverrideIssuer: true,
 				},
 			},
@@ -60,7 +59,7 @@ func TestComposer(t *testing.T) {
 			},
 			&oidc4ci.TxCredentialConfiguration{
 				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:     lo.ToPtr("hardcoded:{{.NotExistingValue.$x}}:suffix"),
+					IDTemplate:     "hardcoded:{{.NotExistingValue.$x}}:suffix",
 					OverrideIssuer: true,
 				},
 			},
