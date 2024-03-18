@@ -1276,7 +1276,7 @@ components:
         authorization_details:
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
         op_state:
           type: string
       required:
@@ -1314,7 +1314,7 @@ components:
         authorization_details:
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - tx_id
     StoreAuthorizationCodeRequest:
@@ -1329,7 +1329,7 @@ components:
         code:
           type: string
         wallet_initiated_flow:
-          $ref: './common.yaml#/components/schemas/WalletInitiatedFlowData'
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
           nullable: true
       required:
         - op_state
@@ -1386,10 +1386,10 @@ components:
           items:
             type: string
         authorization_details:
-          description: REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+          description: 'REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].'
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - op_state
         - scopes
@@ -1413,7 +1413,7 @@ components:
           type: string
           description: Transaction ID to correlate upcoming authorization response.
         wallet_initiated_flow:
-          $ref: './common.yaml#/components/schemas/WalletInitiatedFlowData'
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
       required:
         - authorization_request
         - authorization_endpoint
@@ -1523,7 +1523,7 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/InitiateIssuanceCredentialConfiguration'
-          description: An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.
+          description: 'An object that describes specifics of the Multiple Credential Issuance, where key refers to relevant credential_configurations_supported from Issuer metadata.'
       x-tags:
         - issuer
     InitiateOIDC4CIResponse:
@@ -1590,10 +1590,10 @@ components:
           description: Integer denoting the lifetime in seconds of the c_nonce.
           type: integer
         authorization_details:
-          description: REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+          description: 'REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].'
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - access_token
         - token_type
@@ -1761,7 +1761,7 @@ components:
         authorization_details:
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - op_state
         - authorization_details
@@ -1796,7 +1796,7 @@ components:
         - audienceClaim
         - hashed_token
     PrepareCredential:
-      allOf:  # Combines the PrepareCredentialBase and the inline model
+      allOf: # Combines the PrepareCredentialBase and the inline model
         - $ref: '#/components/schemas/PrepareCredentialBase'
         - title: PrepareCredential
           x-tags:
@@ -1808,7 +1808,7 @@ components:
               type: string
               description: Transaction ID.
           required:
-          - tx_id
+            - tx_id
     PrepareBatchCredential:
       title: PrepareBatchCredential
       x-tags:
@@ -1877,20 +1877,18 @@ components:
       type: object
       description: Model for OIDC Credential request.
       properties:
-        types:
-          type: array
-          description: Array of types of the credential being issued.
-          items:
-            type: string
         format:
           type: string
           description: Format of the credential being issued.
+        credential_definition:
+          $ref: './common.yaml#/components/schemas/CredentialDefinition'
+        credential_identifier:
+          type: string
+          description: 'String that identifies a Credential that is being requested to be issued. When this parameter is used, the format parameter and any other Credential format specific parameters MUST NOT be present.'
         proof:
           $ref: '#/components/schemas/JWTProof'
         credential_response_encryption:
           $ref: '#/components/schemas/CredentialResponseEncryption'
-      required:
-        - types
     CredentialResponseEncryption:
       title: CredentialResponseEncryption
       x-tags:
@@ -1973,7 +1971,7 @@ components:
           description: Optional issuer identifier.
         event_description:
           type: string
-          description: Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
+          description: 'Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
       required:
         - notification_id
         - event
@@ -2083,7 +2081,7 @@ components:
             type: string
           description: Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
         credential_definition:
-          $ref: './common.yaml#/components/schemas/CredentialDefinition'
+          $ref: ./common.yaml#/components/schemas/CredentialDefinition
         order:
           type: array
           items:

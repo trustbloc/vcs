@@ -849,10 +849,16 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 		return err
 	}
 
+	var credentialTypes []string
+
+	if credentialReq.CredentialDefinition != nil {
+		credentialTypes = credentialReq.CredentialDefinition.Type
+	}
+
 	prepareCredentialReq := issuer.PrepareCredentialJSONRequestBody{
 		TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
 		Did:           &did,
-		Types:         credentialReq.Types,
+		Types:         credentialTypes,
 		Format:        credentialReq.Format,
 		AudienceClaim: aud,
 		HashedToken:   hashToken(token),
@@ -967,12 +973,18 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 			return fmt.Errorf("handle proof: %w", err)
 		}
 
+		var credentialTypes []string
+
+		if credentialRequest.CredentialDefinition != nil {
+			credentialTypes = credentialRequest.CredentialDefinition.Type
+		}
+
 		prepareCredential := issuer.PrepareCredentialBase{
 			AudienceClaim:                         aud,
 			Did:                                   &did,
 			Format:                                credentialRequest.Format,
 			HashedToken:                           hashToken(token),
-			Types:                                 credentialRequest.Types,
+			Types:                                 credentialTypes,
 			RequestedCredentialResponseEncryption: nil,
 		}
 

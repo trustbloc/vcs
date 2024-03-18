@@ -1321,8 +1321,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 	credentialReq := oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		CredentialDefinition: &common.CredentialDefinition{
+			Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		},
+		Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 	}
 
 	ecdsaPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -1473,8 +1475,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -1513,8 +1517,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr("invalid"),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 				})
 				require.NoError(t, err)
 			},
@@ -1533,8 +1539,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  nil,
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: nil,
 				})
 				require.NoError(t, err)
 			},
@@ -1553,8 +1561,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
 				})
 				require.NoError(t, err)
 			},
@@ -1621,8 +1631,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
 				})
 				require.NoError(t, err)
 			},
@@ -1695,8 +1707,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				credentialReqInvalid := oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 				}
 
 				requestBody, err = json.Marshal(credentialReqInvalid)
@@ -1841,8 +1855,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				credentialReqInvalid := oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 				}
 
 				requestBody, err = json.Marshal(credentialReqInvalid)
@@ -1888,8 +1904,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -1933,8 +1951,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -1985,8 +2005,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -2035,8 +2057,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -2408,8 +2432,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2465,8 +2491,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ED25519),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2526,8 +2554,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2587,8 +2617,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2669,13 +2701,17 @@ func TestController_OidcBatchCredential(t *testing.T) {
 		CredentialRequests: []oidc4ci.CredentialRequest{
 			{
 				Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-				Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-				Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				CredentialDefinition: &common.CredentialDefinition{
+					Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+				Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 			},
 			{
 				Format: lo.ToPtr(string(common.JwtVcJson)),
-				Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-				Types:  []string{"VerifiableCredential", "PermanetnResidentCard"},
+				CredentialDefinition: &common.CredentialDefinition{
+					Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+				Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 			},
 		},
 	}
@@ -2870,8 +2906,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 								Alg: string(gojose.ECDH_ES),
 								Enc: string(gojose.A128CBC_HS256),
@@ -2879,10 +2917,11 @@ func TestController_OidcBatchCredential(t *testing.T) {
 							},
 						},
 						{
-							Format:                       lo.ToPtr(string(common.JwtVcJson)),
-							Proof:                        &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:                        []string{"VerifiableCredential", "PermanetnResidentCard"},
-							CredentialResponseEncryption: nil,
+							Format: lo.ToPtr(string(common.JwtVcJson)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "PermanentResidentCard"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 						},
 					},
 				})
@@ -3003,8 +3042,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr("invalid"),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 						},
 					},
 				})
@@ -3027,8 +3068,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  nil,
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: nil,
 						},
 					},
 				})
@@ -3051,8 +3094,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
 						},
 					},
 				})
@@ -3123,8 +3168,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
 						},
 					},
 				})
@@ -3201,8 +3248,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 						},
 					},
 				}
@@ -3351,8 +3400,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 						},
 					},
 				}
@@ -3402,8 +3453,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 						},
 					},
 				})
@@ -3451,8 +3504,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 						},
 					},
 				})
@@ -3507,8 +3562,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 						},
 					},
 				})
@@ -3561,8 +3618,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 						},
 					},
 				})
@@ -3940,8 +3999,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 								Alg: string(gojose.ECDH_ES),
 								Enc: string(gojose.A128CBC_HS256),
@@ -4003,8 +4064,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 								Alg: string(gojose.ED25519),
 								Enc: string(gojose.A128CBC_HS256),
@@ -4070,8 +4133,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 								Alg: string(gojose.ECDH_ES),
 								Enc: string(gojose.A128CBC_HS256),
@@ -4137,8 +4202,10 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CredentialRequests: []oidc4ci.CredentialRequest{
 						{
 							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-							Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-							Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 								Alg: string(gojose.ECDH_ES),
 								Enc: string(gojose.A128CBC_HS256),

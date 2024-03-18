@@ -795,10 +795,13 @@ func (f *Flow) credentialRequest(
 	proof *Proof,
 ) (*CredentialResponse, error) {
 	b, err := json.Marshal(CredentialRequest{
-		Format:                       credentialFormat,
-		Types:                        []string{"VerifiableCredential", credentialType}, //todo: remove. Is not a part of spec
+		Format: credentialFormat,
+		CredentialDefinition: &CredentialDefinition{
+			Type: []string{"VerifiableCredential", credentialType},
+		},
+		CredentialIdentifier:         nil, // not supported for now
 		Proof:                        *proof,
-		CredentialResponseEncryption: nil, // not supported for now.
+		CredentialResponseEncryption: nil, // not supported for now
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal credential request: %w", err)
@@ -830,8 +833,11 @@ func (f *Flow) batchCredentialRequest(
 
 	for _, filter := range credentialFilters {
 		req := CredentialRequest{
-			Format:                       filter.oidcCredentialFormat,
-			Types:                        []string{"VerifiableCredential", filter.credentialType}, //todo: remove. Is not a part of spec
+			Format: filter.oidcCredentialFormat,
+			CredentialDefinition: &CredentialDefinition{
+				Type: []string{"VerifiableCredential", filter.credentialType},
+			},
+			CredentialIdentifier:         nil, // not supported for now
 			Proof:                        *proof,
 			CredentialResponseEncryption: nil, // not supported for now.
 		}

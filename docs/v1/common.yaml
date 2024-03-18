@@ -124,8 +124,6 @@ components:
         - type
     CredentialDefinition:
       title: CredentialDefinition object definition.
-      x-tags:
-        - issuer
       type: object
       description: Object containing the detailed description of the credential type.
       properties:
