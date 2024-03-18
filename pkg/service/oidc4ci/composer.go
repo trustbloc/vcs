@@ -24,7 +24,7 @@ func (c *CredentialComposer) Compose(
 	txCredentialConfiguration *TxCredentialConfiguration,
 	_ *PrepareCredentialRequest,
 ) (*verifiable.Credential, error) {
-	if txCredentialConfiguration.CredentialComposeConfiguration == nil {
+	if txCredentialConfiguration == nil || txCredentialConfiguration.CredentialComposeConfiguration == nil {
 		return credential, nil
 	}
 
