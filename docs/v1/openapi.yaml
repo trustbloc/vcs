@@ -1497,7 +1497,10 @@ components:
           description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
         grant_type:
           type: string
-          description: Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps. If not provided then default to authorization_code.
+          description: Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+          enum:
+            - 'authorization_code'
+            - 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
         scope:
           type: array
           description: Contains scopes that issuer expects VCS to use while requesting authorization code for claim data. Defaults to openid.

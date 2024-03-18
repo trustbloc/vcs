@@ -439,7 +439,7 @@ func (c *Controller) initiateIssuance(
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
 		ClaimEndpoint:             lo.FromPtr(req.ClaimEndpoint),
-		GrantType:                 lo.FromPtr(req.GrantType),
+		GrantType:                 string(lo.FromPtr(req.GrantType)),
 		ResponseType:              lo.FromPtr(req.ResponseType),
 		Scope:                     lo.FromPtr(req.Scope),
 		OpState:                   lo.FromPtr(req.OpState),

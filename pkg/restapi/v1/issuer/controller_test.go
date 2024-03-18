@@ -763,7 +763,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		CredentialExpiresAt:     now,
 		CredentialName:          lo.ToPtr("name1"),
 		CredentialTemplateId:    lo.ToPtr("templateID"),
-		GrantType:               lo.ToPtr("authorization_code"),
+		GrantType:               lo.ToPtr(AuthorizationCode),
 		OpState:                 lo.ToPtr("eyJhbGciOiJSU0Et"),
 		ResponseType:            lo.ToPtr("token"),
 		Scope:                   lo.ToPtr([]string{"openid"}),
