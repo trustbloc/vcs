@@ -33,7 +33,7 @@ import (
 const (
 	issuerWellKnownURL  = "https://issuer.example.com/.well-known/openid-configuration"
 	walletWellKnownURL  = "https://wallet.example.com/.well-known/openid-configuration"
-	issuerVCSPublicHost = "https://vcs.pb.example.com/"
+	issuerVCSPublicHost = "https://vcs.pb.example.com"
 )
 
 //go:embed testdata/issuer_profile.json
@@ -75,8 +75,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
 	}{
 		{
-			name: "Success",
+			name: "Success auth flow",
 			setup: func(mocks *mocks) {
+				now := lo.ToPtr(time.Now().UTC())
+
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
@@ -84,6 +86,51 @@ func TestService_InitiateIssuance(t *testing.T) {
 						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Equal(t, "test_issuer", data.ProfileID)
+						assert.Equal(t, "1.1", data.ProfileVersion)
+						assert.Equal(t, false, data.IsPreAuthFlow)
+						assert.Empty(t, data.PreAuthCode)
+						assert.Equal(t, "test_org", data.OrgID)
+						assert.Equal(t, "https://example.com/auth", data.AuthorizationEndpoint)
+						assert.Equal(t, "https://example.com/pushed_authorization_request_endpoint",
+							data.PushedAuthorizationRequestEndpoint)
+						assert.Equal(t, "https://example.com/token_endpoint", data.TokenEndpoint)
+						assert.Equal(t, "eyJhbGciOiJSU0Et", data.OpState)
+						assert.Equal(t, "https://vcs.pb.example.com/oidc/redirect", data.RedirectURI)
+						assert.Equal(t, "authorization_code", data.GrantType)
+						assert.Equal(t, "token", data.ResponseType)
+						assert.Equal(t, []string{"openid", "profile"}, data.Scope)
+						assert.Empty(t, data.IssuerAuthCode)
+						assert.Empty(t, data.IssuerToken)
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Empty(t, data.WebHookURL)
+						assert.Equal(t, "123456789", data.UserPin)
+						assert.Equal(t, "did:123", data.DID)
+						assert.False(t, data.WalletInitiatedIssuance)
+
+						assert.Len(t, data.CredentialConfiguration, 2)
+
+						prcCredConf := data.CredentialConfiguration["PermanentResidentCardIdentifier"]
+						assert.NotEmpty(t, prcCredConf.CredentialTemplate)
+						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), prcCredConf.OIDCCredentialFormat)
+						assert.Equal(t, "https://vcs.pb.example.com/claim1", prcCredConf.ClaimEndpoint)
+						assert.Empty(t, prcCredConf.ClaimDataID)
+						assert.Equal(t, "vc_name1", prcCredConf.CredentialName)
+						assert.Equal(t, "vc_desc1", prcCredConf.CredentialDescription)
+						assert.NotEmpty(t, prcCredConf.CredentialExpiresAt)
+						assert.Empty(t, prcCredConf.PreAuthCodeExpiresAt)
+						assert.Empty(t, prcCredConf.AuthorizationDetails)
+
+						univDegreeCredConf := data.CredentialConfiguration["UniversityDegreeCredentialIdentifier"]
+						assert.NotEmpty(t, univDegreeCredConf.CredentialTemplate)
+						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), univDegreeCredConf.OIDCCredentialFormat)
+						assert.Equal(t, "https://vcs.pb.example.com/claim2", univDegreeCredConf.ClaimEndpoint)
+						assert.Empty(t, univDegreeCredConf.ClaimDataID)
+						assert.Equal(t, "vc_name2", univDegreeCredConf.CredentialName)
+						assert.Equal(t, "vc_desc2", univDegreeCredConf.CredentialDescription)
+						assert.NotEmpty(t, univDegreeCredConf.CredentialExpiresAt)
+						assert.Empty(t, prcCredConf.PreAuthCodeExpiresAt)
+						assert.Empty(t, prcCredConf.AuthorizationDetails)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -100,8 +147,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
+
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
+					&oidc4ci.IssuerIDPOIDCConfiguration{
+						InitiateIssuanceEndpoint:           "https://wallet.example.com/initiate_issuance",
+						AuthorizationEndpoint:              "https://example.com/auth",
+						PushedAuthorizationRequestEndpoint: "https://example.com/pushed_authorization_request_endpoint",
+						TokenEndpoint:                      "https://example.com/token_endpoint",
+					}, nil)
 
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{
@@ -117,12 +171,186 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            "authorization_code",
-					Scope:                []string{"openid", "profile"},
+					CredentialTemplateID:      "templateID",
+					ClientInitiateIssuanceURL: "",
+					ClientWellKnownURL:        walletWellKnownURL,
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim1",
+					GrantType:                 "authorization_code",
+					ResponseType:              "token",
+					Scope:                     []string{"openid", "profile"},
+					OpState:                   "eyJhbGciOiJSU0Et",
+					ClaimData: map[string]interface{}{
+						"key1": "value1",
+					},
+					UserPinRequired:         true,
+					CredentialExpiresAt:     now,
+					CredentialName:          "vc_name1",
+					CredentialDescription:   "vc_desc1",
+					WalletInitiatedIssuance: false,
+					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
+						"UniversityDegreeCredentialIdentifier": {
+							ClaimData: map[string]interface{}{
+								"key2": "value2",
+							},
+							ClaimEndpoint:         "https://vcs.pb.example.com/claim2",
+							CredentialTemplateID:  "templateID2",
+							CredentialExpiresAt:   now,
+							CredentialName:        "vc_name2",
+							CredentialDescription: "vc_desc2",
+						},
+					},
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				assert.NotNil(t, resp.Tx)
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
+			},
+		},
+		{
+			name: "Success pre auth flow",
+			setup: func(mocks *mocks) {
+				now := lo.ToPtr(time.Now().UTC())
+
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Equal(t, "test_issuer", data.ProfileID)
+						assert.Equal(t, "1.1", data.ProfileVersion)
+						assert.Equal(t, true, data.IsPreAuthFlow)
+						assert.NotEmpty(t, data.PreAuthCode)
+						assert.Equal(t, "test_org", data.OrgID)
+						assert.Equal(t, "https://example.com/auth", data.AuthorizationEndpoint)
+						assert.Equal(t, "https://example.com/pushed_authorization_request_endpoint",
+							data.PushedAuthorizationRequestEndpoint)
+						assert.Equal(t, "https://example.com/token_endpoint", data.TokenEndpoint)
+						assert.NotEmpty(t, data.OpState)
+						assert.Equal(t, "https://vcs.pb.example.com/oidc/redirect", data.RedirectURI)
+						assert.Equal(t, "urn:ietf:params:oauth:grant-type:pre-authorized_code", data.GrantType)
+						assert.Equal(t, "token", data.ResponseType)
+						assert.Equal(t, []string{"openid", "profile"}, data.Scope)
+						assert.Empty(t, data.IssuerAuthCode)
+						assert.Empty(t, data.IssuerToken)
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Empty(t, data.WebHookURL)
+						assert.Equal(t, "123456789", data.UserPin)
+						assert.Equal(t, "did:123", data.DID)
+						assert.False(t, data.WalletInitiatedIssuance)
+
+						assert.Len(t, data.CredentialConfiguration, 2)
+
+						prcCredConf := data.CredentialConfiguration["PermanentResidentCardIdentifier"]
+						assert.NotEmpty(t, prcCredConf.CredentialTemplate)
+						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), prcCredConf.OIDCCredentialFormat)
+						assert.Empty(t, prcCredConf.ClaimEndpoint)
+						assert.NotEmpty(t, prcCredConf.ClaimDataID)
+						assert.Equal(t, "vc_name1", prcCredConf.CredentialName)
+						assert.Equal(t, "vc_desc1", prcCredConf.CredentialDescription)
+						assert.NotEmpty(t, prcCredConf.CredentialExpiresAt)
+						assert.NotEmpty(t, prcCredConf.PreAuthCodeExpiresAt)
+						assert.Empty(t, prcCredConf.AuthorizationDetails)
+
+						univDegreeCredConf := data.CredentialConfiguration["UniversityDegreeCredentialIdentifier"]
+						assert.NotEmpty(t, univDegreeCredConf.CredentialTemplate)
+						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), univDegreeCredConf.OIDCCredentialFormat)
+						assert.Empty(t, univDegreeCredConf.ClaimEndpoint)
+						assert.NotEmpty(t, univDegreeCredConf.ClaimDataID)
+						assert.Equal(t, "vc_name2", univDegreeCredConf.CredentialName)
+						assert.Equal(t, "vc_desc2", univDegreeCredConf.CredentialDescription)
+						assert.NotEmpty(t, univDegreeCredConf.CredentialExpiresAt)
+						assert.NotEmpty(t, prcCredConf.PreAuthCodeExpiresAt)
+						assert.Empty(t, prcCredConf.AuthorizationDetails)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+									"PermanentResidentCard": {
+										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
+										CredentialTemplate: &profileapi.CredentialTemplate{
+											ID: "templateID",
+										},
+									},
+								},
+							},
+						}, nil
+					})
+
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
+
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
+				}
+
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(2).
+					Return(chunks, nil)
+
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
+					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
+						assert.Equal(t, chunks, data.EncryptedData)
+
+						return "claimDataID", nil
+					})
+
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.IssuerIDPOIDCConfiguration{
+						InitiateIssuanceEndpoint:           "https://wallet.example.com/initiate_issuance",
+						AuthorizationEndpoint:              "https://example.com/auth",
+						PushedAuthorizationRequestEndpoint: "https://example.com/pushed_authorization_request_endpoint",
+						TokenEndpoint:                      "https://example.com/token_endpoint",
+					}, nil)
+
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.IssuerIDPOIDCConfiguration{
+						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
+					}, nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID:      "templateID",
+					ClientInitiateIssuanceURL: "",
+					ClientWellKnownURL:        walletWellKnownURL,
+					ClaimEndpoint:             "",
+					GrantType:                 "urn:ietf:params:oauth:grant-type:pre-authorized_code",
+					ResponseType:              "token",
+					Scope:                     []string{"openid", "profile"},
+					OpState:                   "eyJhbGciOiJSU0Et",
+					ClaimData: map[string]interface{}{
+						"key1": "value1",
+					},
+					UserPinRequired:         true,
+					CredentialExpiresAt:     now,
+					CredentialName:          "vc_name1",
+					CredentialDescription:   "vc_desc1",
+					WalletInitiatedIssuance: false,
+					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
+						"UniversityDegreeCredentialIdentifier": {
+							ClaimData: map[string]interface{}{
+								"key2": "value2",
+							},
+							ClaimEndpoint:         "",
+							CredentialTemplateID:  "templateID2",
+							CredentialExpiresAt:   now,
+							CredentialName:        "vc_name2",
+							CredentialDescription: "vc_desc2",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -228,7 +456,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.True(t, len(data.UserPin) > 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCard"].ClaimDataID)
+						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCardIdentifier"].ClaimDataID)
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
 						return &oidc4ci.Transaction{
@@ -314,7 +542,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCard"].ClaimDataID)
+						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCardIdentifier"].ClaimDataID)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -446,7 +674,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
 					Scope:              []string{"openid", "profile"},
 					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCard": {
+						"PermanentResidentCardIdentifier": {
 							ClaimData: claimData,
 						},
 					},
@@ -499,6 +727,184 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "Fail Pre-Auth via CredentialTemplateID: missed claim data",
+			setup: func(mocks *mocks) {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				profile = &testProfile
+
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(0)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              initialOpState,
+					UserPinRequired:      true,
+					ClaimData:            nil,
+					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "claim_data param is not supplied")
+			},
+		},
+		{
+			name: "Fail Auth via CredentialTemplateID: missed claimEndpoint",
+			setup: func(mocks *mocks) {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				profile = &testProfile
+
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(0)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "",
+					OpState:              initialOpState,
+					UserPinRequired:      true,
+					ClaimData:            nil,
+					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "claim_endpoint param is not supplied")
+			},
+		},
+		{
+			name: "Fail Pre-Auth via CredentialConfiguration: missed claim data",
+			setup: func(mocks *mocks) {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				profile = &testProfile
+
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(0)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
+					OpState:            initialOpState,
+					UserPinRequired:    true,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
+						"PermanentResidentCardIdentifier": {
+							ClaimData: nil,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "claim_data param is not supplied")
+			},
+		},
+		{
+			name: "Fail Auth via CredentialConfiguration: missed claimEndpoint",
+			setup: func(mocks *mocks) {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				profile = &testProfile
+
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
+				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(0)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    true,
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
+						"PermanentResidentCardIdentifier": {
+							ClaimEndpoint: "",
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "claim_endpoint param is not supplied")
+			},
+		},
+		{
+			name: "Fail PreAuth via CredentialConfiguration: failed to encrypt claims",
+			setup: func(mocks *mocks) {
+				initialOpState := ""
+				claimData := degreeClaims
+
+				cp := testProfile
+				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
+				profile = &cp
+
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("unexpected encrypt error"))
+
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					Scope:              []string{"openid", "profile"},
+					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
+						"PermanentResidentCardIdentifier": {
+							ClaimData: claimData,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "unexpected encrypt error")
+				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Fail PreAuth via CredentialConfiguration: invalid credential configuration ID",
+			setup: func(mocks *mocks) {
+				initialOpState := ""
+				claimData := degreeClaims
+
+				profile = &testProfile
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					Scope:              []string{"openid", "profile"},
+					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
+						"unexpectedCredentialConfigurationID": {
+							ClaimData: claimData,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "invalid credential configuration ID")
+				require.Nil(t, resp)
+			},
+		},
+		{
 			name: "Error because of event publishing",
 			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
@@ -515,7 +921,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCard"].ClaimDataID)
+						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCardIdentifier"].ClaimDataID)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -645,12 +1051,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
 					CredentialConfiguration: map[string]oidc4ci.InitiateIssuanceCredentialConfiguration{
-						"PermanentResidentCard": {
+						"PermanentResidentCardIdentifier": {
 							CredentialTemplateID: "",
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 						},
 					},
 				}
@@ -669,7 +1075,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID3",
+					CredentialTemplateID:      "templateID_unknown",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
@@ -689,7 +1095,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID2",
+					CredentialTemplateID:      "templateID3",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
@@ -877,6 +1283,54 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.Nil(t, resp)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "unsupported grant type authorization_code")
+			},
+		},
+		{
+			name: "Unexpected grant type",
+			setup: func(mocks *mocks) {
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID:      "PermanentResidentCard",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+					GrantType:                 "unexpected_gt",
+				}
+
+				profile = &profileapi.Issuer{
+					Active:   true,
+					VCConfig: &profileapi.VCConfig{},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "unexpected grant_type supplied unexpected_gt")
+			},
+		},
+		{
+			name: "Error OIDC config is empty",
+			setup: func(mocks *mocks) {
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID:      "PermanentResidentCard",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+				}
+
+				profile = &profileapi.Issuer{
+					Active:   true,
+					VCConfig: &profileapi.VCConfig{},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "authorized code flow not supported")
 			},
 		},
 		{
