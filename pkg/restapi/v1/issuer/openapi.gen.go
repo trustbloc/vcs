@@ -33,6 +33,9 @@ type ComposeOIDC4CICredential struct {
 
 	// ID of the credential template.
 	IdTemplate *string `json:"id_template"`
+
+	// Override issuer.
+	OverrideIssuer *bool `json:"override_issuer"`
 }
 
 // An object that describes specifics of the Credential that the Credential Issuer supports issuance of.

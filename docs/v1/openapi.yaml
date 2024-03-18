@@ -1469,6 +1469,10 @@ components:
           type: string
           description: ID of the credential template.
           nullable: true
+        override_issuer:
+            type: boolean
+            description: Override issuer.
+            nullable: true
         credential:
           type: object
           description: Raw Complete credential for sign and customization

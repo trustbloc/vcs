@@ -204,8 +204,9 @@ type InitiateIssuanceCredentialConfiguration struct {
 }
 
 type InitiateIssuanceComposeCredential struct {
-	Credential *map[string]interface{} `json:"credential,omitempty"`
-	IdTemplate *string                 `json:"id_template"`
+	Credential     *map[string]interface{} `json:"credential,omitempty"`
+	IdTemplate     *string                 `json:"id_template"`
+	OverrideIssuer bool                    `json:"override_issuer"`
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.

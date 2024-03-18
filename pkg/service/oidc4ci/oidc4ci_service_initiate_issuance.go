@@ -161,16 +161,15 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 func (s *Service) validateFlowSpecificRequestParams(
 	isPreAuthFlow bool,
-	claimEndpoint string,
-	claimData map[string]interface{},
+	req InitiateIssuanceCredentialConfiguration,
 ) error {
 	if isPreAuthFlow {
-		if len(claimData) == 0 {
+		if len(req.ClaimData) == 0 && (req.ComposeCredential == nil || req.ComposeCredential.Credential == nil) {
 			return resterr.NewValidationError(resterr.InvalidValue, "claim_data",
 				errors.New("claim_data param is not supplied"))
 		}
 	} else {
-		if len(claimEndpoint) == 0 {
+		if len(req.ClaimEndpoint) == 0 {
 			return resterr.NewValidationError(resterr.InvalidValue, "claim_data",
 				errors.New("claim_endpoint param is not supplied"))
 		}
@@ -185,7 +184,10 @@ func (s *Service) newTxConfUsingTemplateID(
 	isPreAuthFlow bool,
 	profile *profileapi.Issuer,
 ) (string, *TxCredentialConfiguration, error) {
-	err := s.validateFlowSpecificRequestParams(isPreAuthFlow, req.ClaimEndpoint, req.ClaimData)
+	err := s.validateFlowSpecificRequestParams(isPreAuthFlow, InitiateIssuanceCredentialConfiguration{
+		ClaimData:     req.ClaimData,
+		ClaimEndpoint: req.ClaimEndpoint,
+	})
 	if err != nil {
 		return "", nil, err
 	}
@@ -232,7 +234,9 @@ func (s *Service) newTxConfUsingCredentialConf(
 	profile *profileapi.Issuer,
 ) (string, *TxCredentialConfiguration, error) {
 	err := s.validateFlowSpecificRequestParams(
-		isPreAuthFlow, credentialConfiguration.ClaimEndpoint, credentialConfiguration.ClaimData)
+		isPreAuthFlow,
+		credentialConfiguration,
+	)
 	if err != nil {
 		return "", nil, err
 	}
@@ -309,8 +313,10 @@ func (s *Service) applyPreAuthFlowModifications(
 		targetClaims = lo.FromPtr(req.ComposeCredential.Credential)
 
 		txCredentialConfiguration.ClaimDataType = ClaimDataTypeVC
+
 		txCredentialConfiguration.CredentialComposeConfiguration = &CredentialComposeConfiguration{
-			IdTemplate: req.ComposeCredential.IdTemplate,
+			IdTemplate:     req.ComposeCredential.IdTemplate,
+			OverrideIssuer: req.ComposeCredential.OverrideIssuer,
 		}
 	}
 

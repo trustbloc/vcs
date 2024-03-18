@@ -454,15 +454,26 @@ func (c *Controller) initiateIssuance(
 
 	if req.CredentialConfiguration != nil && len(*req.CredentialConfiguration) > 0 {
 		for _, multiCredentialIssuance := range lo.FromPtr(req.CredentialConfiguration) {
+			credConfig := oidc4ci.InitiateIssuanceCredentialConfiguration{
+				ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
+				ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
+				CredentialTemplateID:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
+				CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
+				CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
+				CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
+			}
+
+			if multiCredentialIssuance.Compose != nil {
+				credConfig.ComposeCredential = &oidc4ci.InitiateIssuanceComposeCredential{
+					Credential:     multiCredentialIssuance.Compose.Credential,
+					IdTemplate:     multiCredentialIssuance.Compose.IdTemplate,
+					OverrideIssuer: lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
+				}
+			}
+
 			issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
-				oidc4ci.InitiateIssuanceCredentialConfiguration{
-					ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
-					ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
-					CredentialTemplateID:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
-					CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
-					CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
-					CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
-				})
+				credConfig,
+			)
 		}
 	}
 
