@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	jwk "github.com/trustbloc/kms-go/doc/jose/jwk"
 	kms "github.com/trustbloc/kms-go/spi/kms"
+
 	vc "github.com/trustbloc/vcs/pkg/doc/vc"
 	verifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
