@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"time"
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
@@ -63,28 +62,16 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
 
-	issuedCredentialConfiguration := make(map[string]*TxCredentialConfiguration)
+	issuedCredentialConfiguration := make([]*TxCredentialConfiguration, 0, len(req.CredentialConfiguration))
 
-	// If req.CredentialTemplateID supplied - create TxCredentialConfiguration based on it.
-	if req.CredentialTemplateID != "" { //nolint:nestif
-		credentialConfigurationID, txCredentialConf, err := s.newTxConfUsingTemplateID(
-			ctx, req, isPreAuthFlow, profile)
-		if err != nil {
-			return nil, err
-		}
-
-		issuedCredentialConfiguration[credentialConfigurationID] = txCredentialConf
-	}
-
-	// Multiple credential issuance - use req.CredentialConfiguration to create TxCredentialConfiguration.
 	for _, credentialConfiguration := range req.CredentialConfiguration {
-		credentialConfigurationID, txCredentialConf, err := s.newTxConfUsingCredentialConf(
+		txCredentialConf, err := s.newTxCredentialConf(
 			ctx, credentialConfiguration, isPreAuthFlow, profile)
 		if err != nil {
 			return nil, err
 		}
 
-		issuedCredentialConfiguration[credentialConfigurationID] = txCredentialConf
+		issuedCredentialConfiguration = append(issuedCredentialConfiguration, txCredentialConf)
 	}
 
 	txState := TransactionStateIssuanceInitiated
@@ -179,78 +166,29 @@ func (s *Service) validateFlowSpecificRequestParams(
 	return nil
 }
 
-func (s *Service) newTxConfUsingTemplateID(
-	ctx context.Context,
-	req *InitiateIssuanceRequest,
-	isPreAuthFlow bool,
-	profile *profileapi.Issuer,
-) (string, *TxCredentialConfiguration, error) {
-	err := s.validateFlowSpecificRequestParams(isPreAuthFlow, InitiateIssuanceCredentialConfiguration{
-		ClaimData:     req.ClaimData,
-		ClaimEndpoint: req.ClaimEndpoint,
-	})
-	if err != nil {
-		return "", nil, err
-	}
-
-	credentialTemplate, err := findCredentialTemplate(req.CredentialTemplateID, profile)
-	if err != nil {
-		return "", nil, err
-	}
-
-	credentialConfigurationID, credentialConfiguration, err := findCredentialConfigurationID(
-		req.CredentialTemplateID, credentialTemplate.Type, profile)
-	if err != nil {
-		return "", nil, err
-	}
-
-	txCredentialConfiguration := &TxCredentialConfiguration{
-		CredentialTemplate:    credentialTemplate,
-		OIDCCredentialFormat:  credentialConfiguration.Format,
-		ClaimEndpoint:         req.ClaimEndpoint,
-		CredentialName:        req.CredentialName,
-		CredentialDescription: req.CredentialDescription,
-		CredentialExpiresAt:   lo.ToPtr(s.GetCredentialsExpirationTime(req.CredentialExpiresAt, credentialTemplate)),
-		ClaimDataID:           "",
-		PreAuthCodeExpiresAt:  nil,
-		AuthorizationDetails:  nil,
-	}
-
-	if isPreAuthFlow {
-		err = s.applyPreAuthFlowModifications(ctx, InitiateIssuanceCredentialConfiguration{
-			ClaimData: req.ClaimData,
-		}, credentialTemplate, txCredentialConfiguration)
-		if err != nil {
-			return "", nil, err
-		}
-	}
-
-	return credentialConfigurationID, txCredentialConfiguration, nil
-}
-
-func (s *Service) newTxConfUsingCredentialConf(
+func (s *Service) newTxCredentialConf(
 	ctx context.Context,
 	credentialConfiguration InitiateIssuanceCredentialConfiguration,
 	isPreAuthFlow bool,
 	profile *profileapi.Issuer,
-) (string, *TxCredentialConfiguration, error) {
+) (*TxCredentialConfiguration, error) {
 	err := s.validateFlowSpecificRequestParams(
 		isPreAuthFlow,
 		credentialConfiguration,
 	)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	credentialConfigurationID, _, err := findCredentialConfigurationID(
 		credentialTemplate.ID, credentialTemplate.Type, profile)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	profileMeta := profile.CredentialMetaData
@@ -258,6 +196,7 @@ func (s *Service) newTxConfUsingCredentialConf(
 	metaCredentialConfiguration := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
 
 	txCredentialConfiguration := &TxCredentialConfiguration{
+		ID:                    uuid.NewString(),
 		CredentialTemplate:    credentialTemplate,
 		OIDCCredentialFormat:  metaCredentialConfiguration.Format,
 		ClaimEndpoint:         credentialConfiguration.ClaimEndpoint,
@@ -265,9 +204,10 @@ func (s *Service) newTxConfUsingCredentialConf(
 		CredentialDescription: credentialConfiguration.CredentialDescription,
 		CredentialExpiresAt: lo.ToPtr(
 			s.GetCredentialsExpirationTime(credentialConfiguration.CredentialExpiresAt, credentialTemplate)),
-		ClaimDataID:          "",
-		PreAuthCodeExpiresAt: nil,
-		AuthorizationDetails: nil,
+		CredentialConfigurationID: credentialConfigurationID,
+		ClaimDataID:               "",
+		PreAuthCodeExpiresAt:      nil,
+		AuthorizationDetails:      nil,
 	}
 
 	if isPreAuthFlow {
@@ -278,11 +218,11 @@ func (s *Service) newTxConfUsingCredentialConf(
 			txCredentialConfiguration,
 		)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 	}
 
-	return credentialConfigurationID, txCredentialConfiguration, nil
+	return txCredentialConfiguration, nil
 }
 
 func (s *Service) applyPreAuthFlowModifications(
@@ -485,11 +425,14 @@ func (s *Service) prepareCredentialOffer(
 ) *CredentialOfferResponse {
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
-	configurations := lo.Keys(tx.CredentialConfiguration)
-	sort.Strings(configurations)
+	credentialConfigurationIDs := lo.Map(tx.CredentialConfiguration,
+		func(item *TxCredentialConfiguration, index int) string {
+			return item.CredentialConfigurationID
+		})
+
 	resp := &CredentialOfferResponse{
 		CredentialIssuer:           issuerURL,
-		CredentialConfigurationIDs: configurations,
+		CredentialConfigurationIDs: lo.Uniq(credentialConfigurationIDs),
 		Grants:                     CredentialOfferGrant{},
 	}
 

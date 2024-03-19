@@ -453,9 +453,10 @@ func TestExchangeCode_Success(t *testing.T) {
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
 			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-			CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-				"ConfigurationID": {
-					AuthorizationDetails: authorizationDetails,
+			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				{
+					CredentialConfigurationID: "ConfigurationID",
+					AuthorizationDetails:      authorizationDetails,
 				},
 			},
 		},

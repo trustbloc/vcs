@@ -111,24 +111,26 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 						assert.Len(t, data.CredentialConfiguration, 2)
 
-						prcCredConf := data.CredentialConfiguration["PermanentResidentCardIdentifier"]
+						prcCredConf := data.CredentialConfiguration[0]
 						assert.NotEmpty(t, prcCredConf.CredentialTemplate)
 						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), prcCredConf.OIDCCredentialFormat)
 						assert.Equal(t, "https://vcs.pb.example.com/claim1", prcCredConf.ClaimEndpoint)
 						assert.Empty(t, prcCredConf.ClaimDataID)
 						assert.Equal(t, "vc_name1", prcCredConf.CredentialName)
 						assert.Equal(t, "vc_desc1", prcCredConf.CredentialDescription)
+						assert.Equal(t, "PermanentResidentCardIdentifier", prcCredConf.CredentialConfigurationID)
 						assert.NotEmpty(t, prcCredConf.CredentialExpiresAt)
 						assert.Empty(t, prcCredConf.PreAuthCodeExpiresAt)
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
 
-						univDegreeCredConf := data.CredentialConfiguration["UniversityDegreeCredentialIdentifier"]
+						univDegreeCredConf := data.CredentialConfiguration[1]
 						assert.NotEmpty(t, univDegreeCredConf.CredentialTemplate)
 						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), univDegreeCredConf.OIDCCredentialFormat)
 						assert.Equal(t, "https://vcs.pb.example.com/claim2", univDegreeCredConf.ClaimEndpoint)
 						assert.Empty(t, univDegreeCredConf.ClaimDataID)
 						assert.Equal(t, "vc_name2", univDegreeCredConf.CredentialName)
 						assert.Equal(t, "vc_desc2", univDegreeCredConf.CredentialDescription)
+						assert.Equal(t, "UniversityDegreeCredentialIdentifier", univDegreeCredConf.CredentialConfigurationID)
 						assert.NotEmpty(t, univDegreeCredConf.CredentialExpiresAt)
 						assert.Empty(t, prcCredConf.PreAuthCodeExpiresAt)
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
@@ -136,18 +138,20 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCardIdentifier": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
-									"UniversityDegreeCredentialIdentifier": {
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID2",
 										},
+										CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 									},
 								},
 							},
@@ -197,23 +201,25 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "",
 					ClientWellKnownURL:        walletWellKnownURL,
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim1",
 					GrantType:                 "authorization_code",
 					ResponseType:              "token",
 					Scope:                     []string{"openid", "profile"},
 					OpState:                   "eyJhbGciOiJSU0Et",
-					ClaimData: map[string]interface{}{
-						"key1": "value1",
-					},
-					UserPinRequired:         true,
-					CredentialExpiresAt:     now,
-					CredentialName:          "vc_name1",
-					CredentialDescription:   "vc_desc1",
-					WalletInitiatedIssuance: false,
+					UserPinRequired:           true,
+					WalletInitiatedIssuance:   false,
 					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData: map[string]interface{}{
+								"key1": "value1",
+							},
+							ClaimEndpoint:         "https://vcs.pb.example.com/claim1",
+							CredentialTemplateID:  "templateID",
+							CredentialExpiresAt:   now,
+							CredentialName:        "vc_name1",
+							CredentialDescription: "vc_desc1",
+						},
 						{
 							ClaimData: map[string]interface{}{
 								"key2": "value2",
@@ -272,24 +278,26 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 						assert.Len(t, data.CredentialConfiguration, 2)
 
-						prcCredConf := data.CredentialConfiguration["PermanentResidentCardIdentifier"]
+						prcCredConf := data.CredentialConfiguration[0]
 						assert.NotEmpty(t, prcCredConf.CredentialTemplate)
 						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), prcCredConf.OIDCCredentialFormat)
 						assert.Empty(t, prcCredConf.ClaimEndpoint)
 						assert.NotEmpty(t, prcCredConf.ClaimDataID)
 						assert.Equal(t, "vc_name1", prcCredConf.CredentialName)
 						assert.Equal(t, "vc_desc1", prcCredConf.CredentialDescription)
+						assert.Equal(t, "PermanentResidentCardIdentifier", prcCredConf.CredentialConfigurationID)
 						assert.NotEmpty(t, prcCredConf.CredentialExpiresAt)
 						assert.NotEmpty(t, prcCredConf.PreAuthCodeExpiresAt)
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
 
-						univDegreeCredConf := data.CredentialConfiguration["UniversityDegreeCredentialIdentifier"]
+						univDegreeCredConf := data.CredentialConfiguration[1]
 						assert.NotEmpty(t, univDegreeCredConf.CredentialTemplate)
 						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), univDegreeCredConf.OIDCCredentialFormat)
 						assert.Empty(t, univDegreeCredConf.ClaimEndpoint)
 						assert.NotEmpty(t, univDegreeCredConf.ClaimDataID)
 						assert.Equal(t, "vc_name2", univDegreeCredConf.CredentialName)
 						assert.Equal(t, "vc_desc2", univDegreeCredConf.CredentialDescription)
+						assert.Equal(t, "UniversityDegreeCredentialIdentifier", univDegreeCredConf.CredentialConfigurationID)
 						assert.NotEmpty(t, univDegreeCredConf.CredentialExpiresAt)
 						assert.NotEmpty(t, prcCredConf.PreAuthCodeExpiresAt)
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
@@ -297,18 +305,20 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCardIdentifier": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
-									"UniversityDegreeCredentialIdentifier": {
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID2",
 										},
+										CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 									},
 								},
 							},
@@ -374,23 +384,25 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "",
 					ClientWellKnownURL:        walletWellKnownURL,
-					ClaimEndpoint:             "",
 					GrantType:                 "urn:ietf:params:oauth:grant-type:pre-authorized_code",
 					ResponseType:              "token",
 					Scope:                     []string{"openid", "profile"},
 					OpState:                   "eyJhbGciOiJSU0Et",
-					ClaimData: map[string]interface{}{
-						"key1": "value1",
-					},
-					UserPinRequired:         true,
-					CredentialExpiresAt:     now,
-					CredentialName:          "vc_name1",
-					CredentialDescription:   "vc_desc1",
-					WalletInitiatedIssuance: false,
+					UserPinRequired:           true,
+					WalletInitiatedIssuance:   false,
 					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData: map[string]interface{}{
+								"key1": "value1",
+							},
+							ClaimEndpoint:         "",
+							CredentialTemplateID:  "templateID",
+							CredentialExpiresAt:   now,
+							CredentialName:        "vc_name1",
+							CredentialDescription: "vc_desc1",
+						},
 						{
 							ClaimData: map[string]interface{}{
 								"key2": "value2",
@@ -428,12 +440,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
 								State: data.State,
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCard",
 									},
 								},
 							},
@@ -457,13 +470,17 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:    "templateID",
 					ClientWellKnownURL:      walletWellKnownURL,
-					ClaimEndpoint:           "https://vcs.pb.example.com/claim",
 					OpState:                 "eyJhbGciOiJSU0Et",
 					GrantType:               "authorization_code",
 					Scope:                   []string{"openid", "profile"},
 					WalletInitiatedIssuance: true,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -507,7 +524,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.True(t, len(data.UserPin) > 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCardIdentifier"].ClaimDataID)
+						assert.NotEmpty(t, data.CredentialConfiguration[0].ClaimDataID)
+						assert.Equal(t, "PermanentResidentCardIdentifier", data.CredentialConfiguration[0].CredentialConfigurationID)
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
 						return &oidc4ci.Transaction{
@@ -519,12 +537,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 								UserPin:       "123456789",
 								GrantType:     "authorization_code",
 								Scope:         []string{"openid", "profile"},
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
 								},
 							},
@@ -557,13 +576,17 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      true,
-					ClaimData:            claimData,
-					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    true,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData:            claimData,
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -571,7 +594,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				assert.Equal(t, "123456789", resp.UserPin)
 				assert.NotNil(t, resp.Tx)
 				require.Equal(t,
-					"openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A6%2C%22description%22%3A%22Pin%22%7D%7D%7D%7D", //nolint
+					"openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A6%2C%22description%22%3A%22Pin%22%7D%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -593,7 +616,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCardIdentifier"].ClaimDataID)
+						assert.NotEmpty(t, data.CredentialConfiguration[0].ClaimDataID)
+						assert.Equal(t, "PermanentResidentCardIdentifier", data.CredentialConfiguration[0].CredentialConfigurationID)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -601,12 +625,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
 								},
 							},
@@ -640,20 +665,24 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      false,
-					ClaimData:            claimData,
-					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
-					Scope:                []string{"openid", "profile"},
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					Scope:              []string{"openid", "profile"},
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData:            claimData,
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -676,7 +705,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 
-						configuration := data.CredentialConfiguration["PermanentResidentCardIdentifier"]
+						configuration := data.CredentialConfiguration[0]
 
 						assert.NotEmpty(t, configuration.ClaimDataID)
 						assert.EqualValues(t, oidc4ci.ClaimDataTypeVC, configuration.ClaimDataType)
@@ -692,12 +721,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
 								},
 							},
@@ -752,7 +782,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -781,12 +811,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
 								},
 							},
@@ -818,7 +849,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
-					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
 					OpState:            initialOpState,
 					UserPinRequired:    false,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
@@ -832,7 +862,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -863,13 +893,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      true,
-					ClaimData:            claimData,
-					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    true,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData:            claimData,
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -891,13 +924,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      true,
-					ClaimData:            nil,
-					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    true,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData:            nil,
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -919,13 +955,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "",
-					OpState:              initialOpState,
-					UserPinRequired:      true,
-					ClaimData:            nil,
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    true,
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -948,7 +987,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
-					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
 					OpState:            initialOpState,
 					UserPinRequired:    true,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
@@ -1010,7 +1048,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
-					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
 					OpState:            initialOpState,
 					UserPinRequired:    false,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
@@ -1039,7 +1076,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
-					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
 					OpState:            initialOpState,
 					UserPinRequired:    false,
 					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
@@ -1074,18 +1110,19 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.CredentialConfiguration["PermanentResidentCardIdentifier"].ClaimDataID)
+						assert.NotEmpty(t, data.CredentialConfiguration[0].ClaimDataID)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
 										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
 									},
 								},
 							},
@@ -1115,13 +1152,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   issuerWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      false,
-					ClaimData:            claimData,
-					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
+					ClientWellKnownURL: issuerWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData:            claimData,
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1135,10 +1175,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Profile is not active",
 			setup: func(mocks *mocks) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &profileapi.Issuer{
@@ -1156,10 +1200,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "VC options not configured",
 			setup: func(mocks *mocks) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
+
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &profileapi.Issuer{
@@ -1178,11 +1227,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &profileapi.Issuer{
@@ -1202,7 +1255,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
@@ -1228,11 +1280,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID_unknown",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID_unknown",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1248,11 +1304,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID3",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID3",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1268,8 +1328,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
-							CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-								"PermanentResidentCard": {
+							CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								{
 									OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 								},
 							},
@@ -1282,12 +1342,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClientWellKnownURL:        walletWellKnownURL,
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -1311,8 +1375,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 					&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
-							CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-								"PermanentResidentCard": {
+							CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								{
 									OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 								},
 							},
@@ -1334,11 +1398,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            "eyJhbGciOiJSU0Et",
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1355,11 +1423,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 					nil, errors.New("well known service error"))
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1380,11 +1452,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1401,11 +1477,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "PermanentResidentCard",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "PermanentResidentCard",
+						},
+					},
 				}
 
 				profile = &profileapi.Issuer{
@@ -1444,11 +1524,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "PermanentResidentCard",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 "unexpected_gt",
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "PermanentResidentCard",
+						},
+					},
 				}
 
 				profile = &profileapi.Issuer{
@@ -1468,11 +1552,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "PermanentResidentCard",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "PermanentResidentCard",
+						},
+					},
 				}
 
 				profile = &profileapi.Issuer{
@@ -1493,12 +1581,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
 					GrantType:                 oidc4ci.GrantTypeAuthorizationCode,
 					Scope:                     []string{"invalid_value"},
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1525,13 +1617,17 @@ func TestService_InitiateIssuance(t *testing.T) {
 					Return(errors.New("validation error"))
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      false,
-					ClaimData:            claimData,
-					GrantType:            oidc4ci.GrantTypePreAuthorizedCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimData:            claimData,
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1651,8 +1747,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
@@ -1688,11 +1784,15 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            "eyJhbGciOiJSU0Et",
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1719,8 +1819,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
@@ -1745,11 +1845,15 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            "eyJhbGciOiJSU0Et",
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profile = &testProfile
@@ -1775,8 +1879,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
@@ -1842,11 +1946,15 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            "eyJhbGciOiJSU0Et",
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profileSignedCredentialOfferSupported := testProfile
@@ -1884,8 +1992,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
@@ -1901,11 +2009,15 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, errors.New("some error"))
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            "eyJhbGciOiJSU0Et",
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profileSignedCredentialOfferSupported := testProfile
@@ -1938,8 +2050,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-									"PermanentResidentCard": {
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
@@ -1968,11 +2080,15 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				cryptoJWTSigner.EXPECT().NewJWTSigned(gomock.Any(), gomock.Any()).Return("", errors.New("some error"))
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-					GrantType:            oidc4ci.GrantTypeAuthorizationCode,
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            "eyJhbGciOiJSU0Et",
+					GrantType:          oidc4ci.GrantTypeAuthorizationCode,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+							CredentialTemplateID: "templateID",
+						},
+					},
 				}
 
 				profileSignedCredentialOfferSupported := testProfile

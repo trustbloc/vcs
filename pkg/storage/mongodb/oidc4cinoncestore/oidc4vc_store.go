@@ -49,7 +49,7 @@ type mongoDocument struct {
 	DID                                string
 	UserPin                            string
 	WalletInitiatedIssuance            bool
-	CredentialConfiguration            map[string]*oidc4ci.TxCredentialConfiguration
+	CredentialConfiguration            []*oidc4ci.TxCredentialConfiguration
 }
 
 // Store stores oidc transactions in mongo.

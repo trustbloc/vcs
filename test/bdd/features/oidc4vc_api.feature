@@ -101,12 +101,14 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
-
+#     In examples below Initiate Issuence request and Credential request are based on credentialType param.
     Examples:
       | issuerProfile    | credentialType                                                     | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
       | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
       | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+#     Same VC type
+      | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
   @oidc4vc_rest_auth_flow_credential_conf_id
   Scenario Outline: OIDC credential issuance and verification Auth flow using credential configuration ID to request specific credential type
@@ -159,12 +161,12 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 
     Examples:
-      | issuerProfile    | credentialType             | credentialTemplate         | verifierProfile      | presentationDefinitionID                  | fields         | proofType |
+      | issuerProfile                  | credentialType             | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       | proofType |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
       | bank_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | jwt       |
       | bank_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | ldp_vc    |
       | bank_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | cwt       |
-      | acme_issuer/v1.0 | UniversityDegreeCredential | universityDegreeTemplateID | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id | jwt       |
+      | acme_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | jwt       |
 #      SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
       | bank_issuer/v1.0               | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address | jwt       |
       | bank_issuer_sdjwt_v5/v1.0      | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address | jwt       |

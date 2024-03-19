@@ -240,8 +240,8 @@ func (s *Service) PushAuthorizationDetails(
 		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
 	}
 
-	var requestedCredentialConfigurationIDs map[string]struct{}
-	if requestedCredentialConfigurationIDs, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
+	var requestedTxCredentialConfigurationsIDs map[string]struct{}
+	if requestedTxCredentialConfigurationsIDs, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
 		profile,
 		tx.CredentialConfiguration,
 		ad,
@@ -249,12 +249,15 @@ func (s *Service) PushAuthorizationDetails(
 		return err
 	}
 
-	// Delete unused keys from tx.CredentialConfiguration
-	for credentialConfigurationID := range tx.CredentialConfiguration {
-		if _, ok := requestedCredentialConfigurationIDs[credentialConfigurationID]; !ok {
-			delete(tx.CredentialConfiguration, credentialConfigurationID)
+	var validTxCredentialConfiguration []*TxCredentialConfiguration
+	// Delete unused entities from tx.CredentialConfiguration
+	for _, txCredentialConfiguration := range tx.CredentialConfiguration {
+		if _, ok := requestedTxCredentialConfigurationsIDs[txCredentialConfiguration.ID]; ok {
+			validTxCredentialConfiguration = append(validTxCredentialConfiguration, txCredentialConfiguration)
 		}
 	}
+
+	tx.CredentialConfiguration = validTxCredentialConfiguration
 
 	if err = s.store.Update(ctx, tx); err != nil {
 		return resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
@@ -272,8 +275,8 @@ func (s *Service) checkScopes(
 	profile *profileapi.Issuer,
 	reqScopes []string,
 	txScope []string,
-	txCredentialConfigurations map[string]*TxCredentialConfiguration,
-	requestedCredentialConfigurationIDsViaAuthDetails map[string]struct{},
+	txCredentialConfigurations []*TxCredentialConfiguration,
+	requestedTxCredentialConfigurationIDsViaAuthDetails map[string]struct{},
 ) ([]string, error) {
 	var credentialsConfigurationSupported map[string]*profileapi.CredentialsConfigurationSupported
 	if meta := profile.CredentialMetaData; meta != nil {
@@ -296,51 +299,51 @@ func (s *Service) checkScopes(
 		validScopes = append(validScopes, reqScope)
 
 		// Find metaCredentialConfiguration based on reqScope.
-		// Check if some metaCredentialConfiguration was requsted using the scope.
 		for credentialConfigurationID, metaCredentialConfiguration := range credentialsConfigurationSupported {
 			if !strings.EqualFold(reqScope, metaCredentialConfiguration.Scope) {
 				continue
 			}
 
-			// On this moment credentialConfigurationID is defined.
+			// On this moment credentialConfigurationID is found.
 
-			// If a scope value related to Credential issuance and the authorization_details request parameter
-			// containing objects of type openid_credential are both present in a single request, the Credential Issuer MUST
-			// interpret these individually. However, if both request the same Credential type, then the Credential Issuer MUST
-			// follow the request as given by the authorization_details object.
-			if _, ok := requestedCredentialConfigurationIDsViaAuthDetails[credentialConfigurationID]; ok {
-				continue
+			// Iterate over all txCredentialConfigurations and find ones that was requsted using the scope.
+			for _, txCredentialConfig := range txCredentialConfigurations {
+				// If a scope value related to Credential issuance and the authorization_details request parameter
+				// containing objects of type openid_credential are both present in a single request, the Credential Issuer MUST
+				// interpret these individually. However, if both request the same Credential type, then the Credential Issuer MUST
+				// follow the request as given by the authorization_details object.
+				if _, ok := requestedTxCredentialConfigurationIDsViaAuthDetails[txCredentialConfig.ID]; ok {
+					continue
+				}
+
+				if credentialConfigurationID != txCredentialConfig.CredentialConfigurationID {
+					continue
+				}
+
+				// Check format.
+				if metaCredentialConfiguration.Format != txCredentialConfig.OIDCCredentialFormat {
+					continue
+				}
+
+				// Check credential type.
+				var targetType string
+				if cd := metaCredentialConfiguration.CredentialDefinition; cd != nil {
+					targetType = cd.Type[len(cd.Type)-1]
+				}
+
+				if !strings.EqualFold(targetType, txCredentialConfig.CredentialTemplate.Type) {
+					continue
+				}
+
+				requestedTxCredentialConfigurationIDsViaAuthDetails[txCredentialConfig.ID] = struct{}{}
 			}
-
-			// Get txCredentialConfig.
-			txCredentialConfig, ok := txCredentialConfigurations[credentialConfigurationID]
-			if !ok {
-				return nil, resterr.ErrInvalidScope
-			}
-
-			// Check format.
-			if metaCredentialConfiguration.Format != txCredentialConfig.OIDCCredentialFormat {
-				return nil, resterr.ErrCredentialFormatNotSupported
-			}
-
-			// Check credential type.
-			var targetType string
-			if cd := metaCredentialConfiguration.CredentialDefinition; cd != nil {
-				targetType = cd.Type[len(cd.Type)-1]
-			}
-
-			if !strings.EqualFold(targetType, txCredentialConfig.CredentialTemplate.Type) {
-				return nil, resterr.ErrCredentialTypeNotSupported
-			}
-
-			requestedCredentialConfigurationIDsViaAuthDetails[credentialConfigurationID] = struct{}{}
-			break
 		}
 	}
 
 	return lo.Uniq(validScopes), nil
 }
 
+//nolint:funlen
 func (s *Service) PrepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	req *PrepareClaimDataAuthorizationRequest,
@@ -389,10 +392,10 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	authorizationDetailsSupplied := len(req.AuthorizationDetails) > 0
-	requestedCredentialConfigurationIDs := make(map[string]struct{})
+	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
 	if authorizationDetailsSupplied {
-		if requestedCredentialConfigurationIDs, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
+		if requestedTxCredentialConfigurationIDs, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
 			profile,
 			tx.CredentialConfiguration,
 			req.AuthorizationDetails,
@@ -403,7 +406,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	validScopes, err := s.checkScopes(
-		profile, req.Scope, tx.Scope, tx.CredentialConfiguration, requestedCredentialConfigurationIDs)
+		profile, req.Scope, tx.Scope, tx.CredentialConfiguration, requestedTxCredentialConfigurationIDs)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 
@@ -412,12 +415,15 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	tx.Scope = validScopes
 
-	// Delete unused keys from tx.CredentialConfiguration
-	for credentialConfigurationID := range tx.CredentialConfiguration {
-		if _, ok := requestedCredentialConfigurationIDs[credentialConfigurationID]; !ok {
-			delete(tx.CredentialConfiguration, credentialConfigurationID)
+	var validTxCredentialConfiguration []*TxCredentialConfiguration
+	// Delete unused entities from tx.CredentialConfiguration
+	for _, txCredentialConfiguration := range tx.CredentialConfiguration {
+		if _, ok := requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID]; ok {
+			validTxCredentialConfiguration = append(validTxCredentialConfiguration, txCredentialConfiguration)
 		}
 	}
+
+	tx.CredentialConfiguration = validTxCredentialConfiguration
 
 	if err = s.store.Update(ctx, tx); err != nil {
 		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
@@ -509,19 +515,14 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 //nolint:gocognit,nolintlint
 func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 	profile *profileapi.Issuer,
-	txCredentialConfigurations map[string]*TxCredentialConfiguration,
+	txCredentialConfigurations []*TxCredentialConfiguration,
 	authorizationDetails []*AuthorizationDetails,
 ) (map[string]struct{}, error) {
-	requestedCredentialConfigurationIDs := make(map[string]struct{})
+	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
 	for _, ad := range authorizationDetails {
 		switch {
 		case ad.CredentialConfigurationID != "": // AuthorizationDetails contains CredentialConfigurationID.
-			// Check for duplications.
-			if _, ok := requestedCredentialConfigurationIDs[ad.CredentialConfigurationID]; ok {
-				return nil, resterr.ErrInvalidCredentialConfigurationID
-			}
-
 			var metaCredentialsConfigurationSupported *profileapi.CredentialsConfigurationSupported
 			if meta := profile.CredentialMetaData; meta != nil {
 				metaCredentialsConfigurationSupported = meta.CredentialsConfigurationSupported[ad.CredentialConfigurationID]
@@ -532,38 +533,43 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 				return nil, resterr.ErrInvalidCredentialConfigurationID
 			}
 
-			// Get txCredentialConfiguration based on ad.CredentialConfigurationID.
-			txCredentialConfiguration, ok := txCredentialConfigurations[ad.CredentialConfigurationID]
-			if !ok {
+			var atLeastOneFound bool
+
+			// Iterate over all txCredentialConfigurations and set AuthorizationDetails for ones
+			// with the same ad.CredentialConfigurationID
+			for _, txCredentialConfiguration := range txCredentialConfigurations {
+				if txCredentialConfiguration.CredentialConfigurationID != ad.CredentialConfigurationID {
+					continue
+				}
+
+				if metaCredentialsConfigurationSupported.Format != txCredentialConfiguration.OIDCCredentialFormat {
+					return nil, resterr.ErrCredentialFormatNotSupported
+				}
+
+				var targetType string
+				if cd := metaCredentialsConfigurationSupported.CredentialDefinition; cd != nil {
+					targetType = cd.Type[len(cd.Type)-1]
+				}
+
+				if !strings.EqualFold(targetType, txCredentialConfiguration.CredentialTemplate.Type) {
+					return nil, resterr.ErrCredentialTypeNotSupported
+				}
+
+				atLeastOneFound = true
+				txCredentialConfiguration.AuthorizationDetails = ad
+				requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID] = struct{}{}
+			}
+
+			if !atLeastOneFound {
 				return nil, resterr.ErrInvalidCredentialConfigurationID
 			}
-
-			if metaCredentialsConfigurationSupported.Format != txCredentialConfiguration.OIDCCredentialFormat {
-				return nil, resterr.ErrCredentialFormatNotSupported
-			}
-
-			var targetType string
-			if cd := metaCredentialsConfigurationSupported.CredentialDefinition; cd != nil {
-				targetType = cd.Type[len(cd.Type)-1]
-			}
-
-			if !strings.EqualFold(targetType, txCredentialConfiguration.CredentialTemplate.Type) {
-				return nil, resterr.ErrCredentialTypeNotSupported
-			}
-
-			txCredentialConfiguration.AuthorizationDetails = ad
-			requestedCredentialConfigurationIDs[ad.CredentialConfigurationID] = struct{}{}
 		case ad.Format != "": // AuthorizationDetails contains Format.
 			var requestedCredentialFormatValid bool
 
 			targetType := ad.CredentialDefinition.Type[len(ad.CredentialDefinition.Type)-1]
 
-			for credentialConfigurationID, txCredentialConfig := range txCredentialConfigurations {
-				if _, ok := requestedCredentialConfigurationIDs[credentialConfigurationID]; ok {
-					// Do not consider already requested credentialConfigurationIDs.
-					continue
-				}
-
+			// Iterate over all txCredentialConfigurations and set AuthorizationDetails for ones with the requested format + type
+			for _, txCredentialConfig := range txCredentialConfigurations {
 				if !strings.EqualFold(targetType, txCredentialConfig.CredentialTemplate.Type) {
 					continue
 				}
@@ -574,8 +580,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 
 				requestedCredentialFormatValid = true
 				txCredentialConfig.AuthorizationDetails = ad
-				requestedCredentialConfigurationIDs[credentialConfigurationID] = struct{}{}
-				break
+				requestedTxCredentialConfigurationIDs[txCredentialConfig.ID] = struct{}{}
 			}
 
 			if !requestedCredentialFormatValid {
@@ -590,7 +595,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 		}
 	}
 
-	return requestedCredentialConfigurationIDs, nil
+	return requestedTxCredentialConfigurationIDs, nil
 }
 
 func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
@@ -741,6 +746,8 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		Credentials:    make([]*PrepareCredentialResultData, 0, len(req.CredentialRequests)),
 	}
 
+	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
+
 	for _, requestedCredential := range req.CredentialRequests {
 		if err = s.validateRequestAudienceClaim(
 			tx.ProfileID, tx.ProfileVersion, requestedCredential.AudienceClaim); err != nil {
@@ -751,6 +758,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 		var txCredentialConfiguration *TxCredentialConfiguration
 		txCredentialConfiguration, err = s.findTxCredentialConfiguration(
+			requestedTxCredentialConfigurationIDs,
 			tx.CredentialConfiguration,
 			requestedCredential.CredentialFormat,
 			requestedCredential.CredentialTypes,
@@ -760,6 +768,8 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 			return nil, err
 		}
+
+		requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID] = struct{}{}
 
 		cred, ackID, prepareCredError := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
 		if prepareCredError != nil {
@@ -800,12 +810,17 @@ func (s *Service) PrepareCredential( //nolint:funlen
 }
 
 func (s *Service) findTxCredentialConfiguration( //nolint:funlen
-	txCredentialConfigurations map[string]*TxCredentialConfiguration,
+	requestedTxCredentialConfigurationIDs map[string]struct{},
+	txCredentialConfigurations []*TxCredentialConfiguration,
 	credentialFormat vcsverifiable.OIDCFormat,
 	credentialTypes []string,
 ) (*TxCredentialConfiguration, error) {
 	var txCredentialConfiguration *TxCredentialConfiguration
 	for _, credentialConfiguration := range txCredentialConfigurations {
+		if _, ok := requestedTxCredentialConfigurationIDs[credentialConfiguration.ID]; ok {
+			continue
+		}
+
 		if credentialConfiguration.OIDCCredentialFormat != credentialFormat {
 			continue
 		}

@@ -731,9 +731,11 @@ func (s *Steps) runOIDC4VCIAuthBatchWithScopes(scopes string) error {
 }
 
 func (s *Steps) runOIDC4VCIPreAuthBatch() error {
-	initiateRequest, err := s.getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials()
+	credentialTypes := strings.Split(s.issuedCredentialType, ",")
+
+	initiateRequest, err := s.getInitiatePreAuthIssuanceRequestCredentialsByCredentialType(credentialTypes)
 	if err != nil {
-		return fmt.Errorf("getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials: %w", err)
+		return fmt.Errorf("getInitiatePreAuthIssuanceRequestCredentialsByCredentialType: %w", err)
 	}
 
 	return s.runOIDC4VCIPreAuth(*initiateRequest, oidc4vci.WithBatchCredentialIssuance())
@@ -776,10 +778,10 @@ func (s *Steps) getInitiateAuthIssuanceRequestOfAllSupportedCredentials() (*init
 	return initiateRequest, nil
 }
 
-// getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials returns Pre Auth Initiate issuance request body
+// getInitiatePreAuthIssuanceRequestCredentialsByCredentialType returns Pre Auth Initiate issuance request body
 // for all supported credential types by given Issuer.
 // Returned structure contains CredentialConfiguration field, that is aimed for batch credentials issuance.
-func (s *Steps) getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials() (*initiateOIDC4VCIRequest, error) {
+func (s *Steps) getInitiatePreAuthIssuanceRequestCredentialsByCredentialType(credentialTypes []string) (*initiateOIDC4VCIRequest, error) {
 	initiateRequest := &initiateOIDC4VCIRequest{
 		GrantType:               preAuthorizedCodeGrantType,
 		OpState:                 uuid.New().String(),
@@ -789,10 +791,7 @@ func (s *Steps) getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials() (*i
 		CredentialConfiguration: []InitiateIssuanceCredentialConfiguration{},
 	}
 
-	profileCredentialConf := s.issuerProfile.CredentialMetaData.CredentialsConfigurationSupported
-	for _, credentialConf := range profileCredentialConf {
-		credentialType := credentialConf.CredentialDefinition.Type[1]
-
+	for _, credentialType := range credentialTypes {
 		credentialTemplate, ok := lo.Find(s.issuerProfile.CredentialTemplates, func(item *profileapi.CredentialTemplate) bool {
 			return item.Type == credentialType
 		})
@@ -810,8 +809,6 @@ func (s *Steps) getInitiatePreAuthIssuanceRequestOfAllSupportedCredentials() (*i
 			ClaimData:            claims,
 			CredentialTemplateId: credentialTemplate.ID,
 		})
-
-		initiateRequest.Scope = append(initiateRequest.Scope, credentialConf.Scope)
 	}
 
 	return initiateRequest, nil
