@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"time"
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
@@ -484,9 +485,11 @@ func (s *Service) prepareCredentialOffer(
 ) *CredentialOfferResponse {
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
+	configurations := lo.Keys(tx.CredentialConfiguration)
+	sort.Strings(configurations)
 	resp := &CredentialOfferResponse{
 		CredentialIssuer:           issuerURL,
-		CredentialConfigurationIDs: lo.Keys(tx.CredentialConfiguration),
+		CredentialConfigurationIDs: configurations,
 		Grants:                     CredentialOfferGrant{},
 	}
 
