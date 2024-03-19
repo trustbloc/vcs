@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -138,7 +139,9 @@ func (s *Service) IssueCredential(
 			return nil, fmt.Errorf("add credential status: %w", err)
 		}
 
-		credentialContext = append(credentialContext, statusListEntry.Context)
+		if !lo.Contains(credentialContext, statusListEntry.Context) {
+			credentialContext = append(credentialContext, statusListEntry.Context)
+		}
 		credential = credential.WithModifiedStatus(statusListEntry.TypedID)
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
@@ -61,10 +62,13 @@ type Steps struct {
 	presentationDefinitionID   string
 
 	// Stress testing
-	usersNum      int
-	concurrentReq int
-	stressResult  *stress.Result
-	proofType     string
+	usersNum                   int
+	concurrentReq              int
+	stressResult               *stress.Result
+	proofType                  string
+	initiateIssuanceApiVersion string
+	composeFeatureEnabled      bool
+	composeCredential          *verifiable.Credential
 }
 
 // NewSteps returns new Steps context.
@@ -103,6 +107,10 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema$`, s.runOIDC4VCIAuthWithInvalidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled$`, s.runOIDC4CIPreAuthWithClientAttestation)
 	sc.Step(`^proofType is "([^"]*)"$`, s.setProofType)
+
+	sc.Step(`^initiateIssuanceVersion is "([^"]*)"$`, s.setInitiateIssuanceVersion)
+	sc.Step(`^credentialCompose is active with "([^"]*)"$`, s.setCredentialCompose)
+
 	// OIDC4VP
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and custom scopes "([^"]*)"$`, s.runOIDC4VPFlowWithCustomScopes)
@@ -148,6 +156,9 @@ func (s *Steps) ResetAndSetup() error {
 	s.concurrentReq = 0
 	s.stressResult = nil
 	s.proofType = "jwt"
+	s.initiateIssuanceApiVersion = ""
+	s.composeFeatureEnabled = false
+	s.composeCredential = nil
 
 	s.tlsConfig = s.bddContext.TLSConfig
 

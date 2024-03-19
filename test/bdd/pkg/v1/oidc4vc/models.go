@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
-	util "github.com/trustbloc/did-go/doc/util/time"
 	"time"
 
+	util "github.com/trustbloc/did-go/doc/util/time"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
 type initiateOIDC4VCIRequest struct {
@@ -38,6 +40,8 @@ type InitiateIssuanceCredentialConfiguration struct {
 	CredentialExpiresAt   *time.Time             `json:"credential_expires_at,omitempty"`
 	CredentialName        string                 `json:"credential_name,omitempty"`
 	CredentialDescription string                 `json:"credential_description,omitempty"`
+
+	Compose *issuer.ComposeOIDC4CICredential `json:"compose,omitempty"`
 }
 
 type initiateOIDC4VCIResponse struct {

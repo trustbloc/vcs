@@ -40,6 +40,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -253,11 +254,62 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 		return fmt.Errorf("fetchClaimData: %w", err)
 	}
 
-	initiateIssuanceRequest := initiateOIDC4VCIRequest{
-		CredentialTemplateId: s.issuedCredentialTemplateID,
-		ClaimData:            &claims,
-		UserPinRequired:      true,
-		GrantType:            preAuthorizedCodeGrantType,
+	var initiateIssuanceRequest initiateOIDC4VCIRequest
+	if s.initiateIssuanceApiVersion == "2" {
+		initiateIssuanceRequest = initiateOIDC4VCIRequest{
+			UserPinRequired: true,
+			GrantType:       preAuthorizedCodeGrantType,
+		}
+
+		configuration := InitiateIssuanceCredentialConfiguration{
+			CredentialTemplateId: s.issuedCredentialTemplateID,
+			ClaimData:            claims,
+		}
+
+		if s.composeFeatureEnabled {
+			configuration.ClaimData = nil
+
+			if s.composeCredential == nil {
+				return errors.New("compose credential is not set")
+			}
+
+			targetSub := s.composeCredential.Contents().Subject[0]
+			targetSub.ID = s.oidc4vciProvider.wallet.DIDs()[0].ID
+
+			s.composeCredential = s.composeCredential.WithModifiedSubject([]verifiable.Subject{
+				targetSub,
+			})
+
+			fmt.Println(s.oidc4vciProvider.wallet.DIDs()[0].ID)
+
+			ldData, ldErr := s.composeCredential.MarshalAsJSONLD()
+			if ldErr != nil {
+				return fmt.Errorf("marshal as json-ld: %w", ldErr)
+			}
+
+			dict := map[string]interface{}{}
+			if err = json.Unmarshal(ldData, &dict); err != nil {
+				return fmt.Errorf("unmarshal: %w", err)
+			}
+
+			configuration.Compose = &issuer.ComposeOIDC4CICredential{
+				Credential:     &dict,
+				IdTemplate:     lo.ToPtr("prefix:{{.TxID}}:suffix"),
+				OverrideIssuer: lo.ToPtr(true),
+			}
+		}
+
+		initiateIssuanceRequest.CredentialConfiguration = []InitiateIssuanceCredentialConfiguration{
+			configuration,
+		}
+
+	} else {
+		initiateIssuanceRequest = initiateOIDC4VCIRequest{
+			CredentialTemplateId: s.issuedCredentialTemplateID,
+			ClaimData:            &claims,
+			UserPinRequired:      true,
+			GrantType:            preAuthorizedCodeGrantType,
+		}
 	}
 
 	return s.runOIDC4VCIPreAuth(initiateIssuanceRequest)
@@ -265,6 +317,30 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 
 func (s *Steps) setProofType(proofType string) {
 	s.proofType = proofType
+}
+
+func (s *Steps) setInitiateIssuanceVersion(version string) {
+	s.initiateIssuanceApiVersion = version
+}
+
+func (s *Steps) setCredentialCompose(credentialValue string) error {
+	s.composeFeatureEnabled = true
+	dec, err := base64.StdEncoding.DecodeString(credentialValue)
+	if err != nil {
+		return fmt.Errorf("decode credential: %w", err)
+	}
+
+	parsed, err := verifiable.ParseCredential(dec,
+		verifiable.WithCredDisableValidation(),
+		verifiable.WithDisabledProofCheck())
+
+	if err != nil {
+		return fmt.Errorf("parse credential: %w", err)
+
+	}
+
+	s.composeCredential = parsed
+	return nil
 }
 
 func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
@@ -1041,6 +1117,20 @@ func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 		if err != nil {
 			return fmt.Errorf("parse credential from wallet: %w", err)
+		}
+
+		if s.composeFeatureEnabled {
+			id := vcParsed.Contents().ID
+
+			expectedPrefix := "urn:uuid:prefix:"
+			if !strings.HasPrefix(id, expectedPrefix) {
+				return fmt.Errorf("id does not have the expected prefix - %s", expectedPrefix)
+			}
+
+			expectedSuffix := ":suffix"
+			if !strings.HasSuffix(id, expectedSuffix) {
+				return fmt.Errorf("id does not have the expected suffix - %s", expectedSuffix)
+			}
 		}
 
 		if err = s.checkVC(vcParsed); err != nil {
