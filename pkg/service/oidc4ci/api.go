@@ -52,6 +52,13 @@ const (
 	issuerIdentifierParts                                          = 2
 )
 
+type ClaimDataType int16
+
+const (
+	ClaimDataTypeClaims = ClaimDataType(0)
+	ClaimDataTypeVC     = ClaimDataType(1)
+)
+
 // ClaimData represents user claims in pre-auth code flow.
 type ClaimData struct {
 	EncryptedData *dataprotect.EncryptedData `json:"encrypted_data"`
@@ -91,13 +98,20 @@ type TxCredentialConfiguration struct {
 	OIDCCredentialFormat  vcsverifiable.OIDCFormat
 	ClaimEndpoint         string
 	ClaimDataID           string
+	ClaimDataType         ClaimDataType
 	CredentialName        string
 	CredentialDescription string
 	CredentialExpiresAt   *time.Time
 	PreAuthCodeExpiresAt  *time.Time
 	// AuthorizationDetails may be defined on Authorization Request via using "authorization_details" parameter.
 	// If "scope" param is used, this field will stay empty.
-	AuthorizationDetails *AuthorizationDetails
+	AuthorizationDetails           *AuthorizationDetails
+	CredentialComposeConfiguration *CredentialComposeConfiguration
+}
+
+type CredentialComposeConfiguration struct {
+	IDTemplate     string `json:"id_template"`
+	OverrideIssuer bool   `json:"override_issuer"`
 }
 
 // AuthorizationDetails represents the domain model for Authorization Details request.
@@ -180,12 +194,19 @@ type InitiateIssuanceRequest struct {
 }
 
 type InitiateIssuanceCredentialConfiguration struct {
-	ClaimData             map[string]interface{} `json:"claim_data,omitempty"`
-	ClaimEndpoint         string                 `json:"claim_endpoint,omitempty"`
-	CredentialTemplateID  string                 `json:"credential_template_id,omitempty"`
-	CredentialExpiresAt   *time.Time             `json:"credential_expires_at,omitempty"`
-	CredentialName        string                 `json:"credential_name,omitempty"`
-	CredentialDescription string                 `json:"credential_description,omitempty"`
+	ClaimData             map[string]interface{}             `json:"claim_data,omitempty"`
+	ComposeCredential     *InitiateIssuanceComposeCredential `json:"compose_credential,omitempty"`
+	ClaimEndpoint         string                             `json:"claim_endpoint,omitempty"`
+	CredentialTemplateID  string                             `json:"credential_template_id,omitempty"`
+	CredentialExpiresAt   *time.Time                         `json:"credential_expires_at,omitempty"`
+	CredentialName        string                             `json:"credential_name,omitempty"`
+	CredentialDescription string                             `json:"credential_description,omitempty"`
+}
+
+type InitiateIssuanceComposeCredential struct {
+	Credential     *map[string]interface{} `json:"credential,omitempty"`
+	IDTemplate     string                  `json:"id_template"`
+	OverrideIssuer bool                    `json:"override_issuer"`
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.

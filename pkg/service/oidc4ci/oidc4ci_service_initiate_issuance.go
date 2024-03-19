@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"time"
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
@@ -161,16 +162,15 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 func (s *Service) validateFlowSpecificRequestParams(
 	isPreAuthFlow bool,
-	claimEndpoint string,
-	claimData map[string]interface{},
+	req InitiateIssuanceCredentialConfiguration,
 ) error {
 	if isPreAuthFlow {
-		if len(claimData) == 0 {
+		if len(req.ClaimData) == 0 && (req.ComposeCredential == nil || req.ComposeCredential.Credential == nil) {
 			return resterr.NewValidationError(resterr.InvalidValue, "claim_data",
 				errors.New("claim_data param is not supplied"))
 		}
 	} else {
-		if len(claimEndpoint) == 0 {
+		if len(req.ClaimEndpoint) == 0 {
 			return resterr.NewValidationError(resterr.InvalidValue, "claim_data",
 				errors.New("claim_endpoint param is not supplied"))
 		}
@@ -185,7 +185,10 @@ func (s *Service) newTxConfUsingTemplateID(
 	isPreAuthFlow bool,
 	profile *profileapi.Issuer,
 ) (string, *TxCredentialConfiguration, error) {
-	err := s.validateFlowSpecificRequestParams(isPreAuthFlow, req.ClaimEndpoint, req.ClaimData)
+	err := s.validateFlowSpecificRequestParams(isPreAuthFlow, InitiateIssuanceCredentialConfiguration{
+		ClaimData:     req.ClaimData,
+		ClaimEndpoint: req.ClaimEndpoint,
+	})
 	if err != nil {
 		return "", nil, err
 	}
@@ -214,7 +217,9 @@ func (s *Service) newTxConfUsingTemplateID(
 	}
 
 	if isPreAuthFlow {
-		err = s.applyPreAuthFlowModifications(ctx, req.ClaimData, credentialTemplate, txCredentialConfiguration)
+		err = s.applyPreAuthFlowModifications(ctx, InitiateIssuanceCredentialConfiguration{
+			ClaimData: req.ClaimData,
+		}, credentialTemplate, txCredentialConfiguration)
 		if err != nil {
 			return "", nil, err
 		}
@@ -230,7 +235,9 @@ func (s *Service) newTxConfUsingCredentialConf(
 	profile *profileapi.Issuer,
 ) (string, *TxCredentialConfiguration, error) {
 	err := s.validateFlowSpecificRequestParams(
-		isPreAuthFlow, credentialConfiguration.ClaimEndpoint, credentialConfiguration.ClaimData)
+		isPreAuthFlow,
+		credentialConfiguration,
+	)
 	if err != nil {
 		return "", nil, err
 	}
@@ -265,7 +272,11 @@ func (s *Service) newTxConfUsingCredentialConf(
 
 	if isPreAuthFlow {
 		err = s.applyPreAuthFlowModifications(
-			ctx, credentialConfiguration.ClaimData, credentialTemplate, txCredentialConfiguration)
+			ctx,
+			credentialConfiguration,
+			credentialTemplate,
+			txCredentialConfiguration,
+		)
 		if err != nil {
 			return "", nil, err
 		}
@@ -276,25 +287,40 @@ func (s *Service) newTxConfUsingCredentialConf(
 
 func (s *Service) applyPreAuthFlowModifications(
 	ctx context.Context,
-	claimData map[string]interface{},
+	req InitiateIssuanceCredentialConfiguration,
 	credentialTemplate *profileapi.CredentialTemplate,
 	txCredentialConfiguration *TxCredentialConfiguration,
 ) error {
-	if logger.IsEnabled(log.DEBUG) {
-		claimKeys := make([]string, 0)
-		for k := range claimData {
-			claimKeys = append(claimKeys, k)
+	var targetClaims map[string]interface{}
+	if req.ClaimData != nil {
+		if logger.IsEnabled(log.DEBUG) {
+			claimKeys := make([]string, 0)
+			for k := range req.ClaimData {
+				claimKeys = append(claimKeys, k)
+			}
+
+			logger.Debugc(ctx, "issuer claim keys", logfields.WithClaimKeys(claimKeys))
 		}
 
-		logger.Debugc(ctx, "issuer claim keys", logfields.WithClaimKeys(claimKeys))
+		if e := s.validateClaims(req.ClaimData, credentialTemplate); e != nil {
+			return resterr.NewCustomError(resterr.ClaimsValidationErr,
+				fmt.Errorf("validate claims: %w", e))
+		}
+
+		targetClaims = req.ClaimData
+		txCredentialConfiguration.ClaimDataType = ClaimDataTypeClaims
+	} else if req.ComposeCredential != nil {
+		targetClaims = lo.FromPtr(req.ComposeCredential.Credential)
+
+		txCredentialConfiguration.ClaimDataType = ClaimDataTypeVC
+
+		txCredentialConfiguration.CredentialComposeConfiguration = &CredentialComposeConfiguration{
+			IDTemplate:     req.ComposeCredential.IDTemplate,
+			OverrideIssuer: req.ComposeCredential.OverrideIssuer,
+		}
 	}
 
-	if e := s.validateClaims(claimData, credentialTemplate); e != nil {
-		return resterr.NewCustomError(resterr.ClaimsValidationErr,
-			fmt.Errorf("validate claims: %w", e))
-	}
-
-	claimDataEncrypted, errEncrypt := s.EncryptClaims(ctx, claimData)
+	claimDataEncrypted, errEncrypt := s.EncryptClaims(ctx, targetClaims)
 	if errEncrypt != nil {
 		return errEncrypt
 	}
@@ -459,9 +485,11 @@ func (s *Service) prepareCredentialOffer(
 ) *CredentialOfferResponse {
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
+	configurations := lo.Keys(tx.CredentialConfiguration)
+	sort.Strings(configurations)
 	resp := &CredentialOfferResponse{
 		CredentialIssuer:           issuerURL,
-		CredentialConfigurationIDs: lo.Keys(tx.CredentialConfiguration),
+		CredentialConfigurationIDs: configurations,
 		Grants:                     CredentialOfferGrant{},
 	}
 

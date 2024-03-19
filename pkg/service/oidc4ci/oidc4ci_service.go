@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,trustRegistry=MockTrustRegistry,ackStore=MockAckStore,ackService=MockAckService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,trustRegistry=MockTrustRegistry,ackStore=MockAckStore,ackService=MockAckService,composer=MockComposer
 
 package oidc4ci
 
@@ -143,6 +143,16 @@ type ackService interface {
 	) (*string, error)
 }
 
+type composer interface {
+	Compose(
+		ctx context.Context,
+		credential *verifiable.Credential,
+		tx *Transaction,
+		txCredentialConfiguration *TxCredentialConfiguration,
+		req *PrepareCredentialRequest,
+	) (*verifiable.Credential, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -162,6 +172,7 @@ type Config struct {
 	JSONSchemaValidator           jsonSchemaValidator
 	TrustRegistry                 trustRegistry
 	AckService                    ackService
+	Composer                      composer
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -183,6 +194,7 @@ type Service struct {
 	schemaValidator               jsonSchemaValidator
 	trustRegistry                 trustRegistry
 	ackService                    ackService
+	composer                      composer
 }
 
 // NewService returns a new Service instance.
@@ -205,6 +217,7 @@ func NewService(config *Config) (*Service, error) {
 		schemaValidator:               config.JSONSchemaValidator,
 		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
+		composer:                      config.Composer,
 	}, nil
 }
 
@@ -830,17 +843,13 @@ func (s *Service) validateRequestAudienceClaim( //nolint:funlen
 	return nil
 }
 
-func (s *Service) prepareCredential( //nolint:funlen
-	ctx context.Context,
+func (s *Service) prepareCredentialFromClaims(
+	_ context.Context,
+	claimData map[string]interface{},
 	tx *Transaction,
 	txCredentialConfiguration *TxCredentialConfiguration,
 	prepareCredentialRequest *PrepareCredentialRequest,
-) (*verifiable.Credential, *string, error) {
-	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
-	if err != nil {
-		return nil, nil, fmt.Errorf("get claims data: %w", err)
-	}
-
+) (*verifiable.Credential, error) {
 	contexts := txCredentialConfiguration.CredentialTemplate.Contexts
 	if len(contexts) == 0 {
 		contexts = []string{defaultCtx}
@@ -877,6 +886,63 @@ func (s *Service) prepareCredential( //nolint:funlen
 		vcc.Subject = []verifiable.Subject{{ID: prepareCredentialRequest.DID}}
 	}
 
+	return verifiable.CreateCredential(vcc, customFields)
+}
+
+func (s *Service) prepareCredentialFromCompose(
+	ctx context.Context,
+	claimData map[string]interface{},
+	tx *Transaction,
+	txCredentialConfiguration *TxCredentialConfiguration,
+	req *PrepareCredentialRequest,
+) (*verifiable.Credential, error) {
+	cred, err := verifiable.ParseCredentialJSON(claimData,
+		verifiable.WithCredDisableValidation(),
+		verifiable.WithDisabledProofCheck(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("parse credential json: %w", err)
+	}
+
+	return s.composer.Compose(ctx, cred, tx, txCredentialConfiguration, req)
+}
+
+func (s *Service) prepareCredential( //nolint:funlen
+	ctx context.Context,
+	tx *Transaction,
+	txCredentialConfiguration *TxCredentialConfiguration,
+	prepareCredentialRequest *PrepareCredentialRequest,
+) (*verifiable.Credential, *string, error) {
+	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get claims data: %w", err)
+	}
+
+	var finalCred *verifiable.Credential
+
+	switch txCredentialConfiguration.ClaimDataType {
+	case ClaimDataTypeClaims:
+		finalCred, err = s.prepareCredentialFromClaims(
+			ctx,
+			claimData,
+			tx,
+			txCredentialConfiguration,
+			prepareCredentialRequest,
+		)
+	case ClaimDataTypeVC:
+		finalCred, err = s.prepareCredentialFromCompose(
+			ctx,
+			claimData,
+			tx,
+			txCredentialConfiguration,
+			prepareCredentialRequest,
+		)
+	}
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepare credential: %w", err)
+	}
+
 	// Create cpredential-specific record.
 	ack, err := s.ackService.CreateAck(ctx, &Ack{
 		HashedToken:    prepareCredentialRequest.HashedToken,
@@ -890,12 +956,7 @@ func (s *Service) prepareCredential( //nolint:funlen
 		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
 	}
 
-	cred, err := verifiable.CreateCredential(vcc, customFields)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create cred: %w", err)
-	}
-
-	return cred, ack, nil
+	return finalCred, ack, nil
 }
 
 func (s *Service) getClaimsData(

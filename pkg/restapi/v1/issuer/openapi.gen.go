@@ -26,6 +26,18 @@ const (
 	UrnIetfParamsOauthGrantTypePreAuthorizedCode InitiateOIDC4CIRequestGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 )
 
+// Model for composing OIDC4CI credential.
+type ComposeOIDC4CICredential struct {
+	// Raw Complete credential for sign and customization
+	Credential *map[string]interface{} `json:"credential,omitempty"`
+
+	// ID of the credential template.
+	IdTemplate *string `json:"id_template"`
+
+	// Override issuer.
+	OverrideIssuer *bool `json:"override_issuer"`
+}
+
 // An object that describes specifics of the Credential that the Credential Issuer supports issuance of.
 type CredentialConfigurationsSupported struct {
 	// For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs, where each name identifies a claim about the subject offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
@@ -142,6 +154,9 @@ type InitiateIssuanceCredentialConfiguration struct {
 
 	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
+
+	// Model for composing OIDC4CI credential.
+	Compose *ComposeOIDC4CICredential `json:"compose,omitempty"`
 
 	// Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`

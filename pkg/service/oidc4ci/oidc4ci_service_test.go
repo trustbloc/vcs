@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -3851,6 +3852,74 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "Success",
+			setup: func(m *mocks) {
+				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"VerifiedEmployeeIdentifier": {
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "VerifiedEmployee",
+									Type: "VerifiedEmployee",
+								},
+							},
+						},
+					},
+				}, nil)
+
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
+						return lo.ToPtr("ackID"), nil
+					})
+				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
+
+				httpClient = &http.Client{
+					Transport: &mockTransport{
+						func(req *http.Request) (*http.Response, error) {
+							assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+							}, nil
+						},
+					},
+				}
+
+				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
+				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return nil
+					})
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+					CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
+						{
+							AudienceClaim:    "/oidc/idp//",
+							CredentialFormat: vcsverifiable.JwtVCJsonLD,
+							CredentialTypes:  []string{"VerifiedEmployee"},
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, "ackID", *resp.Credentials[0].NotificationID)
+			},
+		},
+		{
 			name: "Success LDP",
 			setup: func(m *mocks) {
 				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
@@ -4056,6 +4125,124 @@ func TestService_PrepareCredential(t *testing.T) {
 					DoAndReturn(func(ctx context.Context, chunks *dataprotect.EncryptedData) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
+					})
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+					CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
+						{
+							AudienceClaim:    "/oidc/idp//",
+							CredentialFormat: vcsverifiable.JwtVCJsonLD,
+							CredentialTypes:  []string{"VerifiedEmployee"},
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Success pre-authorized flow with compose",
+			setup: func(m *mocks) {
+				claimID := uuid.NewString()
+				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IsPreAuthFlow: true,
+						OrgID:         "asdasd",
+						WebHookURL:    "aaaaa",
+						CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
+							"VerifiedEmployeeIdentifier": {
+								ClaimDataID:          claimID,
+								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
+								ClaimDataType:        oidc4ci.ClaimDataTypeVC,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID:   "VerifiedEmployee",
+									Type: "VerifiedEmployee",
+								},
+								CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+									IDTemplate:     "some-template",
+									OverrideIssuer: true,
+								},
+							},
+						},
+					},
+				}, nil)
+
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
+						assert.Equal(t, "asdasd", ack.OrgID)
+						assert.Equal(t, "aaaaa", ack.WebHookURL)
+
+						return lo.ToPtr("ackID"), nil
+					})
+
+				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return nil
+					})
+
+				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
+				clData := &oidc4ci.ClaimData{
+					EncryptedData: &dataprotect.EncryptedData{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				m.composer.EXPECT().Compose(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						credential *verifiable.Credential,
+						transaction *oidc4ci.Transaction,
+						configuration *oidc4ci.TxCredentialConfiguration,
+						request *oidc4ci.PrepareCredentialRequest,
+					) (*verifiable.Credential, error) {
+						assert.EqualValues(t, "some-template",
+							configuration.CredentialComposeConfiguration.IDTemplate)
+
+						assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
+						return credential, nil
+					})
+
+				cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
+					Subject: []verifiable.Subject{
+						{
+							ID: uuid.NewString(),
+						},
+					},
+					Issuer: &verifiable.Issuer{
+						ID: uuid.NewString(),
+					},
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://www.w3.org/2018/credentials/examples/v1",
+					},
+					Types: []string{
+						"VerifiableCredential",
+						"UniversityDegreeCredential",
+					},
+				}, verifiable.CustomFields{})
+				assert.NoError(t, err)
+
+				m.claimDataStore.EXPECT().GetAndDelete(gomock.Any(), claimID).Return(clData, nil)
+
+				m.crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedData).
+					DoAndReturn(func(ctx context.Context, chunks *dataprotect.EncryptedData) ([]byte, error) {
+						data, dataErr := cred.MarshalAsJSONLD()
+						assert.NoError(t, dataErr)
+
+						return data, nil
 					})
 
 				req = &oidc4ci.PrepareCredential{
@@ -4617,6 +4804,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				eventService:     NewMockEventService(gomock.NewController(t)),
 				crypto:           NewMockDataProtector(gomock.NewController(t)),
 				ackService:       NewMockAckService(gomock.NewController(t)),
+				composer:         NewMockComposer(gomock.NewController(t)),
 			}
 
 			tt.setup(m)
@@ -4629,6 +4817,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				EventTopic:       spi.IssuerEventTopic,
 				DataProtector:    m.crypto,
 				AckService:       m.ackService,
+				Composer:         m.composer,
 			})
 			assert.NoError(t, err)
 

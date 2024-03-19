@@ -757,6 +757,11 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				CredentialExpiresAt:   now,
 				CredentialName:        lo.ToPtr("name2"),
 				CredentialTemplateId:  lo.ToPtr("templateID1"),
+				Compose: &ComposeOIDC4CICredential{
+					Credential:     nil,
+					IdTemplate:     lo.ToPtr("something"),
+					OverrideIssuer: lo.ToPtr(true),
+				},
 			},
 		}),
 		CredentialDescription:   lo.ToPtr("description1"),
@@ -812,6 +817,11 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 					CredentialExpiresAt:   now,
 					CredentialName:        "name2",
 					CredentialDescription: "description2",
+					ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
+						Credential:     nil,
+						IDTemplate:     "something",
+						OverrideIssuer: true,
+					},
 				},
 			},
 		}
