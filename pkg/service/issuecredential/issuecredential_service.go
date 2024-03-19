@@ -30,6 +30,7 @@ const (
 // signingOpts holds options for the signing credential.
 type issueCredentialOpts struct {
 	transactionID string
+	skipIDPrefix  bool
 	cryptoOpts    []crypto.SigningOpts
 }
 
@@ -40,6 +41,13 @@ type Opts func(opts *issueCredentialOpts)
 func WithTransactionID(transactionID string) Opts {
 	return func(opts *issueCredentialOpts) {
 		opts.transactionID = transactionID
+	}
+}
+
+// WithSkipIDPrefix is an option to skip ID prefix.
+func WithSkipIDPrefix() Opts {
+	return func(opts *issueCredentialOpts) {
+		opts.skipIDPrefix = true
 	}
 }
 
@@ -127,7 +135,9 @@ func (s *Service) IssueCredential(
 	var statusListEntry *credentialstatus.StatusListEntry
 
 	// update credential prefix.
-	credential = vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
+	if !options.skipIDPrefix {
+		credential = vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
+	}
 	credentialContext := credential.Contents().Context
 	// update credential issuer
 	credential = credential.WithModifiedIssuer(vcutil.CreateIssuer(profile.SigningDID.DID, profile.Name))

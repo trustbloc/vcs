@@ -807,7 +807,12 @@ func (c *Controller) prepareCredential(
 		}
 
 		signedCredential, err := c.signCredential(
-			ctx, credentialData.Credential, profile, issuecredential.WithTransactionID(txID))
+			ctx,
+			credentialData.Credential,
+			profile,
+			issuecredential.WithTransactionID(txID),
+			issuecredential.WithSkipIDPrefix(),
+		)
 		if err != nil {
 			return nil, err
 		}

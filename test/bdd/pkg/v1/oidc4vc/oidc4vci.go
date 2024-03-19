@@ -280,8 +280,6 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 				targetSub,
 			})
 
-			fmt.Println(s.oidc4vciProvider.wallet.DIDs()[0].ID)
-
 			ldData, ldErr := s.composeCredential.MarshalAsJSONLD()
 			if ldErr != nil {
 				return fmt.Errorf("marshal as json-ld: %w", ldErr)
@@ -1122,7 +1120,7 @@ func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 		if s.composeFeatureEnabled {
 			id := vcParsed.Contents().ID
 
-			expectedPrefix := "urn:uuid:prefix:"
+			expectedPrefix := "prefix:"
 			if !strings.HasPrefix(id, expectedPrefix) {
 				return fmt.Errorf("id does not have the expected prefix - %s", expectedPrefix)
 			}
