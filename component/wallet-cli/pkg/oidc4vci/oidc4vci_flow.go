@@ -765,6 +765,10 @@ func (f *Flow) receiveVC(
 			"credential_issuer", credentialIssuer,
 		)
 
+		if len(credentialFilters) == 0 {
+			return nil, errors.New("no credential filters defined")
+		}
+
 		credentialResp, err := f.credentialRequest(
 			credentialEndpoint,
 			token,
