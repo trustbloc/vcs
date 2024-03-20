@@ -66,20 +66,25 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 	profile.Version = flowData.ProfileVersion // wallet flow aud check should match
 
 	tx, err := s.InitiateIssuance(ctx, &InitiateIssuanceRequest{
-		CredentialTemplateID:      flowData.CredentialTemplateId,
 		ClientInitiateIssuanceURL: "",
 		ClientWellKnownURL:        "",
-		ClaimEndpoint:             flowData.ClaimEndpoint,
 		GrantType:                 "authorization_code",
 		ResponseType:              "code",
 		Scope:                     lo.FromPtr(flowData.Scopes),
 		OpState:                   flowData.OpState,
-		ClaimData:                 nil,
 		UserPinRequired:           false,
-		CredentialExpiresAt:       nil,
-		CredentialName:            "",
-		CredentialDescription:     "",
 		WalletInitiatedIssuance:   true,
+		CredentialConfiguration: []InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimData:             nil,
+				ComposeCredential:     nil,
+				ClaimEndpoint:         flowData.ClaimEndpoint,
+				CredentialTemplateID:  flowData.CredentialTemplateId,
+				CredentialExpiresAt:   nil,
+				CredentialName:        "",
+				CredentialDescription: "",
+			},
+		},
 	}, profile)
 	if err != nil {
 		return nil, fmt.Errorf("can not initiate issuance for wallet-initiated flow: %w", err)

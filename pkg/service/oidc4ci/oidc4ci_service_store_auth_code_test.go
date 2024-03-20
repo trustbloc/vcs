@@ -276,7 +276,7 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 
 		resp, err := srv.StoreAuthorizationCode(context.TODO(), "random-op-state", "code123",
 			&common.WalletInitiatedFlowData{
-				ClaimEndpoint:        "",
+				ClaimEndpoint:        "https://awesome.claims.local",
 				CredentialTemplateId: "",
 				OpState:              "random-op-state",
 				ProfileId:            "bank_issuer1",
@@ -361,7 +361,7 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 
 		resp, err := srv.StoreAuthorizationCode(context.TODO(), "random-op-state", "code123",
 			&common.WalletInitiatedFlowData{
-				ClaimEndpoint:        "",
+				ClaimEndpoint:        "https://awesome.claims.local",
 				CredentialTemplateId: "",
 				OpState:              "random-op-state",
 				ProfileId:            "bank_issuer1",

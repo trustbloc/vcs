@@ -105,8 +105,9 @@ func TestStore(t *testing.T) {
 			WebHookURL:                         "http://remote-url",
 			DID:                                "did:123",
 			WalletInitiatedIssuance:            true,
-			CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-				"CredentialConfigurationID": {
+			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				{
+					ID: uuid.NewString(),
 					CredentialTemplate: &profileapi.CredentialTemplate{
 						Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
 						ID:                "templateID",
@@ -126,6 +127,11 @@ func TestStore(t *testing.T) {
 						},
 						Format:    "vxcxzcz",
 						Locations: []string{"loc1", "loc2"},
+					},
+					CredentialConfigurationID: "CredentialConfigurationID",
+					CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+						IDTemplate:     uuid.NewString(),
+						OverrideIssuer: true,
 					},
 				},
 			},
@@ -175,10 +181,12 @@ func TestStore(t *testing.T) {
 			ResponseType: "123",
 			Scope:        []string{"213", "321"},
 			OpState:      id,
-			CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-				"CredentialConfigurationID": {
-					ClaimEndpoint:        "432",
-					AuthorizationDetails: &oidc4ci.AuthorizationDetails{Type: "321"},
+			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				{
+					ID:                        uuid.NewString(),
+					ClaimEndpoint:             "432",
+					AuthorizationDetails:      &oidc4ci.AuthorizationDetails{Type: "321"},
+					CredentialConfigurationID: "CredentialConfigurationID",
 				},
 			},
 		}
@@ -207,14 +215,14 @@ func TestStore(t *testing.T) {
 			Locations: []string{"loc1", "loc2"},
 		}
 
-		resp.CredentialConfiguration["CredentialConfigurationID"].CredentialTemplate = credentialTemplate
-		resp.CredentialConfiguration["CredentialConfigurationID"].AuthorizationDetails = ad
+		resp.CredentialConfiguration[0].CredentialTemplate = credentialTemplate
+		resp.CredentialConfiguration[0].AuthorizationDetails = ad
 
 		assert.NoError(t, store.Update(context.TODO(), resp))
 		found, err2 := store.FindByOpState(context.TODO(), id)
 		assert.NoError(t, err2)
-		assert.Equal(t, credentialTemplate, found.CredentialConfiguration["CredentialConfigurationID"].CredentialTemplate)
-		assert.Equal(t, ad, found.CredentialConfiguration["CredentialConfigurationID"].AuthorizationDetails)
+		assert.Equal(t, credentialTemplate, found.CredentialConfiguration[0].CredentialTemplate)
+		assert.Equal(t, ad, found.CredentialConfiguration[0].AuthorizationDetails)
 	})
 
 	t.Run("find non existing document", func(t *testing.T) {

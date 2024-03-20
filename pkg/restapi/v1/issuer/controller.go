@@ -435,21 +435,27 @@ func (c *Controller) initiateIssuance(
 	profile *profileapi.Issuer,
 ) (*InitiateOIDC4CIResponse, string, error) {
 	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
-		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
-		ClaimEndpoint:             lo.FromPtr(req.ClaimEndpoint),
 		GrantType:                 string(lo.FromPtr(req.GrantType)),
 		ResponseType:              lo.FromPtr(req.ResponseType),
 		Scope:                     lo.FromPtr(req.Scope),
 		OpState:                   lo.FromPtr(req.OpState),
-		ClaimData:                 lo.FromPtr(req.ClaimData),
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
-		CredentialExpiresAt:       req.CredentialExpiresAt,
-		CredentialName:            lo.FromPtr(req.CredentialName),
-		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
 		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
 		CredentialConfiguration:   []oidc4ci.InitiateIssuanceCredentialConfiguration{},
+	}
+
+	if req.CredentialTemplateId != nil && lo.FromPtr(req.CredentialTemplateId) != "" {
+		issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
+			oidc4ci.InitiateIssuanceCredentialConfiguration{
+				ClaimData:             lo.FromPtr(req.ClaimData),
+				ClaimEndpoint:         lo.FromPtr(req.ClaimEndpoint),
+				CredentialTemplateID:  lo.FromPtr(req.CredentialTemplateId),
+				CredentialExpiresAt:   req.CredentialExpiresAt,
+				CredentialName:        lo.FromPtr(req.CredentialName),
+				CredentialDescription: lo.FromPtr(req.CredentialDescription),
+			})
 	}
 
 	if req.CredentialConfiguration != nil && len(*req.CredentialConfiguration) > 0 {
@@ -471,9 +477,7 @@ func (c *Controller) initiateIssuance(
 				}
 			}
 
-			issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
-				credConfig,
-			)
+			issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration, credConfig)
 		}
 	}
 

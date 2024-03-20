@@ -791,23 +791,26 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		expectedInitiateIssuanceReq := &oidc4ci.InitiateIssuanceRequest{
-			CredentialTemplateID:      "templateID",
 			ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 			ClientWellKnownURL:        "https://wallet.example.com/.well-known/openid-configuration",
-			ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 			GrantType:                 "authorization_code",
 			ResponseType:              "token",
 			Scope:                     []string{"openid"},
 			OpState:                   "eyJhbGciOiJSU0Et",
-			ClaimData: map[string]interface{}{
-				"key": "value",
-			},
-			UserPinRequired:         true,
-			CredentialExpiresAt:     now,
-			CredentialName:          "name1",
-			CredentialDescription:   "description1",
-			WalletInitiatedIssuance: true,
+			UserPinRequired:           true,
+			WalletInitiatedIssuance:   true,
 			CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+				{
+					ClaimData: map[string]interface{}{
+						"key": "value",
+					},
+					ClaimEndpoint:         "https://vcs.pb.example.com/claim",
+					CredentialTemplateID:  "templateID",
+					CredentialExpiresAt:   now,
+					CredentialName:        "name1",
+					CredentialDescription: "description1",
+					ComposeCredential:     nil,
+				},
 				{
 					ClaimData: map[string]interface{}{
 						"key2": "value2",
@@ -1555,9 +1558,10 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
 					Scope:   []string{"a", "b"},
-					CredentialConfiguration: map[string]*oidc4ci.TxCredentialConfiguration{
-						"CredentialConfigurationID": {
-							AuthorizationDetails: getTestAuthorizationDetails(t, true),
+					CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						{
+							AuthorizationDetails:      getTestAuthorizationDetails(t, true),
+							CredentialConfigurationID: "CredentialConfigurationID",
 						},
 					},
 				},

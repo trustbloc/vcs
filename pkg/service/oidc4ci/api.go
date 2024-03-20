@@ -90,19 +90,21 @@ type TransactionData struct {
 	UserPin                            string
 	DID                                string
 	WalletInitiatedIssuance            bool
-	CredentialConfiguration            map[string]*TxCredentialConfiguration
+	CredentialConfiguration            []*TxCredentialConfiguration
 }
 
 type TxCredentialConfiguration struct {
-	CredentialTemplate    *profileapi.CredentialTemplate
-	OIDCCredentialFormat  vcsverifiable.OIDCFormat
-	ClaimEndpoint         string
-	ClaimDataID           string
-	ClaimDataType         ClaimDataType
-	CredentialName        string
-	CredentialDescription string
-	CredentialExpiresAt   *time.Time
-	PreAuthCodeExpiresAt  *time.Time
+	ID                        string
+	CredentialTemplate        *profileapi.CredentialTemplate
+	OIDCCredentialFormat      vcsverifiable.OIDCFormat
+	ClaimEndpoint             string
+	ClaimDataID               string
+	ClaimDataType             ClaimDataType
+	CredentialName            string
+	CredentialDescription     string
+	CredentialExpiresAt       *time.Time
+	PreAuthCodeExpiresAt      *time.Time
+	CredentialConfigurationID string
 	// AuthorizationDetails may be defined on Authorization Request via using "authorization_details" parameter.
 	// If "scope" param is used, this field will stay empty.
 	AuthorizationDetails           *AuthorizationDetails
@@ -169,26 +171,14 @@ type IssuerIDPOIDCConfiguration struct {
 
 // InitiateIssuanceRequest is the request used by the Issuer to initiate the OIDC VC issuance interaction.
 type InitiateIssuanceRequest struct {
-	// Deprecated: Use CredentialConfiguration instead.
-	CredentialTemplateID      string
 	ClientInitiateIssuanceURL string
 	ClientWellKnownURL        string
-	// Deprecated: Use CredentialConfiguration instead.
-	ClaimEndpoint string
-	GrantType     string
-	ResponseType  string
-	Scope         []string
-	OpState       string
-	// Deprecated: Use CredentialConfiguration instead.
-	ClaimData       map[string]interface{}
-	UserPinRequired bool
-	// Deprecated: Use CredentialConfiguration instead.
-	CredentialExpiresAt *time.Time
-	// Deprecated: Use CredentialConfiguration instead.
-	CredentialName string
-	// Deprecated: Use CredentialConfiguration instead.
-	CredentialDescription   string
-	WalletInitiatedIssuance bool
+	GrantType                 string
+	ResponseType              string
+	Scope                     []string
+	OpState                   string
+	UserPinRequired           bool
+	WalletInitiatedIssuance   bool
 	// CredentialConfiguration aimed to initialise multi credential issuance.
 	CredentialConfiguration []InitiateIssuanceCredentialConfiguration
 }
