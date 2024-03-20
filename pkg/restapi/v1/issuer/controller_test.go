@@ -725,7 +725,7 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 	})
 }
 
-func TestController_InitiateCredentialIssuance(t *testing.T) {
+func TestController_initiateCredentialIssuance_CompatibilityV1(t *testing.T) {
 	issuerProfile := &profileapi.Issuer{
 		OrganizationID: orgID,
 		ID:             profileID,
@@ -747,7 +747,106 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		ClaimEndpoint:             lo.ToPtr("https://vcs.pb.example.com/claim"),
 		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
 		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
+		CredentialDescription:     lo.ToPtr("description1"),
+		CredentialExpiresAt:       now,
+		CredentialName:            lo.ToPtr("name1"),
+		CredentialTemplateId:      lo.ToPtr("templateID"),
+		GrantType:                 lo.ToPtr(AuthorizationCode),
+		OpState:                   lo.ToPtr("eyJhbGciOiJSU0Et"),
+		ResponseType:              lo.ToPtr("token"),
+		Scope:                     lo.ToPtr([]string{"openid"}),
+		UserPinRequired:           lo.ToPtr(true),
+		WalletInitiatedIssuance:   lo.ToPtr(true),
+	})
+	require.NoError(t, err)
+
+	resp := &oidc4ci.InitiateIssuanceResponse{
+		InitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+		TxID:                "txID",
+	}
+
+	var (
+		mockProfileSvc = NewMockProfileService(gomock.NewController(t))
+		mockOIDC4CISvc = NewMockOIDC4CIService(gomock.NewController(t))
+		mockEventSvc   = NewMockEventService(gomock.NewController(t))
+		c              echo.Context
+	)
+
+	t.Run("Success", func(t *testing.T) {
+		expectedInitiateIssuanceReq := &oidc4ci.InitiateIssuanceRequest{
+			ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+			ClientWellKnownURL:        "https://wallet.example.com/.well-known/openid-configuration",
+			GrantType:                 "authorization_code",
+			ResponseType:              "token",
+			Scope:                     []string{"openid"},
+			OpState:                   "eyJhbGciOiJSU0Et",
+			UserPinRequired:           true,
+			WalletInitiatedIssuance:   true,
+			CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+				{
+					ClaimData: map[string]interface{}{
+						"key": "value",
+					},
+					ClaimEndpoint:         "https://vcs.pb.example.com/claim",
+					CredentialTemplateID:  "templateID",
+					CredentialExpiresAt:   now,
+					CredentialName:        "name1",
+					CredentialDescription: "description1",
+					ComposeCredential:     nil,
+				},
+			},
+		}
+
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
+		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), expectedInitiateIssuanceReq, issuerProfile).
+			Times(1).Return(resp, nil)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
+
+		controller := NewController(&Config{
+			ProfileSvc:     mockProfileSvc,
+			OIDC4CIService: mockOIDC4CISvc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.IssuerEventTopic,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		c = echoContext(withRequestBody(req))
+
+		err = controller.InitiateCredentialIssuance(c, profileID, profileVersion)
+		require.NoError(t, err)
+	})
+}
+
+func TestController_InitiateCredentialIssuance(t *testing.T) {
+	issuerProfile := &profileapi.Issuer{
+		OrganizationID: orgID,
+		ID:             profileID,
+		Version:        profileVersion,
+		Active:         true,
+		OIDCConfig:     &profileapi.OIDCConfig{},
+		CredentialTemplates: []*profileapi.CredentialTemplate{
+			{
+				ID: "templateID",
+			},
+		},
+	}
+
+	now := lo.ToPtr(time.Now().UTC())
+	req, err := json.Marshal(&InitiateOIDC4CIRequest{
+		ClaimEndpoint:             lo.ToPtr("https://vcs.pb.example.com/claim"),
+		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
+		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
 		CredentialConfiguration: lo.ToPtr([]InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimData: lo.ToPtr(map[string]interface{}{
+					"key": "value",
+				}),
+				ClaimEndpoint:         lo.ToPtr("https://vcs.pb.example.com/claim"),
+				CredentialTemplateId:  lo.ToPtr("templateID"),
+				CredentialExpiresAt:   now,
+				CredentialName:        lo.ToPtr("name1"),
+				CredentialDescription: lo.ToPtr("description1"),
+			},
 			{
 				ClaimData: lo.ToPtr(map[string]interface{}{
 					"key2": "value2",
@@ -764,10 +863,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				},
 			},
 		}),
-		CredentialDescription:   lo.ToPtr("description1"),
 		CredentialExpiresAt:     now,
-		CredentialName:          lo.ToPtr("name1"),
-		CredentialTemplateId:    lo.ToPtr("templateID"),
 		GrantType:               lo.ToPtr(AuthorizationCode),
 		OpState:                 lo.ToPtr("eyJhbGciOiJSU0Et"),
 		ResponseType:            lo.ToPtr("token"),
