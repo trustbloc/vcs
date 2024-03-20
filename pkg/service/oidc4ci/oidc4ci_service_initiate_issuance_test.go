@@ -386,7 +386,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientInitiateIssuanceURL: "",
 					ClientWellKnownURL:        walletWellKnownURL,
-					GrantType:                 "urn:ietf:params:oauth:grant-type:pre-authorized_code",
+					GrantType:                 "", // Pass empty value to cover default for GrantType.
 					ResponseType:              "token",
 					Scope:                     []string{"openid", "profile"},
 					OpState:                   "eyJhbGciOiJSU0Et",

@@ -52,6 +52,11 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrVCOptionsNotConfigured
 	}
 
+	// Apply default GrantType for backward compatability.
+	if req.GrantType == "" {
+		req.GrantType = GrantTypePreAuthorizedCode
+	}
+
 	if req.GrantType != GrantTypeAuthorizationCode && req.GrantType != GrantTypePreAuthorizedCode {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "grant_type",
 			fmt.Errorf("unexpected grant_type supplied %s", req.GrantType))
