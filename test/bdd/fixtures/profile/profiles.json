@@ -31,7 +31,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -237,7 +238,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -475,7 +477,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -620,7 +623,7 @@
               }
             },
             "CrudeProductCredentialIdentifier": {
-              "format": "jwt_vc_json-ld",
+              "format": "jwt_vc_json",
               "scope": "CrudeProductCredential_001",
               "credential_definition": {
                 "type": [
@@ -823,7 +826,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -1009,7 +1013,8 @@
             "CrudeProductCredential_001"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -1218,7 +1223,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -1528,7 +1534,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"
@@ -1676,7 +1683,8 @@
             "profile"
           ],
           "grant_types_supported": [
-            "authorization_code"
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
           ],
           "response_types_supported": [
             "code"

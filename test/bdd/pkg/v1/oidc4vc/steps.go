@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
@@ -61,10 +62,13 @@ type Steps struct {
 	presentationDefinitionID   string
 
 	// Stress testing
-	usersNum      int
-	concurrentReq int
-	stressResult  *stress.Result
-	proofType     string
+	usersNum                   int
+	concurrentReq              int
+	stressResult               *stress.Result
+	proofType                  string
+	initiateIssuanceApiVersion string
+	composeFeatureEnabled      bool
+	composeCredential          *verifiable.Credential
 }
 
 // NewSteps returns new Steps context.
@@ -86,19 +90,27 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
-	sc.Step(`^credential is issued$`, s.checkIssuedCredential)
+	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// OIDC4VCI
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow$`, s.runOIDC4VCIAuth)
+	sc.Step(`^User interacts with Wallet to initiate batch credential issuance using authorization code flow$`, s.runOIDC4VCIAuthBatch)
+	sc.Step(`^User interacts with Wallet to initiate batch credential issuance using authorization code flow with credential configuration ID "([^"]*)"$`, s.runOIDC4VCIAuthBatchByCredentialConfigurationID)
+	sc.Step(`^User interacts with Wallet to initiate batch credential issuance using authorization code flow with scopes "([^"]*)"$`, s.runOIDC4VCIAuthBatchWithScopes)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with credential configuration ID "([^"]*)"$`, s.runOIDC4VCIAuthWithCredentialConfigurationID)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with scopes "([^"]*)"$`, s.runOIDC4VCIAuthWithScopes)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "([^"]*)"$`, s.runOIDC4CIAuthWithClientRegistrationMethod)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with wallet-initiated$`, s.runOIDC4VCIAuthWalletInitiatedFlow)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow$`, s.runOIDC4CIPreAuthWithValidClaims)
+	sc.Step(`^User interacts with Wallet to initiate batch credential issuance using pre authorization code flow$`, s.runOIDC4VCIPreAuthBatch)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using authorization code flow with invalid claims schema$`, s.runOIDC4VCIAuthWithInvalidClaims)
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with client attestation enabled$`, s.runOIDC4CIPreAuthWithClientAttestation)
 	sc.Step(`^proofType is "([^"]*)"$`, s.setProofType)
+
+	sc.Step(`^initiateIssuanceVersion is "([^"]*)"$`, s.setInitiateIssuanceVersion)
+	sc.Step(`^credentialCompose is active with "([^"]*)"$`, s.setCredentialCompose)
+
 	// OIDC4VP
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and custom scopes "([^"]*)"$`, s.runOIDC4VPFlowWithCustomScopes)
@@ -144,6 +156,9 @@ func (s *Steps) ResetAndSetup() error {
 	s.concurrentReq = 0
 	s.stressResult = nil
 	s.proofType = "jwt"
+	s.initiateIssuanceApiVersion = ""
+	s.composeFeatureEnabled = false
+	s.composeCredential = nil
 
 	s.tlsConfig = s.bddContext.TLSConfig
 

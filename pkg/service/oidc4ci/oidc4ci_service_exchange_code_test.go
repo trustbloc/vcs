@@ -450,10 +450,15 @@ func TestExchangeCode_Success(t *testing.T) {
 	baseTx := &oidc4ci.Transaction{
 		ID: oidc4ci.TxID("id"),
 		TransactionData: oidc4ci.TransactionData{
-			TokenEndpoint:        "https://localhost/token",
-			IssuerAuthCode:       authCode,
-			State:                oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-			AuthorizationDetails: authorizationDetails,
+			TokenEndpoint:  "https://localhost/token",
+			IssuerAuthCode: authCode,
+			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				{
+					CredentialConfigurationID: "ConfigurationID",
+					AuthorizationDetails:      authorizationDetails,
+				},
+			},
 		},
 	}
 
@@ -479,7 +484,7 @@ func TestExchangeCode_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &oidc4ci.ExchangeAuthorizationCodeResult{
 		TxID:                 "id",
-		AuthorizationDetails: authorizationDetails,
+		AuthorizationDetails: []*oidc4ci.AuthorizationDetails{authorizationDetails},
 	}, resp)
 }
 

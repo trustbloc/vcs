@@ -40,7 +40,7 @@ func (s *Store) Create(
 	ctx context.Context,
 	ack *oidc4ci.Ack,
 ) (string, error) {
-	id := string(ack.TxID) // for now, it should much with TxID before new spec.
+	id := ack.TxID
 
 	b, err := json.Marshal(ack)
 	if err != nil {

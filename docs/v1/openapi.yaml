@@ -325,6 +325,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PrepareCredential'
+  /issuer/interactions/prepare-credential-batch:
+    post:
+      summary: Prepare Batch Credential
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PrepareCredentialResult'
+      operationId: prepare-batch-credential
+      description: Used by VCS OIDC credential endpoint to request batch of credential to conclude OIDC issuance flow.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareBatchCredential'
   '/verifier/profiles/{profileID}/{profileVersion}/credentials/verify':
     parameters:
       - schema:
@@ -781,6 +802,29 @@ paths:
             schema:
               $ref: '#/components/schemas/CredentialRequest'
       parameters: []
+  /oidc/batch_credential:
+    post:
+      summary: OIDC Batch Credential
+      tags:
+        - oidc4ci
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCredentialResponse'
+            application/jwt:
+              schema:
+                type: string
+      operationId: oidc-batch-credential
+      description: The Batch Credential Endpoint issues multiple Credentials in one Batch Credential Response as approved by the End-User upon presentation of a valid Access Token representing this approval.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCredentialRequest'
+      parameters: []
   /oidc/notification:
     post:
       summary: OIDC Notification
@@ -1232,7 +1276,7 @@ components:
         authorization_details:
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
         op_state:
           type: string
       required:
@@ -1270,7 +1314,7 @@ components:
         authorization_details:
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - tx_id
     StoreAuthorizationCodeRequest:
@@ -1285,7 +1329,7 @@ components:
         code:
           type: string
         wallet_initiated_flow:
-          $ref: './common.yaml#/components/schemas/WalletInitiatedFlowData'
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
           nullable: true
       required:
         - op_state
@@ -1342,10 +1386,10 @@ components:
           items:
             type: string
         authorization_details:
-          description: REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+          description: 'REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].'
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - op_state
         - scopes
@@ -1369,7 +1413,7 @@ components:
           type: string
           description: Transaction ID to correlate upcoming authorization response.
         wallet_initiated_flow:
-          $ref: './common.yaml#/components/schemas/WalletInitiatedFlowData'
+          $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
       required:
         - authorization_request
         - authorization_endpoint
@@ -1416,6 +1460,23 @@ components:
         - profileVersion
         - claimEndpoint
         - credentialTemplateID
+    ComposeOIDC4CICredential:
+      title: ComposeOIDC4CICredential
+      type: object
+      description: Model for composing OIDC4CI credential.
+      properties:
+        id_template:
+          type: string
+          description: ID of the credential template.
+          nullable: true
+        override_issuer:
+            type: boolean
+            description: Override issuer.
+            nullable: true
+        credential:
+          type: object
+          description: Raw Complete credential for sign and customization
+          nullable: false
     InitiateOIDC4CIRequest:
       title: InitiateOIDC4CIRequest
       type: object
@@ -1424,15 +1485,19 @@ components:
         credential_expires_at:
           type: string
           format: date-time
+          deprecated: true
           description: Date when credentials should be consider as expired
         credential_name:
           type: string
+          deprecated: true
           description: Credential name
         credential_description:
           type: string
+          deprecated: true
           description: Credential description
         credential_template_id:
           type: string
+          deprecated: true
           description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'
         client_initiate_issuance_url:
           type: string
@@ -1444,11 +1509,15 @@ components:
           type: string
           description: 'String value created by the Credential Issuer and opaque to the Wallet that is used to bind the sub-sequent authentication request with the Credential Issuer to a context set up during previous steps. If the client receives a value for this parameter, it MUST include it in the subsequent Authentication Request to the Credential Issuer as the op_state parameter value. MUST NOT be used in Authorization Code flow when pre-authorized_code is present.'
         claim_endpoint:
+          deprecated: true
           type: string
           description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
         grant_type:
           type: string
-          description: Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps. If not provided then default to authorization_code.
+          description: Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+          enum:
+            - 'authorization_code'
+            - 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
         scope:
           type: array
           description: Contains scopes that issuer expects VCS to use while requesting authorization code for claim data. Defaults to openid.
@@ -1464,11 +1533,17 @@ components:
           type: boolean
           description: Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
         claim_data:
+          deprecated: true
           type: object
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
         wallet_initiated_issuance:
           type: boolean
           description: Boolean flags indicates whether given transaction is initiated by Wallet.
+        credential_configuration:
+          type: array
+          items:
+            $ref: '#/components/schemas/InitiateIssuanceCredentialConfiguration'
+          description: 'An array of objects that describes specifics of the Multiple Credential Issuance.'
       x-tags:
         - issuer
     InitiateOIDC4CIResponse:
@@ -1535,10 +1610,10 @@ components:
           description: Integer denoting the lifetime in seconds of the c_nonce.
           type: integer
         authorization_details:
-          description: REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].
+          description: 'REQUIRED when authorization_details parameter is used to request issuance of a certain Credential type as defined in Section 5.1.1. It MUST NOT be used otherwise. It is an array of objects, as defined in Section 7 of [RFC9396].'
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - access_token
         - token_type
@@ -1706,20 +1781,17 @@ components:
         authorization_details:
           type: array
           items:
-            $ref: './common.yaml#/components/schemas/AuthorizationDetails'
+            $ref: ./common.yaml#/components/schemas/AuthorizationDetails
       required:
         - op_state
         - authorization_details
-    PrepareCredential:
-      title: PrepareCredential
+    PrepareCredentialBase:
+      title: PrepareCredentialBase
       x-tags:
         - issuer
       type: object
-      description: Model for Prepare Credential request.
+      description: PrepareCredential Base model.
       properties:
-        tx_id:
-          type: string
-          description: Transaction ID.
         types:
           type: array
           description: Array of types of the credential being issued.
@@ -1740,10 +1812,40 @@ components:
         requested_credential_response_encryption:
           $ref: '#/components/schemas/RequestedCredentialResponseEncryption'
       required:
-        - tx_id
         - types
         - audienceClaim
         - hashed_token
+    PrepareCredential:
+      allOf: # Combines the PrepareCredentialBase and the inline model
+        - $ref: '#/components/schemas/PrepareCredentialBase'
+        - title: PrepareCredential
+          x-tags:
+            - issuer
+          type: object
+          description: Model for Prepare Credential request.
+          properties:
+            tx_id:
+              type: string
+              description: Transaction ID.
+          required:
+            - tx_id
+    PrepareBatchCredential:
+      title: PrepareBatchCredential
+      x-tags:
+        - issuer
+      type: object
+      description: Model for Prepare Batch Credential request.
+      properties:
+        tx_id:
+          type: string
+          description: Transaction ID.
+        credential_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrepareCredentialBase'
+      required:
+        - tx_id
+        - credential_requests
     RequestedCredentialResponseEncryption:
       title: RequestedCredentialResponseEncryption
       x-tags:
@@ -1795,20 +1897,18 @@ components:
       type: object
       description: Model for OIDC Credential request.
       properties:
-        types:
-          type: array
-          description: Array of types of the credential being issued.
-          items:
-            type: string
         format:
           type: string
           description: Format of the credential being issued.
+        credential_definition:
+          $ref: './common.yaml#/components/schemas/CredentialDefinition'
+        credential_identifier:
+          type: string
+          description: 'String that identifies a Credential that is being requested to be issued. When this parameter is used, the format parameter and any other Credential format specific parameters MUST NOT be present.'
         proof:
           $ref: '#/components/schemas/JWTProof'
         credential_response_encryption:
           $ref: '#/components/schemas/CredentialResponseEncryption'
-      required:
-        - types
     CredentialResponseEncryption:
       title: CredentialResponseEncryption
       x-tags:
@@ -1850,6 +1950,19 @@ components:
           description: REQUIRED if proof_type equals ldp_vp. Linked Data Proof as proof of key possession.
       required:
         - proof_type
+    BatchCredentialRequest:
+      title: BatchCredentialRequest
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Model for OIDC batch Credential request.
+      properties:
+        credential_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/CredentialRequest'
+      required:
+        - credential_requests
     AckRequest:
       title: AckRequest
       x-tags:
@@ -1878,7 +1991,7 @@ components:
           description: Optional issuer identifier.
         event_description:
           type: string
-          description: Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
+          description: 'Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
       required:
         - notification_id
         - event
@@ -1923,6 +2036,47 @@ components:
       required:
         - format
         - credential
+    BatchCredentialResponse:
+      title: BatchCredentialResponse
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Model for OIDC Batch Credential response.
+      properties:
+        credential_responses:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/CredentialResponseBatchCredential'
+        c_nonce:
+          type: string
+          description: JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+        c_nonce_expires_in:
+          type: integer
+          description: JSON integer denoting the lifetime in seconds of the c_nonce.
+      required:
+        - credential_responses
+    CredentialResponseBatchCredential:
+      title: CredentialResponseBatchCredential
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Credential element Batch Credential Response.
+      properties:
+        credential:
+          description: Contains issued Credential.
+          oneOf:
+            - type: string
+            - type: object
+        transaction_id:
+          type: string
+          description: OPTIONAL. String identifying a Deferred Issuance transaction. This claim is contained in the response if the Credential Issuer was unable to immediately issue the Credential. The value is subsequently used to obtain the respective Credential with the Deferred Credential Endpoint.
+        notification_id:
+          type: string
+          description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+      required:
+        - credential
     CredentialConfigurationsSupported:
       title: CredentialConfigurationsSupported object definition.
       x-tags:
@@ -1947,7 +2101,7 @@ components:
             type: string
           description: Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
         credential_definition:
-          $ref: './common.yaml#/components/schemas/CredentialDefinition'
+          $ref: ./common.yaml#/components/schemas/CredentialDefinition
         order:
           type: array
           items:
@@ -1974,6 +2128,34 @@ components:
             $ref: '#/components/schemas/CredentialDisplay'
       required:
         - format
+    InitiateIssuanceCredentialConfiguration:
+      title: InitiateIssuanceCredentialConfiguration object definition.
+      x-tags:
+        - issuer
+      type: object
+      description: An object that describes specifics of the Multiple Credential Issuance.
+      properties:
+        compose:
+          $ref: '#/components/schemas/ComposeOIDC4CICredential'
+        claim_data:
+          type: object
+          description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+        claim_endpoint:
+          type: string
+          description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
+        credential_template_id:
+          type: string
+          description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'
+        credential_expires_at:
+          type: string
+          format: date-time
+          description: Date when credentials should be consider as expired
+        credential_name:
+          type: string
+          description: Credential name
+        credential_description:
+          type: string
+          description: Credential description
     CredentialResponseEncryptionSupported:
       title: CredentialResponseEncryption object definition.
       x-tags:

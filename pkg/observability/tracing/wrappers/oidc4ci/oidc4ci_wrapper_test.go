@@ -25,14 +25,22 @@ func TestWrapper_InitiateIssuance(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().InitiateIssuance(gomock.Any(),
 		&oidc4ci.InitiateIssuanceRequest{
-			ClaimData: map[string]interface{}{"foo": "bar"},
+			CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+				{
+					ClaimData: map[string]interface{}{"foo": "bar"},
+				},
+			},
 		},
 		&profile.Issuer{}).Return(&oidc4ci.InitiateIssuanceResponse{}, nil).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
 	_, err := w.InitiateIssuance(context.Background(), &oidc4ci.InitiateIssuanceRequest{
-		ClaimData: map[string]interface{}{"foo": "bar"},
+		CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimData: map[string]interface{}{"foo": "bar"},
+			},
+		},
 	}, &profile.Issuer{})
 	require.NoError(t, err)
 }
@@ -41,11 +49,11 @@ func TestWrapper_PushAuthorizationDetails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", &oidc4ci.AuthorizationDetails{}).Times(1)
+	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", []*oidc4ci.AuthorizationDetails{{}}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	err := w.PushAuthorizationDetails(context.Background(), "opState", &oidc4ci.AuthorizationDetails{})
+	err := w.PushAuthorizationDetails(context.Background(), "opState", []*oidc4ci.AuthorizationDetails{{}})
 	require.NoError(t, err)
 }
 

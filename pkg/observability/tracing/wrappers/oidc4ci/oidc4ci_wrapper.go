@@ -44,8 +44,10 @@ func (w *Wrapper) InitiateIssuance(
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
 	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", req, attributeutil.WithRedacted("ClaimData")))
 
-	if req.ClaimData != nil {
-		span.SetAttributes(attribute.StringSlice("claim_keys", lo.Keys(req.ClaimData)))
+	for _, credConfig := range req.CredentialConfiguration {
+		if len(credConfig.ClaimData) > 0 { //nolint:staticcheck
+			span.SetAttributes(attribute.StringSlice("claim_keys", lo.Keys(credConfig.ClaimData))) //nolint:staticcheck
+		}
 	}
 
 	resp, err := w.svc.InitiateIssuance(ctx, req, profile)
@@ -58,7 +60,7 @@ func (w *Wrapper) InitiateIssuance(
 	return resp, nil
 }
 
-func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad *oidc4ci.AuthorizationDetails) error {
+func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad []*oidc4ci.AuthorizationDetails) error {
 	return w.svc.PushAuthorizationDetails(ctx, opState, ad)
 }
 

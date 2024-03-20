@@ -79,6 +79,8 @@ const (
 	proofTypeLDPVP = "ldp_vp"
 )
 
+var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
+
 var logger = log.New("oidc4ci")
 
 // StateStore stores authorization request/response state.
@@ -304,8 +306,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			return err
 		}
 
-		// only single authorization_details supported for now.
-		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails[:1])
+		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails)
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
@@ -821,6 +822,10 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 
 	var credentialReq CredentialRequest
 
+	if err := e.Bind(&credentialReq); err != nil {
+		return err
+	}
+
 	if err := validateCredentialRequest(e, &credentialReq); err != nil {
 		return err
 	}
@@ -844,10 +849,16 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 		return err
 	}
 
+	var credentialTypes []string
+
+	if credentialReq.CredentialDefinition != nil {
+		credentialTypes = credentialReq.CredentialDefinition.Type
+	}
+
 	prepareCredentialReq := issuer.PrepareCredentialJSONRequestBody{
 		TxId:          session.Extra[txIDKey].(string), //nolint:errcheck
 		Did:           &did,
-		Types:         credentialReq.Types,
+		Types:         credentialTypes,
 		Format:        credentialReq.Format,
 		AudienceClaim: aud,
 		HashedToken:   hashToken(token),
@@ -868,25 +879,7 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		parsedErr := parseInteractionError(resp.Body)
-		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
-			resp.StatusCode,
-			parsedErr)
-
-		var interactionErr *interactionError
-
-		if errors.As(parsedErr, &interactionErr) {
-			switch interactionErr.Code { //nolint:exhaustive
-			case resterr.OIDCCredentialFormatNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
-			case resterr.OIDCCredentialTypeNotSupported:
-				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
-			case resterr.OIDCInvalidEncryptionParameters:
-				return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
-			case resterr.InvalidOrMissingProofOIDCErr:
-				return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
-			}
-		}
+		finalErr := parsePrepareCredentialErrorResponse(resp)
 
 		return finalErr
 	}
@@ -933,11 +926,178 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	return apiUtil.WriteOutput(e)(credentialResp, nil)
 }
 
-func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
-	if err := e.Bind(req); err != nil {
+// OidcBatchCredential handles OIDC batch credential request (POST /oidc/batch_credential).
+func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen,gocognit
+	req := e.Request()
+
+	ctx, span := c.tracer.Start(req.Context(), "OidcBatchCredential")
+	defer span.End()
+
+	var credentialReq BatchCredentialRequest
+
+	if err := e.Bind(&credentialReq); err != nil {
 		return err
 	}
 
+	for _, cr := range credentialReq.CredentialRequests {
+		credentialRequest := cr
+		if err := validateCredentialRequest(e, &credentialRequest); err != nil {
+			return err
+		}
+	}
+
+	span.SetAttributes(attributeutil.JSON("oidc_batch_credential_request", credentialReq))
+
+	token := fosite.AccessTokenFromRequest(req)
+	if token == "" {
+		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
+	}
+
+	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
+	if err != nil {
+		return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
+	}
+
+	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
+
+	prepareCredentialReq := issuer.PrepareBatchCredentialJSONBody{
+		TxId:               session.Extra[txIDKey].(string), //nolint:errcheck,
+		CredentialRequests: make([]issuer.PrepareCredentialBase, 0, len(credentialReq.CredentialRequests)),
+	}
+
+	var did, aud string
+	for _, cr := range credentialReq.CredentialRequests {
+		credentialRequest := cr
+		did, aud, err = c.HandleProof(ar.GetClient().GetID(), &credentialRequest, session)
+		if err != nil {
+			return fmt.Errorf("handle proof: %w", err)
+		}
+
+		var credentialTypes []string
+
+		if credentialRequest.CredentialDefinition != nil {
+			credentialTypes = credentialRequest.CredentialDefinition.Type
+		}
+
+		prepareCredential := issuer.PrepareCredentialBase{
+			AudienceClaim:                         aud,
+			Did:                                   &did,
+			Format:                                credentialRequest.Format,
+			HashedToken:                           hashToken(token),
+			Types:                                 credentialTypes,
+			RequestedCredentialResponseEncryption: nil,
+		}
+
+		if cr.CredentialResponseEncryption != nil {
+			prepareCredential.RequestedCredentialResponseEncryption = &issuer.RequestedCredentialResponseEncryption{
+				Alg: credentialRequest.CredentialResponseEncryption.Alg,
+				Enc: credentialRequest.CredentialResponseEncryption.Enc,
+			}
+		}
+
+		prepareCredentialReq.CredentialRequests = append(prepareCredentialReq.CredentialRequests, prepareCredential)
+	}
+
+	resp, err := c.issuerInteractionClient.PrepareBatchCredential(ctx, prepareCredentialReq)
+	if err != nil {
+		return fmt.Errorf("prepare batch credential: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		finalErr := parsePrepareCredentialErrorResponse(resp)
+
+		return finalErr
+	}
+
+	var result []issuer.PrepareCredentialResult
+
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("decode prepare credential result: %w", err)
+	}
+
+	// A successful Batch Credential Response MUST contain all the requested Credentials.
+	if len(result) != len(credentialReq.CredentialRequests) {
+		return fmt.Errorf(
+			"credential amount mismatch, requested %d, got %d",
+			len(credentialReq.CredentialRequests),
+			len(result),
+		)
+	}
+
+	nonce := mustGenerateNonce()
+
+	session.Extra[cNonceKey] = nonce
+	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
+
+	credentialResponseBatch := BatchCredentialResponse{
+		CNonce:              lo.ToPtr(nonce),
+		CNonceExpiresIn:     lo.ToPtr(int(cNonceTTL.Seconds())),
+		CredentialResponses: make([]interface{}, 0, len(result)),
+	}
+
+	for index, credentialData := range result {
+		credentialResponse := CredentialResponseBatchCredential{
+			Credential:     credentialData.Credential,
+			NotificationId: credentialData.NotificationId,
+			TransactionId:  nil, // Deferred Issuance transaction is not supported for now.
+		}
+
+		// Each element within the array matches the corresponding Credential Request
+		// object by array index in the credential_requests parameter of the Batch Credential Request.
+		correspondingRequestedCredential := credentialReq.CredentialRequests[index]
+
+		if correspondingRequestedCredential.CredentialResponseEncryption != nil {
+			var encryptedResponse string
+
+			if encryptedResponse, err = c.encryptCredentialResponse(
+				credentialResponse,
+				correspondingRequestedCredential.CredentialResponseEncryption,
+			); err != nil {
+				return fmt.Errorf("encrypt batch credential response: %w", err)
+			}
+
+			credentialResponseBatch.CredentialResponses = append(
+				credentialResponseBatch.CredentialResponses, encryptedResponse)
+
+			continue
+		}
+
+		credentialResponseBatch.CredentialResponses = append(
+			credentialResponseBatch.CredentialResponses, credentialResponse)
+	}
+
+	return apiUtil.WriteOutput(e)(credentialResponseBatch, nil)
+}
+
+func parsePrepareCredentialErrorResponse(resp *http.Response) error {
+	parsedErr := parseInteractionError(resp.Body)
+	finalErr := fmt.Errorf("prepare credential: status code %d, %w",
+		resp.StatusCode,
+		parsedErr)
+
+	var interactionErr *interactionError
+
+	if errors.As(parsedErr, &interactionErr) {
+		switch interactionErr.Code { //nolint:exhaustive
+		case resterr.OIDCCredentialFormatNotSupported:
+			return resterr.NewOIDCError("unsupported_credential_format", finalErr)
+		case resterr.OIDCCredentialTypeNotSupported:
+			return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+		case resterr.OIDCInvalidEncryptionParameters:
+			return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
+		case resterr.InvalidOrMissingProofOIDCErr:
+			return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
+		case resterr.OIDCInvalidCredentialRequest:
+			return resterr.NewOIDCError(string(resterr.OIDCInvalidCredentialRequest), finalErr)
+		}
+	}
+
+	return finalErr
+}
+
+func validateCredentialRequest(_ echo.Context, req *CredentialRequest) error {
 	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
 	if err != nil {
 		return resterr.NewOIDCError(invalidRequestOIDCErr, err)
@@ -968,7 +1128,7 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 }
 
 func (c *Controller) encryptCredentialResponse(
-	resp *CredentialResponse,
+	resp interface{},
 	enc *CredentialResponseEncryption,
 ) (string, error) {
 	var jwk gojose.JSONWebKey

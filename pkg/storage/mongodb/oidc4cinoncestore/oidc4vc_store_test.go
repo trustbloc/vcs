@@ -89,41 +89,52 @@ func TestStore(t *testing.T) {
 		id := uuid.New().String()
 
 		toInsert := &oidc4ci.TransactionData{
-			CredentialTemplate: &profileapi.CredentialTemplate{
-				Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
-				ID:                "templateID",
-				Type:              "PermanentResidentCard",
-				CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
-			},
 			ProfileID:                          "profileID",
-			CredentialFormat:                   vcsverifiable.Ldp,
-			OIDCCredentialFormat:               vcsverifiable.JwtVCJsonLD,
 			AuthorizationEndpoint:              "authEndpoint",
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
 			TokenEndpoint:                      "tokenEndpoint",
-			ClaimEndpoint:                      "432",
 			GrantType:                          "342",
 			ResponseType:                       "123",
 			Scope:                              []string{"213", "321"},
-			AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-				Type:                      "321",
-				CredentialConfigurationID: "CredentialConfigurationID",
-				CredentialDefinition: &oidc4ci.CredentialDefinition{
-					Type: []string{"fdsfsd"},
+			IssuerAuthCode:                     uuid.NewString(),
+			IssuerToken:                        uuid.NewString(),
+			OpState:                            id,
+			UserPin:                            "321",
+			IsPreAuthFlow:                      true,
+			PreAuthCode:                        uuid.NewString(),
+			WebHookURL:                         "http://remote-url",
+			DID:                                "did:123",
+			WalletInitiatedIssuance:            true,
+			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				{
+					ID: uuid.NewString(),
+					CredentialTemplate: &profileapi.CredentialTemplate{
+						Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
+						ID:                "templateID",
+						Type:              "PermanentResidentCard",
+						CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
+					},
+					OIDCCredentialFormat:  vcsverifiable.JwtVCJsonLD,
+					ClaimEndpoint:         "432",
+					ClaimDataID:           uuid.NewString(),
+					CredentialName:        uuid.NewString(),
+					CredentialDescription: uuid.NewString(),
+					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+						Type:                      "321",
+						CredentialConfigurationID: "CredentialConfigurationID",
+						CredentialDefinition: &oidc4ci.CredentialDefinition{
+							Type: []string{"fdsfsd"},
+						},
+						Format:    "vxcxzcz",
+						Locations: []string{"loc1", "loc2"},
+					},
+					CredentialConfigurationID: "CredentialConfigurationID",
+					CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+						IDTemplate:     uuid.NewString(),
+						OverrideIssuer: true,
+					},
 				},
-				Format:    "vxcxzcz",
-				Locations: []string{"loc1", "loc2"},
 			},
-			IssuerAuthCode:          uuid.NewString(),
-			IssuerToken:             uuid.NewString(),
-			OpState:                 id,
-			UserPin:                 "321",
-			IsPreAuthFlow:           true,
-			PreAuthCode:             uuid.NewString(),
-			WebHookURL:              "http://remote-url",
-			DID:                     "did:123",
-			ClaimDataID:             uuid.NewString(),
-			WalletInitiatedIssuance: true,
 		}
 
 		var resp *oidc4ci.Transaction
@@ -166,14 +177,18 @@ func TestStore(t *testing.T) {
 		id := uuid.NewString()
 
 		toInsert := &oidc4ci.TransactionData{
-			CredentialTemplate:   nil,
-			CredentialFormat:     vcsverifiable.Jwt,
-			ClaimEndpoint:        "432",
-			GrantType:            "342",
-			ResponseType:         "123",
-			Scope:                []string{"213", "321"},
-			AuthorizationDetails: &oidc4ci.AuthorizationDetails{Type: "321"},
-			OpState:              id,
+			GrantType:    "342",
+			ResponseType: "123",
+			Scope:        []string{"213", "321"},
+			OpState:      id,
+			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				{
+					ID:                        uuid.NewString(),
+					ClaimEndpoint:             "432",
+					AuthorizationDetails:      &oidc4ci.AuthorizationDetails{Type: "321"},
+					CredentialConfigurationID: "CredentialConfigurationID",
+				},
+			},
 		}
 
 		resp, createErr := store.Create(context.TODO(), toInsert)
@@ -183,12 +198,31 @@ func TestStore(t *testing.T) {
 
 		assert.NoError(t, err)
 
-		resp.ClaimEndpoint = "test_endpoint"
+		credentialTemplate := &profileapi.CredentialTemplate{
+			Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
+			ID:                "templateID",
+			Type:              "PermanentResidentCard",
+			CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
+		}
+
+		ad := &oidc4ci.AuthorizationDetails{
+			Type:                      "321",
+			CredentialConfigurationID: "CredentialConfigurationID",
+			CredentialDefinition: &oidc4ci.CredentialDefinition{
+				Type: []string{"fdsfsd"},
+			},
+			Format:    "vxcxzcz",
+			Locations: []string{"loc1", "loc2"},
+		}
+
+		resp.CredentialConfiguration[0].CredentialTemplate = credentialTemplate
+		resp.CredentialConfiguration[0].AuthorizationDetails = ad
 
 		assert.NoError(t, store.Update(context.TODO(), resp))
 		found, err2 := store.FindByOpState(context.TODO(), id)
 		assert.NoError(t, err2)
-		assert.Equal(t, resp.ClaimEndpoint, found.ClaimEndpoint)
+		assert.Equal(t, credentialTemplate, found.CredentialConfiguration[0].CredentialTemplate)
+		assert.Equal(t, ad, found.CredentialConfiguration[0].AuthorizationDetails)
 	})
 
 	t.Run("find non existing document", func(t *testing.T) {

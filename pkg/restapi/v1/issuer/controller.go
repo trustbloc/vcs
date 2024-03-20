@@ -435,20 +435,50 @@ func (c *Controller) initiateIssuance(
 	profile *profileapi.Issuer,
 ) (*InitiateOIDC4CIResponse, string, error) {
 	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
-		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
-		ClaimEndpoint:             lo.FromPtr(req.ClaimEndpoint),
-		GrantType:                 lo.FromPtr(req.GrantType),
+		GrantType:                 string(lo.FromPtr(req.GrantType)),
 		ResponseType:              lo.FromPtr(req.ResponseType),
 		Scope:                     lo.FromPtr(req.Scope),
 		OpState:                   lo.FromPtr(req.OpState),
-		ClaimData:                 lo.FromPtr(req.ClaimData),
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
-		CredentialExpiresAt:       req.CredentialExpiresAt,
-		CredentialName:            lo.FromPtr(req.CredentialName),
-		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
 		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
+		CredentialConfiguration:   []oidc4ci.InitiateIssuanceCredentialConfiguration{},
+	}
+
+	if req.CredentialTemplateId != nil && lo.FromPtr(req.CredentialTemplateId) != "" {
+		issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
+			oidc4ci.InitiateIssuanceCredentialConfiguration{
+				ClaimData:             lo.FromPtr(req.ClaimData),
+				ClaimEndpoint:         lo.FromPtr(req.ClaimEndpoint),
+				CredentialTemplateID:  lo.FromPtr(req.CredentialTemplateId),
+				CredentialExpiresAt:   req.CredentialExpiresAt,
+				CredentialName:        lo.FromPtr(req.CredentialName),
+				CredentialDescription: lo.FromPtr(req.CredentialDescription),
+			})
+	}
+
+	if req.CredentialConfiguration != nil && len(*req.CredentialConfiguration) > 0 {
+		for _, multiCredentialIssuance := range lo.FromPtr(req.CredentialConfiguration) {
+			credConfig := oidc4ci.InitiateIssuanceCredentialConfiguration{
+				ClaimData:             lo.FromPtr(multiCredentialIssuance.ClaimData),
+				ClaimEndpoint:         lo.FromPtr(multiCredentialIssuance.ClaimEndpoint),
+				CredentialTemplateID:  lo.FromPtr(multiCredentialIssuance.CredentialTemplateId),
+				CredentialExpiresAt:   multiCredentialIssuance.CredentialExpiresAt,
+				CredentialName:        lo.FromPtr(multiCredentialIssuance.CredentialName),
+				CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
+			}
+
+			if multiCredentialIssuance.Compose != nil {
+				credConfig.ComposeCredential = &oidc4ci.InitiateIssuanceComposeCredential{
+					Credential:     multiCredentialIssuance.Compose.Credential,
+					IDTemplate:     lo.FromPtr(multiCredentialIssuance.Compose.IdTemplate),
+					OverrideIssuer: lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
+				}
+			}
+
+			issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration, credConfig)
+		}
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
@@ -531,7 +561,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	var (
-		ad  *oidc4ci.AuthorizationDetails
+		ad  []*oidc4ci.AuthorizationDetails
 		err error
 	)
 
@@ -640,9 +670,8 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 	}
 
 	var authorizationDetailsDTOList []common.AuthorizationDetails
-	if exchangeAuthorizationCodeResult.AuthorizationDetails != nil {
-		authorizationDetailsDTO := exchangeAuthorizationCodeResult.AuthorizationDetails.ToDTO()
-		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+	for _, ad := range exchangeAuthorizationCodeResult.AuthorizationDetails {
+		authorizationDetailsDTOList = append(authorizationDetailsDTOList, ad.ToDTO())
 	}
 
 	return util.WriteOutput(ctx)(
@@ -673,9 +702,11 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	}
 
 	var authorizationDetailsDTOList []common.AuthorizationDetails
-	if transaction.AuthorizationDetails != nil {
-		authorizationDetailsDTO := transaction.AuthorizationDetails.ToDTO()
-		authorizationDetailsDTOList = []common.AuthorizationDetails{authorizationDetailsDTO}
+
+	for _, credentialConfig := range transaction.CredentialConfiguration {
+		if credentialConfig.AuthorizationDetails != nil {
+			authorizationDetailsDTOList = append(authorizationDetailsDTOList, credentialConfig.AuthorizationDetails.ToDTO())
+		}
 	}
 
 	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
@@ -695,7 +726,8 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return err
 	}
 
-	vcFormat, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(body.Format)))
+	requestedFormat := lo.FromPtr(body.Format)
+	_, err := common.ValidateVCFormat(common.VCFormat(requestedFormat))
 	if err != nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
@@ -705,12 +737,16 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID:             oidc4ci.TxID(body.TxId),
-			CredentialTypes:  body.Types,
-			CredentialFormat: vcFormat,
-			DID:              lo.FromPtr(body.Did),
-			AudienceClaim:    body.AudienceClaim,
-			HashedToken:      body.HashedToken,
+			TxID: oidc4ci.TxID(body.TxId),
+			CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
+				{
+					CredentialTypes:  body.Types,
+					CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
+					DID:              lo.FromPtr(body.Did),
+					AudienceClaim:    body.AudienceClaim,
+					HashedToken:      body.HashedToken,
+				},
+			},
 		},
 	)
 
@@ -723,37 +759,153 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential", err)
 	}
 
+	if len(result.Credentials) == 0 {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
+			errors.New("empty credentials list"))
+	}
+
 	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
 	if err != nil {
 		return err
 	}
 
-	if result.Credential == nil {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
-			errors.New("credentials should not be nil"))
-	}
-
-	if err = c.validateClaims(result.Credential, result.CredentialTemplate, result.EnforceStrictValidation); err != nil {
-		return resterr.NewCustomError(resterr.ClaimsValidationErr, err)
-	}
-
-	if err = validateCredentialResponseEncryption(profile, body.RequestedCredentialResponseEncryption); err != nil {
-		return resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters, "credential_response_encryption", err)
-	}
-
-	signedCredential, err := c.signCredential(
-		ctx, result.Credential, profile, issuecredential.WithTransactionID(body.TxId))
+	prepareCredentialResult, err := c.prepareCredential(
+		ctx,
+		body.TxId,
+		profile,
+		result.Credentials,
+		[]*RequestedCredentialResponseEncryption{body.RequestedCredentialResponseEncryption},
+	)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(e)(PrepareCredentialResult{
-		Credential:     signedCredential,
-		Format:         string(result.Format),
-		OidcFormat:     string(result.OidcFormat),
-		Retry:          result.Retry,
-		NotificationId: result.NotificationID,
-	}, nil)
+	return util.WriteOutput(e)(prepareCredentialResult[0], nil)
+}
+
+func (c *Controller) prepareCredential(
+	ctx context.Context,
+	txID string,
+	profile *profileapi.Issuer,
+	credentials []*oidc4ci.PrepareCredentialResultData,
+	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
+) ([]PrepareCredentialResult, error) {
+	var result []PrepareCredentialResult
+	for index, credentialData := range credentials {
+		if credentialData.Credential == nil {
+			return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
+				errors.New("credentials should not be nil"))
+		}
+
+		if err := c.validateClaims(
+			credentialData.Credential,
+			credentialData.CredentialTemplate,
+			credentialData.EnforceStrictValidation,
+		); err != nil {
+			return nil, resterr.NewCustomError(resterr.ClaimsValidationErr, err)
+		}
+
+		if err := validateCredentialResponseEncryption(profile, requestedCredentialResponseEncryption[index]); err != nil {
+			return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters,
+				"credential_response_encryption", err)
+		}
+
+		signedCredential, err := c.signCredential(
+			ctx,
+			credentialData.Credential,
+			profile,
+			issuecredential.WithTransactionID(txID),
+			issuecredential.WithSkipIDPrefix(),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, PrepareCredentialResult{
+			Credential:     signedCredential,
+			Format:         string(credentialData.Format),
+			OidcFormat:     string(credentialData.OidcFormat),
+			Retry:          credentialData.Retry,
+			NotificationId: credentialData.NotificationID,
+		})
+	}
+
+	return result, nil
+}
+
+// PrepareBatchCredential requests claim data and prepares batch of requested VC for signing by issuer.
+// POST /issuer/interactions/prepare-credential-batch.
+func (c *Controller) PrepareBatchCredential(e echo.Context) error {
+	var body PrepareBatchCredential
+
+	if err := util.ReadBody(e, &body); err != nil {
+		return err
+	}
+
+	ctx := e.Request().Context()
+
+	var (
+		credentialRequests                    []*oidc4ci.PrepareCredentialRequest
+		requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption
+	)
+	for _, credentialRequested := range body.CredentialRequests {
+		requestedFormat := lo.FromPtr(credentialRequested.Format)
+		_, err := common.ValidateVCFormat(common.VCFormat(requestedFormat))
+		if err != nil {
+			return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+		}
+
+		credentialRequests = append(credentialRequests, &oidc4ci.PrepareCredentialRequest{
+			CredentialTypes:  credentialRequested.Types,
+			CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
+			DID:              lo.FromPtr(credentialRequested.Did),
+			AudienceClaim:    credentialRequested.AudienceClaim,
+			HashedToken:      credentialRequested.HashedToken,
+		})
+
+		requestedCredentialResponseEncryption = append(
+			requestedCredentialResponseEncryption, credentialRequested.RequestedCredentialResponseEncryption)
+	}
+
+	result, err := c.oidc4ciService.PrepareCredential(
+		ctx,
+		&oidc4ci.PrepareCredential{
+			TxID:               oidc4ci.TxID(body.TxId),
+			CredentialRequests: credentialRequests,
+		},
+	)
+
+	if err != nil {
+		var custom *resterr.CustomError
+		if errors.As(err, &custom) {
+			return custom
+		}
+
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential", err)
+	}
+
+	if len(result.Credentials) == 0 {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential",
+			errors.New("empty credentials list"))
+	}
+
+	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
+	if err != nil {
+		return err
+	}
+
+	prepareCredentialResult, err := c.prepareCredential(
+		ctx,
+		body.TxId,
+		profile,
+		result.Credentials,
+		requestedCredentialResponseEncryption,
+	)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(prepareCredentialResult, nil)
 }
 
 // CredentialIssuanceHistory returns Credential Issuance history.

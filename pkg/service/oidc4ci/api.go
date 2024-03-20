@@ -52,6 +52,13 @@ const (
 	issuerIdentifierParts                                          = 2
 )
 
+type ClaimDataType int16
+
+const (
+	ClaimDataTypeClaims = ClaimDataType(0)
+	ClaimDataTypeVC     = ClaimDataType(1)
+)
+
 // ClaimData represents user claims in pre-auth code flow.
 type ClaimData struct {
 	EncryptedData *dataprotect.EncryptedData `json:"encrypted_data"`
@@ -65,42 +72,57 @@ type TransactionStore transactionStore
 type TransactionData struct {
 	ProfileID                          profileapi.ID
 	ProfileVersion                     profileapi.Version
+	IsPreAuthFlow                      bool
+	PreAuthCode                        string
 	OrgID                              string
-	CredentialTemplate                 *profileapi.CredentialTemplate
-	CredentialFormat                   vcsverifiable.Format // Format, that represents issued VC format (JWT, LDP).
-	OIDCCredentialFormat               vcsverifiable.OIDCFormat
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
-	ClaimEndpoint                      string
+	OpState                            string
 	RedirectURI                        string
 	GrantType                          string
 	ResponseType                       string
 	Scope                              []string
-	AuthorizationDetails               *AuthorizationDetails
 	IssuerAuthCode                     string
 	IssuerToken                        string
-	OpState                            string
-	IsPreAuthFlow                      bool
-	PreAuthCode                        string
-	PreAuthCodeExpiresAt               *time.Time
-	ClaimDataID                        string
 	State                              TransactionState
 	WebHookURL                         string
 	UserPin                            string
 	DID                                string
-	CredentialExpiresAt                *time.Time
-	CredentialName                     string
-	CredentialDescription              string
 	WalletInitiatedIssuance            bool
+	CredentialConfiguration            []*TxCredentialConfiguration
+}
+
+type TxCredentialConfiguration struct {
+	ID                        string
+	CredentialTemplate        *profileapi.CredentialTemplate
+	OIDCCredentialFormat      vcsverifiable.OIDCFormat
+	ClaimEndpoint             string
+	ClaimDataID               string
+	ClaimDataType             ClaimDataType
+	CredentialName            string
+	CredentialDescription     string
+	CredentialExpiresAt       *time.Time
+	PreAuthCodeExpiresAt      *time.Time
+	CredentialConfigurationID string
+	// AuthorizationDetails may be defined on Authorization Request via using "authorization_details" parameter.
+	// If "scope" param is used, this field will stay empty.
+	AuthorizationDetails           *AuthorizationDetails
+	CredentialComposeConfiguration *CredentialComposeConfiguration
+}
+
+type CredentialComposeConfiguration struct {
+	IDTemplate     string `json:"id_template"`
+	OverrideIssuer bool   `json:"override_issuer"`
 }
 
 // AuthorizationDetails represents the domain model for Authorization Details request.
+// This object is used to convey the details about the Credentials the Wallet wants to obtain.
 //
 // Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
 type AuthorizationDetails struct {
 	Type                      string
-	Format                    vcsverifiable.Format
+	Format                    vcsverifiable.OIDCFormat
 	Locations                 []string
 	CredentialConfigurationID string
 	CredentialDefinition      *CredentialDefinition
@@ -149,20 +171,32 @@ type IssuerIDPOIDCConfiguration struct {
 
 // InitiateIssuanceRequest is the request used by the Issuer to initiate the OIDC VC issuance interaction.
 type InitiateIssuanceRequest struct {
-	CredentialTemplateID      string
 	ClientInitiateIssuanceURL string
 	ClientWellKnownURL        string
-	ClaimEndpoint             string
 	GrantType                 string
 	ResponseType              string
 	Scope                     []string
 	OpState                   string
-	ClaimData                 map[string]interface{}
 	UserPinRequired           bool
-	CredentialExpiresAt       *time.Time
-	CredentialName            string
-	CredentialDescription     string
 	WalletInitiatedIssuance   bool
+	// CredentialConfiguration aimed to initialise multi credential issuance.
+	CredentialConfiguration []InitiateIssuanceCredentialConfiguration
+}
+
+type InitiateIssuanceCredentialConfiguration struct {
+	ClaimData             map[string]interface{}             `json:"claim_data,omitempty"`
+	ComposeCredential     *InitiateIssuanceComposeCredential `json:"compose_credential,omitempty"`
+	ClaimEndpoint         string                             `json:"claim_endpoint,omitempty"`
+	CredentialTemplateID  string                             `json:"credential_template_id,omitempty"`
+	CredentialExpiresAt   *time.Time                         `json:"credential_expires_at,omitempty"`
+	CredentialName        string                             `json:"credential_name,omitempty"`
+	CredentialDescription string                             `json:"credential_description,omitempty"`
+}
+
+type InitiateIssuanceComposeCredential struct {
+	Credential     *map[string]interface{} `json:"credential,omitempty"`
+	IDTemplate     string                  `json:"id_template"`
+	OverrideIssuer bool                    `json:"override_issuer"`
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.
@@ -179,7 +213,7 @@ type PrepareClaimDataAuthorizationRequest struct {
 	ResponseType         string
 	Scope                []string
 	OpState              string
-	AuthorizationDetails *AuthorizationDetails
+	AuthorizationDetails []*AuthorizationDetails
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
@@ -194,23 +228,31 @@ type PrepareClaimDataAuthorizationResponse struct {
 }
 
 type PrepareCredential struct {
-	TxID             TxID
+	TxID               TxID
+	CredentialRequests []*PrepareCredentialRequest
+}
+
+type PrepareCredentialRequest struct {
 	CredentialTypes  []string
-	CredentialFormat vcsverifiable.Format
+	CredentialFormat vcsverifiable.OIDCFormat
 	DID              string
 	AudienceClaim    string
 	HashedToken      string
 }
 
 type PrepareCredentialResult struct {
-	ProfileID               profileapi.ID
-	ProfileVersion          profileapi.Version
+	ProfileID      profileapi.ID
+	ProfileVersion profileapi.Version
+	Credentials    []*PrepareCredentialResultData
+}
+
+type PrepareCredentialResultData struct {
 	Credential              *verifiable.Credential
 	Format                  vcsverifiable.Format
-	Retry                   bool
-	EnforceStrictValidation bool
 	OidcFormat              vcsverifiable.OIDCFormat
 	CredentialTemplate      *profileapi.CredentialTemplate
+	Retry                   bool
+	EnforceStrictValidation bool
 	NotificationID          *string
 }
 
@@ -230,17 +272,20 @@ type EventPayload struct {
 	WebHook               string `json:"webHook,omitempty"`
 	ProfileID             string `json:"profileID,omitempty"`
 	ProfileVersion        string `json:"profileVersion,omitempty"`
-	CredentialTemplateID  string `json:"credentialTemplateID,omitempty"`
 	OrgID                 string `json:"orgID,omitempty"`
 	WalletInitiatedFlow   bool   `json:"walletInitiatedFlow"`
 	PinRequired           bool   `json:"pinRequired"`
 	PreAuthFlow           bool   `json:"preAuthFlow"`
-	Format                string `json:"format,omitempty"`
 	InitiateIssuanceURL   string `json:"initiateIssuanceURL,omitempty"`
 	AuthorizationEndpoint string `json:"authorizationEndpoint,omitempty"`
 	Error                 string `json:"error,omitempty"`
 	ErrorCode             string `json:"errorCode,omitempty"`
 	ErrorComponent        string `json:"errorComponent,omitempty"`
+	// Deprecated: use Credentials instead.
+	CredentialTemplateID string `json:"credentialTemplateID,omitempty"`
+	// Deprecated: use Credentials instead.
+	Format      vcsverifiable.OIDCFormat            `json:"format,omitempty"`
+	Credentials map[string]vcsverifiable.OIDCFormat `json:"credentials"`
 }
 
 type AuthorizationCodeGrant struct {
@@ -280,7 +325,7 @@ type ServiceInterface interface {
 		req *InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
 	) (*InitiateIssuanceResponse, error)
-	PushAuthorizationDetails(ctx context.Context, opState string, ad *AuthorizationDetails) error
+	PushAuthorizationDetails(ctx context.Context, opState string, ad []*AuthorizationDetails) error
 	PrepareClaimDataAuthorizationRequest(
 		ctx context.Context,
 		req *PrepareClaimDataAuthorizationRequest,
@@ -313,7 +358,7 @@ type Ack struct {
 	HashedToken    string `json:"hashed_token"`
 	ProfileID      string `json:"profile_id"`
 	ProfileVersion string `json:"profile_version"`
-	TxID           TxID   `json:"tx_id"`
+	TxID           string `json:"tx_id"` // [tx ID]-[short uuid]
 	WebHookURL     string `json:"webhook_url"`
 	OrgID          string `json:"org_id"`
 }
@@ -327,8 +372,10 @@ type AckRemote struct {
 }
 
 type ExchangeAuthorizationCodeResult struct {
-	TxID                 TxID
-	AuthorizationDetails *AuthorizationDetails
+	TxID TxID
+	// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
+	// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
+	AuthorizationDetails []*AuthorizationDetails
 }
 
 var ErrDataNotFound = errors.New("data not found")

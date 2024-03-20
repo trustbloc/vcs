@@ -338,7 +338,6 @@ func TestController_OidcAuthorize(t *testing.T) {
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType:         "code",
 					State:                &state,
-					IssuerState:          lo.ToPtr("opState"),
 					AuthorizationDetails: lo.ToPtr(authorizationDetailsCredentialConfigurationIDBased),
 				}
 
@@ -376,7 +375,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						assert.NoError(t, err)
 						assert.Equal(t, authorizationDetails, req.AuthorizationDetails)
 						assert.Equal(t, params.ResponseType, req.ResponseType)
-						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.NotEmpty(t, req.OpState)
 						assert.Equal(t, lo.ToPtr(scope), req.Scope)
 
 						return &http.Response{
@@ -385,7 +384,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						}, nil
 					})
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
@@ -663,7 +662,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid authorization_details",
+			name: "invalid authorization_details payload",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType:         "code",
@@ -689,7 +688,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType:         "code",
 					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(`[]`),
+					AuthorizationDetails: lo.ToPtr(`[{"type": "invalid"}]`),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -699,7 +698,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 				}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "only single authorization_details supported")
+				require.ErrorContains(t, err, "type should be 'openid_credential'")
 			},
 		},
 		{
@@ -1322,8 +1321,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 	credentialReq := oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		CredentialDefinition: &common.CredentialDefinition{
+			Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+		},
+		Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 	}
 
 	ecdsaPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -1474,8 +1475,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -1514,8 +1517,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr("invalid"),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 				})
 				require.NoError(t, err)
 			},
@@ -1534,8 +1539,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  nil,
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: nil,
 				})
 				require.NoError(t, err)
 			},
@@ -1554,8 +1561,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
 				})
 				require.NoError(t, err)
 			},
@@ -1622,8 +1631,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
 				})
 				require.NoError(t, err)
 			},
@@ -1696,8 +1707,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				credentialReqInvalid := oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 				}
 
 				requestBody, err = json.Marshal(credentialReqInvalid)
@@ -1842,8 +1855,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				credentialReqInvalid := oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
 				}
 
 				requestBody, err = json.Marshal(credentialReqInvalid)
@@ -1889,8 +1904,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -1934,8 +1951,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -1986,8 +2005,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -2036,8 +2057,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
 				})
 				require.NoError(t, err)
 			},
@@ -2257,6 +2280,88 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid or missing proof",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_or_missing_proof", "message": "invalid or missing proof"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var customErr *resterr.CustomError
+
+				assert.ErrorAs(t, err, &customErr)
+				assert.ErrorContains(t, customErr, "oidc-error: invalid or missing proof")
+				assert.Equal(t, resterr.OIDCError, customErr.Code)
+				assert.Equal(t, "invalid_or_missing_proof", customErr.Component)
+				assert.Empty(t, customErr.FailedOperation)
+			},
+		},
+		{
+			name: "invalid credentials request",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_credential_request"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var customErr *resterr.CustomError
+
+				assert.ErrorAs(t, err, &customErr)
+				assert.ErrorContains(t, customErr, "oidc-error: prepare credential: status code 500, code: invalid_credential_request")
+				assert.Equal(t, resterr.OIDCError, customErr.Code)
+				assert.Equal(t, "invalid_credential_request", customErr.Component)
+				assert.Empty(t, customErr.FailedOperation)
+			},
+		},
+		{
 			name: "fail to decode prepare credential result",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
@@ -2327,8 +2432,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2384,8 +2491,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ED25519),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2445,8 +2554,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2506,8 +2617,10 @@ func TestController_OidcCredential(t *testing.T) {
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					CredentialDefinition: &common.CredentialDefinition{
+						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
 					CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
 						Alg: string(gojose.ECDH_ES),
 						Enc: string(gojose.A128CBC_HS256),
@@ -2544,6 +2657,1593 @@ func TestController_OidcCredential(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			err = controller.OidcCredential(echo.New().NewContext(req, rec))
+			tt.check(t, rec, err)
+		})
+	}
+}
+
+func TestController_OidcBatchCredential(t *testing.T) {
+	var (
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		jweEncrypterCreator   func(jwk gojose.JSONWebKey, alg gojose.KeyAlgorithm, enc gojose.ContentEncryption) (gojose.Encrypter, error) //nolint:lll
+		accessToken           string
+		requestBody           []byte
+	)
+
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	proofCreator, proofChecker := testsupport.NewEd25519Pair(publicKey, privateKey, testsupport.AnyPubKeyID)
+
+	headers := map[string]interface{}{
+		jose.HeaderType: "openid4vci-proof+jwt",
+	}
+
+	currentTime := time.Now().Unix()
+
+	signedJWT, err := jwt.NewSigned(&oidc4ci.ProofClaims{
+		Issuer:   clientID,
+		IssuedAt: &currentTime,
+		Nonce:    "c_nonce",
+		Audience: aud,
+	}, jwt.SignParameters{
+		JWTAlg:            "EdDSA",
+		KeyID:             "Any",
+		AdditionalHeaders: headers,
+	}, proofCreator)
+	require.NoError(t, err)
+
+	jws, err := signedJWT.Serialize(false)
+	require.NoError(t, err)
+
+	batchCredentialRequest := oidc4ci.BatchCredentialRequest{
+		CredentialRequests: []oidc4ci.CredentialRequest{
+			{
+				Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+				CredentialDefinition: &common.CredentialDefinition{
+					Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+				Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+			},
+			{
+				Format: lo.ToPtr(string(common.JwtVcJson)),
+				CredentialDefinition: &common.CredentialDefinition{
+					Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+				Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+			},
+		},
+	}
+
+	checkBatchCredentialsResponse := func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response oidc4ci.BatchCredentialResponse
+		err = json.NewDecoder(rec.Body).Decode(&response)
+
+		require.NoError(t, err)
+
+		assert.NotEmpty(t, response.CNonce)
+		assert.NotEmpty(t, response.CNonceExpiresIn)
+		assert.Len(t, response.CredentialResponses, 2)
+
+		credentialResponseBatchCredential, ok := response.CredentialResponses[0].(map[string]interface{})
+		assert.True(t, ok)
+
+		assert.Equal(t, credentialResponseBatchCredential, map[string]interface{}{
+			"credential": "credential1 in jwt format",
+		})
+
+		credentialResponseBatchCredential, ok = response.CredentialResponses[1].(map[string]interface{})
+		assert.True(t, ok)
+
+		assert.Equal(t, credentialResponseBatchCredential, map[string]interface{}{
+			"credential": "credential2 in jwt format",
+		})
+	}
+
+	ecdsaPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	defaultJWEEncrypterCreator := func(jwk gojose.JSONWebKey, alg gojose.KeyAlgorithm, enc gojose.ContentEncryption) (gojose.Encrypter, error) { //nolint:lll
+		return gojose.NewEncrypter(
+			enc,
+			gojose.Recipient{
+				Algorithm: alg,
+				Key:       jwk,
+			},
+			nil,
+		)
+	}
+
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
+	}{
+		{
+			name: "success preAuth",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential1 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+					{
+						Credential: "credential2 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: checkBatchCredentialsResponse,
+		},
+		{
+			name: "success auth",
+			setup: func() {
+				ar := fosite.NewAccessRequest(
+					&fosite.DefaultSession{
+						Extra: map[string]interface{}{
+							"txID":            "tx_id",
+							"cNonce":          "c_nonce",
+							"preAuth":         false,
+							"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+						},
+					},
+				)
+				ar.Client = &fosite.DefaultClient{ID: clientID}
+
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken, ar, nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential1 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+					{
+						Credential: "credential2 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: checkBatchCredentialsResponse,
+		},
+		{
+			name: "success with one encrypted credential",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential1 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+					{
+						Credential: "credential2 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				jwk := gojose.JSONWebKey{
+					Key: &ecdsaPrivateKey.PublicKey,
+				}
+
+				b, err = jwk.MarshalJSON()
+				require.NoError(t, err)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
+								Alg: string(gojose.ECDH_ES),
+								Enc: string(gojose.A128CBC_HS256),
+								Jwk: string(b),
+							},
+						},
+						{
+							Format: lo.ToPtr(string(common.JwtVcJson)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "PermanentResidentCard"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+						},
+					},
+				})
+
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+				require.Equal(t, "application/json; charset=UTF-8", rec.Header().Get("Content-Type"))
+
+				var response oidc4ci.BatchCredentialResponse
+				err = json.NewDecoder(rec.Body).Decode(&response)
+
+				require.NoError(t, err)
+
+				assert.NotEmpty(t, response.CNonce)
+				assert.NotEmpty(t, response.CNonceExpiresIn)
+				assert.Len(t, response.CredentialResponses, 2)
+
+				credentialResponseBatchCredentialEntrypted, ok := response.CredentialResponses[0].(string)
+				assert.True(t, ok)
+
+				jwe, err := gojose.ParseEncrypted(credentialResponseBatchCredentialEntrypted)
+				require.NoError(t, err)
+
+				decrypted, err := jwe.Decrypt(ecdsaPrivateKey)
+				require.NoError(t, err)
+
+				var resp *oidc4ci.CredentialResponse
+				require.NoError(t, json.Unmarshal(decrypted, &resp))
+
+				assert.Equal(t, resp, &oidc4ci.CredentialResponse{
+					AcceptanceToken: nil,
+					CNonce:          nil,
+					CNonceExpiresIn: nil,
+					Credential:      "credential1 in jwt format",
+					Format:          "",
+					NotificationId:  nil,
+				})
+
+				credentialResponseBatchCredential, ok := response.CredentialResponses[1].(map[string]interface{})
+				assert.True(t, ok)
+
+				assert.Equal(t, credentialResponseBatchCredential, map[string]interface{}{
+					"credential": "credential2 in jwt format",
+				})
+			},
+		},
+		{
+			name: "invalid body",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).Times(0)
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody = []byte(`{`)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "unexpected EOF")
+			},
+		},
+		{
+			name: "credential amount mismatch",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential1 in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "credential amount mismatch, requested 2, got 1")
+			},
+		},
+		{
+			name: "invalid credential format",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).Times(0)
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr("invalid"),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "unsupported vc format")
+			},
+		},
+		{
+			name: "missing proof type",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).Times(0)
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: nil,
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "missing proof type")
+			},
+		},
+		{
+			name: "invalid proof type",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).Times(0)
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: nil},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid proof type")
+			},
+		},
+		{
+			name: "missing access token",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).Times(0)
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = ""
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "missing access token")
+			},
+		},
+		{
+			name: "fail to introspect token",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(fosite.AccessToken, nil, errors.New("introspect error"))
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "introspect token")
+			},
+		},
+		{
+			name: "fail to parse proof jwt",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: lo.ToPtr("invalid jws")},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "parse jwt")
+			},
+		},
+		{
+			name: "nonce expired",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(-time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "nonce expired")
+			},
+		},
+		{
+			name: "invalid jwt claims",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				var signedJWTInvalid *jwt.JSONWebToken
+				signedJWTInvalid, err = jwt.NewSigned(map[string]interface{}{
+					"iss": 123,
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
+				require.NoError(t, err)
+
+				var jwsInvalid string
+				jwsInvalid, err = signedJWTInvalid.Serialize(false)
+				require.NoError(t, err)
+
+				credentialReqInvalid := oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
+						},
+					},
+				}
+
+				requestBody, err = json.Marshal(credentialReqInvalid)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid jwt claims")
+			},
+		},
+		{
+			name: "invalid client_id - missing in session",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(fosite.AccessToken, fosite.NewAccessRequest(
+						&fosite.DefaultSession{
+							Extra: map[string]interface{}{
+								"txID":            "tx_id",
+								"cNonce":          "c_nonce",
+								"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+							},
+						},
+					), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid client_id")
+			},
+		},
+		{
+			name: "invalid client_id",
+			setup: func() {
+				ar := fosite.NewAccessRequest(
+					&fosite.DefaultSession{
+						Extra: map[string]interface{}{
+							"txID":            "tx_id",
+							"cNonce":          "c_nonce",
+							"preAuth":         false,
+							"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+						},
+					},
+				)
+
+				ar.Client = &fosite.DefaultClient{ID: "invalid"}
+
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(fosite.AccessToken, ar, nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid client_id")
+			},
+		},
+		{
+			name: "invalid aud",
+			setup: func() {
+				ar := fosite.NewAccessRequest(
+					&fosite.DefaultSession{
+						Extra: map[string]interface{}{
+							"txID":            "tx_id",
+							"cNonce":          "c_nonce",
+							"preAuth":         false,
+							"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+						},
+					},
+				)
+				ar.Client = &fosite.DefaultClient{ID: clientID}
+
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken, ar, nil)
+
+				responseBody := `{"code":"invalidor-missing-proof","incorrectValue":"badAud","message":"invalid aud"}`
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusBadRequest,
+							Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid aud")
+			},
+		},
+		{
+			name: "missing iat",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				var signedJWTInvalid *jwt.JSONWebToken
+				signedJWTInvalid, err = jwt.NewSigned(&oidc4ci.ProofClaims{
+					Issuer:   clientID,
+					Nonce:    "c_nonce",
+					Audience: aud,
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
+				require.NoError(t, err)
+
+				var jwsInvalid string
+				jwsInvalid, err = signedJWTInvalid.Serialize(false)
+				require.NoError(t, err)
+
+				credentialReqInvalid := oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jwsInvalid},
+						},
+					},
+				}
+
+				requestBody, err = json.Marshal(credentialReqInvalid)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "missing iat")
+			},
+		},
+		{
+			name: "invalid nonce",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: &currentTime,
+					Nonce:    "invalid",
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid nonce")
+			},
+		},
+		{
+			name: "missed typ",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: &currentTime,
+					Nonce:    "c_nonce",
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any"}, proofCreator)
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				// typ is required per spec
+				require.ErrorContains(t, err, "invalid typ")
+			},
+		},
+		{
+			name: "invalid typ",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				invalidHeaders := map[string]interface{}{
+					jose.HeaderType: jwt.TypeJWT,
+				}
+
+				currentTime := time.Now().Unix()
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: &currentTime,
+					Nonce:    "c_nonce",
+				}, jwt.SignParameters{JWTAlg: "EdDSA", KeyID: "any", AdditionalHeaders: invalidHeaders}, proofCreator)
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid typ")
+			},
+		},
+		{
+			name: "invalid kid",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				currentTime := time.Now().Unix()
+
+				invalidNonceJWT, jwtErr := jwt.NewSigned(&oidc4ci.ProofClaims{
+					Issuer:   clientID,
+					Audience: aud,
+					IssuedAt: &currentTime,
+					Nonce:    "c_nonce",
+				}, jwt.SignParameters{
+					JWTAlg:            "EdDSA",
+					AdditionalHeaders: headers,
+				}, proofCreator)
+				require.NoError(t, jwtErr)
+
+				invalidJWS, marshalErr := invalidNonceJWT.Serialize(false)
+				require.NoError(t, marshalErr)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &invalidJWS},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "missed kid in jwt header")
+			},
+		},
+		{
+			name: "fail to prepare credential",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("prepare batch credential error"))
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "prepare batch credential")
+			},
+		},
+		{
+			name: "invalid status code in prepare batch credential response (format)",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-credential-format-not-supported"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err,
+					"oidc-error: prepare credential: status code 500, "+
+						"code: oidc-credential-format-not-supported")
+			},
+		},
+		{
+			name: "invalid status code in prepare credential response (invalid json)",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "prepare credential: status code 500, {")
+			},
+		},
+		{
+			name: "invalid status code in prepare batch credential response (type)",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-credential-type-not-supported"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err,
+					"oidc-error: prepare credential: status code 500, "+
+						"code: oidc-credential-type-not-supported")
+			},
+		},
+		{
+			name: "invalid status code in prepare batch credential response (random)",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "random", "message": "awesome"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err,
+					"prepare credential: status code 500, code: random; message: awesome")
+			},
+		},
+		{
+			name: "invalid encryption parameters",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-invalid-encryption-parameters"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "oidc-invalid-encryption-parameters")
+			},
+		},
+		{
+			name: "invalid or missing proof",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_or_missing_proof", "message": "invalid or missing proof"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var customErr *resterr.CustomError
+
+				assert.ErrorAs(t, err, &customErr)
+				assert.ErrorContains(t, customErr, "oidc-error: invalid or missing proof")
+				assert.Equal(t, resterr.OIDCError, customErr.Code)
+				assert.Equal(t, "invalid_or_missing_proof", customErr.Component)
+				assert.Empty(t, customErr.FailedOperation)
+			},
+		},
+		{
+			name: "invalid credentials request",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_credential_request"}`)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var customErr *resterr.CustomError
+
+				assert.ErrorAs(t, err, &customErr)
+				assert.ErrorContains(t, customErr, "oidc-error: prepare credential: status code 500, code: invalid_credential_request")
+				assert.Equal(t, resterr.OIDCError, customErr.Code)
+				assert.Equal(t, "invalid_credential_request", customErr.Component)
+				assert.Empty(t, customErr.FailedOperation)
+			},
+		},
+		{
+			name: "fail to decode prepare batch credential result",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBufferString("invalid json")),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(batchCredentialRequest)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "decode prepare credential result")
+			},
+		},
+		{
+			name: "fail to unmarshal jwk for encrypting batch credential response",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
+								Alg: string(gojose.ECDH_ES),
+								Enc: string(gojose.A128CBC_HS256),
+								Jwk: "invalid jwk",
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "unmarshal jwk")
+			},
+		},
+		{
+			name: "fail to create encrypter for encrypting batch credential response",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = defaultJWEEncrypterCreator
+
+				accessToken = "access-token"
+
+				jwk := gojose.JSONWebKey{
+					Key: &ecdsaPrivateKey.PublicKey,
+				}
+
+				b, err = jwk.MarshalJSON()
+				require.NoError(t, err)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
+								Alg: string(gojose.ED25519),
+								Enc: string(gojose.A128CBC_HS256),
+								Jwk: string(b),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "create encrypter")
+			},
+		},
+		{
+			name: "fail to encrypt batch credential response",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = func(gojose.JSONWebKey, gojose.KeyAlgorithm, gojose.ContentEncryption) (gojose.Encrypter, error) { //nolint:lll,unparam
+					return &mockJWEEncrypter{
+						Err: errors.New("encrypt error"),
+					}, nil
+				}
+
+				accessToken = "access-token"
+
+				jwk := gojose.JSONWebKey{
+					Key: &ecdsaPrivateKey.PublicKey,
+				}
+
+				b, err = jwk.MarshalJSON()
+				require.NoError(t, err)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
+								Alg: string(gojose.ECDH_ES),
+								Enc: string(gojose.A128CBC_HS256),
+								Jwk: string(b),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "encrypt credential response")
+			},
+		},
+		{
+			name: "fail to serialize encrypted batch credential response",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"preAuth":         true,
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
+					{
+						Credential: "credential in jwt format",
+						Format:     string(verifiable.Jwt),
+					},
+				})
+				require.NoError(t, marshalErr)
+
+				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				jweEncrypterCreator = func(gojose.JSONWebKey, gojose.KeyAlgorithm, gojose.ContentEncryption) (gojose.Encrypter, error) { //nolint:lll,unparam
+					return &mockJWEEncrypter{
+						JWE: &gojose.JSONWebEncryption{},
+					}, nil
+				}
+
+				accessToken = "access-token"
+
+				jwk := gojose.JSONWebKey{
+					Key: &ecdsaPrivateKey.PublicKey,
+				}
+
+				b, err = jwk.MarshalJSON()
+				require.NoError(t, err)
+
+				requestBody, err = json.Marshal(oidc4ci.BatchCredentialRequest{
+					CredentialRequests: []oidc4ci.CredentialRequest{
+						{
+							Format: lo.ToPtr(string(common.JwtVcJsonLd)),
+							CredentialDefinition: &common.CredentialDefinition{
+								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+							},
+							Proof: &oidc4ci.JWTProof{ProofType: "jwt", Jwt: &jws},
+							CredentialResponseEncryption: &oidc4ci.CredentialResponseEncryption{
+								Alg: string(gojose.ECDH_ES),
+								Enc: string(gojose.A128CBC_HS256),
+								Jwk: string(b),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "serialize credential response")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			controller := oidc4ci.NewController(&oidc4ci.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				IssuerInteractionClient: mockInteractionClient,
+				JWTVerifier:             proofChecker,
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				IssuerVCSPublicHost:     aud,
+				JWEEncrypterCreator:     jweEncrypterCreator,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+			if accessToken != "" {
+				req.Header.Set("Authorization", "Bearer "+accessToken)
+			}
+
+			rec := httptest.NewRecorder()
+
+			err = controller.OidcBatchCredential(echo.New().NewContext(req, rec))
 			tt.check(t, rec, err)
 		})
 	}

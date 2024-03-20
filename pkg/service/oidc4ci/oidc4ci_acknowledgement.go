@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
@@ -86,7 +88,7 @@ func (s *AckService) HandleAckNotFound(
 		eventPayload.Error = req.EventDescription
 	}
 
-	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, TxID(req.ID), eventPayload)
+	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, extractTransactionID(req.ID), eventPayload)
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,7 @@ func (s *AckService) Ack(
 		return err
 	}
 
-	err = s.sendEvent(ctx, targetEvent, ack.TxID, eventPayload)
+	err = s.sendEvent(ctx, targetEvent, extractTransactionID(ack.TxID), eventPayload)
 	if err != nil {
 		return err
 	}
@@ -169,4 +171,12 @@ func (s *AckService) AckEventMap(status string) (spi.EventType, error) {
 	}
 
 	return spi.IssuerOIDCInteractionAckFailed, fmt.Errorf("invalid status: %s", status)
+}
+
+func extractTransactionID(ackTxID string) TxID {
+	return TxID(strings.Split(ackTxID, "_")[0])
+}
+
+func generateAckTxID(transactionID TxID) string {
+	return fmt.Sprintf("%s_%s", transactionID, strings.Split(uuid.NewString(), "-")[0])
 }

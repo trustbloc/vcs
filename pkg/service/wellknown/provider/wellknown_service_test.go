@@ -201,7 +201,7 @@ func checkWellKnownOpenIDIssuerConfiguration(
 	assert.Equal(t, "https://example.com/issuer/profileID/profileVersion", lo.FromPtr(res.CredentialIssuer))
 	assert.Equal(t, "https://example.com/oidc/authorize", lo.FromPtr(res.AuthorizationEndpoint))
 	assert.Equal(t, "https://example.com/oidc/credential", lo.FromPtr(res.CredentialEndpoint))
-	assert.Nil(t, res.BatchCredentialEndpoint)
+	assert.Equal(t, "https://example.com/oidc/batch_credential", lo.FromPtr(res.BatchCredentialEndpoint))
 	assert.Nil(t, res.DeferredCredentialEndpoint)
 	assert.Nil(t, res.CredentialResponseEncryption)
 	assert.Nil(t, res.CredentialIdentifiersSupported)

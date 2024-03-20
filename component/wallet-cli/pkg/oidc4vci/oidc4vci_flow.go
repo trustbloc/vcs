@@ -81,31 +81,42 @@ type TrustRegistry interface {
 }
 
 type Flow struct {
-	httpClient                 *http.Client
-	documentLoader             ld.DocumentLoader
-	vdrRegistry                vdrapi.Registry
-	signer                     jose.Signer
-	proofBuilder               ProofBuilder
-	wallet                     *wallet.Wallet
-	wellKnownService           *wellknown.Service
-	attestationService         AttestationService
-	trustRegistry              TrustRegistry
-	flowType                   FlowType
-	credentialOffer            string
-	credentialType             string
-	oidcCredentialFormat       vcsverifiable.OIDCFormat
-	credentialConfigurationID  string
-	clientID                   string
-	scopes                     []string
-	redirectURI                string
-	enableDiscoverableClientID bool
-	userLogin                  string
-	userPassword               string
-	issuerState                string
-	pin                        string
-	walletKeyID                string
-	walletKeyType              kms.KeyType
-	perfInfo                   *PerfInfo
+	httpClient         *http.Client
+	documentLoader     ld.DocumentLoader
+	vdrRegistry        vdrapi.Registry
+	signer             jose.Signer
+	proofBuilder       ProofBuilder
+	wallet             *wallet.Wallet
+	wellKnownService   *wellknown.Service
+	attestationService AttestationService
+	trustRegistry      TrustRegistry
+	flowType           FlowType
+	credentialOffer    string
+	credentialFilters  []*credentialFilter
+	// credentialConfigurationIDs is used to define common.AuthorizationDetails .CredentialConfigurationId in authorization request.
+	// Also, according to deprecated API, is used to define vcsverifiable.OIDCFormat in credential request.
+	credentialConfigurationIDs  []string
+	clientID                    string
+	scopes                      []string
+	redirectURI                 string
+	enableDiscoverableClientID  bool
+	useBatchCredentialsEndpoint bool
+	userLogin                   string
+	userPassword                string
+	issuerState                 string
+	pin                         string
+	walletKeyID                 string
+	walletKeyType               kms.KeyType
+	perfInfo                    *PerfInfo
+}
+
+type credentialFilter struct {
+	// stores credential type being issued with exclusion of "VerifiableCredential".
+	// Examples: "CrudeProductCredential", "PermanentResidentCard"
+	// Spec: https://www.w3.org/TR/vc-data-model/#types
+	credentialType string
+	// stores vcsverifiable.OIDCFormat of credential being issued.
+	oidcCredentialFormat vcsverifiable.OIDCFormat
 }
 
 type provider interface {
@@ -191,40 +202,39 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 	}
 
 	return &Flow{
-		httpClient:                 p.HTTPClient(),
-		documentLoader:             p.DocumentLoader(),
-		vdrRegistry:                p.VDRegistry(),
-		signer:                     jwsSigner,
-		proofBuilder:               proofBuilder,
-		wallet:                     p.Wallet(),
-		wellKnownService:           p.WellKnownService(),
-		attestationService:         p.AttestationService(),
-		trustRegistry:              p.TrustRegistry(),
-		walletKeyID:                walletDIDInfo.KeyID,
-		walletKeyType:              walletDIDInfo.KeyType,
-		flowType:                   o.flowType,
-		credentialOffer:            o.credentialOffer,
-		credentialType:             o.credentialType,
-		oidcCredentialFormat:       o.oidcCredentialFormat,
-		credentialConfigurationID:  o.credentialConfigurationID,
-		clientID:                   o.clientID,
-		scopes:                     o.scopes,
-		redirectURI:                o.redirectURI,
-		enableDiscoverableClientID: o.enableDiscoverableClientID,
-		userLogin:                  o.userLogin,
-		userPassword:               o.userPassword,
-		issuerState:                o.issuerState,
-		pin:                        o.pin,
-		perfInfo:                   &PerfInfo{},
+		httpClient:                  p.HTTPClient(),
+		documentLoader:              p.DocumentLoader(),
+		vdrRegistry:                 p.VDRegistry(),
+		signer:                      jwsSigner,
+		proofBuilder:                proofBuilder,
+		wallet:                      p.Wallet(),
+		wellKnownService:            p.WellKnownService(),
+		attestationService:          p.AttestationService(),
+		trustRegistry:               p.TrustRegistry(),
+		walletKeyID:                 walletDIDInfo.KeyID,
+		walletKeyType:               walletDIDInfo.KeyType,
+		flowType:                    o.flowType,
+		credentialOffer:             o.credentialOffer,
+		clientID:                    o.clientID,
+		credentialConfigurationIDs:  o.credentialConfigurationIDs,
+		credentialFilters:           o.credentialFilters,
+		scopes:                      o.scopes,
+		redirectURI:                 o.redirectURI,
+		enableDiscoverableClientID:  o.enableDiscoverableClientID,
+		useBatchCredentialsEndpoint: o.useBatchCredentialsEndpoint,
+		userLogin:                   o.userLogin,
+		userPassword:                o.userPassword,
+		issuerState:                 o.issuerState,
+		pin:                         o.pin,
+		perfInfo:                    &PerfInfo{},
 	}, nil
 }
 
-func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
+func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 	slog.Info("Running OIDC4VCI flow",
 		"flow_type", f.flowType,
 		"credential_offer_uri", f.credentialOffer,
-		"credential_type", f.credentialType,
-		"credential_format", f.oidcCredentialFormat,
+		"credential_filters", f.credentialFilters,
 		"scope", f.scopes,
 	)
 
@@ -329,34 +339,38 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 			return nil, fmt.Errorf("no credential configuration id defined in credential offer")
 		}
 
-		configurationID := credentialOfferResponse.CredentialConfigurationIDs[0]
-		credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
-
-		var credentialType string
-
-		for _, t := range credentialConfiguration.CredentialDefinition.Type {
-			if t != "VerifiableCredential" {
-				credentialType = t
-				break
-			}
-		}
-
 		var attestationRequired bool
 
 		if f.trustRegistry != nil && !reflect.ValueOf(f.trustRegistry).IsNil() {
-			attestationRequired, err = f.trustRegistry.ValidateIssuer(ctx,
-				issuerDID,
-				"",
-				[]trustregistry.CredentialOffer{
-					{
-						ClientAttestationRequested: lo.Contains(
-							lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported),
-							attestJWTClientAuthType,
-						),
-						CredentialFormat: credentialConfiguration.Format,
-						CredentialType:   credentialType,
+			var credentialOffers []trustregistry.CredentialOffer
+
+			clientAttestationRequested := lo.Contains(
+				lo.FromPtr(openIDConfig.TokenEndpointAuthMethodsSupported),
+				attestJWTClientAuthType,
+			)
+
+			for _, configurationID := range credentialOfferResponse.CredentialConfigurationIDs {
+				credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
+
+				var credentialType string
+
+				for _, t := range credentialConfiguration.CredentialDefinition.Type {
+					if t != "VerifiableCredential" {
+						credentialType = t
+						break
+					}
+				}
+
+				credentialOffers = append(credentialOffers,
+					trustregistry.CredentialOffer{
+						ClientAttestationRequested: clientAttestationRequested,
+						CredentialFormat:           credentialConfiguration.Format,
+						CredentialType:             credentialType,
 					},
-				})
+				)
+			}
+
+			attestationRequired, err = f.trustRegistry.ValidateIssuer(ctx, issuerDID, "", credentialOffers)
 			if err != nil {
 				return nil, fmt.Errorf("validate issuer: %w", err)
 			}
@@ -415,12 +429,7 @@ func (f *Flow) Run(ctx context.Context) (*verifiable.Credential, error) {
 
 	f.perfInfo.GetAccessToken = time.Since(start)
 
-	vc, err := f.receiveVC(token, openIDConfig, credentialIssuer)
-	if err != nil {
-		return nil, err
-	}
-
-	return vc, nil
+	return f.receiveVC(token, openIDConfig, credentialIssuer)
 }
 
 func (f *Flow) Signer() jose.Signer {
@@ -445,12 +454,14 @@ func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResp
 	return credentialOfferResponse, nil
 }
 
-func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState string) (string, error) {
+func (f *Flow) getAuthorizationCode(
+	oauthClient *oauth2.Config,
+	issuerState string,
+) (string, error) {
 	slog.Info("Getting authorization code",
 		"client_id", oauthClient.ClientID,
 		"scopes", oauthClient.Scopes,
-		"credential_configuration_id", f.credentialConfigurationID,
-		"format", f.oidcCredentialFormat,
+		"filters", f.credentialFilters,
 		"redirect_uri", oauthClient.RedirectURL,
 		"authorization_endpoint", oauthClient.Endpoint.AuthURL,
 	)
@@ -486,8 +497,7 @@ func (f *Flow) getAuthorizationCode(oauthClient *oauth2.Config, issuerState stri
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 	}
 
-	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody(f.credentialConfigurationID,
-		f.credentialType, f.oidcCredentialFormat)
+	authorizationDetailsRequestBody, err := f.getAuthorizationDetailsRequestBody()
 	if err != nil {
 		return "", fmt.Errorf("getAuthorizationDetailsRequestBody: %w", err)
 	}
@@ -701,19 +711,232 @@ func (f *Flow) receiveVC(
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialIssuer string,
-) (*verifiable.Credential, error) {
-	credentialEndpoint := lo.FromPtr(wellKnown.CredentialEndpoint)
-
+) ([]*verifiable.Credential, error) {
 	start := time.Now()
 	defer func() {
 		f.perfInfo.GetCredential = time.Since(start)
 	}()
 
-	slog.Info("Getting credential",
-		"credential_endpoint", credentialEndpoint,
-		"credential_issuer", credentialIssuer,
-	)
+	proof, err := f.buildProof(token, credentialIssuer)
+	if err != nil {
+		return nil, fmt.Errorf("build proof: %w", err)
+	}
 
+	credentialFilters, err := f.getCredentialRequestOIDCCredentialFilters(wellKnown)
+	if err != nil {
+		return nil, fmt.Errorf("getCredentialRequestOIDCCredentialFormat: %w", err)
+	}
+
+	var parseCredentialResponseDataList []*parseCredentialResponseData
+
+	if f.useBatchCredentialsEndpoint {
+		batchCredentialEndpoint := lo.FromPtr(wellKnown.BatchCredentialEndpoint)
+		if batchCredentialEndpoint == "" {
+			return nil, errors.New("BatchCredentialEndpoint is not enalbed for given profile")
+		}
+
+		slog.Info("Getting batch credential",
+			"batch_credential_endpoint", batchCredentialEndpoint,
+			"credential_issuer", credentialIssuer,
+		)
+
+		credentialResp, err := f.batchCredentialRequest(
+			batchCredentialEndpoint,
+			token,
+			credentialFilters,
+			proof,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("batchCredentialRequest: %w", err)
+		}
+
+		for _, credentialData := range credentialResp.CredentialResponses {
+			parseCredentialResponseDataList = append(parseCredentialResponseDataList,
+				&parseCredentialResponseData{
+					credential:     credentialData.Credential,
+					notificationID: credentialData.NotificationId,
+				})
+		}
+
+	} else {
+		credentialEndpoint := lo.FromPtr(wellKnown.CredentialEndpoint)
+		slog.Info("Getting credential",
+			"credential_endpoint", credentialEndpoint,
+			"credential_issuer", credentialIssuer,
+		)
+
+		credentialResp, err := f.credentialRequest(
+			credentialEndpoint,
+			token,
+			credentialFilters[0].oidcCredentialFormat,
+			credentialFilters[0].credentialType,
+			proof,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("credentialRequest: %w", err)
+		}
+
+		parseCredentialResponseDataList = append(parseCredentialResponseDataList,
+			&parseCredentialResponseData{
+				credential:     credentialResp.Credential,
+				notificationID: credentialResp.NotificationId,
+			})
+	}
+
+	credentials, err := f.parseCredentialsResponse(parseCredentialResponseDataList, token, wellKnown)
+	if err != nil {
+		return nil, fmt.Errorf("parseCredentialsResponse: %w", err)
+	}
+
+	return credentials, nil
+}
+
+func (f *Flow) credentialRequest(
+	credentialEndpoint string,
+	token *oauth2.Token,
+	credentialFormat vcsverifiable.OIDCFormat,
+	credentialType string,
+	proof *Proof,
+) (*CredentialResponse, error) {
+	b, err := json.Marshal(CredentialRequest{
+		Format: credentialFormat,
+		CredentialDefinition: &CredentialDefinition{
+			Type: []string{"VerifiableCredential", credentialType},
+		},
+		CredentialIdentifier:         nil, // not supported for now
+		Proof:                        *proof,
+		CredentialResponseEncryption: nil, // not supported for now
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal credential request: %w", err)
+	}
+
+	responseBody, err := f.doCredentialRequest(credentialEndpoint, b, token)
+	if err != nil {
+		return nil, fmt.Errorf("doCredentialRequest: %w", err)
+	}
+
+	var credentialResp CredentialResponse
+
+	if err = json.Unmarshal(responseBody, &credentialResp); err != nil {
+		return nil, fmt.Errorf("decode credential response: %w", err)
+	}
+
+	return &credentialResp, nil
+}
+
+func (f *Flow) batchCredentialRequest(
+	credentialEndpoint string,
+	token *oauth2.Token,
+	credentialFilters []*credentialFilter,
+	proof *Proof,
+) (*BatchCredentialResponse, error) {
+	batchCredentialRequest := BatchCredentialRequest{
+		CredentialRequests: make([]CredentialRequest, 0, len(credentialFilters)),
+	}
+
+	for _, filter := range credentialFilters {
+		req := CredentialRequest{
+			Format: filter.oidcCredentialFormat,
+			CredentialDefinition: &CredentialDefinition{
+				Type: []string{"VerifiableCredential", filter.credentialType},
+			},
+			CredentialIdentifier:         nil, // not supported for now
+			Proof:                        *proof,
+			CredentialResponseEncryption: nil, // not supported for now.
+		}
+		batchCredentialRequest.CredentialRequests = append(batchCredentialRequest.CredentialRequests, req)
+	}
+
+	b, err := json.Marshal(batchCredentialRequest)
+	if err != nil {
+		return nil, fmt.Errorf("marshal batch credential request: %w", err)
+	}
+
+	responseBody, err := f.doCredentialRequest(credentialEndpoint, b, token)
+	if err != nil {
+		return nil, fmt.Errorf("doCredentialRequest: %w", err)
+	}
+
+	var batchCredentialResponse BatchCredentialResponse
+
+	if err = json.Unmarshal(responseBody, &batchCredentialResponse); err != nil {
+		return nil, fmt.Errorf("decode batch credential response: %w", err)
+	}
+
+	return &batchCredentialResponse, nil
+}
+
+func (f *Flow) parseCredentialsResponse(
+	parseCredentialResponseDataList []*parseCredentialResponseData,
+	token *oauth2.Token,
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+) ([]*verifiable.Credential, error) {
+	notificationIDs := make([]string, 0, len(parseCredentialResponseDataList))
+	credentials := make([]*verifiable.Credential, 0, len(parseCredentialResponseDataList))
+
+	for _, parseCredentialData := range parseCredentialResponseDataList {
+		vcBytes, err := json.Marshal(parseCredentialData.credential)
+		if err != nil {
+			return nil, fmt.Errorf("marshal credential response: %w", err)
+		}
+
+		parsedVC, err := verifiable.ParseCredential(vcBytes,
+			verifiable.WithJSONLDDocumentLoader(f.documentLoader),
+			verifiable.WithDisabledProofCheck(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("parse credential: %w", err)
+		}
+
+		if err = f.wallet.Add(vcBytes); err != nil {
+			return nil, fmt.Errorf("add credential to wallet: %w", err)
+		}
+
+		var cslURL, statusListIndex, statusListType string
+
+		if vcc := parsedVC.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
+			statusListType = vcc.Status.Type
+
+			u, ok := vcc.Status.CustomFields["statusListCredential"].(string)
+			if ok {
+				cslURL = u
+			}
+
+			i, ok := vcc.Status.CustomFields["statusListIndex"].(string)
+			if ok {
+				statusListIndex = i
+			}
+		}
+
+		predicate := func(item string, i int) bool {
+			return !strings.EqualFold(item, "VerifiableCredential")
+		}
+
+		slog.Info("credential added to wallet",
+			"credential_id", parsedVC.Contents().ID,
+			"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
+			"issuer_id", parsedVC.Contents().Issuer.ID,
+			"csl_url", cslURL,
+			"status_list_index", statusListIndex,
+			"status_list_type", statusListType,
+		)
+
+		credentials = append(credentials, parsedVC)
+		notificationIDs = append(notificationIDs, lo.FromPtr(parseCredentialData.notificationID))
+	}
+
+	if err := f.handleIssuanceAck(wellKnown, notificationIDs, token); err != nil {
+		return nil, fmt.Errorf("handleIssuanceAck: %w", err)
+	}
+
+	return credentials, nil
+}
+
+func (f *Flow) buildProof(
+	token *oauth2.Token,
+	credentialIssuer string,
+) (*Proof, error) {
 	claims := &ProofClaims{
 		Issuer:   f.clientID,
 		IssuedAt: lo.ToPtr(time.Now().Unix()),
@@ -721,7 +944,7 @@ func (f *Flow) receiveVC(
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	proof, err := f.proofBuilder.Build(context.TODO(), &CreateProofRequest{
+	return f.proofBuilder.Build(context.TODO(), &CreateProofRequest{
 		Signer:           f.signer,
 		CustomHeaders:    map[string]interface{}{},
 		WalletKeyID:      f.walletKeyID,
@@ -731,25 +954,14 @@ func (f *Flow) receiveVC(
 		WalletDID:        f.wallet.DIDs()[0].ID,
 		CredentialIssuer: credentialIssuer,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("build proof: %w", err)
-	}
+}
 
-	oidcCredentialFormat, err := f.getCredentialRequestOIDCCredentialFormat(wellKnown)
-	if err != nil {
-		return nil, fmt.Errorf("getCredentialRequestOIDCCredentialFormat: %w", err)
-	}
-
-	b, err := json.Marshal(CredentialRequest{
-		Format: oidcCredentialFormat,
-		Types:  []string{"VerifiableCredential", f.credentialType},
-		Proof:  *proof,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("marshal credential request: %w", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, credentialEndpoint, bytes.NewBuffer(b))
+func (f *Flow) doCredentialRequest(
+	credentialEndpoint string,
+	requestPayload []byte,
+	token *oauth2.Token,
+) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodPost, credentialEndpoint, bytes.NewBuffer(requestPayload))
 	if err != nil {
 		return nil, fmt.Errorf("new credential request: %w", err)
 	}
@@ -768,98 +980,70 @@ func (f *Flow) receiveVC(
 		}
 	}()
 
-	if resp.StatusCode != http.StatusOK {
-		if b, err = io.ReadAll(resp.Body); err != nil {
-			return nil, err
-		}
+	var responseBody []byte
+	if responseBody, err = io.ReadAll(resp.Body); err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
 
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf(
 			"get credential: status %s and body %s",
 			resp.Status,
-			string(b),
+			string(responseBody),
 		)
 	}
 
-	var credentialResp CredentialResponse
-
-	if err = json.NewDecoder(resp.Body).Decode(&credentialResp); err != nil {
-		return nil, fmt.Errorf("decode credential response: %w", err)
-	}
-
-	vcBytes, err := json.Marshal(credentialResp.Credential)
-	if err != nil {
-		return nil, fmt.Errorf("marshal credential response: %w", err)
-	}
-
-	parsedVC, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithJSONLDDocumentLoader(f.documentLoader),
-		verifiable.WithDisabledProofCheck(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("parse credential: %w", err)
-	}
-
-	if err = f.wallet.Add(vcBytes); err != nil {
-		return nil, fmt.Errorf("add credential to wallet: %w", err)
-	}
-
-	var cslURL, statusListIndex, statusListType string
-
-	if vcc := parsedVC.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
-		statusListType = vcc.Status.Type
-
-		u, ok := vcc.Status.CustomFields["statusListCredential"].(string)
-		if ok {
-			cslURL = u
-		}
-
-		i, ok := vcc.Status.CustomFields["statusListIndex"].(string)
-		if ok {
-			statusListIndex = i
-		}
-	}
-
-	predicate := func(item string, i int) bool {
-		return !strings.EqualFold(item, "VerifiableCredential")
-	}
-
-	slog.Info("credential added to wallet",
-		"credential_id", parsedVC.Contents().ID,
-		"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
-		"issuer_id", parsedVC.Contents().Issuer.ID,
-		"csl_url", cslURL,
-		"status_list_index", statusListIndex,
-		"status_list_type", statusListType,
-	)
-
-	if err = f.handleIssuanceAck(wellKnown, &credentialResp, token); err != nil {
-		return nil, err
-	}
-
-	return parsedVC, nil
+	return responseBody, nil
 }
 
-func (f *Flow) getCredentialRequestOIDCCredentialFormat(
+// getCredentialRequestOIDCCredentialFilters returns list of credentialType and credentialFormat pairs
+// used for Credential request or Batch Credential request.
+func (f *Flow) getCredentialRequestOIDCCredentialFilters(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
-) (vcsverifiable.OIDCFormat, error) {
-	// Take default value as f.oidcCredentialFormat
-	if f.oidcCredentialFormat != "" {
-		return f.oidcCredentialFormat, nil
+) ([]*credentialFilter, error) {
+	// Take default value as f.credentialFilters
+	if len(f.credentialFilters) > 0 {
+		return f.credentialFilters, nil
 	}
 
-	// For cases, when oidcCredentialFormat is not supplied:
-	if f.credentialConfigurationID != "" {
+	// CredentialFilters is not supplied:
+
+	var credentialFilters []*credentialFilter
+
+	if len(f.credentialConfigurationIDs) > 0 {
 		// CredentialConfigurationID option available so take format from well-known configuration.
-		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
-		format := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[f.credentialConfigurationID].Format
-		if format == "" {
-			return "", fmt.Errorf(
-				"unable to obtain OIDC credential format from issuer well-known configuration. "+
-					"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
-					"with nested `format` field", f.credentialConfigurationID)
+		for _, credentialConfigurationID := range f.credentialConfigurationIDs {
+			credentialConf := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[credentialConfigurationID]
+			format := credentialConf.Format
+			if format == "" {
+				return nil, fmt.Errorf(
+					"unable to obtain OIDC credential format from issuer well-known configuration. "+
+						"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+						"with nested `format` field", credentialConfigurationID)
+			}
+
+			if credentialConf.CredentialDefinition == nil {
+				return nil, fmt.Errorf(
+					"unable to obtain credential type from issuer well-known configuration. "+
+						"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+						"with nested `credential_definition` field", credentialConfigurationID)
+			}
+
+			credentialType, ok := lo.Find(credentialConf.CredentialDefinition.Type, func(item string) bool {
+				return item != "VerifiableCredential"
+			})
+			if !ok {
+				return nil, fmt.Errorf(
+					"unable to get credential type using credential configuration ID %s", credentialConfigurationID)
+			}
+
+			credentialFilters = append(credentialFilters, &credentialFilter{
+				credentialType:       credentialType,
+				oidcCredentialFormat: vcsverifiable.OIDCFormat(format),
+			})
 		}
 
-		return vcsverifiable.OIDCFormat(format), nil
+		return credentialFilters, nil
 	}
 
 	if len(f.scopes) > 0 {
@@ -867,31 +1051,51 @@ func (f *Flow) getCredentialRequestOIDCCredentialFormat(
 		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
 		for _, scope := range f.scopes {
 			for _, credentialConfiguration := range wellKnown.CredentialConfigurationsSupported.AdditionalProperties {
-				if lo.FromPtr(credentialConfiguration.Scope) == scope {
-					return vcsverifiable.OIDCFormat(credentialConfiguration.Format), nil
+				if lo.FromPtr(credentialConfiguration.Scope) != scope {
+					continue
 				}
+
+				format := vcsverifiable.OIDCFormat(credentialConfiguration.Format)
+
+				if credentialConfiguration.CredentialDefinition == nil {
+					return nil, fmt.Errorf(
+						"unable to obtain credential type from issuer well-known configuration. "+
+							"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+							"with nested `credential_definition` field", f.credentialConfigurationIDs[0])
+				}
+
+				credentialType, ok := lo.Find(credentialConfiguration.CredentialDefinition.Type, func(item string) bool {
+					return item != "VerifiableCredential"
+				})
+				if !ok {
+					return nil, fmt.Errorf(
+						"unable to get credential type using credential configuration ID %s", f.credentialConfigurationIDs[0])
+				}
+
+				credentialFilters = append(credentialFilters, &credentialFilter{
+					credentialType:       credentialType,
+					oidcCredentialFormat: vcsverifiable.OIDCFormat(format),
+				})
 			}
 		}
 
-		return "", fmt.Errorf(
-			"unable to obtain OIDC credential format from issuer well-known configuration. "+
-				"Check if `issuer.credentialMetadata.credential_configurations_supported` contains nested object "+
-				"with `scope` field equals to one of the %v", f.scopes)
+		return credentialFilters, nil
 	}
 
-	return "", errors.New("obtain OIDC credential format")
+	return nil, errors.New("obtain OIDC credential format")
 }
+
 func (f *Flow) handleIssuanceAck(
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
-	credResponse *CredentialResponse,
+	notificationIDs []string,
 	token *oauth2.Token,
 ) error {
-	if wellKnown == nil || credResponse == nil {
+	if wellKnown == nil || len(notificationIDs) == 0 {
 		return nil
 	}
 
 	notificationEndpoint := lo.FromPtr(wellKnown.NotificationEndpoint)
-	if notificationEndpoint == "" || lo.FromPtr(credResponse.NotificationId) == "" {
+	if notificationEndpoint == "" {
 		return nil
 	}
 
@@ -901,20 +1105,28 @@ func (f *Flow) handleIssuanceAck(
 	}()
 
 	slog.Info("Sending wallet notification",
-		"notification_id", credResponse.NotificationId,
+		"notification_ids", notificationIDs,
 		"endpoint", notificationEndpoint,
 	)
 
-	b, err := json.Marshal(oidc4civ1.AckRequest{
-		Credentials: []oidc4civ1.AcpRequestItem{
-			{
-				NotificationId:   *credResponse.NotificationId,
-				EventDescription: nil,
-				Event:            "credential_accepted",
-				IssuerIdentifier: wellKnown.CredentialIssuer,
-			},
-		},
-	})
+	ackRequest := oidc4civ1.AckRequest{
+		Credentials: []oidc4civ1.AcpRequestItem{},
+	}
+
+	for _, notificationID := range notificationIDs {
+		if notificationID == "" {
+			continue
+		}
+
+		ackRequest.Credentials = append(ackRequest.Credentials, oidc4civ1.AcpRequestItem{
+			Event:            "credential_accepted",
+			EventDescription: nil,
+			IssuerIdentifier: wellKnown.CredentialIssuer,
+			NotificationId:   notificationID,
+		})
+	}
+
+	b, err := json.Marshal(ackRequest)
 	if err != nil {
 		return err
 	}
@@ -944,43 +1156,45 @@ func (f *Flow) handleIssuanceAck(
 }
 
 // getAuthorizationDetailsRequestBody returns authorization details request body
-// either with credential_configuration_id or format params.
-// If neither credential_configuration_id nor format supplied,
-// Wallet CLI should use scope parameter to request credential type:
+// used in FlowTypeAuthorizationCode or FlowTypeWalletInitiated.
+// Returned value is depended on incoming params: credential_configuration_ids, credential offer response or credential filter params.
+// If none of them supplied, Wallet CLI should use scope parameter to request credential type:
 // https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
 //
 // Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.1
-func (f *Flow) getAuthorizationDetailsRequestBody(
-	credentialConfigurationID, credentialType string, oidcCredentialFormat vcsverifiable.OIDCFormat,
-) ([]byte, error) {
-	res := make([]common.AuthorizationDetails, 1) // We do not support multiple authorization details for now.
+func (f *Flow) getAuthorizationDetailsRequestBody() ([]byte, error) {
+	res := make([]common.AuthorizationDetails, 0)
 
 	switch {
-	case credentialConfigurationID != "": // Priority 1. Based on credentialConfigurationID.
-		res[0] = common.AuthorizationDetails{
-			CredentialConfigurationId: &credentialConfigurationID,
-			CredentialDefinition:      nil,
-			Format:                    nil,
-			Locations:                 nil, // Not supported for now.
-			Type:                      "openid_credential",
+	case len(f.credentialConfigurationIDs) > 0: // Priority 1. Based on credentialConfigurationIDs.
+		for _, credentialConfigurationID := range f.credentialConfigurationIDs {
+			res = append(res, common.AuthorizationDetails{
+				CredentialConfigurationId: lo.ToPtr(credentialConfigurationID),
+				CredentialDefinition:      nil,
+				Format:                    nil,
+				Locations:                 nil, // Not supported for now.
+				Type:                      "openid_credential",
+			})
 		}
-	case oidcCredentialFormat != "": // Priority 2. Based on credentialFormat.
-		res[0] = common.AuthorizationDetails{
-			CredentialConfigurationId: nil,
-			CredentialDefinition: &common.CredentialDefinition{
-				Context:           nil, // Not supported for now.
-				CredentialSubject: nil, // Not supported for now.
-				Type: []string{
-					"VerifiableCredential",
-					credentialType,
+	case len(f.credentialFilters) > 0: // Priority 2. Based on credentialFilters (credentialType & credentialFormat pairs).
+		for _, cr := range f.credentialFilters {
+			res = append(res, common.AuthorizationDetails{
+				CredentialConfigurationId: nil,
+				CredentialDefinition: &common.CredentialDefinition{
+					Context:           nil, // Not supported for now.
+					CredentialSubject: nil, // Not supported for now.
+					Type: []string{
+						"VerifiableCredential",
+						cr.credentialType,
+					},
 				},
-			},
-			Format:    lo.ToPtr(string(oidcCredentialFormat)),
-			Locations: nil, // Not supported for now.
-			Type:      "openid_credential",
+				Format:    lo.ToPtr(string(cr.oidcCredentialFormat)),
+				Locations: nil, // Not supported for now.
+				Type:      "openid_credential",
+			})
 		}
 	default:
-		// Valid case - neither credentialFormat nor credentialConfigurationID supplied.
+		// Valid case - neither credentialFilters nor credentialConfigurationID supplied.
 		return nil, nil
 	}
 
@@ -1031,21 +1245,21 @@ func (s *callbackServer) ServeHTTP(
 }
 
 type options struct {
-	flowType                   FlowType
-	proofBuilder               ProofBuilder
-	credentialOffer            string
-	credentialType             string
-	oidcCredentialFormat       vcsverifiable.OIDCFormat
-	credentialConfigurationID  string
-	clientID                   string
-	scopes                     []string
-	redirectURI                string
-	enableDiscoverableClientID bool
-	userLogin                  string
-	userPassword               string
-	issuerState                string
-	pin                        string
-	walletDIDIndex             int
+	flowType                    FlowType
+	proofBuilder                ProofBuilder
+	credentialOffer             string
+	clientID                    string
+	credentialConfigurationIDs  []string
+	scopes                      []string
+	redirectURI                 string
+	enableDiscoverableClientID  bool
+	useBatchCredentialsEndpoint bool
+	userLogin                   string
+	userPassword                string
+	issuerState                 string
+	pin                         string
+	walletDIDIndex              int
+	credentialFilters           []*credentialFilter
 }
 
 type Opt func(opts *options)
@@ -1068,15 +1282,12 @@ func WithCredentialOffer(credentialOffer string) Opt {
 	}
 }
 
-func WithCredentialType(credentialType string) Opt {
+func WithCredentialFilter(credentialType string, oidcCredentialFormat vcsverifiable.OIDCFormat) Opt {
 	return func(opts *options) {
-		opts.credentialType = credentialType
-	}
-}
-
-func WithOIDCCredentialFormat(oidcCredentialFormat vcsverifiable.OIDCFormat) Opt {
-	return func(opts *options) {
-		opts.oidcCredentialFormat = oidcCredentialFormat
+		opts.credentialFilters = append(opts.credentialFilters, &credentialFilter{
+			credentialType:       credentialType,
+			oidcCredentialFormat: oidcCredentialFormat,
+		})
 	}
 }
 
@@ -1101,6 +1312,12 @@ func WithRedirectURI(redirectURI string) Opt {
 func WithEnableDiscoverableClientID() Opt {
 	return func(opts *options) {
 		opts.enableDiscoverableClientID = true
+	}
+}
+
+func WithBatchCredentialIssuance() Opt {
+	return func(opts *options) {
+		opts.useBatchCredentialsEndpoint = true
 	}
 }
 
@@ -1134,9 +1351,8 @@ func WithWalletDIDIndex(idx int) Opt {
 	}
 }
 
-// WithCredentialConfigurationID adds credentialConfigurationID to authorization request.
-func WithCredentialConfigurationID(credentialConfigurationID string) Opt {
+func WithCredentialConfigurationIDs(credentialConfigurationIDs []string) Opt {
 	return func(opts *options) {
-		opts.credentialConfigurationID = credentialConfigurationID
+		opts.credentialConfigurationIDs = credentialConfigurationIDs
 	}
 }
