@@ -150,10 +150,10 @@ type ExchangeAuthorizationCodeResponse struct {
 // An object that describes specifics of the Multiple Credential Issuance.
 type InitiateIssuanceCredentialConfiguration struct {
 	// Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
-	ClaimData *map[string]interface{} `json:"claim_data,omitempty"`
+	ClaimData *map[string]interface{} `json:"claim_data"`
 
 	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
-	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
+	ClaimEndpoint *string `json:"claim_endpoint"`
 
 	// Model for composing OIDC4CI credential.
 	Compose *ComposeOIDC4CICredential `json:"compose,omitempty"`
@@ -177,7 +177,7 @@ type InitiateOIDC4CIRequest struct {
 	AuthorizationDetails *string `json:"authorization_details,omitempty"`
 
 	// Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
-	ClaimData *map[string]interface{} `json:"claim_data,omitempty"`
+	ClaimData *map[string]interface{} `json:"claim_data"`
 
 	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
