@@ -56,10 +56,11 @@ type Steps struct {
 	wallet           *wallet.Wallet
 	wellKnownService *wellknown.Service
 
-	issuedCredentialType       string
-	issuedCredentialTemplateID string
-	vpClaimsTransactionID      string
-	presentationDefinitionID   string
+	issuedCredentialType                               string
+	issuedCredentialTemplateID                         string
+	vpClaimsTransactionID                              string
+	presentationDefinitionID                           string
+	useCredentialOfferCredConfigIDForCredentialRequest bool
 
 	// Stress testing
 	usersNum                   int
@@ -89,6 +90,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Profile "([^"]*)" issuer has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeIssuerProfileUser)
 	sc.Step(`^Profile "([^"]*)" verifier has been authorized with username "([^"]*)" and password "([^"]*)"$`, s.authorizeVerifierProfileUser)
 	sc.Step(`^User holds credential "([^"]*)" with templateID "([^"]*)"$`, s.credentialTypeTemplateID)
+	sc.Step(`^User wants to make credentials request based on credential offer "([^"]*)"$`, s.useCredentialOfferForCredentialRequest)
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
 	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
@@ -157,6 +159,7 @@ func (s *Steps) ResetAndSetup() error {
 	s.stressResult = nil
 	s.proofType = "jwt"
 	s.initiateIssuanceApiVersion = ""
+	s.useCredentialOfferCredConfigIDForCredentialRequest = false
 	s.composeFeatureEnabled = false
 	s.composeCredential = nil
 

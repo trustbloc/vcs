@@ -93,6 +93,7 @@ Feature: OIDC4VC REST API
   Scenario Outline: OIDC Batch credential issuance and verification Pre Auth flow (request all credentials by credential type)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "nil"
+    And  User wants to make credentials request based on credential offer "<useCredentialOfferForCredentialRequest>"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate batch credential issuance using pre authorization code flow
@@ -103,12 +104,13 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 #     In examples below Initiate Issuence request and Credential request are based on credentialType param.
     Examples:
-      | issuerProfile    | credentialType                                                     | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
+      | issuerProfile    | credentialType                                                     | useCredentialOfferForCredentialRequest | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
-      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+#      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | false                                  | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+#      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | false                                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 #     Same VC type
-      | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+#      | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | false                                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | true                                   | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
   @oidc4vc_rest_auth_flow_credential_conf_id
   Scenario Outline: OIDC credential issuance and verification Auth flow using credential configuration ID to request specific credential type
@@ -277,16 +279,19 @@ Feature: OIDC4VC REST API
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
     Then Malicious attacker stealing auth code from User and using "malicious_attacker_id" ClientID makes /token request and receives "invalid_client" error
 
+  @oidc4vc_auth_malicious_attacker_changed_signingKeyID
   Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker changed signingKeyID & calling credential endpoint with it)
     Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
     Then Malicious attacker changed JWT kid header and makes /credential request and receives "invalid_or_missing_proof" error
 
+  @oidc4vc_auth_malicious_attacker_changed_jwt
   Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker changed JWT signature value & calling credential endpoint with it)
     Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"
     Then Malicious attacker changed signature value and makes /credential request and receives "invalid_or_missing_proof" error
 
+  @oidc4vc_auth_malicious_attacker_changed_nonce
   Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker changed nonce & calling credential endpoint with it)
     Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"

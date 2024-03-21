@@ -276,7 +276,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, "did:123", data.DID)
 						assert.False(t, data.WalletInitiatedIssuance)
 
-						assert.Len(t, data.CredentialConfiguration, 2)
+						assert.Len(t, data.CredentialConfiguration, 3)
 
 						prcCredConf := data.CredentialConfiguration[0]
 						assert.NotEmpty(t, prcCredConf.CredentialTemplate)
@@ -291,6 +291,18 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
 
 						univDegreeCredConf := data.CredentialConfiguration[1]
+						assert.NotEmpty(t, univDegreeCredConf.CredentialTemplate)
+						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), univDegreeCredConf.OIDCCredentialFormat)
+						assert.Empty(t, univDegreeCredConf.ClaimEndpoint)
+						assert.NotEmpty(t, univDegreeCredConf.ClaimDataID)
+						assert.Equal(t, "vc_name2", univDegreeCredConf.CredentialName)
+						assert.Equal(t, "vc_desc2", univDegreeCredConf.CredentialDescription)
+						assert.Equal(t, "UniversityDegreeCredentialIdentifier", univDegreeCredConf.CredentialConfigurationID)
+						assert.NotEmpty(t, univDegreeCredConf.CredentialExpiresAt)
+						assert.NotEmpty(t, prcCredConf.PreAuthCodeExpiresAt)
+						assert.Empty(t, prcCredConf.AuthorizationDetails)
+
+						univDegreeCredConf = data.CredentialConfiguration[2]
 						assert.NotEmpty(t, univDegreeCredConf.CredentialTemplate)
 						assert.Equal(t, verifiable.OIDCFormat("jwt_vc_json"), univDegreeCredConf.OIDCCredentialFormat)
 						assert.Empty(t, univDegreeCredConf.ClaimEndpoint)
@@ -320,12 +332,19 @@ func TestService_InitiateIssuance(t *testing.T) {
 										},
 										CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 									},
+									{
+										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
+										CredentialTemplate: &profileapi.CredentialTemplate{
+											ID: "templateID2",
+										},
+										CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
+									},
 								},
 							},
 						}, nil
 					})
 
-				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).Return(nil)
 				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
 
 				chunks := &dataprotect.EncryptedData{
@@ -333,10 +352,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
-				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(2).
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(3).
 					Return(chunks, nil)
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(3).DoAndReturn(
 					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
 						assert.Equal(t, chunks, data.EncryptedData)
 
@@ -413,6 +432,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 							CredentialName:        "vc_name2",
 							CredentialDescription: "vc_desc2",
 						},
+						{
+							ClaimData: map[string]interface{}{
+								"key3": "value3",
+							},
+							ClaimEndpoint:         "",
+							CredentialTemplateID:  "templateID2",
+							CredentialExpiresAt:   now,
+							CredentialName:        "vc_name2",
+							CredentialDescription: "vc_desc2",
+						},
 					},
 				}
 
@@ -421,7 +450,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
