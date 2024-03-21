@@ -1535,6 +1535,7 @@ components:
         claim_data:
           deprecated: true
           type: object
+          nullable: true
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
         wallet_initiated_issuance:
           type: boolean
@@ -2139,9 +2140,11 @@ components:
           $ref: '#/components/schemas/ComposeOIDC4CICredential'
         claim_data:
           type: object
+          nullable: true
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
         claim_endpoint:
           type: string
+          nullable: true
           description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
         credential_template_id:
           type: string
