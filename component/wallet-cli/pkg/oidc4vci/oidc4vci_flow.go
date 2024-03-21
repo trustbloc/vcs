@@ -429,7 +429,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 
 	f.perfInfo.GetAccessToken = time.Since(start)
 
-	return f.receiveVC(token, openIDConfig, credentialIssuer)
+	return f.receiveVC(token, openIDConfig, credentialOfferResponse, credentialIssuer)
 }
 
 func (f *Flow) Signer() jose.Signer {
@@ -710,6 +710,7 @@ func (f *Flow) getAttestationVP() (string, error) {
 func (f *Flow) receiveVC(
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+	credentialOfferResponse *oidc4ci.CredentialOfferResponse,
 	credentialIssuer string,
 ) ([]*verifiable.Credential, error) {
 	start := time.Now()
@@ -722,14 +723,16 @@ func (f *Flow) receiveVC(
 		return nil, fmt.Errorf("build proof: %w", err)
 	}
 
-	credentialFilters, err := f.getCredentialRequestOIDCCredentialFilters(wellKnown)
+	credentialFilters, err := f.getCredentialRequestOIDCCredentialFilters(credentialOfferResponse, wellKnown)
 	if err != nil {
 		return nil, fmt.Errorf("getCredentialRequestOIDCCredentialFormat: %w", err)
 	}
 
 	var parseCredentialResponseDataList []*parseCredentialResponseData
 
-	if f.useBatchCredentialsEndpoint {
+	canUseBatchCredentialsEndpoint := lo.FromPtr(wellKnown.BatchCredentialEndpoint) != "" && len(credentialFilters) > 1
+
+	if canUseBatchCredentialsEndpoint || f.useBatchCredentialsEndpoint {
 		batchCredentialEndpoint := lo.FromPtr(wellKnown.BatchCredentialEndpoint)
 		if batchCredentialEndpoint == "" {
 			return nil, errors.New("BatchCredentialEndpoint is not enalbed for given profile")
@@ -1003,6 +1006,7 @@ func (f *Flow) doCredentialRequest(
 // getCredentialRequestOIDCCredentialFilters returns list of credentialType and credentialFormat pairs
 // used for Credential request or Batch Credential request.
 func (f *Flow) getCredentialRequestOIDCCredentialFilters(
+	credentialOfferResponse *oidc4ci.CredentialOfferResponse,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 ) ([]*credentialFilter, error) {
 	// Take default value as f.credentialFilters
@@ -1012,45 +1016,14 @@ func (f *Flow) getCredentialRequestOIDCCredentialFilters(
 
 	// CredentialFilters is not supplied:
 
-	var credentialFilters []*credentialFilter
-
 	if len(f.credentialConfigurationIDs) > 0 {
 		// CredentialConfigurationID option available so take format from well-known configuration.
-		for _, credentialConfigurationID := range f.credentialConfigurationIDs {
-			credentialConf := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[credentialConfigurationID]
-			format := credentialConf.Format
-			if format == "" {
-				return nil, fmt.Errorf(
-					"unable to obtain OIDC credential format from issuer well-known configuration. "+
-						"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
-						"with nested `format` field", credentialConfigurationID)
-			}
-
-			if credentialConf.CredentialDefinition == nil {
-				return nil, fmt.Errorf(
-					"unable to obtain credential type from issuer well-known configuration. "+
-						"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
-						"with nested `credential_definition` field", credentialConfigurationID)
-			}
-
-			credentialType, ok := lo.Find(credentialConf.CredentialDefinition.Type, func(item string) bool {
-				return item != "VerifiableCredential"
-			})
-			if !ok {
-				return nil, fmt.Errorf(
-					"unable to get credential type using credential configuration ID %s", credentialConfigurationID)
-			}
-
-			credentialFilters = append(credentialFilters, &credentialFilter{
-				credentialType:       credentialType,
-				oidcCredentialFormat: vcsverifiable.OIDCFormat(format),
-			})
-		}
-
-		return credentialFilters, nil
+		return f.getCredentialFiltersFromCredentialConfigurationIDs(f.credentialConfigurationIDs, wellKnown)
 	}
 
 	if len(f.scopes) > 0 {
+		var credentialFilters []*credentialFilter
+
 		// scopes option available so take format from well-known configuration.
 		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
 		for _, scope := range f.scopes {
@@ -1086,7 +1059,49 @@ func (f *Flow) getCredentialRequestOIDCCredentialFilters(
 		return credentialFilters, nil
 	}
 
-	return nil, errors.New("obtain OIDC credential format")
+	// Get credential filter from credential offer.
+	return f.getCredentialFiltersFromCredentialConfigurationIDs(
+		credentialOfferResponse.CredentialConfigurationIDs, wellKnown)
+}
+
+func (f *Flow) getCredentialFiltersFromCredentialConfigurationIDs(
+	credentialConfigurationIDs []string,
+	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
+) ([]*credentialFilter, error) {
+	var credentialFilters []*credentialFilter
+
+	for _, credentialConfigurationID := range credentialConfigurationIDs {
+		credentialConf := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[credentialConfigurationID]
+		format := credentialConf.Format
+		if format == "" {
+			return nil, fmt.Errorf(
+				"unable to obtain OIDC credential format from issuer well-known configuration. "+
+					"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+					"with nested `format` field", credentialConfigurationID)
+		}
+
+		if credentialConf.CredentialDefinition == nil {
+			return nil, fmt.Errorf(
+				"unable to obtain credential type from issuer well-known configuration. "+
+					"Check if `issuer.credentialMetadata.credential_configurations_supported` contains key `%s` "+
+					"with nested `credential_definition` field", credentialConfigurationID)
+		}
+
+		credentialType, ok := lo.Find(credentialConf.CredentialDefinition.Type, func(item string) bool {
+			return item != "VerifiableCredential"
+		})
+		if !ok {
+			return nil, fmt.Errorf(
+				"unable to get credential type using credential configuration ID %s", credentialConfigurationID)
+		}
+
+		credentialFilters = append(credentialFilters, &credentialFilter{
+			credentialType:       credentialType,
+			oidcCredentialFormat: vcsverifiable.OIDCFormat(format),
+		})
+	}
+
+	return credentialFilters, nil
 }
 
 func (f *Flow) handleIssuanceAck(

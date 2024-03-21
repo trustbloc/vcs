@@ -437,7 +437,7 @@ func (s *Service) prepareCredentialOffer(
 
 	resp := &CredentialOfferResponse{
 		CredentialIssuer:           issuerURL,
-		CredentialConfigurationIDs: lo.Uniq(credentialConfigurationIDs),
+		CredentialConfigurationIDs: credentialConfigurationIDs,
 		Grants:                     CredentialOfferGrant{},
 	}
 

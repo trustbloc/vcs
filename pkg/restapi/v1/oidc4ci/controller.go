@@ -970,7 +970,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 		credentialRequest := cr
 		did, aud, err = c.HandleProof(ar.GetClient().GetID(), &credentialRequest, session)
 		if err != nil {
-			return fmt.Errorf("handle proof: %w", err)
+			return err
 		}
 
 		var credentialTypes []string

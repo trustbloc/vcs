@@ -143,19 +143,19 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIRequest initiateOIDC4VCIReques
 
 	opts = append(opts, options...)
 
-	credentialTypes := strings.Split(s.issuedCredentialType, ",")
+	if !s.useCredentialOfferCredConfigIDForCredentialRequest {
+		credentialTypes := strings.Split(s.issuedCredentialType, ",")
 
-	// Set option filters
-	for _, credentialType := range credentialTypes {
-		format := s.getIssuerOIDCCredentialFormat(credentialType)
-		opts = append(opts, oidc4vci.WithCredentialFilter(credentialType, format))
+		// Set option filters
+		for _, credentialType := range credentialTypes {
+			format := s.getIssuerOIDCCredentialFormat(credentialType)
+			opts = append(opts, oidc4vci.WithCredentialFilter(credentialType, format))
+		}
 	}
 
 	opts = s.addProofBuilder(opts)
 
-	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider,
-		opts...,
-	)
+	flow, err := oidc4vci.NewFlow(s.oidc4vciProvider, opts...)
 	if err != nil {
 		return fmt.Errorf("init pre-auth flow: %w", err)
 	}
@@ -408,6 +408,19 @@ func (s *Steps) runOIDC4CIPreAuthWithError(errorContains string) error {
 func (s *Steps) credentialTypeTemplateID(issuedCredentialType, issuedCredentialTemplateID string) error {
 	s.issuedCredentialType = issuedCredentialType
 	s.issuedCredentialTemplateID = issuedCredentialTemplateID
+
+	return nil
+}
+
+// useCredentialOfferForCredentialRequest let's Wallet to create credential request payload
+// based on credetnial_configuration_ids from credential offer response rather then credential filters (credentialType & credentialFormat).
+// In CLI flow, this behavior can be reproduced via omitting `credential-type` and `credential-format` flags.
+// Can be used only for pre authorized flow.
+// For testing purpose only.
+func (s *Steps) useCredentialOfferForCredentialRequest(trueStr string) error {
+	use, _ := strconv.ParseBool(trueStr)
+
+	s.useCredentialOfferCredConfigIDForCredentialRequest = use
 
 	return nil
 }
