@@ -36,6 +36,9 @@ type ComposeOIDC4CICredential struct {
 
 	// Override issuer.
 	OverrideIssuer *bool `json:"override_issuer"`
+
+	// Override credential subject did.
+	OverrideSubjectDid *bool `json:"override_subject_did"`
 }
 
 // An object that describes specifics of the Credential that the Credential Issuer supports issuance of.

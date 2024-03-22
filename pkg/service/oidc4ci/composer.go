@@ -27,7 +27,7 @@ func (c *CredentialComposer) Compose(
 	credential *verifiable.Credential,
 	tx *Transaction,
 	txCredentialConfiguration *TxCredentialConfiguration,
-	_ *PrepareCredentialRequest,
+	prepRequest *PrepareCredentialRequest,
 ) (*verifiable.Credential, error) {
 	if txCredentialConfiguration == nil || txCredentialConfiguration.CredentialComposeConfiguration == nil {
 		return credential, nil
@@ -44,6 +44,17 @@ func (c *CredentialComposer) Compose(
 
 	if txCredentialConfiguration.CredentialComposeConfiguration.OverrideIssuer {
 		credential = credential.WithModifiedIssuer(&verifiable.Issuer{ID: tx.DID})
+	}
+
+	if txCredentialConfiguration.CredentialComposeConfiguration.OverrideSubjectDID {
+		var newSubjects []verifiable.Subject
+		for _, s := range credential.Contents().Subject {
+			s.ID = prepRequest.DID
+
+			newSubjects = append(newSubjects, s)
+		}
+
+		credential = credential.WithModifiedSubject(newSubjects)
 	}
 
 	return credential, nil

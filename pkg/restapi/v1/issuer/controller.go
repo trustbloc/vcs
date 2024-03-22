@@ -458,9 +458,10 @@ func (c *Controller) initiateIssuance(
 
 		if multiCredentialIssuance.Compose != nil {
 			credConfig.ComposeCredential = &oidc4ci.InitiateIssuanceComposeCredential{
-				Credential:     multiCredentialIssuance.Compose.Credential,
-				IDTemplate:     lo.FromPtr(multiCredentialIssuance.Compose.IdTemplate),
-				OverrideIssuer: lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
+				Credential:         multiCredentialIssuance.Compose.Credential,
+				IDTemplate:         lo.FromPtr(multiCredentialIssuance.Compose.IdTemplate),
+				OverrideIssuer:     lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
+				OverrideSubjectDID: lo.FromPtr(multiCredentialIssuance.Compose.OverrideSubjectDid),
 			}
 		}
 

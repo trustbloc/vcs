@@ -14,7 +14,9 @@ func TestComposer(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		srv := oidc4ci.NewCredentialComposer()
 
-		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{}, verifiable.CustomFields{})
+		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
+			Subject: []verifiable.Subject{{ID: "xxx:yyy"}},
+		}, verifiable.CustomFields{})
 		assert.NoError(t, err)
 
 		resp, err := srv.Compose(
@@ -28,11 +30,14 @@ func TestComposer(t *testing.T) {
 			},
 			&oidc4ci.TxCredentialConfiguration{
 				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:     "hardcoded:{{.TxID}}:suffix",
-					OverrideIssuer: true,
+					IDTemplate:         "hardcoded:{{.TxID}}:suffix",
+					OverrideIssuer:     true,
+					OverrideSubjectDID: true,
 				},
 			},
-			&oidc4ci.PrepareCredentialRequest{},
+			&oidc4ci.PrepareCredentialRequest{
+				DID: "some-awesome-did",
+			},
 		)
 
 		assert.NoError(t, err)
@@ -40,6 +45,7 @@ func TestComposer(t *testing.T) {
 
 		assert.EqualValues(t, "hardcoded:some-awesome-id:suffix", resp.Contents().ID)
 		assert.EqualValues(t, "did:example:123", resp.Contents().Issuer.ID)
+		assert.EqualValues(t, "some-awesome-did", resp.Contents().Subject[0].ID)
 	})
 
 	t.Run("invalid template", func(t *testing.T) {
