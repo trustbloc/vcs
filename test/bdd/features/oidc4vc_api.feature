@@ -106,10 +106,10 @@ Feature: OIDC4VC REST API
     Examples:
       | issuerProfile    | credentialType                                                     | useCredentialOfferForCredentialRequest | issuedCredentialsAmount | verifierProfile      | presentationDefinitionID                  | fields         |
 #      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-#      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | false                                  | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
-#      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | false                                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential,VerifiedEmployee | false                                  | 3                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential,CrudeProductCredential                  | false                                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 #     Same VC type
-#      | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | false                                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
+      | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | false                                  | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
       | bank_issuer/v1.0 | UniversityDegreeCredential,UniversityDegreeCredential              | true                                   | 2                       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field | degree_type_id |
 
   @oidc4vc_rest_auth_flow_credential_conf_id
