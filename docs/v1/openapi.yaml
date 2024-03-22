@@ -1473,6 +1473,10 @@ components:
             type: boolean
             description: Override issuer.
             nullable: true
+        override_subject_did:
+          type: boolean
+          description: Override credential subject did.
+          nullable: true
         credential:
           type: object
           description: Raw Complete credential for sign and customization
