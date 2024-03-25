@@ -189,13 +189,6 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 		}
 	}
 
-	if len(claims) != len(pd.InputDescriptors) {
-		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
-			len(pd.InputDescriptors),
-			len(claims),
-		)
-	}
-
 	// Check whether credentials are known.
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
@@ -203,6 +196,14 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 	}
 
 	issuedVCID := make(map[string]struct{}, len(credentialMap))
+
+	if len(claims) != len(credentialMap) {
+		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
+			len(pd.InputDescriptors),
+			len(claims),
+		)
+	}
+
 	for _, vcBytes := range credentialMap {
 		var vcParsed *verifiable.Credential
 		vcParsed, err = verifiable.ParseCredential(vcBytes,
