@@ -94,7 +94,6 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User wants to make credentials request based on credential offer "([^"]*)"$`, s.useCredentialOfferForCredentialRequest)
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
 	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
-	sc.Step(`^expected credential amount is "([^"]*)"$`, s.setExpectedCredentialAMount)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// OIDC4VCI

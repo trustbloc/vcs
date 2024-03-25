@@ -41,7 +41,6 @@ Feature: OIDC4VC REST API
 
     When User interacts with Wallet to initiate batch credential issuance using authorization code flow with credential configuration ID "<credentialConfigurationID>"
     Then "<issuedCredentialsAmount>" credentials are issued
-    Then expected credential amount is "<expectedCredentialAmount>"
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
@@ -57,7 +56,6 @@ Feature: OIDC4VC REST API
   Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credential type)
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "nil"
-    Then expected credential amount is "<expectedCredentialAmount>"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
 
     When User interacts with Wallet to initiate batch credential issuance using authorization code flow
