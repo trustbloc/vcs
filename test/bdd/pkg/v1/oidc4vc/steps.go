@@ -11,6 +11,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+	"os"
+
+	"github.com/henvic/httpretty"
 
 	"github.com/cucumber/godog"
 	"github.com/piprate/json-gold/ld"
@@ -63,14 +66,14 @@ type Steps struct {
 	useCredentialOfferCredConfigIDForCredentialRequest bool
 
 	// Stress testing
-	usersNum                   int
-	concurrentReq              int
-	stressResult               *stress.Result
-	proofType                  string
-	initiateIssuanceApiVersion string
-	composeFeatureEnabled      bool
-	composeCredential          *verifiable.Credential
-	expectedCredentialsAmount  int
+	usersNum                       int
+	concurrentReq                  int
+	stressResult                   *stress.Result
+	proofType                      string
+	initiateIssuanceApiVersion     string
+	composeFeatureEnabled          bool
+	composeCredential              *verifiable.Credential
+	expectedCredentialsAmountForVP int
 }
 
 // NewSteps returns new Steps context.
@@ -94,6 +97,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User wants to make credentials request based on credential offer "([^"]*)"$`, s.useCredentialOfferForCredentialRequest)
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
 	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
+	sc.Step(`^expected credential count for vp flow is "([^"]*)"$`, s.setExpectedCredentialsAmountForVP)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// OIDC4VCI
@@ -163,7 +167,7 @@ func (s *Steps) ResetAndSetup() error {
 	s.useCredentialOfferCredConfigIDForCredentialRequest = false
 	s.composeFeatureEnabled = false
 	s.composeCredential = nil
-	s.expectedCredentialsAmount = 0
+	s.expectedCredentialsAmountForVP = 0
 
 	s.tlsConfig = s.bddContext.TLSConfig
 
@@ -229,6 +233,22 @@ func (s *Steps) ResetAndSetup() error {
 		Transport: &http.Transport{
 			TLSClientConfig: s.bddContext.TLSConfig,
 		},
+	}
+
+	if v := os.Getenv("WALLET_CLI_DEBUG"); v == "true" {
+		httpLogger := &httpretty.Logger{
+			RequestHeader:   true,
+			RequestBody:     true,
+			ResponseHeader:  true,
+			ResponseBody:    true,
+			SkipSanitize:    true,
+			Colors:          true,
+			SkipRequestInfo: true,
+			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}},
+			MaxResponseBody: 1e+7,
+		}
+
+		httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
 	}
 
 	wellKnownService := &wellknown.Service{

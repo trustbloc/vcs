@@ -1105,6 +1105,16 @@ func getOrgAuthTokenKey(org string) string {
 	return org + "-accessToken"
 }
 
+func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount string) error {
+	amount, err := strconv.Atoi(expectedCredentialsAmount)
+	if err != nil {
+		return fmt.Errorf("failed to convert %s to int: %w", expectedCredentialsAmount, err)
+	}
+
+	s.expectedCredentialsAmountForVP = amount
+
+	return nil
+}
 func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
@@ -1116,8 +1126,6 @@ func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 		return fmt.Errorf(
 			"unexpected amount of credentials issued. Expected %d, got %d", amount, len(credentialMap))
 	}
-
-	s.expectedCredentialsAmount = amount
 
 	var vcParsed *verifiable.Credential
 

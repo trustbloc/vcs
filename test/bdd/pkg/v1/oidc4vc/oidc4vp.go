@@ -195,7 +195,7 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 		return fmt.Errorf("wallet.GetAll(): %w", err)
 	}
 
-	expectedCredentials := s.expectedCredentialsAmount
+	expectedCredentials := s.expectedCredentialsAmountForVP
 	if expectedCredentials == 0 {
 		expectedCredentials = len(pd.InputDescriptors)
 	}

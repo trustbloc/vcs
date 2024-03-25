@@ -14,6 +14,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/greenpau/go-calculator v1.0.1
+	github.com/henvic/httpretty v0.1.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/ory/fosite v0.44.0
