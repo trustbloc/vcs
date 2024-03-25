@@ -658,7 +658,7 @@ func (s *Service) extractClaimData(
 
 	var storeCredentials []*verifiable.Credential
 
-	for inputDescID, mc := range matchedCredentials {
+	for _, mc := range matchedCredentials {
 		if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
 			token, ok := verifiedPresentations[mc.PresentationID]
 			if !ok {
