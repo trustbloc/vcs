@@ -195,8 +195,12 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 		return fmt.Errorf("wallet.GetAll(): %w", err)
 	}
 
-	expectedCredentials := len(credentialMap)
-	if len(claims) != len(credentialMap) {
+	expectedCredentials := s.expectedCredentialsAmount
+	if expectedCredentials == 0 {
+		expectedCredentials = len(pd.InputDescriptors)
+	}
+
+	if len(claims) != expectedCredentials {
 		return fmt.Errorf("unexpected retrieved credentials amount. Expected %d, got %d",
 			expectedCredentials,
 			len(claims),

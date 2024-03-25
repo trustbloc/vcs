@@ -1105,6 +1105,17 @@ func getOrgAuthTokenKey(org string) string {
 	return org + "-accessToken"
 }
 
+func (s *Steps) setExpectedCredentialAMount(expectedCredentialsAmount string) error {
+	res, err := strconv.Atoi(expectedCredentialsAmount)
+	if err != nil {
+		return fmt.Errorf("convert string to int: %w", err)
+
+	}
+
+	s.expectedCredentialsAmount = res
+	return nil
+}
+
 func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
