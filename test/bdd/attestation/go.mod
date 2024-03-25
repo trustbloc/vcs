@@ -10,8 +10,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955
-	github.com/trustbloc/vc-go v1.1.1-0.20240131142342-c5e522292848
+	github.com/trustbloc/did-go v1.2.0
+	github.com/trustbloc/vc-go v1.1.2-0.20240325152303-366b12dbb6d3
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 
@@ -46,8 +46,8 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.4 // indirect
-	github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4 // indirect
-	github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd // indirect
+	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
+	github.com/trustbloc/kms-go v1.1.1 // indirect
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 // indirect
 	github.com/veraison/go-cose v1.1.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

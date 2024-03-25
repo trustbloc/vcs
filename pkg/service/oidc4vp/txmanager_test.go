@@ -227,10 +227,10 @@ func TestTxManager_Get(t *testing.T) {
 				assert.NoError(t, err)
 
 				rs := &oidc4vp.ReceivedClaims{
-					Credentials: map[string]*verifiable.Credential{
-						"jwt": vc,
-						"sd":  vcSD,
-						"ldp": ld,
+					Credentials: []*verifiable.Credential{
+						vc,
+						vcSD,
+						ld,
 					},
 					CustomScopeClaims: nil,
 				}
@@ -299,10 +299,10 @@ func TestTxManager_Get(t *testing.T) {
 				assert.NoError(t, err)
 
 				rs := &oidc4vp.ReceivedClaims{
-					Credentials: map[string]*verifiable.Credential{
-						"jwt": vc,
-						"sd":  vcSD,
-						"ldp": ld,
+					Credentials: []*verifiable.Credential{
+						vc,
+						vcSD,
+						ld,
 					},
 					CustomScopeClaims: map[string]oidc4vp.Claims{
 						customScope: {
@@ -470,10 +470,10 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = manager.StoreReceivedClaims("txID", &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{
-				"jwt": vc,
-				"sd":  vcSD,
-				"ld":  ld,
+			Credentials: []*verifiable.Credential{
+				vc,
+				vcSD,
+				ld,
 			},
 		})
 
@@ -494,7 +494,7 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 			testutil.DocumentLoader(t))
 
 		err := manager.StoreReceivedClaims("txID", &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{},
+			Credentials: []*verifiable.Credential{},
 		})
 
 		require.ErrorContains(t, err, "can not encrypt")
@@ -515,7 +515,7 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 			testutil.DocumentLoader(t))
 
 		err := manager.StoreReceivedClaims("txID", &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{},
+			Credentials: []*verifiable.Credential{},
 		})
 
 		require.ErrorContains(t, err, "can not store claims")
@@ -617,8 +617,8 @@ func TestDecrypt(t *testing.T) {
 
 	t.Run("invalid credential", func(t *testing.T) {
 		raw := oidc4vp.ReceivedClaimsRaw{
-			Credentials: map[string][]byte{
-				"fail": {0x0, 0x3},
+			Credentials: [][]byte{
+				{0x0, 0x3},
 			},
 		}
 		dec, _ := json.Marshal(raw)

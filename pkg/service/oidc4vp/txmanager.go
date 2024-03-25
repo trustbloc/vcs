@@ -41,12 +41,12 @@ type Transaction struct {
 
 type ReceivedClaims struct {
 	CustomScopeClaims map[string]Claims
-	Credentials       map[string]*verifiable.Credential
+	Credentials       []*verifiable.Credential
 }
 
 // ReceivedClaimsRaw is temporary struct for parsing to ReceivedClaims, as we need to unmarshal credentials separately.
 type ReceivedClaimsRaw struct {
-	Credentials       map[string][]byte `json:"credentials"`
+	Credentials       [][]byte          `json:"credentials"`
 	CustomScopeClaims map[string][]byte `json:"customScopeClaims,omitempty"`
 }
 

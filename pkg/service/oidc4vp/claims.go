@@ -44,15 +44,15 @@ func (tm *TxManager) ClaimsToClaimsRaw(data *ReceivedClaims) (*ReceivedClaimsRaw
 	}
 
 	raw := &ReceivedClaimsRaw{
-		Credentials: map[string][]byte{},
+		Credentials: [][]byte{},
 	}
-	for key, cred := range data.Credentials {
+	for _, cred := range data.Credentials {
 		cl, err := json.Marshal(cred)
 		if err != nil {
 			return nil, fmt.Errorf("serialize received claims %w", err)
 		}
 
-		raw.Credentials[key] = cl
+		raw.Credentials = append(raw.Credentials, cl)
 	}
 
 	if len(data.CustomScopeClaims) > 0 {
@@ -87,10 +87,10 @@ func (tm *TxManager) DecryptClaims(ctx context.Context, data *ClaimData) (*Recei
 	}
 
 	final := &ReceivedClaims{
-		Credentials: map[string]*verifiable.Credential{},
+		Credentials: []*verifiable.Credential{},
 	}
 
-	for k, v := range raw.Credentials {
+	for _, v := range raw.Credentials {
 		parsed, parseErr := verifiable.ParseCredential(v,
 			verifiable.WithJSONLDDocumentLoader(tm.docLoader),
 			verifiable.WithDisabledProofCheck())
@@ -98,7 +98,7 @@ func (tm *TxManager) DecryptClaims(ctx context.Context, data *ClaimData) (*Recei
 		if parseErr != nil {
 			return nil, fmt.Errorf("received claims deserialize failed: %w", parseErr)
 		}
-		final.Credentials[k] = parsed
+		final.Credentials = append(final.Credentials, parsed)
 	}
 
 	if len(raw.CustomScopeClaims) > 0 {

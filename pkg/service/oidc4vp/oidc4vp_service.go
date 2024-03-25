@@ -656,9 +656,9 @@ func (s *Service) extractClaimData(
 			fmt.Errorf("presentation definition match: %w", err))
 	}
 
-	storeCredentials := make(map[string]*verifiable.Credential)
+	var storeCredentials []*verifiable.Credential
 
-	for inputDescID, mc := range matchedCredentials {
+	for _, mc := range matchedCredentials {
 		if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
 			token, ok := verifiedPresentations[mc.PresentationID]
 			if !ok {
@@ -674,7 +674,7 @@ func (s *Service) extractClaimData(
 			logger.Debugc(ctx, "vc subject verified")
 		}
 
-		storeCredentials[inputDescID] = mc.Credential
+		storeCredentials = append(storeCredentials, mc.Credential)
 	}
 
 	receivedClaims := &ReceivedClaims{

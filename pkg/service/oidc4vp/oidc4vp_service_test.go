@@ -954,8 +954,8 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{
-				Credentials: map[string]*verifiable.Credential{
-					"id": jwtvc,
+				Credentials: []*verifiable.Credential{
+					jwtvc,
 				},
 				CustomScopeClaims: map[string]oidc4vp.Claims{
 					customScope: {
@@ -994,8 +994,8 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.NoError(t, err)
 
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
-			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
-				"id": ldvc,
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: []*verifiable.Credential{
+				ldvc,
 			}}}, &profileapi.Verifier{})
 
 		require.NotNil(t, claims)
@@ -1027,8 +1027,8 @@ func TestService_RetrieveClaims(t *testing.T) {
 		}
 
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
-			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
-				"id": credential,
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: []*verifiable.Credential{
+				credential,
 			}}}, &profileapi.Verifier{})
 
 		require.Empty(t, claims)
@@ -1050,8 +1050,8 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{
-				Credentials: map[string]*verifiable.Credential{
-					"id": jwtvc,
+				Credentials: []*verifiable.Credential{
+					jwtvc,
 				},
 				CustomScopeClaims: map[string]oidc4vp.Claims{
 					customScope: {
