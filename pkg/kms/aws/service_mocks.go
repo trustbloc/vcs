@@ -50,34 +50,10 @@ func (m *MockawsClient) CreateAlias(ctx context.Context, params *kms.CreateAlias
 }
 
 // CreateAlias indicates an expected call of CreateAlias.
-func (mr *MockawsClientMockRecorder) CreateAlias(ctx, params interface{}, optFns ...interface{}) *awsClientCreateAliasCall {
+func (mr *MockawsClientMockRecorder) CreateAlias(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAlias", reflect.TypeOf((*MockawsClient)(nil).CreateAlias), varargs...)
-	return &awsClientCreateAliasCall{Call: call}
-}
-
-// awsClientCreateAliasCall wrap *gomock.Call
-type awsClientCreateAliasCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientCreateAliasCall) Return(arg0 *kms.CreateAliasOutput, arg1 error) *awsClientCreateAliasCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientCreateAliasCall) Do(f func(context.Context, *kms.CreateAliasInput, ...func(*kms.Options)) (*kms.CreateAliasOutput, error)) *awsClientCreateAliasCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientCreateAliasCall) DoAndReturn(f func(context.Context, *kms.CreateAliasInput, ...func(*kms.Options)) (*kms.CreateAliasOutput, error)) *awsClientCreateAliasCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAlias", reflect.TypeOf((*MockawsClient)(nil).CreateAlias), varargs...)
 }
 
 // CreateKey mocks base method.
@@ -94,34 +70,10 @@ func (m *MockawsClient) CreateKey(ctx context.Context, params *kms.CreateKeyInpu
 }
 
 // CreateKey indicates an expected call of CreateKey.
-func (mr *MockawsClientMockRecorder) CreateKey(ctx, params interface{}, optFns ...interface{}) *awsClientCreateKeyCall {
+func (mr *MockawsClientMockRecorder) CreateKey(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateKey", reflect.TypeOf((*MockawsClient)(nil).CreateKey), varargs...)
-	return &awsClientCreateKeyCall{Call: call}
-}
-
-// awsClientCreateKeyCall wrap *gomock.Call
-type awsClientCreateKeyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientCreateKeyCall) Return(arg0 *kms.CreateKeyOutput, arg1 error) *awsClientCreateKeyCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientCreateKeyCall) Do(f func(context.Context, *kms.CreateKeyInput, ...func(*kms.Options)) (*kms.CreateKeyOutput, error)) *awsClientCreateKeyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientCreateKeyCall) DoAndReturn(f func(context.Context, *kms.CreateKeyInput, ...func(*kms.Options)) (*kms.CreateKeyOutput, error)) *awsClientCreateKeyCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateKey", reflect.TypeOf((*MockawsClient)(nil).CreateKey), varargs...)
 }
 
 // Decrypt mocks base method.
@@ -138,34 +90,10 @@ func (m *MockawsClient) Decrypt(ctx context.Context, params *kms.DecryptInput, o
 }
 
 // Decrypt indicates an expected call of Decrypt.
-func (mr *MockawsClientMockRecorder) Decrypt(ctx, params interface{}, optFns ...interface{}) *awsClientDecryptCall {
+func (mr *MockawsClientMockRecorder) Decrypt(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrypt", reflect.TypeOf((*MockawsClient)(nil).Decrypt), varargs...)
-	return &awsClientDecryptCall{Call: call}
-}
-
-// awsClientDecryptCall wrap *gomock.Call
-type awsClientDecryptCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientDecryptCall) Return(arg0 *kms.DecryptOutput, arg1 error) *awsClientDecryptCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientDecryptCall) Do(f func(context.Context, *kms.DecryptInput, ...func(*kms.Options)) (*kms.DecryptOutput, error)) *awsClientDecryptCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientDecryptCall) DoAndReturn(f func(context.Context, *kms.DecryptInput, ...func(*kms.Options)) (*kms.DecryptOutput, error)) *awsClientDecryptCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrypt", reflect.TypeOf((*MockawsClient)(nil).Decrypt), varargs...)
 }
 
 // DescribeKey mocks base method.
@@ -182,34 +110,10 @@ func (m *MockawsClient) DescribeKey(ctx context.Context, params *kms.DescribeKey
 }
 
 // DescribeKey indicates an expected call of DescribeKey.
-func (mr *MockawsClientMockRecorder) DescribeKey(ctx, params interface{}, optFns ...interface{}) *awsClientDescribeKeyCall {
+func (mr *MockawsClientMockRecorder) DescribeKey(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeKey", reflect.TypeOf((*MockawsClient)(nil).DescribeKey), varargs...)
-	return &awsClientDescribeKeyCall{Call: call}
-}
-
-// awsClientDescribeKeyCall wrap *gomock.Call
-type awsClientDescribeKeyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientDescribeKeyCall) Return(arg0 *kms.DescribeKeyOutput, arg1 error) *awsClientDescribeKeyCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientDescribeKeyCall) Do(f func(context.Context, *kms.DescribeKeyInput, ...func(*kms.Options)) (*kms.DescribeKeyOutput, error)) *awsClientDescribeKeyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientDescribeKeyCall) DoAndReturn(f func(context.Context, *kms.DescribeKeyInput, ...func(*kms.Options)) (*kms.DescribeKeyOutput, error)) *awsClientDescribeKeyCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeKey", reflect.TypeOf((*MockawsClient)(nil).DescribeKey), varargs...)
 }
 
 // Encrypt mocks base method.
@@ -226,34 +130,10 @@ func (m *MockawsClient) Encrypt(ctx context.Context, params *kms.EncryptInput, o
 }
 
 // Encrypt indicates an expected call of Encrypt.
-func (mr *MockawsClientMockRecorder) Encrypt(ctx, params interface{}, optFns ...interface{}) *awsClientEncryptCall {
+func (mr *MockawsClientMockRecorder) Encrypt(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encrypt", reflect.TypeOf((*MockawsClient)(nil).Encrypt), varargs...)
-	return &awsClientEncryptCall{Call: call}
-}
-
-// awsClientEncryptCall wrap *gomock.Call
-type awsClientEncryptCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientEncryptCall) Return(arg0 *kms.EncryptOutput, arg1 error) *awsClientEncryptCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientEncryptCall) Do(f func(context.Context, *kms.EncryptInput, ...func(*kms.Options)) (*kms.EncryptOutput, error)) *awsClientEncryptCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientEncryptCall) DoAndReturn(f func(context.Context, *kms.EncryptInput, ...func(*kms.Options)) (*kms.EncryptOutput, error)) *awsClientEncryptCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encrypt", reflect.TypeOf((*MockawsClient)(nil).Encrypt), varargs...)
 }
 
 // GetPublicKey mocks base method.
@@ -270,34 +150,10 @@ func (m *MockawsClient) GetPublicKey(ctx context.Context, params *kms.GetPublicK
 }
 
 // GetPublicKey indicates an expected call of GetPublicKey.
-func (mr *MockawsClientMockRecorder) GetPublicKey(ctx, params interface{}, optFns ...interface{}) *awsClientGetPublicKeyCall {
+func (mr *MockawsClientMockRecorder) GetPublicKey(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublicKey", reflect.TypeOf((*MockawsClient)(nil).GetPublicKey), varargs...)
-	return &awsClientGetPublicKeyCall{Call: call}
-}
-
-// awsClientGetPublicKeyCall wrap *gomock.Call
-type awsClientGetPublicKeyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientGetPublicKeyCall) Return(arg0 *kms.GetPublicKeyOutput, arg1 error) *awsClientGetPublicKeyCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientGetPublicKeyCall) Do(f func(context.Context, *kms.GetPublicKeyInput, ...func(*kms.Options)) (*kms.GetPublicKeyOutput, error)) *awsClientGetPublicKeyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientGetPublicKeyCall) DoAndReturn(f func(context.Context, *kms.GetPublicKeyInput, ...func(*kms.Options)) (*kms.GetPublicKeyOutput, error)) *awsClientGetPublicKeyCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublicKey", reflect.TypeOf((*MockawsClient)(nil).GetPublicKey), varargs...)
 }
 
 // Sign mocks base method.
@@ -314,34 +170,10 @@ func (m *MockawsClient) Sign(ctx context.Context, params *kms.SignInput, optFns 
 }
 
 // Sign indicates an expected call of Sign.
-func (mr *MockawsClientMockRecorder) Sign(ctx, params interface{}, optFns ...interface{}) *awsClientSignCall {
+func (mr *MockawsClientMockRecorder) Sign(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockawsClient)(nil).Sign), varargs...)
-	return &awsClientSignCall{Call: call}
-}
-
-// awsClientSignCall wrap *gomock.Call
-type awsClientSignCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientSignCall) Return(arg0 *kms.SignOutput, arg1 error) *awsClientSignCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientSignCall) Do(f func(context.Context, *kms.SignInput, ...func(*kms.Options)) (*kms.SignOutput, error)) *awsClientSignCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientSignCall) DoAndReturn(f func(context.Context, *kms.SignInput, ...func(*kms.Options)) (*kms.SignOutput, error)) *awsClientSignCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockawsClient)(nil).Sign), varargs...)
 }
 
 // Verify mocks base method.
@@ -358,34 +190,10 @@ func (m *MockawsClient) Verify(ctx context.Context, params *kms.VerifyInput, opt
 }
 
 // Verify indicates an expected call of Verify.
-func (mr *MockawsClientMockRecorder) Verify(ctx, params interface{}, optFns ...interface{}) *awsClientVerifyCall {
+func (mr *MockawsClientMockRecorder) Verify(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, params}, optFns...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockawsClient)(nil).Verify), varargs...)
-	return &awsClientVerifyCall{Call: call}
-}
-
-// awsClientVerifyCall wrap *gomock.Call
-type awsClientVerifyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *awsClientVerifyCall) Return(arg0 *kms.VerifyOutput, arg1 error) *awsClientVerifyCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *awsClientVerifyCall) Do(f func(context.Context, *kms.VerifyInput, ...func(*kms.Options)) (*kms.VerifyOutput, error)) *awsClientVerifyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *awsClientVerifyCall) DoAndReturn(f func(context.Context, *kms.VerifyInput, ...func(*kms.Options)) (*kms.VerifyOutput, error)) *awsClientVerifyCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockawsClient)(nil).Verify), varargs...)
 }
 
 // MockmetricsProvider is a mock of metricsProvider interface.
@@ -418,33 +226,9 @@ func (m *MockmetricsProvider) DecryptCount() {
 }
 
 // DecryptCount indicates an expected call of DecryptCount.
-func (mr *MockmetricsProviderMockRecorder) DecryptCount() *metricsProviderDecryptCountCall {
+func (mr *MockmetricsProviderMockRecorder) DecryptCount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptCount", reflect.TypeOf((*MockmetricsProvider)(nil).DecryptCount))
-	return &metricsProviderDecryptCountCall{Call: call}
-}
-
-// metricsProviderDecryptCountCall wrap *gomock.Call
-type metricsProviderDecryptCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderDecryptCountCall) Return() *metricsProviderDecryptCountCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderDecryptCountCall) Do(f func()) *metricsProviderDecryptCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderDecryptCountCall) DoAndReturn(f func()) *metricsProviderDecryptCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptCount", reflect.TypeOf((*MockmetricsProvider)(nil).DecryptCount))
 }
 
 // DecryptTime mocks base method.
@@ -454,33 +238,9 @@ func (m *MockmetricsProvider) DecryptTime(value time.Duration) {
 }
 
 // DecryptTime indicates an expected call of DecryptTime.
-func (mr *MockmetricsProviderMockRecorder) DecryptTime(value interface{}) *metricsProviderDecryptTimeCall {
+func (mr *MockmetricsProviderMockRecorder) DecryptTime(value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptTime", reflect.TypeOf((*MockmetricsProvider)(nil).DecryptTime), value)
-	return &metricsProviderDecryptTimeCall{Call: call}
-}
-
-// metricsProviderDecryptTimeCall wrap *gomock.Call
-type metricsProviderDecryptTimeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderDecryptTimeCall) Return() *metricsProviderDecryptTimeCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderDecryptTimeCall) Do(f func(time.Duration)) *metricsProviderDecryptTimeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderDecryptTimeCall) DoAndReturn(f func(time.Duration)) *metricsProviderDecryptTimeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptTime", reflect.TypeOf((*MockmetricsProvider)(nil).DecryptTime), value)
 }
 
 // EncryptCount mocks base method.
@@ -490,33 +250,9 @@ func (m *MockmetricsProvider) EncryptCount() {
 }
 
 // EncryptCount indicates an expected call of EncryptCount.
-func (mr *MockmetricsProviderMockRecorder) EncryptCount() *metricsProviderEncryptCountCall {
+func (mr *MockmetricsProviderMockRecorder) EncryptCount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncryptCount", reflect.TypeOf((*MockmetricsProvider)(nil).EncryptCount))
-	return &metricsProviderEncryptCountCall{Call: call}
-}
-
-// metricsProviderEncryptCountCall wrap *gomock.Call
-type metricsProviderEncryptCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderEncryptCountCall) Return() *metricsProviderEncryptCountCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderEncryptCountCall) Do(f func()) *metricsProviderEncryptCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderEncryptCountCall) DoAndReturn(f func()) *metricsProviderEncryptCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncryptCount", reflect.TypeOf((*MockmetricsProvider)(nil).EncryptCount))
 }
 
 // EncryptTime mocks base method.
@@ -526,33 +262,9 @@ func (m *MockmetricsProvider) EncryptTime(value time.Duration) {
 }
 
 // EncryptTime indicates an expected call of EncryptTime.
-func (mr *MockmetricsProviderMockRecorder) EncryptTime(value interface{}) *metricsProviderEncryptTimeCall {
+func (mr *MockmetricsProviderMockRecorder) EncryptTime(value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncryptTime", reflect.TypeOf((*MockmetricsProvider)(nil).EncryptTime), value)
-	return &metricsProviderEncryptTimeCall{Call: call}
-}
-
-// metricsProviderEncryptTimeCall wrap *gomock.Call
-type metricsProviderEncryptTimeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderEncryptTimeCall) Return() *metricsProviderEncryptTimeCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderEncryptTimeCall) Do(f func(time.Duration)) *metricsProviderEncryptTimeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderEncryptTimeCall) DoAndReturn(f func(time.Duration)) *metricsProviderEncryptTimeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncryptTime", reflect.TypeOf((*MockmetricsProvider)(nil).EncryptTime), value)
 }
 
 // ExportPublicKeyCount mocks base method.
@@ -562,33 +274,9 @@ func (m *MockmetricsProvider) ExportPublicKeyCount() {
 }
 
 // ExportPublicKeyCount indicates an expected call of ExportPublicKeyCount.
-func (mr *MockmetricsProviderMockRecorder) ExportPublicKeyCount() *metricsProviderExportPublicKeyCountCall {
+func (mr *MockmetricsProviderMockRecorder) ExportPublicKeyCount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPublicKeyCount", reflect.TypeOf((*MockmetricsProvider)(nil).ExportPublicKeyCount))
-	return &metricsProviderExportPublicKeyCountCall{Call: call}
-}
-
-// metricsProviderExportPublicKeyCountCall wrap *gomock.Call
-type metricsProviderExportPublicKeyCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderExportPublicKeyCountCall) Return() *metricsProviderExportPublicKeyCountCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderExportPublicKeyCountCall) Do(f func()) *metricsProviderExportPublicKeyCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderExportPublicKeyCountCall) DoAndReturn(f func()) *metricsProviderExportPublicKeyCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPublicKeyCount", reflect.TypeOf((*MockmetricsProvider)(nil).ExportPublicKeyCount))
 }
 
 // ExportPublicKeyTime mocks base method.
@@ -598,33 +286,9 @@ func (m *MockmetricsProvider) ExportPublicKeyTime(value time.Duration) {
 }
 
 // ExportPublicKeyTime indicates an expected call of ExportPublicKeyTime.
-func (mr *MockmetricsProviderMockRecorder) ExportPublicKeyTime(value interface{}) *metricsProviderExportPublicKeyTimeCall {
+func (mr *MockmetricsProviderMockRecorder) ExportPublicKeyTime(value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPublicKeyTime", reflect.TypeOf((*MockmetricsProvider)(nil).ExportPublicKeyTime), value)
-	return &metricsProviderExportPublicKeyTimeCall{Call: call}
-}
-
-// metricsProviderExportPublicKeyTimeCall wrap *gomock.Call
-type metricsProviderExportPublicKeyTimeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderExportPublicKeyTimeCall) Return() *metricsProviderExportPublicKeyTimeCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderExportPublicKeyTimeCall) Do(f func(time.Duration)) *metricsProviderExportPublicKeyTimeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderExportPublicKeyTimeCall) DoAndReturn(f func(time.Duration)) *metricsProviderExportPublicKeyTimeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPublicKeyTime", reflect.TypeOf((*MockmetricsProvider)(nil).ExportPublicKeyTime), value)
 }
 
 // SignCount mocks base method.
@@ -634,33 +298,9 @@ func (m *MockmetricsProvider) SignCount() {
 }
 
 // SignCount indicates an expected call of SignCount.
-func (mr *MockmetricsProviderMockRecorder) SignCount() *metricsProviderSignCountCall {
+func (mr *MockmetricsProviderMockRecorder) SignCount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignCount", reflect.TypeOf((*MockmetricsProvider)(nil).SignCount))
-	return &metricsProviderSignCountCall{Call: call}
-}
-
-// metricsProviderSignCountCall wrap *gomock.Call
-type metricsProviderSignCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderSignCountCall) Return() *metricsProviderSignCountCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderSignCountCall) Do(f func()) *metricsProviderSignCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderSignCountCall) DoAndReturn(f func()) *metricsProviderSignCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignCount", reflect.TypeOf((*MockmetricsProvider)(nil).SignCount))
 }
 
 // SignTime mocks base method.
@@ -670,33 +310,9 @@ func (m *MockmetricsProvider) SignTime(value time.Duration) {
 }
 
 // SignTime indicates an expected call of SignTime.
-func (mr *MockmetricsProviderMockRecorder) SignTime(value interface{}) *metricsProviderSignTimeCall {
+func (mr *MockmetricsProviderMockRecorder) SignTime(value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignTime", reflect.TypeOf((*MockmetricsProvider)(nil).SignTime), value)
-	return &metricsProviderSignTimeCall{Call: call}
-}
-
-// metricsProviderSignTimeCall wrap *gomock.Call
-type metricsProviderSignTimeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderSignTimeCall) Return() *metricsProviderSignTimeCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderSignTimeCall) Do(f func(time.Duration)) *metricsProviderSignTimeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderSignTimeCall) DoAndReturn(f func(time.Duration)) *metricsProviderSignTimeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignTime", reflect.TypeOf((*MockmetricsProvider)(nil).SignTime), value)
 }
 
 // VerifyCount mocks base method.
@@ -706,33 +322,9 @@ func (m *MockmetricsProvider) VerifyCount() {
 }
 
 // VerifyCount indicates an expected call of VerifyCount.
-func (mr *MockmetricsProviderMockRecorder) VerifyCount() *metricsProviderVerifyCountCall {
+func (mr *MockmetricsProviderMockRecorder) VerifyCount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyCount", reflect.TypeOf((*MockmetricsProvider)(nil).VerifyCount))
-	return &metricsProviderVerifyCountCall{Call: call}
-}
-
-// metricsProviderVerifyCountCall wrap *gomock.Call
-type metricsProviderVerifyCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderVerifyCountCall) Return() *metricsProviderVerifyCountCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderVerifyCountCall) Do(f func()) *metricsProviderVerifyCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderVerifyCountCall) DoAndReturn(f func()) *metricsProviderVerifyCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyCount", reflect.TypeOf((*MockmetricsProvider)(nil).VerifyCount))
 }
 
 // VerifyTime mocks base method.
@@ -742,31 +334,7 @@ func (m *MockmetricsProvider) VerifyTime(value time.Duration) {
 }
 
 // VerifyTime indicates an expected call of VerifyTime.
-func (mr *MockmetricsProviderMockRecorder) VerifyTime(value interface{}) *metricsProviderVerifyTimeCall {
+func (mr *MockmetricsProviderMockRecorder) VerifyTime(value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyTime", reflect.TypeOf((*MockmetricsProvider)(nil).VerifyTime), value)
-	return &metricsProviderVerifyTimeCall{Call: call}
-}
-
-// metricsProviderVerifyTimeCall wrap *gomock.Call
-type metricsProviderVerifyTimeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *metricsProviderVerifyTimeCall) Return() *metricsProviderVerifyTimeCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *metricsProviderVerifyTimeCall) Do(f func(time.Duration)) *metricsProviderVerifyTimeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *metricsProviderVerifyTimeCall) DoAndReturn(f func(time.Duration)) *metricsProviderVerifyTimeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyTime", reflect.TypeOf((*MockmetricsProvider)(nil).VerifyTime), value)
 }

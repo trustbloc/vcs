@@ -675,7 +675,6 @@ func (s *Service) extractClaimData(
 		}
 
 		storeCredentials = append(storeCredentials, mc.Credential)
-		storeCredentials[inputDescID] = mc.Credential
 	}
 
 	receivedClaims := &ReceivedClaims{
