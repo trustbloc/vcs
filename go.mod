@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.20.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.31.0
-	github.com/btcsuite/btcd/btcec/v2 v2.1.3
+	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/deepmap/oapi-codegen v1.11.0
@@ -36,11 +36,11 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
-	github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4
-	github.com/trustbloc/did-go v1.1.1-0.20240117181910-cb9c77016955
-	github.com/trustbloc/kms-go v1.1.1-0.20240215180414-59c2830d27fd
+	github.com/trustbloc/bbs-signature-go v1.0.2
+	github.com/trustbloc/did-go v1.2.0
+	github.com/trustbloc/kms-go v1.1.1
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.1.1-0.20240131142342-c5e522292848
+	github.com/trustbloc/vc-go v1.1.2-0.20240325152303-366b12dbb6d3
 	github.com/valyala/fastjson v1.6.3
 	github.com/veraison/go-cose v1.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -82,6 +82,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.7.0 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.1.3 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
