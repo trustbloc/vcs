@@ -84,9 +84,9 @@ used for this purpose. The following CLI arguments are supported:
 ```bash
       --attestation-url string             attestation url, i.e. https://<host>/vcs/wallet/attestation
       --client-id string                   vcs oauth2 client
-      --credential-format string           supported credential formats: ldp_vc,jwt_vc_json-ld (default "ldp_vc")
+      --credential-format string           comma-separated credential formats: ldp_vc,jwt_vc_json-ld
       --credential-offer string            openid credential offer
-      --credential-type string             credential type
+      --credential-type string             comma-separated credential types
       --demo-issuer-url string             demo issuer url for downloading qr code automatically
       --enable-discoverable-client-id      enables discoverable client id scheme for dynamic client registration
       --enable-tracing                     enables http tracing
@@ -109,7 +109,7 @@ used for this purpose. The following CLI arguments are supported:
 
 Examples:
 
-* Receive credential from the Issuer using `pre-authorized_code` flow:
+* Receive credential with type `VerifiedEmployee` and format `jwt_vc_json-ld` from the Issuer using `pre-authorized_code` flow:
 ```bash
 ./wallet-cli oidc4vci \
 --leveldb-path "/mnt/wallet.db" \
@@ -117,6 +117,14 @@ Examples:
 --grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code \
 --credential-type VerifiedEmployee \
 --credential-format jwt_vc_json-ld
+```
+
+* Receive all credentials from Issuer's credential offer using `pre-authorized_code` flow:
+```bash
+./wallet-cli oidc4vci \
+--leveldb-path "/mnt/wallet.db" \
+--qr-code-path "qr.png" \
+--grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code
 ```
 
 * Receive credential from the Issuer using `pre-authorized_code` flow with attestation flow:
