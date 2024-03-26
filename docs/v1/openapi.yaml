@@ -1470,9 +1470,9 @@ components:
           description: ID of the credential template.
           nullable: true
         override_issuer:
-            type: boolean
-            description: Override issuer.
-            nullable: true
+          type: boolean
+          description: Override issuer.
+          nullable: true
         override_subject_did:
           type: boolean
           description: Override credential subject did.
@@ -2097,21 +2097,21 @@ components:
           description: A JSON string identifying the scope value that this Credential Issuer supports for this particular credential.
         cryptographic_binding_methods_supported:
           type: array
-          items:
-            type: string
           description: Array of case sensitive strings that identify how the Credential is bound to the identifier of the End-User who possesses the Credential.
-        cryptographic_suites_supported:
-          type: array
           items:
             type: string
-          description: Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
+        credential_signing_alg_values_supported:
+          type: array
+          description: Array of case sensitive strings that identify the algorithms that the Issuer uses to sign the issued Credential.
+          items:
+            type: string
         credential_definition:
           $ref: ./common.yaml#/components/schemas/CredentialDefinition
         order:
           type: array
+          description: Array of the claim name values that lists them in the order they should be displayed by the Wallet.
           items:
             type: string
-          description: Array of the claim name values that lists them in the order they should be displayed by the Wallet.
         doctype:
           type: string
           description: 'For mso_mdoc vc only. String identifying the Credential type, as defined in [ISO.18013-5].'
@@ -2121,11 +2121,11 @@ components:
         claims:
           type: object
           description: 'For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs, where each name identifies a claim about the subject offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.'
-        proof_types:
-          type: array
-          items:
-            type: string
-          description: 'A JSON array of case sensitive strings, each representing proof_type that the Credential Issuer supports. If omitted, the default value is jwt.'
+        proof_types_supported:
+          description: 'Object that describes specifics of the key proof(s) that the Credential Issuer supports.'
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ProofTypeSupported'
         display:
           type: array
           description: 'An array of objects, where each object contains the display properties of the supported credential for a certain language.'
@@ -2133,6 +2133,20 @@ components:
             $ref: '#/components/schemas/CredentialDisplay'
       required:
         - format
+    ProofTypeSupported:
+      title: ProofTypeSupported
+      x-tags:
+        - issuer
+      type: object
+      description: Object that contains metadata about the proof type that the Credential Issuer supports.
+      properties:
+        proof_signing_alg_values_supported:
+          type: array
+          description: Array of case sensitive strings that identify the algorithms that the Issuer supports for this proof type.
+          items:
+            type: string
+      required:
+        - proof_signing_alg_values_supported
     InitiateIssuanceCredentialConfiguration:
       title: InitiateIssuanceCredentialConfiguration object definition.
       x-tags:

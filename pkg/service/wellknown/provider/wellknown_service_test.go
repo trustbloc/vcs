@@ -227,7 +227,7 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, []string{"https://example.com/context/1"}, lo.FromPtr(definition.Context))
 
 		assert.Equal(t, []string{"orb"}, lo.FromPtr(credentialConfigurationSupported.CryptographicBindingMethodsSupported))
-		assert.Equal(t, []string{"ECDSASecp256k1DER"}, lo.FromPtr(credentialConfigurationSupported.CryptographicSuitesSupported))
+		assert.Equal(t, []string{"ECDSASecp256k1DER"}, lo.FromPtr(credentialConfigurationSupported.CredentialSigningAlgValuesSupported))
 
 		credentialConfigurationSupportedDisplay := lo.FromPtr(credentialConfigurationSupported.Display)
 		assert.Equal(t, 1, len(credentialConfigurationSupportedDisplay))
@@ -244,7 +244,16 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, "doctype1", lo.FromPtr(credentialConfigurationSupported.Doctype))
 		assert.Equal(t, "ldp_vc", credentialConfigurationSupported.Format)
 		assert.Equal(t, []string{"claimName1", "claimName2", "claimName3"}, lo.FromPtr(credentialConfigurationSupported.Order))
-		assert.Equal(t, []string{"jwt"}, lo.FromPtr(credentialConfigurationSupported.ProofTypes))
+
+		expectedProofTypeSupported := issuer.CredentialConfigurationsSupported_ProofTypesSupported{
+			AdditionalProperties: map[string]issuer.ProofTypeSupported{
+				"jwt": {
+					ProofSigningAlgValuesSupported: []string{"ECDSASecp256k1DER"},
+				},
+			},
+		}
+
+		assert.Equal(t, expectedProofTypeSupported, lo.FromPtr(credentialConfigurationSupported.ProofTypesSupported))
 		assert.Equal(t, "VerifiedEmployeeCredential", lo.FromPtr(credentialConfigurationSupported.Scope))
 		assert.Equal(t, "vct1", lo.FromPtr(credentialConfigurationSupported.Vct))
 	}
