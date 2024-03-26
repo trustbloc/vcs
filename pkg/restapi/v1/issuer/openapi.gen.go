@@ -49,11 +49,11 @@ type CredentialConfigurationsSupported struct {
 	// Object containing the detailed description of the credential type.
 	CredentialDefinition *externalRef0.CredentialDefinition `json:"credential_definition,omitempty"`
 
+	// Array of case sensitive strings that identify the algorithms that the Issuer uses to sign the issued Credential.
+	CredentialSigningAlgValuesSupported *[]string `json:"credential_signing_alg_values_supported,omitempty"`
+
 	// Array of case sensitive strings that identify how the Credential is bound to the identifier of the End-User who possesses the Credential.
 	CryptographicBindingMethodsSupported *[]string `json:"cryptographic_binding_methods_supported,omitempty"`
-
-	// Array of case sensitive strings that identify the cryptographic suites that are supported for the cryptographic_binding_methods_supported.
-	CryptographicSuitesSupported *[]string `json:"cryptographic_suites_supported,omitempty"`
 
 	// An array of objects, where each object contains the display properties of the supported credential for a certain language.
 	Display *[]CredentialDisplay `json:"display,omitempty"`
@@ -67,14 +67,19 @@ type CredentialConfigurationsSupported struct {
 	// Array of the claim name values that lists them in the order they should be displayed by the Wallet.
 	Order *[]string `json:"order,omitempty"`
 
-	// A JSON array of case sensitive strings, each representing proof_type that the Credential Issuer supports. If omitted, the default value is jwt.
-	ProofTypes *[]string `json:"proof_types,omitempty"`
+	// Object that describes specifics of the key proof(s) that the Credential Issuer supports.
+	ProofTypesSupported *CredentialConfigurationsSupported_ProofTypesSupported `json:"proof_types_supported,omitempty"`
 
 	// A JSON string identifying the scope value that this Credential Issuer supports for this particular credential.
 	Scope *string `json:"scope,omitempty"`
 
 	// For vc+sd-jwt vc only. String designating the type of a Credential, as defined in https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc-01
 	Vct *string `json:"vct,omitempty"`
+}
+
+// Object that describes specifics of the key proof(s) that the Credential Issuer supports.
+type CredentialConfigurationsSupported_ProofTypesSupported struct {
+	AdditionalProperties map[string]ProofTypeSupported `json:"-"`
 }
 
 // CredentialDisplay defines model for CredentialDisplay.
@@ -391,6 +396,12 @@ type PrepareCredentialResult struct {
 	Retry bool `json:"retry"`
 }
 
+// Object that contains metadata about the proof type that the Credential Issuer supports.
+type ProofTypeSupported struct {
+	// Array of case sensitive strings that identify the algorithms that the Issuer supports for this proof type.
+	ProofSigningAlgValuesSupported []string `json:"proof_signing_alg_values_supported"`
+}
+
 // Model for Push Authorization Details request.
 type PushAuthorizationDetailsRequest struct {
 	AuthorizationDetails []externalRef0.AuthorizationDetails `json:"authorization_details"`
@@ -582,6 +593,59 @@ type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// Getter for additional properties for CredentialConfigurationsSupported_ProofTypesSupported. Returns the specified
+// element and whether it was found
+func (a CredentialConfigurationsSupported_ProofTypesSupported) Get(fieldName string) (value ProofTypeSupported, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for CredentialConfigurationsSupported_ProofTypesSupported
+func (a *CredentialConfigurationsSupported_ProofTypesSupported) Set(fieldName string, value ProofTypeSupported) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]ProofTypeSupported)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for CredentialConfigurationsSupported_ProofTypesSupported to handle AdditionalProperties
+func (a *CredentialConfigurationsSupported_ProofTypesSupported) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]ProofTypeSupported)
+		for fieldName, fieldBuf := range object {
+			var fieldVal ProofTypeSupported
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for CredentialConfigurationsSupported_ProofTypesSupported to handle AdditionalProperties
+func (a CredentialConfigurationsSupported_ProofTypesSupported) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // Getter for additional properties for WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported. Returns the specified
 // element and whether it was found

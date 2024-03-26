@@ -229,26 +229,34 @@ func (s *Service) buildCredentialConfigurationsSupported(
 	}
 
 	for credentialConfigurationID, credentialSupported := range credentialConfSupported {
-		var cryptographicBindingMethodsSupported, cryptographicSuitesSupported []string
+		var cryptographicBindingMethodsSupported, signingAlgValuesSupported []string
 
 		if issuerProfile.VCConfig != nil {
 			cryptographicBindingMethodsSupported = []string{string(issuerProfile.VCConfig.DIDMethod)}
-			cryptographicSuitesSupported = []string{string(issuerProfile.VCConfig.KeyType)}
+			signingAlgValuesSupported = []string{string(issuerProfile.VCConfig.KeyType)}
 		}
 
 		display := s.buildCredentialConfigurationsSupportedDisplay(credentialSupported.Display)
 		credentialDefinition := s.buildCredentialDefinition(credentialSupported.CredentialDefinition)
 
+		proofTypeSupported := &issuer.CredentialConfigurationsSupported_ProofTypesSupported{
+			AdditionalProperties: map[string]issuer.ProofTypeSupported{
+				"jwt": {
+					ProofSigningAlgValuesSupported: []string{string(issuerProfile.VCConfig.KeyType)},
+				},
+			},
+		}
+
 		credentialsConfigurationSupported.Set(credentialConfigurationID, issuer.CredentialConfigurationsSupported{
 			Claims:                               lo.ToPtr(credentialSupported.Claims),
 			CredentialDefinition:                 credentialDefinition,
 			CryptographicBindingMethodsSupported: lo.ToPtr(cryptographicBindingMethodsSupported),
-			CryptographicSuitesSupported:         lo.ToPtr(cryptographicSuitesSupported),
+			CredentialSigningAlgValuesSupported:  lo.ToPtr(signingAlgValuesSupported),
 			Display:                              lo.ToPtr(display),
 			Doctype:                              lo.ToPtr(credentialSupported.Doctype),
 			Format:                               string(credentialSupported.Format),
 			Order:                                lo.ToPtr(credentialSupported.Order),
-			ProofTypes:                           lo.ToPtr([]string{"jwt"}),
+			ProofTypesSupported:                  proofTypeSupported,
 			Scope:                                lo.ToPtr(credentialSupported.Scope),
 			Vct:                                  lo.ToPtr(credentialSupported.Vct),
 		})
