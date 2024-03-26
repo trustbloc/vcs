@@ -187,16 +187,17 @@ func (s *Service) attestationInit(ctx context.Context) (*AttestWalletInitRespons
 	logger.Debug("attestation init started", zap.String("walletDID", s.walletDID))
 
 	req := &AttestWalletInitRequest{
-		Assertions: []string{
-			"wallet_authentication",
-		},
-		WalletAuthentication: map[string]interface{}{
-			"wallet_id":             s.walletDID,
-			"authentication_method": s.wallet.AuthenticationMethod(),
-		},
-		WalletMetadata: map[string]interface{}{
-			"wallet_name":    s.wallet.Name(),
-			"wallet_version": s.wallet.Version(),
+		Payload: map[string]interface{}{
+			"application": map[string]interface{}{
+				"type":    s.wallet.WalletType(),
+				"name":    s.wallet.Name(),
+				"version": s.wallet.Version(),
+			},
+			"compliance": []interface{}{
+				map[string]interface{}{
+					"type": s.wallet.Compliance(),
+				},
+			},
 		},
 	}
 

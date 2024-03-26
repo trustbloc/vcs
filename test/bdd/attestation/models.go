@@ -7,10 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 type AttestWalletInitRequest struct {
-	Assertions           []string               `json:"assertions,omitempty"`
-	ClientAssertionType  []string               `json:"client_assertion_type,omitempty"`
-	WalletAuthentication map[string]interface{} `json:"wallet_authentication"`
-	WalletMetadata       map[string]interface{} `json:"wallet_metadata,omitempty"`
+	Payload map[string]interface{} `json:"payload"`
 }
 
 type AttestWalletInitResponse struct {
