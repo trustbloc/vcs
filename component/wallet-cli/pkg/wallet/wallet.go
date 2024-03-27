@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -278,16 +279,21 @@ func (w *Wallet) Close() bool {
 }
 
 // Add adds a marshalled credential to the wallet.
-func (w *Wallet) Add(vc json.RawMessage) error {
-	key, err := getContentID(vc)
-	if err != nil {
-		return err
+func (w *Wallet) Add(vc json.RawMessage, key string) error {
+	if key == "" {
+		var err error
+		key, err = getContentID(vc)
+		if err != nil {
+			return err
+		}
 	}
+
+	slog.Info("Add vc to store", "keyID", key)
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if err = w.store.Put(key, vc, storage.Tag{Name: credentialTag}); err != nil {
+	if err := w.store.Put(key, vc, storage.Tag{Name: credentialTag}); err != nil {
 		return err
 	}
 
