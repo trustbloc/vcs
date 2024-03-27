@@ -34,6 +34,8 @@ Wallet can be created using `create` command. The following CLI arguments are su
       --mongodb-connection-string string   mongodb connection string
       --name string                        wallet name (default "wallet-cli")
       --version string                     wallet version (default "0.1")
+      --wallet-type string                 wallet type (default "some-type")
+      --wallet-compliance string           wallet type (default "some-compliance")
 ```
 
 Examples:

@@ -33,12 +33,13 @@ const (
 	credentialsStore = "wallet:credentials"
 	credentialTag    = "credential"
 
-	configStore             = "wallet:config"
-	signatureTypeKey        = "signatureType"
-	didsKey                 = "dids"
-	nameKey                 = "name"
-	versionKey              = "version"
-	authenticationMethodKey = "authenticationMethod"
+	configStore      = "wallet:config"
+	signatureTypeKey = "signatureType"
+	didsKey          = "dids"
+	nameKey          = "name"
+	versionKey       = "version"
+	walletTypeKey    = "walletType"
+	complianceKey    = "compliance"
 )
 
 type DIDInfo struct {
@@ -48,14 +49,15 @@ type DIDInfo struct {
 }
 
 type Wallet struct {
-	store                storage.Store
-	documentLoader       ld.DocumentLoader
-	mu                   sync.RWMutex
-	signatureType        vcs.SignatureType
-	dids                 []*DIDInfo
-	name                 string
-	version              string
-	authenticationMethod string
+	store          storage.Store
+	documentLoader ld.DocumentLoader
+	mu             sync.RWMutex
+	signatureType  vcs.SignatureType
+	dids           []*DIDInfo
+	name           string
+	version        string
+	walletType     string
+	compliance     string
 }
 
 type provider interface {
@@ -66,21 +68,22 @@ type provider interface {
 }
 
 type options struct {
-	keyType              kmsapi.KeyType
-	newDIDs              []string
-	name                 string
-	version              string
-	authenticationMethod string
+	keyType    kmsapi.KeyType
+	newDIDs    []string
+	name       string
+	version    string
+	walletType string
+	compliance string
 }
 
 type Opt func(opts *options)
 
 func New(p provider, opts ...Opt) (*Wallet, error) {
 	o := &options{
-		newDIDs:              make([]string, 0),
-		name:                 "wallet-cli",
-		version:              "0.1",
-		authenticationMethod: "system_pin",
+		newDIDs:    make([]string, 0),
+		name:       "wallet-cli",
+		version:    "0.1",
+		walletType: "system_pin",
 	}
 
 	for i := range opts {
@@ -118,17 +121,30 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 		o.version = string(v)
 	}
 
-	v, err = configurationStore.Get(authenticationMethodKey)
+	v, err = configurationStore.Get(walletTypeKey)
 	if err != nil {
 		if !errors.Is(err, storage.ErrDataNotFound) {
 			return nil, fmt.Errorf("get authentication method: %w", err)
 		}
 
-		if err = configurationStore.Put(authenticationMethodKey, []byte(o.authenticationMethod)); err != nil {
+		if err = configurationStore.Put(walletTypeKey, []byte(o.walletType)); err != nil {
 			return nil, fmt.Errorf("put authentication method: %w", err)
 		}
 	} else {
-		o.authenticationMethod = string(v)
+		o.walletType = string(v)
+	}
+
+	v, err = configurationStore.Get(complianceKey)
+	if err != nil {
+		if !errors.Is(err, storage.ErrDataNotFound) {
+			return nil, fmt.Errorf("get authentication method: %w", err)
+		}
+
+		if err = configurationStore.Put(complianceKey, []byte(o.compliance)); err != nil {
+			return nil, fmt.Errorf("put authentication method: %w", err)
+		}
+	} else {
+		o.compliance = string(v)
 	}
 
 	var (
@@ -232,13 +248,14 @@ func New(p provider, opts ...Opt) (*Wallet, error) {
 	}
 
 	return &Wallet{
-		store:                store,
-		documentLoader:       p.DocumentLoader(),
-		signatureType:        signatureType,
-		dids:                 dids,
-		name:                 o.name,
-		version:              o.version,
-		authenticationMethod: o.authenticationMethod,
+		store:          store,
+		documentLoader: p.DocumentLoader(),
+		signatureType:  signatureType,
+		dids:           dids,
+		name:           o.name,
+		version:        o.version,
+		walletType:     o.walletType,
+		compliance:     o.compliance,
 	}, nil
 }
 
@@ -479,8 +496,12 @@ func (w *Wallet) Version() string {
 	return w.version
 }
 
-func (w *Wallet) AuthenticationMethod() string {
-	return w.authenticationMethod
+func (w *Wallet) WalletType() string {
+	return w.walletType
+}
+
+func (w *Wallet) Compliance() string {
+	return w.compliance
 }
 
 func WithNewDID(method string) Opt {
@@ -507,8 +528,14 @@ func WithVersion(version string) Opt {
 	}
 }
 
-func WithAuthenticationMethod(method string) Opt {
+func WithWalletType(walletType string) Opt {
 	return func(opts *options) {
-		opts.authenticationMethod = method
+		opts.walletType = walletType
+	}
+}
+
+func WithCompliance(compliance string) Opt {
+	return func(opts *options) {
+		opts.compliance = compliance
 	}
 }
