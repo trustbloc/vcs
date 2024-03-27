@@ -882,7 +882,7 @@ func (f *Flow) parseCredentialsResponse(
 	notificationIDs := make([]string, 0, len(parseCredentialResponseDataList))
 	credentials := make([]*verifiable.Credential, 0, len(parseCredentialResponseDataList))
 
-	for _, parseCredentialData := range parseCredentialResponseDataList {
+	for i, parseCredentialData := range parseCredentialResponseDataList {
 		vcBytes, err := json.Marshal(parseCredentialData.credential)
 		if err != nil {
 			return nil, fmt.Errorf("marshal credential response: %w", err)
@@ -896,7 +896,7 @@ func (f *Flow) parseCredentialsResponse(
 			return nil, fmt.Errorf("parse credential: %w", err)
 		}
 
-		if err = f.wallet.Add(vcBytes); err != nil {
+		if err = f.wallet.Add(vcBytes, fmt.Sprintf("%s_%d", parsedVC.Contents().Types[1], i)); err != nil {
 			return nil, fmt.Errorf("add credential to wallet: %w", err)
 		}
 

@@ -1308,7 +1308,7 @@ func (s *Steps) checkSignatureHolder(vc *verifiable.Credential) error {
 
 func (s *Steps) saveCredentials() error {
 	for _, cred := range s.bddContext.CreatedCredentialsSet {
-		if err := s.wallet.Add(cred); err != nil {
+		if err := s.wallet.Add(cred, ""); err != nil {
 			return fmt.Errorf("add credential to wallet: %w", err)
 		}
 	}
@@ -1318,7 +1318,7 @@ func (s *Steps) saveCredentials() error {
 
 func (s *Steps) saveCredentialsInWallet() error {
 	for _, cred := range s.bddContext.CreatedCredentialsSet {
-		if err := s.wallet.Add(cred); err != nil {
+		if err := s.wallet.Add(cred, ""); err != nil {
 			return fmt.Errorf("add credential to wallet: %w", err)
 		}
 	}
