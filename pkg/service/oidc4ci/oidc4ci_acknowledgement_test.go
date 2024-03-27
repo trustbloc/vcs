@@ -364,27 +364,6 @@ func TestAck(t *testing.T) {
 		assert.ErrorContains(t, err, "invalid token")
 	})
 
-	t.Run("evn map", func(t *testing.T) {
-		store := NewMockAckStore(gomock.NewController(t))
-		eventSvc := NewMockEventService(gomock.NewController(t))
-
-		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
-			AckStore: store,
-			EventSvc: eventSvc,
-		})
-
-		store.EXPECT().Get(gomock.Any(), "123").Return(&oidc4ci.Ack{
-			HashedToken: "abcds",
-		}, nil)
-
-		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
-			HashedToken: "abcds",
-			ID:          "123",
-			Event:       "xxx",
-		})
-		assert.ErrorContains(t, err, "invalid status: xxx")
-	})
-
 	t.Run("event send err", func(t *testing.T) {
 		store := NewMockAckStore(gomock.NewController(t))
 		eventSvc := NewMockEventService(gomock.NewController(t))
@@ -413,7 +392,6 @@ func TestAck(t *testing.T) {
 		testCases := []struct {
 			Input  string
 			Output spi.EventType
-			Error  string
 		}{
 			{
 				Input:  "credential_accepted",
@@ -429,22 +407,15 @@ func TestAck(t *testing.T) {
 			},
 			{
 				Input:  "unk",
-				Output: spi.IssuerOIDCInteractionAckFailed,
-				Error:  "invalid status: unk",
+				Output: spi.IssuerOIDCInteractionAckRejected,
 			},
 		}
 
 		for _, tc := range testCases {
 			t.Run(tc.Input, func(t *testing.T) {
 				srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{})
-				event, err := srv.AckEventMap(tc.Input)
+				event := srv.AckEventMap(tc.Input)
 				assert.Equal(t, tc.Output, event)
-
-				if tc.Error != "" {
-					assert.ErrorContains(t, err, tc.Error)
-				} else {
-					assert.NoError(t, err)
-				}
 			})
 		}
 	})
