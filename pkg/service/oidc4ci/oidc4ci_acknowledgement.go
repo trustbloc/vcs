@@ -124,17 +124,11 @@ func (s *AckService) Ack(
 		OrgID:          ack.OrgID,
 	}
 
-	if req.EventDescription != "" {
-		eventPayload.ErrorComponent = "wallet"
-		eventPayload.Error = req.EventDescription
-	}
+	eventPayload.ErrorComponent = "wallet"
+	eventPayload.Error = req.EventDescription
+	eventPayload.ErrorCode = req.Event
 
-	targetEvent, err := s.AckEventMap(req.Event)
-	if err != nil {
-		return err
-	}
-
-	err = s.sendEvent(ctx, targetEvent, extractTransactionID(ack.TxID), eventPayload)
+	err = s.sendEvent(ctx, s.AckEventMap(req.Event), extractTransactionID(ack.TxID), eventPayload)
 	if err != nil {
 		return err
 	}
@@ -160,17 +154,15 @@ func (s *AckService) sendEvent(
 	return s.cfg.EventSvc.Publish(ctx, s.cfg.EventTopic, event)
 }
 
-func (s *AckService) AckEventMap(status string) (spi.EventType, error) {
+func (s *AckService) AckEventMap(status string) spi.EventType {
 	switch strings.ToLower(status) {
 	case "credential_accepted":
-		return spi.IssuerOIDCInteractionAckSucceeded, nil
+		return spi.IssuerOIDCInteractionAckSucceeded
 	case "credential_failure":
-		return spi.IssuerOIDCInteractionAckFailed, nil
-	case "credential_deleted":
-		return spi.IssuerOIDCInteractionAckRejected, nil
+		return spi.IssuerOIDCInteractionAckFailed
 	}
 
-	return spi.IssuerOIDCInteractionAckFailed, fmt.Errorf("invalid status: %s", status)
+	return spi.IssuerOIDCInteractionAckRejected
 }
 
 func extractTransactionID(ackTxID string) TxID {
