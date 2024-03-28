@@ -102,11 +102,11 @@ func NewService(
 	}, nil
 }
 
-func (s *Service) GetAttestation(ctx context.Context, audience, nonce string) (string, error) {
+func (s *Service) GetAttestation(ctx context.Context, req GetAttestationRequest) (string, error) {
 	b, err := s.store.Get(attestationVCKey)
 	if err != nil {
 		if errors.Is(err, storageapi.ErrDataNotFound) {
-			b, err = s.requestAttestationVC(ctx)
+			b, err = s.requestAttestationVC(ctx, req)
 			if err != nil {
 				return "", fmt.Errorf("request attestation vc: %w", err)
 			}
@@ -135,16 +135,16 @@ func (s *Service) GetAttestation(ctx context.Context, audience, nonce string) (s
 
 	attestationVP.ID = uuid.New().String()
 
-	if nonce != "" {
+	if req.Nonce != "" {
 		attestationVP.CustomFields = map[string]interface{}{
-			"nonce": nonce,
+			"nonce": req.Nonce,
 		}
 	}
 
 	var aud []string
 
-	if audience != "" {
-		aud = []string{audience}
+	if req.Audience != "" {
+		aud = []string{req.Audience}
 	}
 
 	claims, err := attestationVP.JWTClaims(aud, false)
@@ -169,8 +169,8 @@ func (s *Service) GetAttestation(ctx context.Context, audience, nonce string) (s
 	return jws, nil
 }
 
-func (s *Service) requestAttestationVC(ctx context.Context) ([]byte, error) {
-	initResponse, err := s.attestationInit(ctx)
+func (s *Service) requestAttestationVC(ctx context.Context, req GetAttestationRequest) ([]byte, error) {
+	initResponse, err := s.attestationInit(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("attestation init: %w", err)
 	}
@@ -183,11 +183,15 @@ func (s *Service) requestAttestationVC(ctx context.Context) ([]byte, error) {
 	return []byte(completeResponse.WalletAttestationVC), nil
 }
 
-func (s *Service) attestationInit(ctx context.Context) (*AttestWalletInitResponse, error) {
+func (s *Service) attestationInit(
+	ctx context.Context,
+	attestReq GetAttestationRequest,
+) (*AttestWalletInitResponse, error) {
 	logger.Debug("attestation init started", zap.String("walletDID", s.walletDID))
 
 	req := &AttestWalletInitRequest{
 		Payload: map[string]interface{}{
+			"type": attestReq.AttestationType,
 			"application": map[string]interface{}{
 				"type":    s.wallet.WalletType(),
 				"name":    s.wallet.Name(),

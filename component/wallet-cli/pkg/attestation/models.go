@@ -37,3 +37,9 @@ type JwtProofClaims struct {
 type AttestWalletCompleteResponse struct {
 	WalletAttestationVC string `json:"wallet_attestation_vc"`
 }
+
+type GetAttestationRequest struct {
+	Audience        string
+	Nonce           string
+	AttestationType string
+}

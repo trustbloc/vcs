@@ -37,6 +37,7 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/consent"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
@@ -68,7 +69,7 @@ const (
 )
 
 type AttestationService interface {
-	GetAttestation(ctx context.Context, audience, nonce string) (string, error)
+	GetAttestation(ctx context.Context, request attestation.GetAttestationRequest) (string, error)
 }
 
 type TrustRegistry interface {
@@ -379,7 +380,10 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 		if attestationRequired {
 			var jwtVP string
 
-			jwtVP, err = f.attestationService.GetAttestation(ctx, issuerDID, preAuthorizationGrant.PreAuthorizedCode)
+			jwtVP, err = f.attestationService.GetAttestation(ctx, attestation.GetAttestationRequest{
+				Audience: issuerDID,
+				Nonce:    preAuthorizationGrant.PreAuthorizedCode,
+			})
 			if err != nil {
 				return nil, fmt.Errorf("get attestation: %w", err)
 			}

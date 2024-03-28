@@ -34,6 +34,7 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vc-go/vermethod"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -54,7 +55,7 @@ const (
 )
 
 type AttestationService interface {
-	GetAttestation(ctx context.Context, audience, nonce string) (string, error)
+	GetAttestation(ctx context.Context, req attestation.GetAttestationRequest) (string, error)
 }
 
 type TrustRegistry interface {
@@ -620,7 +621,7 @@ func (f *Flow) createIDToken(
 	if attestationRequired {
 		var jwtVP string
 
-		jwtVP, err = f.attestationService.GetAttestation(ctx, "", "")
+		jwtVP, err = f.attestationService.GetAttestation(ctx, attestation.GetAttestationRequest{})
 		if err != nil {
 			return "", fmt.Errorf("get attestation: %w", err)
 		}
