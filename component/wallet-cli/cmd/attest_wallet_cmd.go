@@ -21,9 +21,10 @@ import (
 )
 
 type attestCommandFlags struct {
-	walletFlags    *walletFlags
-	walletDIDIndex int
-	attestationURL string
+	walletFlags     *walletFlags
+	walletDIDIndex  int
+	attestationURL  string
+	attestationType string
 }
 
 func NewAttestWalletCommand() *cobra.Command {
@@ -42,6 +43,10 @@ func NewAttestWalletCommand() *cobra.Command {
 
 			if flags.attestationURL == "" {
 				return fmt.Errorf("attestation-url is required")
+			}
+
+			if flags.attestationType == "" {
+				return fmt.Errorf("attestation-type is required")
 			}
 
 			httpClient := &http.Client{
@@ -65,7 +70,9 @@ func NewAttestWalletCommand() *cobra.Command {
 				return fmt.Errorf("create attestation service: %w", err)
 			}
 
-			if _, err = attestationService.GetAttestation(context.Background(), "", ""); err != nil {
+			if _, err = attestationService.GetAttestation(context.Background(), attestation.GetAttestationRequest{
+				AttestationType: flags.attestationType,
+			}); err != nil {
 				return fmt.Errorf("get attestation: %w", err)
 			}
 
@@ -77,6 +84,7 @@ func NewAttestWalletCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.walletFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
 	cmd.Flags().StringVar(&flags.walletFlags.contextProviderURL, "context-provider-url", "", "json-ld context provider url")
 	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url, i.e. https://<host>/vcs/wallet/attestation")
+	cmd.Flags().StringVar(&flags.attestationType, "attestation-type", "", "attestation-type, i.e. urn:attestation:application:my_wallet")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 
 	return cmd

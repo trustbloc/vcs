@@ -67,6 +67,7 @@ with the key type ED25519 (EdDSA signature type).
 To add attestation VC to the Wallet, use the `attest` command. The following CLI arguments are supported:
 ```bash
       --attestation-url string             attestation url, i.e. https://<host>/vcs/wallet/attestation
+      --attestation-type string            attestation type, i.e. urn:attestation:application:my_wallet
       --context-provider-url string        json-ld context provider url
   -h, --help                               help for attest
       --leveldb-path string                leveldb path
@@ -76,7 +77,7 @@ To add attestation VC to the Wallet, use the `attest` command. The following CLI
 
 Example:
 ```bash
-./wallet-cli attest --leveldb-path "/mnt/wallet.db" --attestation-url "https://<host>/vcs/wallet/attestation"
+./wallet-cli attest --leveldb-path "/mnt/wallet.db" --attestation-url "https://<host>/vcs/wallet/attestation" --attestation-type "urn:attestation:application:my_wallet"
 ```
 
 ### Receiving Verifiable Credential using OIDC4VCI exchange protocol
