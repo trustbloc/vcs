@@ -26,7 +26,7 @@ const (
 
 // Store stores OIDC4CI authorize request/response state in redis.
 type Store struct {
-	ttl         time.Duration
+	defaultTTL  time.Duration
 	redisClient *redis.Client
 }
 
@@ -34,24 +34,19 @@ type Store struct {
 func New(redisClient *redis.Client, ttlSec int32) *Store {
 	return &Store{
 		redisClient: redisClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 }
 
 func (s *Store) SaveAuthorizeState(
 	ctx context.Context,
+	profileAuthStateTTL int32,
 	opState string,
 	data *oidc4ci.AuthorizeState,
-	params ...func(insertOptions *oidc4ci.InsertOptions),
 ) error {
-	insertCfg := &oidc4ci.InsertOptions{}
-	for _, p := range params {
-		p(insertCfg)
-	}
-
-	ttl := s.ttl
-	if insertCfg.TTL != 0 {
-		ttl = insertCfg.TTL
+	ttl := s.defaultTTL
+	if profileAuthStateTTL != 0 {
+		ttl = time.Duration(profileAuthStateTTL) * time.Second
 	}
 
 	doc := &redisDocument{
@@ -71,7 +66,7 @@ func (s *Store) SaveAuthorizeState(
 		return resterr.NewCustomError(resterr.OpStateKeyDuplication, resterr.ErrOpStateKeyDuplication)
 	}
 
-	if err = clientAPI.Set(ctx, key, doc, ttl).Err(); err != nil {
+	if err = clientAPI.Set(ctx, key, doc, s.defaultTTL).Err(); err != nil {
 		return resterr.NewSystemError(resterr.RedisComponent, "Set", fmt.Errorf("saveAuthorizeState failed: %w", err))
 	}
 

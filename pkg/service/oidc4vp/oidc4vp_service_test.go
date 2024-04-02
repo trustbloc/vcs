@@ -76,7 +76,8 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		&vcskms.MockKMS{Signer: customSigner}, nil)
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
-	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any(), gomock.Any(), []string{customScope}).AnyTimes().
+	txManager.EXPECT().CreateTx(
+		gomock.Any(), gomock.Any(), gomock.Any(), int32(20), int32(10), []string{customScope}).AnyTimes().
 		Return(&oidc4vp.Transaction{
 			ID:                     "TxID1",
 			ProfileID:              "test4",
@@ -129,6 +130,10 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			Creator:  "did:test:acde#" + pubKey.KeyID,
 			KMSKeyID: pubKey.KeyID,
 		},
+		DataConfig: profileapi.VerifierDataConfig{
+			OIDC4VPNonceStoreDataTTL:  10,
+			OIDC4VPTransactionDataTTL: 20,
+		},
 	}
 
 	t.Run("Success", func(t *testing.T) {
@@ -155,7 +160,9 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Tx create failed", func(t *testing.T) {
 		txManagerErr := NewMockTransactionManager(gomock.NewController(t))
 		txManagerErr.EXPECT().CreateTx(
-			gomock.Any(), gomock.Any(), gomock.Any(), []string{customScope}).AnyTimes().Return(nil, "", errors.New("fail"))
+			gomock.Any(), gomock.Any(), gomock.Any(), int32(20), int32(10), []string{customScope}).
+			AnyTimes().
+			Return(nil, "", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
@@ -285,7 +292,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		PresentationDefinition: pd,
 	}, true, nil)
 
-	txManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
+	txManager.EXPECT().StoreReceivedClaims(
+		oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).AnyTimes().Return(nil)
 
 	profileService.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(&profileapi.Verifier{
 		ID:      profileID,
@@ -301,6 +309,10 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			Policy: profileapi.PolicyCheck{
 				PolicyURL: presentationPolicyURL,
 			},
+		},
+		DataConfig: profileapi.VerifierDataConfig{
+			OIDC4VPTransactionDataTTL:    20,
+			OIDC4VPReceivedClaimsDataTTL: 10,
 		},
 	}, nil)
 
@@ -320,8 +332,11 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationDefinition: pd,
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).Times(1).
-			DoAndReturn(func(txID oidc4vp.TxID, claims *oidc4vp.ReceivedClaims) error {
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1).
+			DoAndReturn(func(
+				txID oidc4vp.TxID,
+				claims *oidc4vp.ReceivedClaims,
+				profileTransactionDataTTL, profileReceivedClaimsDataTTL int32) error {
 				require.Nil(t, claims.CustomScopeClaims)
 
 				return nil
@@ -421,8 +436,11 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			CustomScopes:           []string{customScope},
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).Times(1).
-			DoAndReturn(func(txID oidc4vp.TxID, claims *oidc4vp.ReceivedClaims) error {
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1).
+			DoAndReturn(func(
+				txID oidc4vp.TxID,
+				claims *oidc4vp.ReceivedClaims,
+				profileTransactionDataTTL, profileReceivedClaimsDataTTL int32) error {
 				require.Equal(t, map[string]oidc4vp.Claims{
 					customScope: {
 						"key1": "value1",
@@ -543,7 +561,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationDefinition: defs,
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
+		txManager2.EXPECT().StoreReceivedClaims(
+			oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).AnyTimes().Return(nil)
 
 		vp1.ID = ""
 		vp2.ID = ""
@@ -776,7 +795,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationDefinition: pd,
 		}, true, nil)
 
-		errTxManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).
+		errTxManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).
 			Return(errors.New("store error"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
@@ -842,7 +861,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationDefinition: pd,
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).Times(1)
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1)
 
 		errExpected := errors.New("injected publish error")
 

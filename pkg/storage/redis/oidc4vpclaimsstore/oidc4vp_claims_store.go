@@ -26,20 +26,25 @@ const (
 // Store stores claim data with expiration.
 type Store struct {
 	redisClient *redis.Client
-	ttl         time.Duration
+	defaultTTL  time.Duration
 }
 
 // New creates presentation claims store.
 func New(redisClient *redis.Client, ttlSec int32) *Store {
 	return &Store{
 		redisClient: redisClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 }
 
-func (s *Store) Create(claims *oidc4vp.ClaimData) (string, error) {
+func (s *Store) Create(claims *oidc4vp.ClaimData, profileReceivedClaimsDataTTL int32) (string, error) {
+	ttl := s.defaultTTL
+	if profileReceivedClaimsDataTTL > 0 {
+		ttl = time.Duration(profileReceivedClaimsDataTTL) * time.Second
+	}
+
 	doc := &claimDataDocument{
-		ExpireAt:  time.Now().Add(s.ttl),
+		ExpireAt:  time.Now().Add(ttl),
 		ClaimData: claims,
 	}
 
@@ -48,7 +53,7 @@ func (s *Store) Create(claims *oidc4vp.ClaimData) (string, error) {
 
 	key := resolveRedisKey(uuid.NewString())
 
-	if err := s.redisClient.API().Set(ctxWithTimeout, key, doc, s.ttl).Err(); err != nil {
+	if err := s.redisClient.API().Set(ctxWithTimeout, key, doc, ttl).Err(); err != nil {
 		return "", fmt.Errorf("redis insert received claims data: %w", err)
 	}
 

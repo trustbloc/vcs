@@ -80,11 +80,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func(mocks *mocks) {
 				now := lo.ToPtr(time.Now().UTC())
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 						assert.Equal(t, "test_issuer", data.ProfileID)
@@ -247,11 +247,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func(mocks *mocks) {
 				now := lo.ToPtr(time.Now().UTC())
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 						assert.Equal(t, "test_issuer", data.ProfileID)
@@ -355,8 +355,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).Times(3).
 					Return(chunks, nil)
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(3).DoAndReturn(
-					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(3).DoAndReturn(
+					func(ctx context.Context, profileTTL int32, data *oidc4ci.ClaimData) (string, error) {
 						assert.Equal(t, chunks, data.EncryptedData)
 
 						return "claimDataID", nil
@@ -457,11 +457,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Success wallet flow",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, data.State)
 
@@ -543,11 +543,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
@@ -579,8 +579,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, profileTTL int32, data *oidc4ci.ClaimData) (string, error) {
 						assert.Equal(t, chunks, data.EncryptedData)
 
 						return "claimDataID", nil
@@ -635,11 +635,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 				claimData := degreeClaims
 
 				profile = &testProfile
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
@@ -675,7 +675,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return("claimDataID", nil)
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -723,11 +723,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 				claimData := degreeClaims
 
 				profile = &testProfile
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
@@ -771,7 +771,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return("claimDataID", nil)
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -826,13 +826,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
 				profile = &cp
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return("claimDataID", nil)
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -902,9 +902,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 				claimData := degreeClaims
 
 				profile = &testProfile
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", errors.New("create error"))
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return("", errors.New("create error"))
 
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
 
@@ -944,8 +944,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				profile = &testProfile
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
 				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -975,8 +975,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				profile = &testProfile
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
 				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -1006,8 +1006,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				profile = &testProfile
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
 				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -1036,8 +1036,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				profile = &testProfile
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Times(0)
 				mocks.pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -1129,11 +1129,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 				expectedCode := "super-secret-pre-auth-code"
 				claimData := degreeClaims
 
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
@@ -1165,7 +1165,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 					Return(chunks, nil)
-				mocks.claimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return("claimDataID", nil)
 
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1253,7 +1253,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Credential template not configured",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
@@ -1281,7 +1281,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Credential template ID should be specified if profile supports more than one template",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
@@ -1305,7 +1305,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Credential template not found",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
@@ -1330,7 +1330,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Credential configuration not found",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
@@ -1354,7 +1354,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Client initiate issuance URL takes precedence over client well-known parameter",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					Return(&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
 							CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
@@ -1401,7 +1401,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Custom initiate issuance URL when fail to do well-known request",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return(
 					&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
 							CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
@@ -1474,7 +1474,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Fail to store transaction",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return(
 					nil, fmt.Errorf("store error"))
 
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
@@ -1765,11 +1765,11 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 		{
 			name: "JWT disabled - Success with reference store",
 			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mockTransactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
@@ -1837,11 +1837,11 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 		{
 			name: "JWT disabled - Fail uploading to remote",
 			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mockTransactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
@@ -1897,11 +1897,11 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 			setup: func() {
 				const mockSignedCredentialOfferJWT = "aa.bb.cc"
 
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mockTransactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
@@ -2010,11 +2010,11 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
 				cryptoJWTSigner = NewMockCryptoJWTSigner(gomock.NewController(t))
 
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mockTransactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
@@ -2068,11 +2068,11 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				referenceStore = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
 				mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
 
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+				mockTransactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
+						profileTransactionDataTTL int32,
 						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
 					) (*oidc4ci.Transaction, error) {
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 

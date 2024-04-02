@@ -54,8 +54,8 @@ type pinGenerator interface {
 type transactionStore interface {
 	Create(
 		ctx context.Context,
+		profileTransactionDataTTL int32,
 		data *TransactionData,
-		params ...func(insertOptions *InsertOptions),
 	) (*Transaction, error)
 
 	Get(
@@ -75,7 +75,7 @@ type transactionStore interface {
 }
 
 type claimDataStore interface {
-	Create(ctx context.Context, data *ClaimData) (string, error)
+	Create(ctx context.Context, profileTTLSec int32, data *ClaimData) (string, error)
 	GetAndDelete(ctx context.Context, id string) (*ClaimData, error)
 }
 
@@ -127,7 +127,7 @@ type trustRegistry interface {
 }
 
 type ackStore interface {
-	Create(ctx context.Context, data *Ack) (string, error)
+	Create(ctx context.Context, profileAckDataTTL int32, data *Ack) (string, error)
 	Get(ctx context.Context, id string) (*Ack, error)
 	Delete(ctx context.Context, id string) error
 }

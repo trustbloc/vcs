@@ -238,6 +238,7 @@ const (
 		"OIDC4CI issuance auth state store " + "(TTL configurable via " + oidc4ciAuthStateTTLEnvKey + "), " +
 		"OIDC4VP transaction mapping " + "(TTL configurable via " + oidc4vpNonceTTLEnvKey + "), " +
 		"OIDC4VP transaction data " + "(TTL configurable via " + oidc4vpTransactionDataTTLEnvKey + "), " +
+		"notification data " + "(TTL configurable via " + oidc4ciAckDataTTLEnvKey + "), " +
 		"encrypted claim data of OIDC4VP presentation transaction. " + "(TTL configurable via " + oidc4vpReceivedClaimsDataTTLEnvKey + "). " +
 		"Possible values are \"redis\" or \"mongo\". Default is \"mongo\". " +
 		commonEnvVarUsageText + transientDataStoreTypeFlagEnvKey

@@ -128,7 +128,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		txData.UserPin = s.pinGenerator.Generate(uuid.NewString())
 	}
 
-	tx, err := s.store.Create(ctx, txData)
+	tx, err := s.store.Create(ctx, profile.DataConfig.OIDC4CITransactionDataTTL, txData)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.TransactionStoreComponent, "create",
 			fmt.Errorf("store tx: %w", err))
@@ -218,6 +218,7 @@ func (s *Service) newTxCredentialConf(
 	if isPreAuthFlow {
 		err = s.applyPreAuthFlowModifications(
 			ctx,
+			profile.DataConfig.ClaimDataTTL,
 			credentialConfiguration,
 			credentialTemplate,
 			txCredentialConfiguration,
@@ -232,6 +233,7 @@ func (s *Service) newTxCredentialConf(
 
 func (s *Service) applyPreAuthFlowModifications(
 	ctx context.Context,
+	profileClaimDataTTLSec int32,
 	req InitiateIssuanceCredentialConfiguration,
 	credentialTemplate *profileapi.CredentialTemplate,
 	txCredentialConfiguration *TxCredentialConfiguration,
@@ -271,7 +273,7 @@ func (s *Service) applyPreAuthFlowModifications(
 		return errEncrypt
 	}
 
-	claimDataID, claimDataErr := s.claimDataStore.Create(ctx, claimDataEncrypted)
+	claimDataID, claimDataErr := s.claimDataStore.Create(ctx, profileClaimDataTTLSec, claimDataEncrypted)
 	if claimDataErr != nil {
 		return resterr.NewSystemError(resterr.ClaimDataStoreComponent, "create",
 			fmt.Errorf("store claim data: %w", claimDataErr))

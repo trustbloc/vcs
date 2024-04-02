@@ -599,6 +599,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
 		TxId:                               string(resp.TxID),
+		ProfileAuthStateTtl:                int(profile.DataConfig.OIDC4CIAuthStateTTL),
 	}, nil
 }
 

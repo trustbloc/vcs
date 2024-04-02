@@ -52,25 +52,47 @@ func TestStore(t *testing.T) {
 			OpState: id,
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert)
+		resp1, err1 := store.Create(context.Background(), 0, toInsert)
 		assert.NoError(t, err1)
 		assert.NotEmpty(t, resp1)
 
-		resp2, err2 := store.Create(context.Background(), toInsert)
+		resp2, err2 := store.Create(context.Background(), 0, toInsert)
 		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
 		assert.Empty(t, resp2)
 	})
 
-	t.Run("test expiration", func(t *testing.T) {
+	t.Run("test default expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
 		toInsert := &oidc4ci.TransactionData{
 			OpState: id,
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert, oidc4ci.WithDocumentTTL(-1*time.Second))
+		expiredStore := New(client, -1)
+
+		resp1, err1 := expiredStore.Create(context.Background(), 0, toInsert)
 		assert.NoError(t, err1)
 		assert.NotNil(t, resp1)
+
+		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
+		assert.Nil(t, resp2)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
+	})
+
+	t.Run("test profile expiration", func(t *testing.T) {
+		id := uuid.New().String()
+
+		toInsert := &oidc4ci.TransactionData{
+			OpState: id,
+		}
+
+		expiredStore := New(client, 1000)
+
+		resp1, err1 := expiredStore.Create(context.Background(), 1, toInsert)
+		assert.NoError(t, err1)
+		assert.NotNil(t, resp1)
+
+		time.Sleep(time.Second)
 
 		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
 		assert.Nil(t, resp2)
@@ -130,7 +152,7 @@ func TestStore(t *testing.T) {
 
 		var resp *oidc4ci.Transaction
 
-		resp, err = store.Create(context.Background(), toInsert)
+		resp, err = store.Create(context.Background(), 0, toInsert)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 
@@ -164,7 +186,7 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		resp, createErr := store.Create(context.TODO(), toInsert)
+		resp, createErr := store.Create(context.TODO(), 0, toInsert)
 		if createErr != nil {
 			assert.NoError(t, createErr)
 		}
@@ -227,7 +249,7 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		resp, err := store.Create(ctx, &oidc4ci.TransactionData{})
+		resp, err := store.Create(ctx, 0, &oidc4ci.TransactionData{})
 
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")

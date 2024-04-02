@@ -43,7 +43,7 @@ type txUpdateDocument struct {
 
 // TxStore manages profile in mongodb.
 type TxStore struct {
-	ttl            time.Duration
+	defaultTTL     time.Duration
 	mongoClient    *mongodb.Client
 	documentLoader jsonld.DocumentLoader
 }
@@ -55,7 +55,7 @@ func NewTxStore(
 	documentLoader jsonld.DocumentLoader,
 	vpTransactionDataTTLSec int32) (*TxStore, error) {
 	s := &TxStore{
-		ttl:            time.Duration(vpTransactionDataTTLSec) * time.Second,
+		defaultTTL:     time.Duration(vpTransactionDataTTLSec) * time.Second,
 		mongoClient:    mongoClient,
 		documentLoader: documentLoader,
 	}
@@ -84,7 +84,9 @@ func (p *TxStore) migrate(ctx context.Context) error {
 // Create creates transaction document in a database.
 func (p *TxStore) Create(
 	pd *presexch.PresentationDefinition,
-	profileID, profileVersion string, customScopes []string,
+	profileID, profileVersion string,
+	profileTransactionDataTTL int32,
+	customScopes []string,
 ) (oidc4vp.TxID, *oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
@@ -96,8 +98,13 @@ func (p *TxStore) Create(
 		return "", nil, fmt.Errorf("create tx doc: %w", err)
 	}
 
+	ttl := p.defaultTTL
+	if profileTransactionDataTTL > 0 {
+		ttl = time.Duration(profileTransactionDataTTL) * time.Second
+	}
+
 	txDoc := &txDocument{
-		ExpireAt:               time.Now().Add(p.ttl),
+		ExpireAt:               time.Now().Add(ttl),
 		ProfileID:              profileID,
 		ProfileVersion:         profileVersion,
 		PresentationDefinition: pdContent,
@@ -152,7 +159,7 @@ func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	return txFromDocument(txDoc)
 }
 
-func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
+func (p *TxStore) Update(update oidc4vp.TransactionUpdate, _ int32) error {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 

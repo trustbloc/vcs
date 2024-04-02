@@ -1412,12 +1412,16 @@ components:
         tx_id:
           type: string
           description: Transaction ID to correlate upcoming authorization response.
+        profile_auth_state_ttl:
+          type: integer
+          description: Profile specific Auth state TTL.
         wallet_initiated_flow:
           $ref: ./common.yaml#/components/schemas/WalletInitiatedFlowData
       required:
         - authorization_request
         - authorization_endpoint
         - tx_id
+        - profile_auth_state_ttl
     OAuthParameters:
       title: OAuthParameters
       x-tags:

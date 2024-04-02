@@ -54,13 +54,13 @@ func TestTxStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create tx", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 	})
 
 	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -72,7 +72,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
-		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion, nil)
+		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion, 0, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -83,7 +83,7 @@ func TestTxStore_Success(t *testing.T) {
 		err = store.Update(oidc4vp.TransactionUpdate{
 			ID:               id,
 			ReceivedClaimsID: receivedClaimsID,
-		})
+		}, 0)
 		require.NoError(t, err)
 
 		txCreate.ReceivedClaimsID = receivedClaimsID
@@ -123,15 +123,30 @@ func TestTxStore_Fails(t *testing.T) {
 		require.EqualError(t, err, oidc4vp.ErrDataNotFound.Error())
 	})
 
-	t.Run("test expiration", func(t *testing.T) {
+	t.Run("test default expiration", func(t *testing.T) {
 		storeExpired := NewTxStore(client, testutil.DocumentLoader(t), 1)
 
 		id, _, err := storeExpired.Create(
-			&presexch.PresentationDefinition{}, profileID, profileVersion, []string{customScope})
+			&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(time.Second)
+
+		tx, err := storeExpired.Get(id)
+		require.Nil(t, tx)
+		require.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+	})
+
+	t.Run("test profile expiration", func(t *testing.T) {
+		storeExpired := NewTxStore(client, testutil.DocumentLoader(t), 100)
+
+		id, _, err := storeExpired.Create(
+			&presexch.PresentationDefinition{}, profileID, profileVersion, 1, []string{customScope})
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		time.Sleep(time.Second)
 
 		tx, err := storeExpired.Get(id)
 		require.Nil(t, tx)

@@ -326,6 +326,9 @@ type PrepareClaimDataAuthorizationResponse struct {
 	// Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
 	AuthorizationRequest OAuthParameters `json:"authorization_request"`
 
+	// Profile specific Auth state TTL.
+	ProfileAuthStateTtl int `json:"profile_auth_state_ttl"`
+
 	// Issuer's OIDC provider PAR endpoint.
 	PushedAuthorizationRequestEndpoint *string `json:"pushed_authorization_request_endpoint,omitempty"`
 

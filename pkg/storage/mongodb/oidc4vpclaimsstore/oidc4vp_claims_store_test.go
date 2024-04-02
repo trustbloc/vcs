@@ -58,7 +58,7 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		id, err := store.Create(receivedClaims)
+		id, err := store.Create(receivedClaims, 0)
 		assert.NoError(t, err)
 
 		claimsInDB, err := store.Get(id)
@@ -95,7 +95,7 @@ func TestStore(t *testing.T) {
 		assert.ErrorContains(t, err, "parse id")
 	})
 
-	t.Run("test expiration", func(t *testing.T) {
+	t.Run("test default expiration", func(t *testing.T) {
 		storeExpired, err := New(context.Background(), client, 1)
 		assert.NoError(t, err)
 
@@ -106,10 +106,31 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		id, err := storeExpired.Create(receivedClaims)
+		id, err := storeExpired.Create(receivedClaims, 0)
 		require.NoError(t, err)
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(time.Second)
+
+		claimsInDB, err := storeExpired.Get(id)
+		assert.Nil(t, claimsInDB)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+	})
+
+	t.Run("test profile expiration", func(t *testing.T) {
+		storeExpired, err := New(context.Background(), client, 100)
+		assert.NoError(t, err)
+
+		receivedClaims := &oidc4vp.ClaimData{
+			EncryptedData: &dataprotect.EncryptedData{
+				Encrypted:      []byte{0x1, 0x2},
+				EncryptedNonce: []byte{0x3},
+			},
+		}
+
+		id, err := storeExpired.Create(receivedClaims, 1)
+		require.NoError(t, err)
+
+		time.Sleep(time.Second)
 
 		claimsInDB, err := storeExpired.Get(id)
 		assert.Nil(t, claimsInDB)

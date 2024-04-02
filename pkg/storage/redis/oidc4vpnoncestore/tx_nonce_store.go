@@ -25,14 +25,14 @@ const (
 // TxNonceStore stores oidc transactions in redis.
 type TxNonceStore struct {
 	redisClient *redis.Client
-	ttl         time.Duration
+	defaultTTL  time.Duration
 }
 
 // New creates TxNonceStore.
 func New(redisClient *redis.Client, ttlSec int32) *TxNonceStore {
 	return &TxNonceStore{
 		redisClient: redisClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 }
 
@@ -70,15 +70,20 @@ func (ts *TxNonceStore) GetAndDelete(nonce string) (oidc4vp.TxID, bool, error) {
 }
 
 // SetIfNotExist stores transaction if key not exists et.
-func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID) (bool, error) {
+func (ts *TxNonceStore) SetIfNotExist(nonce string, profileNonceStoreDataTTL int32, txID oidc4vp.TxID) (bool, error) {
 	ctxWithTimeout, cancel := ts.redisClient.ContextWithTimeout()
 	defer cancel()
 
 	clientAPI := ts.redisClient.API()
 
+	ttl := ts.defaultTTL
+	if profileNonceStoreDataTTL > 0 {
+		ttl = time.Duration(profileNonceStoreDataTTL) * time.Second
+	}
+
 	doc := &nonceDocument{
 		TxID:     txID,
-		ExpireAt: time.Now().Add(ts.ttl),
+		ExpireAt: time.Now().Add(ttl),
 	}
 
 	key := resolveRedisKey(nonce)
@@ -92,7 +97,7 @@ func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID) (bool, er
 		return false, nil
 	}
 
-	if err = clientAPI.Set(ctxWithTimeout, key, doc, ts.ttl).Err(); err != nil {
+	if err = clientAPI.Set(ctxWithTimeout, key, doc, ttl).Err(); err != nil {
 		return false, fmt.Errorf("tx set: %w", err)
 	}
 

@@ -541,9 +541,9 @@ func (s *memoryStateStore) GetAuthorizeState(
 
 func (s *memoryStateStore) SaveAuthorizeState(
 	_ context.Context,
+	_ int32,
 	opState string,
 	state *oidc4cisrv.AuthorizeState,
-	_ ...func(insertOptions *oidc4cisrv.InsertOptions),
 ) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

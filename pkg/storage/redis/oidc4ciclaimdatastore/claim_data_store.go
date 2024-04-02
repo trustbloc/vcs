@@ -28,26 +28,31 @@ const (
 // Store stores claim data with expiration.
 type Store struct {
 	redisClient *redis.Client
-	ttl         time.Duration
+	defaultTTL  time.Duration
 }
 
 // New creates a new instance of Store.
 func New(redisClient *redis.Client, ttlSec int32) *Store {
 	return &Store{
 		redisClient: redisClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 }
 
-func (s *Store) Create(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
+func (s *Store) Create(ctx context.Context, profileTTLSec int32, data *oidc4ci.ClaimData) (string, error) {
+	expireAt := s.defaultTTL
+	if profileTTLSec > 0 {
+		expireAt = time.Duration(profileTTLSec) * time.Second
+	}
+
 	doc := &redisDocument{
 		ClaimData: *data,
-		ExpireAt:  time.Now().UTC().Add(s.ttl),
+		ExpireAt:  time.Now().UTC().Add(expireAt),
 	}
 
 	key := resolveRedisKey(uuid.NewString())
 
-	return key, s.redisClient.API().Set(ctx, key, doc, s.ttl).Err()
+	return key, s.redisClient.API().Set(ctx, key, doc, expireAt).Err()
 }
 
 func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.ClaimData, error) {
