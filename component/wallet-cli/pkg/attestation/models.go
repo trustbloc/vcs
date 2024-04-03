@@ -39,7 +39,8 @@ type AttestWalletCompleteResponse struct {
 }
 
 type GetAttestationRequest struct {
-	Audience        string
-	Nonce           string
-	AttestationType string
+	Audience                 string
+	Nonce                    string
+	AttestationType          string
+	AuthorizationHeaderValue string
 }

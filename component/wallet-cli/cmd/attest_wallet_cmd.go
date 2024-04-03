@@ -21,10 +21,11 @@ import (
 )
 
 type attestCommandFlags struct {
-	walletFlags     *walletFlags
-	walletDIDIndex  int
-	attestationURL  string
-	attestationType string
+	walletFlags              *walletFlags
+	walletDIDIndex           int
+	attestationURL           string
+	attestationType          string
+	authorizationHeaderValue string
 }
 
 func NewAttestWalletCommand() *cobra.Command {
@@ -71,7 +72,8 @@ func NewAttestWalletCommand() *cobra.Command {
 			}
 
 			if _, err = attestationService.GetAttestation(context.Background(), attestation.GetAttestationRequest{
-				AttestationType: flags.attestationType,
+				AttestationType:          flags.attestationType,
+				AuthorizationHeaderValue: flags.authorizationHeaderValue,
 			}); err != nil {
 				return fmt.Errorf("get attestation: %w", err)
 			}
@@ -86,6 +88,7 @@ func NewAttestWalletCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url, i.e. https://<host>/vcs/wallet/attestation")
 	cmd.Flags().StringVar(&flags.attestationType, "attestation-type", "", "attestation-type, i.e. urn:attestation:application:my_wallet")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
+	cmd.Flags().StringVar(&flags.authorizationHeaderValue, "authorization-header-value", "", "authorization header value. ex. Bearer <token>")
 
 	return cmd
 }

@@ -175,12 +175,28 @@ func (s *Service) requestAttestationVC(ctx context.Context, req GetAttestationRe
 		return nil, fmt.Errorf("attestation init: %w", err)
 	}
 
-	completeResponse, err := s.attestationComplete(ctx, initResponse.SessionID, initResponse.Challenge)
+	completeResponse, err := s.attestationComplete(
+		ctx,
+		initResponse.SessionID,
+		initResponse.Challenge,
+		req,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("attestation complete: %w", err)
 	}
 
 	return []byte(completeResponse.WalletAttestationVC), nil
+}
+
+func (s *Service) getHeaders(
+	attestReq GetAttestationRequest,
+) map[string]string {
+	headers := map[string]string{}
+	if attestReq.AuthorizationHeaderValue != "" {
+		headers["Authorization"] = attestReq.AuthorizationHeaderValue
+	}
+
+	return headers
 }
 
 func (s *Service) attestationInit(
@@ -212,7 +228,7 @@ func (s *Service) attestationInit(
 
 	var resp AttestWalletInitResponse
 
-	if err = s.doRequest(ctx, s.attestationEndpoint+"/init", body, &resp); err != nil {
+	if err = s.doRequest(ctx, s.attestationEndpoint+"/init", body, &resp, s.getHeaders(attestReq)); err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
@@ -229,6 +245,7 @@ func (s *Service) attestationComplete(
 	ctx context.Context,
 	sessionID,
 	challenge string,
+	attestReq GetAttestationRequest,
 ) (*AttestWalletCompleteResponse, error) {
 	logger.Debug("attestation complete started",
 		zap.String("sessionID", sessionID),
@@ -273,7 +290,7 @@ func (s *Service) attestationComplete(
 
 	var resp AttestWalletCompleteResponse
 
-	if err = s.doRequest(ctx, s.attestationEndpoint+"/complete", body, &resp); err != nil {
+	if err = s.doRequest(ctx, s.attestationEndpoint+"/complete", body, &resp, s.getHeaders(attestReq)); err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
@@ -283,16 +300,28 @@ func (s *Service) attestationComplete(
 		zap.String("attestationVC", resp.WalletAttestationVC),
 	)
 
+	fmt.Println("got attestation")
+	fmt.Println(resp.WalletAttestationVC)
+
 	return &resp, nil
 }
 
-func (s *Service) doRequest(ctx context.Context, policyURL string, body []byte, response interface{}) error {
+func (s *Service) doRequest(
+	ctx context.Context,
+	policyURL string,
+	body []byte,
+	response interface{},
+	headers map[string]string,
+) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, policyURL, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Add("content-type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
