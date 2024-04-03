@@ -68,6 +68,7 @@ To add attestation VC to the Wallet, use the `attest` command. The following CLI
 ```bash
       --attestation-url string             attestation url, i.e. https://<host>/vcs/wallet/attestation
       --attestation-type string            attestation type, i.e. urn:attestation:application:my_wallet
+      --authorization-header-value string  authorization header value for http attestation request
       --context-provider-url string        json-ld context provider url
   -h, --help                               help for attest
       --leveldb-path string                leveldb path
