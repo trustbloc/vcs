@@ -258,10 +258,6 @@ type PrepareCredentialResultData struct {
 	NotificationID          *string
 }
 
-type InsertOptions struct {
-	TTL time.Duration
-}
-
 type AuthorizeState struct {
 	RedirectURI         *url.URL                        `json:"redirect_uri"`
 	RespondMode         string                          `json:"respond_mode"`

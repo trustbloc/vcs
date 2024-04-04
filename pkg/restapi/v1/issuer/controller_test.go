@@ -1383,6 +1383,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 		mockProfileService := NewMockProfileService(gomock.NewController(t))
 		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 			OIDCConfig: &profileapi.OIDCConfig{},
+			DataConfig: profileapi.IssuerDataConfig{OIDC4CIAuthStateTTL: 10},
 		}, nil)
 
 		c := &Controller{
@@ -1390,9 +1391,18 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			profileSvc:     mockProfileService,
 		}
 
+		recorder := httptest.NewRecorder()
+
 		req := `{"response_type":"code","op_state":"123","scope":["scope1", "scope2"]}`
-		ctx := echoContext(withRequestBody([]byte(req)))
+		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareAuthorizationRequest(ctx))
+
+		var prepareClaimDataAuthorizationResponse PrepareClaimDataAuthorizationResponse
+
+		err := json.NewDecoder(recorder.Body).Decode(&prepareClaimDataAuthorizationResponse)
+		assert.NoError(t, err)
+
+		assert.Equal(t, prepareClaimDataAuthorizationResponse.ProfileAuthStateTtl, 10)
 	})
 
 	t.Run("read body error", func(t *testing.T) {

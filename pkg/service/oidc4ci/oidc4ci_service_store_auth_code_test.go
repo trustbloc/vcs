@@ -344,11 +344,11 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 				},
 			}, nil)
 
-		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+		store.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 			DoAndReturn(func(
 				ctx context.Context,
+				profileTransactionDataTTL int32,
 				data *oidc4ci.TransactionData,
-				f ...func(*oidc4ci.InsertOptions),
 			) (*oidc4ci.Transaction, error) {
 				assert.Equal(t, "v1.latest", data.ProfileVersion)
 				return &oidc4ci.Transaction{}, nil

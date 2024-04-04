@@ -51,6 +51,15 @@ type Issuer struct {
 	WebHook             string                `json:"webHook,omitempty"`
 	CredentialMetaData  *CredentialMetaData   `json:"credentialMetadata"`
 	Checks              IssuanceChecks        `json:"checks"`
+	DataConfig          IssuerDataConfig      `json:"dataConfig"`
+}
+
+// IssuerDataConfig stores profile specific transient data configuration.
+type IssuerDataConfig struct {
+	ClaimDataTTL              int32
+	OIDC4CITransactionDataTTL int32
+	OIDC4CIAuthStateTTL       int32
+	OIDC4CIAckDataTTL         int32
 }
 
 type CredentialMetaData struct {
@@ -207,6 +216,14 @@ type Verifier struct {
 	SigningDID              *SigningDID                        `json:"signingDID,omitempty"`
 	PresentationDefinitions []*presexch.PresentationDefinition `json:"presentationDefinitions,omitempty"`
 	WebHook                 string                             `json:"webHook,omitempty"`
+	DataConfig              VerifierDataConfig                 `json:"dataConfig"`
+}
+
+// VerifierDataConfig stores profile specific transient data configuration.
+type VerifierDataConfig struct {
+	OIDC4VPNonceStoreDataTTL     int32
+	OIDC4VPTransactionDataTTL    int32
+	OIDC4VPReceivedClaimsDataTTL int32
 }
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.

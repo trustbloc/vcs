@@ -36,7 +36,7 @@ type mongoDocument struct {
 
 // Store stores OIDC4CI authorize request/response state in mongo.
 type Store struct {
-	ttl         time.Duration
+	defaultTTL  time.Duration
 	mongoClient *mongodb.Client
 }
 
@@ -44,7 +44,7 @@ type Store struct {
 func New(ctx context.Context, mongoClient *mongodb.Client, ttlSec int32) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -78,19 +78,13 @@ func (s *Store) migrate(ctx context.Context) error {
 
 func (s *Store) SaveAuthorizeState(
 	ctx context.Context,
+	profileAuthStateTTL int32,
 	opState string,
 	data *oidc4ci.AuthorizeState,
-	params ...func(insertOptions *oidc4ci.InsertOptions),
 ) error {
-	insertCfg := &oidc4ci.InsertOptions{}
-	for _, p := range params {
-		p(insertCfg)
-	}
-
 	obj := s.mapTransactionDataToMongoDocument(opState, data)
-
-	if insertCfg.TTL != 0 {
-		obj.ExpireAt = time.Now().UTC().Add(insertCfg.TTL)
+	if profileAuthStateTTL > 0 {
+		obj.ExpireAt = time.Now().UTC().Add(time.Duration(profileAuthStateTTL) * time.Second)
 	}
 
 	collection := s.mongoClient.Database().Collection(collectionName)
@@ -132,7 +126,7 @@ func (s *Store) mapTransactionDataToMongoDocument(
 	data *oidc4ci.AuthorizeState,
 ) *mongoDocument {
 	return &mongoDocument{
-		ExpireAt: time.Now().UTC().Add(s.ttl),
+		ExpireAt: time.Now().UTC().Add(s.defaultTTL),
 		OpState:  opState,
 		State:    data,
 	}

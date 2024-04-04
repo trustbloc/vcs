@@ -47,7 +47,12 @@ func (s *AckService) CreateAck(
 		return nil, nil //nolint:nilnil
 	}
 
-	id, err := s.cfg.AckStore.Create(ctx, ack)
+	profile, err := s.cfg.ProfileSvc.GetProfile(ack.ProfileID, ack.ProfileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := s.cfg.AckStore.Create(ctx, profile.DataConfig.OIDC4CIAckDataTTL, ack)
 	if err != nil {
 		return nil, err
 	}

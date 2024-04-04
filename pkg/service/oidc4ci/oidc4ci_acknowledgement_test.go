@@ -29,27 +29,70 @@ func TestCreateAck(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(&profile.Issuer{
+				DataConfig: profile.IssuerDataConfig{OIDC4CIAckDataTTL: 10},
+			}, nil)
+
 		store := NewMockAckStore(gomock.NewController(t))
 		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
-			AckStore: store,
+			ProfileSvc: profileSvc,
+			AckStore:   store,
 		})
 
-		item := &oidc4ci.Ack{}
-		store.EXPECT().Create(gomock.Any(), item).Return("id", nil)
+		item := &oidc4ci.Ack{
+			ProfileID:      "some_issuer",
+			ProfileVersion: "v1.0",
+		}
+
+		store.EXPECT().Create(gomock.Any(), int32(10), item).Return("id", nil)
 		id, err := srv.CreateAck(context.TODO(), item)
 
 		assert.NoError(t, err)
 		assert.Equal(t, "id", *id)
 	})
 
-	t.Run("store err", func(t *testing.T) {
+	t.Run("profile srv err", func(t *testing.T) {
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(nil, errors.New("some error"))
+
 		store := NewMockAckStore(gomock.NewController(t))
 		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
-			AckStore: store,
+			AckStore:   store,
+			ProfileSvc: profileSvc,
 		})
 
-		item := &oidc4ci.Ack{}
-		store.EXPECT().Create(gomock.Any(), item).Return("", errors.New("some err"))
+		item := &oidc4ci.Ack{
+			ProfileID:      "some_issuer",
+			ProfileVersion: "v1.0",
+		}
+
+		id, err := srv.CreateAck(context.TODO(), item)
+
+		assert.Nil(t, id)
+		assert.ErrorContains(t, err, "some error")
+	})
+
+	t.Run("store err", func(t *testing.T) {
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(&profile.Issuer{
+				DataConfig: profile.IssuerDataConfig{OIDC4CIAckDataTTL: 10},
+			}, nil)
+
+		store := NewMockAckStore(gomock.NewController(t))
+		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
+			ProfileSvc: profileSvc,
+			AckStore:   store,
+		})
+
+		item := &oidc4ci.Ack{
+			ProfileID:      "some_issuer",
+			ProfileVersion: "v1.0",
+		}
+		store.EXPECT().Create(gomock.Any(), int32(10), item).Return("", errors.New("some err"))
 		id, err := srv.CreateAck(context.TODO(), item)
 
 		assert.Nil(t, id)

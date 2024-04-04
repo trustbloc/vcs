@@ -62,8 +62,16 @@ type eventService interface {
 type transactionManager interface {
 	CreateTx(
 		pd *presexch.PresentationDefinition,
-		profileID, profileVersion string, customScopes []string) (*Transaction, string, error)
-	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
+		profileID, profileVersion string,
+		profileTransactionDataTTL int32,
+		profileNonceStoreDataTTL int32,
+		customScopes []string) (*Transaction, string, error)
+	StoreReceivedClaims(
+		txID TxID,
+		claims *ReceivedClaims,
+		profileTransactionDataTTL int32,
+		profileReceivedClaimsDataTTL int32,
+	) error
 	DeleteReceivedClaims(claimsID string) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
 	Get(txID TxID) (*Transaction, error)
@@ -257,7 +265,14 @@ func (s *Service) InitiateOidcInteraction(
 			errors.New("profile signing did can't be nil"))
 	}
 
-	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version, customScopes)
+	tx, nonce, err := s.transactionManager.CreateTx(
+		presentationDefinition,
+		profile.ID,
+		profile.Version,
+		profile.DataConfig.OIDC4VPTransactionDataTTL,
+		profile.DataConfig.OIDC4VPNonceStoreDataTTL,
+		customScopes,
+	)
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "create-txn",
 			fmt.Errorf("fail to create oidc tx: %w", err))
@@ -453,7 +468,12 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 		return err
 	}
 
-	err = s.transactionManager.StoreReceivedClaims(tx.ID, receivedClaims)
+	err = s.transactionManager.StoreReceivedClaims(
+		tx.ID,
+		receivedClaims,
+		profile.DataConfig.OIDC4VPTransactionDataTTL,
+		profile.DataConfig.OIDC4VPReceivedClaimsDataTTL,
+	)
 	if err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, profile, err)
 

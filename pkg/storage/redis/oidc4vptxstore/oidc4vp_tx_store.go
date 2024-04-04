@@ -28,7 +28,7 @@ const (
 
 // TxStore manages profile in redis.
 type TxStore struct {
-	ttl            time.Duration
+	defaultTTL     time.Duration
 	redisClient    *redis.Client
 	documentLoader jsonld.DocumentLoader
 }
@@ -39,7 +39,7 @@ func NewTxStore(
 	documentLoader jsonld.DocumentLoader,
 	vpTransactionDataTTLSec int32) *TxStore {
 	return &TxStore{
-		ttl:            time.Duration(vpTransactionDataTTLSec) * time.Second,
+		defaultTTL:     time.Duration(vpTransactionDataTTLSec) * time.Second,
 		redisClient:    redisClient,
 		documentLoader: documentLoader,
 	}
@@ -48,13 +48,20 @@ func NewTxStore(
 // Create creates transaction document in a database.
 func (p *TxStore) Create(
 	pd *presexch.PresentationDefinition,
-	profileID, profileVersion string, customScopes []string,
+	profileID, profileVersion string,
+	profileTransactionDataTTL int32,
+	customScopes []string,
 ) (oidc4vp.TxID, *oidc4vp.Transaction, error) {
+	ttl := p.defaultTTL
+	if profileTransactionDataTTL > 0 {
+		ttl = time.Duration(profileTransactionDataTTL) * time.Second
+	}
+
 	ctxWithTimeout, cancel := p.redisClient.ContextWithTimeout()
 	defer cancel()
 
 	txDoc := &txDocument{
-		ExpireAt:               time.Now().Add(p.ttl),
+		ExpireAt:               time.Now().Add(ttl),
 		ProfileID:              profileID,
 		ProfileVersion:         profileVersion,
 		PresentationDefinition: pd,
@@ -64,7 +71,7 @@ func (p *TxStore) Create(
 	txID := uuid.NewString()
 	key := resolveRedisKey(txID)
 
-	if err := p.redisClient.API().Set(ctxWithTimeout, key, txDoc, p.ttl).Err(); err != nil {
+	if err := p.redisClient.API().Set(ctxWithTimeout, key, txDoc, ttl).Err(); err != nil {
 		return "", nil, fmt.Errorf("tx set: %w", err)
 	}
 
@@ -111,7 +118,12 @@ func (p *TxStore) getTxDocument(ctx context.Context, strID oidc4vp.TxID) (*txDoc
 	return txDoc, nil
 }
 
-func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
+func (p *TxStore) Update(update oidc4vp.TransactionUpdate, profileTransactionDataTTL int32) error {
+	ttl := p.defaultTTL
+	if profileTransactionDataTTL > 0 {
+		ttl = time.Duration(profileTransactionDataTTL) * time.Second
+	}
+
 	ctxWithTimeout, cancel := p.redisClient.ContextWithTimeout()
 	defer cancel()
 
@@ -124,7 +136,7 @@ func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
 
 	key := resolveRedisKey(string(update.ID))
 
-	if err = p.redisClient.API().Set(ctxWithTimeout, key, txDoc, p.ttl).Err(); err != nil {
+	if err = p.redisClient.API().Set(ctxWithTimeout, key, txDoc, ttl).Err(); err != nil {
 		return fmt.Errorf("tx update: %w", err)
 	}
 

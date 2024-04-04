@@ -1178,14 +1178,14 @@ func getOIDC4CITransactionStore(
 
 func getAckStore(
 	redisClient *redis.Client,
-	oidc4ciTransactionDataTTL int32,
+	oidc4ciAckDataTTL int32,
 ) *ackstore.Store {
 	if redisClient == nil {
 		logger.Warn("Redis client is not configured. Acknowledgement store will not be used")
 		return nil
 	}
 
-	return ackstore.New(redisClient, oidc4ciTransactionDataTTL)
+	return ackstore.New(redisClient, oidc4ciAckDataTTL)
 }
 
 func createRequestObjectStore(

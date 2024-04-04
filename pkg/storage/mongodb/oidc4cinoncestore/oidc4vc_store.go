@@ -54,7 +54,7 @@ type mongoDocument struct {
 
 // Store stores oidc transactions in mongo.
 type Store struct {
-	ttl         time.Duration
+	defaultTTL  time.Duration
 	mongoClient *mongodb.Client
 }
 
@@ -62,7 +62,7 @@ type Store struct {
 func New(ctx context.Context, mongoClient *mongodb.Client, ttlSec int32) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -96,18 +96,13 @@ func (s *Store) migrate(ctx context.Context) error {
 
 func (s *Store) Create(
 	ctx context.Context,
+	profileTransactionDataTTL int32,
 	data *oidc4ci.TransactionData,
-	params ...func(insertOptions *oidc4ci.InsertOptions),
 ) (*oidc4ci.Transaction, error) {
-	insertCfg := &oidc4ci.InsertOptions{}
-	for _, p := range params {
-		p(insertCfg)
-	}
-
 	obj := s.mapTransactionDataToMongoDocument(data)
 
-	if insertCfg.TTL != 0 {
-		obj.ExpireAt = time.Now().UTC().Add(insertCfg.TTL)
+	if profileTransactionDataTTL != 0 {
+		obj.ExpireAt = time.Now().UTC().Add(time.Duration(profileTransactionDataTTL) * time.Second)
 	}
 
 	collection := s.mongoClient.Database().Collection(collectionName)
@@ -188,7 +183,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
 func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData) *mongoDocument {
 	return &mongoDocument{
 		ID:                                 primitive.ObjectID{},
-		ExpireAt:                           time.Now().UTC().Add(s.ttl),
+		ExpireAt:                           time.Now().UTC().Add(s.defaultTTL),
 		OpState:                            data.OpState,
 		ProfileID:                          data.ProfileID,
 		ProfileVersion:                     data.ProfileVersion,
