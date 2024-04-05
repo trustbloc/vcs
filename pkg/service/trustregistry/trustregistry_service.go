@@ -81,7 +81,7 @@ func (s *Service) ValidateIssuance(
 
 	req := &IssuancePolicyEvaluationRequest{
 		IssuerDID:       profile.SigningDID.DID,
-		CredentialTypes: data.CredentialTypes,
+		CredentialTypes: removeDuplicates(data.CredentialTypes),
 	}
 
 	if data.AttestationVP != "" {
@@ -280,4 +280,17 @@ func (s *Service) requestPolicyEvaluation(
 	}
 
 	return result, nil
+}
+
+func removeDuplicates(items []string) []string {
+	var uniqueItems []string
+
+	for _, item := range items {
+		_, dup := lo.Find(uniqueItems, func(v string) bool { return v == item })
+		if !dup {
+			uniqueItems = append(uniqueItems, item)
+		}
+	}
+
+	return uniqueItems
 }
