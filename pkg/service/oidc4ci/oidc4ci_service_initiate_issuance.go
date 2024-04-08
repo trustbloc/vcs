@@ -44,10 +44,6 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		req.OpState = uuid.NewString()
 	}
 
-	if !profile.Active {
-		return nil, resterr.ErrProfileInactive
-	}
-
 	if profile.VCConfig == nil {
 		return nil, resterr.ErrVCOptionsNotConfigured
 	}

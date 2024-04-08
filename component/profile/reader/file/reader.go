@@ -28,6 +28,7 @@ import (
 	"github.com/trustbloc/vcs/internal/logfields"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 const (
@@ -62,7 +63,7 @@ type VerifierReader struct {
 	verifiers map[string]*profileapi.Verifier
 }
 
-type profile struct {
+type profileData struct {
 	IssuersData   []*issuerProfile   `json:"issuers"`
 	VerifiersData []*verifierProfile `json:"verifiers"`
 }
@@ -96,7 +97,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 		return nil, err
 	}
 
-	var p profile
+	var p profileData
 	if err = json.Unmarshal(jsonBytes, &p); err != nil {
 		return nil, err
 	}
@@ -142,7 +143,26 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 // GetProfile returns profile with given id.
 func (p *IssuerReader) GetProfile(
 	profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error) {
-	return p.issuers[fmt.Sprintf("%s_%s", profileID, profileVersion)], nil
+	profile, ok := p.issuers[fmt.Sprintf("%s_%s", profileID, profileVersion)]
+	if !ok {
+		return nil, resterr.ErrProfileNotFound
+	}
+
+	if !profile.Active {
+		return nil, resterr.ErrProfileInactive
+	}
+
+	// Check latest version of given profileID if it is inactive.
+	latestProfileVersion, ok := p.issuers[fmt.Sprintf("%s_%s", profileID, latest)]
+	if !ok {
+		return nil, resterr.ErrProfileNotFound
+	}
+
+	if !latestProfileVersion.Active {
+		return nil, resterr.ErrProfileInactive
+	}
+
+	return profile, nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.
@@ -167,7 +187,7 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 		return nil, err
 	}
 
-	var p profile
+	var p profileData
 	if err = json.Unmarshal(jsonBytes, &p); err != nil {
 		return nil, err
 	}
@@ -225,7 +245,26 @@ func (p *VerifierReader) setTrustList(
 // GetProfile returns profile with given id.
 func (p *VerifierReader) GetProfile(
 	profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error) {
-	return p.verifiers[fmt.Sprintf("%s_%s", profileID, profileVersion)], nil
+	profile, ok := p.verifiers[fmt.Sprintf("%s_%s", profileID, profileVersion)]
+	if !ok {
+		return nil, resterr.ErrProfileNotFound
+	}
+
+	if !profile.Active {
+		return nil, resterr.ErrProfileInactive
+	}
+
+	// Check latest version of given profileID if it is inactive.
+	latestProfileVersion, ok := p.verifiers[fmt.Sprintf("%s_%s", profileID, latest)]
+	if !ok {
+		return nil, resterr.ErrProfileNotFound
+	}
+
+	if !latestProfileVersion.Active {
+		return nil, resterr.ErrProfileInactive
+	}
+
+	return profile, nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.

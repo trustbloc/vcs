@@ -1201,31 +1201,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "Profile is not active",
-			setup: func(mocks *mocks) {
-				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					OpState:                   "eyJhbGciOiJSU0Et",
-					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
-						{
-							ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-							CredentialTemplateID: "templateID",
-						},
-					},
-				}
-
-				profile = &profileapi.Issuer{
-					Active:     false,
-					OIDCConfig: &profileapi.OIDCConfig{},
-					VCConfig:   &profileapi.VCConfig{},
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
-				require.Nil(t, resp)
-				require.ErrorIs(t, err, resterr.ErrProfileInactive)
-			},
-		},
-		{
 			name: "VC options not configured",
 			setup: func(mocks *mocks) {
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
