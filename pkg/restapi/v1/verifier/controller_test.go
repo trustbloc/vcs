@@ -2077,24 +2077,6 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			"invalid-value[presentationDefinitionID]: presentation definition id= not found for profile with id=profile-id")
 	})
 
-	t.Run("Should be active", func(t *testing.T) {
-		controller := NewController(&Config{
-			ProfileSvc:    mockProfileSvc,
-			KMSRegistry:   kmsRegistry,
-			OIDCVPService: oidc4VPSvc,
-		})
-
-		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
-			&profileapi.Verifier{
-				OrganizationID: tenantID,
-				Active:         false,
-				OIDCConfig:     &profileapi.OIDC4VPConfig{},
-				SigningDID:     &profileapi.SigningDID{},
-			})
-
-		requireCustomError(t, resterr.ProfileInactive, err)
-	})
-
 	t.Run("Error - With Presentation Definition and PD filters", func(t *testing.T) {
 		controller := NewController(&Config{
 			ProfileSvc:    mockProfileSvc,

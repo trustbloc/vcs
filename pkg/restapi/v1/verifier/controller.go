@@ -340,10 +340,6 @@ func (c *Controller) initiateOidcInteraction(
 	data *InitiateOIDC4VPData,
 	profile *profileapi.Verifier,
 ) (*InitiateOIDC4VPResponse, error) {
-	if !profile.Active {
-		return nil, resterr.ErrProfileInactive
-	}
-
 	if profile.OIDCConfig == nil {
 		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.OIDCConfig",
 			errors.New("OIDC not configured"))
