@@ -9,6 +9,7 @@ package stress
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -31,23 +32,25 @@ type Run struct {
 }
 
 type Config struct {
-	TLSConfig              *tls.Config            `json:"-"`
-	ApiURL                 string                 `json:"api_url"`
-	TokenClientID          string                 `json:"token_client_id"`
-	TokenClientSecret      string                 `json:"token_client_secret"`
-	UserCount              int                    `json:"user_count"`
-	ConcurrentRequests     int                    `json:"concurrent_requests"`
-	IssuerProfileID        string                 `json:"issuer_profile_id"`
-	IssuerProfileVersion   string                 `json:"issuer_profile_version"`
-	VerifierProfileID      string                 `json:"verifier_profile_id"`
-	CredentialTemplateID   string                 `json:"credential_template_id"`
-	CredentialType         string                 `json:"credential_type"`
-	ClaimData              map[string]interface{} `json:"claim_data"`
-	DisableRevokeTest      bool                   `json:"disable_revoke_test"`
-	Detailed               bool                   `json:"detailed"`
-	DisableVPTest          bool                   `json:"disable_vp_test"`
-	VerifierProfileVersion string                 `json:"verifier_profile_version"`
-	VerifierPresentationID string                 `json:"verifier_presentation_id"`
+	TLSConfig               *tls.Config         `json:"-"`
+	ApiURL                  string              `json:"api_url"`
+	TokenClientID           string              `json:"token_client_id"`
+	TokenClientSecret       string              `json:"token_client_secret"`
+	UserCount               int                 `json:"user_count"`
+	ConcurrentRequests      int                 `json:"concurrent_requests"`
+	IssuerProfileID         string              `json:"issuer_profile_id"`
+	IssuerProfileVersion    string              `json:"issuer_profile_version"`
+	VerifierProfileID       string              `json:"verifier_profile_id"`
+	CredentialTemplateID    string              `json:"credential_template_id"`
+	CredentialType          string              `json:"credential_type"`
+	InitiateIssuanceRequest json.RawMessage     `json:"initiate_issuance_request"`
+	DisableRevokeTest       bool                `json:"disable_revoke_test"`
+	Detailed                bool                `json:"detailed"`
+	DisableVPTest           bool                `json:"disable_vp_test"`
+	VerifierProfileVersion  string              `json:"verifier_profile_version"`
+	VerifierPresentationID  string              `json:"verifier_presentation_id"`
+	WalletConfiguration     WalletConfiguration `json:"wallet_configuration"`
+	Urls                    Urls                `json:"urls"`
 }
 
 func NewStressRun(
@@ -126,13 +129,14 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			WithVerifierProfileVersion(r.cfg.VerifierProfileVersion),
 			WithVerifierProfileID(r.cfg.VerifierProfileID),
 			WithVerifierPresentationID(r.cfg.VerifierPresentationID),
-			WithCredentialTemplateID(r.cfg.CredentialTemplateID),
 			WithHTTPClient(httpClient),
 			WithCredentialType(r.cfg.CredentialType),
-			WithClaimData(r.cfg.ClaimData),
+			WithInitiateIssuanceRequest(r.cfg.InitiateIssuanceRequest),
 			WithToken(idToken),
 			WithDisableRevokeTestCase(r.cfg.DisableRevokeTest),
 			WithDisableVPTestCase(r.cfg.DisableVPTest),
+			WithWalletConfiguration(r.cfg.WalletConfiguration),
+			WithUrls(r.cfg.Urls),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create test case: %w", err)

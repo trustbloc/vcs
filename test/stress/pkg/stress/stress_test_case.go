@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/piprate/json-gold/ld"
@@ -44,46 +45,47 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-const (
-	attestationServiceURL = "https://mock-attestation.trustbloc.local:8097/profiles/profileID/profileVersion/wallet/attestation"
-	trustRegistryHost     = "https://mock-trustregistry.trustbloc.local:8098"
-)
-
 type TestCase struct {
-	oidc4vciProvider       *oidc4vciProvider
-	oidc4vpProvider        *oidc4vpProvider
-	wallet                 *wallet.Wallet
-	httpClient             *http.Client
-	vcsAPIURL              string
-	issuerProfileID        string
-	issuerProfileVersion   string
-	verifierProfileID      string
-	verifierProfileVersion string
-	credentialTemplateID   string
-	credentialType         string
-	oidcCredentialFormat   vcsverifiable.OIDCFormat
-	token                  string
-	claimData              map[string]interface{}
-	disableRevokeTestCase  bool
-	disableVPTestCase      bool
-	verifierPresentationID string
+	oidc4vciProvider        *oidc4vciProvider
+	oidc4vpProvider         *oidc4vpProvider
+	wallet                  *wallet.Wallet
+	httpClient              *http.Client
+	vcsAPIURL               string
+	issuerProfileID         string
+	issuerProfileVersion    string
+	verifierProfileID       string
+	verifierProfileVersion  string
+	credentialType          string
+	oidcCredentialFormat    vcsverifiable.OIDCFormat
+	token                   string
+	initiateIssuanceRequest json.RawMessage
+	disableRevokeTestCase   bool
+	disableVPTestCase       bool
+	verifierPresentationID  string
+
+	walletConfiguration WalletConfiguration
+	urls                Urls
+	additionalPerfLogs  map[string]time.Duration
 }
 
 type TestCaseOptions struct {
-	httpClient             *http.Client
-	vcsAPIURL              string
-	issuerProfileID        string
-	issuerProfileVersion   string
-	verifierProfileID      string
-	credentialTemplateID   string
-	credentialType         string
-	oidcCredentialFormat   vcsverifiable.OIDCFormat
-	token                  string
-	claimData              map[string]interface{}
-	disableRevokeTestCase  bool
-	disableVPTestCase      bool
-	verifierProfileVersion string
-	verifierPresentationID string
+	httpClient              *http.Client
+	vcsAPIURL               string
+	issuerProfileID         string
+	issuerProfileVersion    string
+	verifierProfileID       string
+	credentialType          string
+	oidcCredentialFormat    vcsverifiable.OIDCFormat
+	token                   string
+	initiateIssuanceRequest json.RawMessage
+	disableRevokeTestCase   bool
+	disableVPTestCase       bool
+	verifierProfileVersion  string
+	verifierPresentationID  string
+
+	// todo
+	walletConfiguration WalletConfiguration
+	urls                Urls
 }
 
 type TestCaseOption func(opts *TestCaseOptions)
@@ -166,6 +168,10 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		},
 		wallet.WithNewDID("ion"),
 		wallet.WithKeyType("ECDSAP384DER"),
+		wallet.WithName(opts.walletConfiguration.Name),
+		wallet.WithVersion(opts.walletConfiguration.Version),
+		wallet.WithWalletType(opts.walletConfiguration.Type),
+		wallet.WithCompliance(opts.walletConfiguration.Compliance),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init wallet: %w", err)
@@ -184,16 +190,37 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 			cryptoSuite:     suite,
 			wallet:          w,
 		},
-		attestationServiceURL,
+		opts.urls.AttestationServiceURL,
 		0,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create attestation service: %w", err)
 	}
 
-	trustRegistry := trustregistry.NewClient(opts.httpClient, trustRegistryHost)
+	perfLogs := map[string]time.Duration{}
+	var perfLogsMutex = &sync.Mutex{}
+
+	opts.httpClient.Transport = &mitmTransport{
+		root: opts.httpClient.Transport,
+		requestInterceptor: func(request *http.Request, parent http.RoundTripper) (*http.Response, error) {
+			start := time.Now()
+
+			resp, respErr := parent.RoundTrip(request)
+
+			if strings.Contains(request.URL.String(), "trustregistry") {
+				perfLogsMutex.Lock()
+				perfLogs[request.URL.String()] = time.Since(start)
+				perfLogsMutex.Unlock()
+			}
+
+			return resp, respErr
+		},
+	}
+
+	trustRegistry := trustregistry.NewClient(opts.httpClient, opts.urls.TrustRegistryHost)
 
 	return &TestCase{
+		additionalPerfLogs: perfLogs,
 		oidc4vciProvider: &oidc4vciProvider{
 			storageProvider:    storageProvider,
 			httpClient:         opts.httpClient,
@@ -215,21 +242,22 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 			trustRegistry:      trustRegistry,
 			wallet:             w,
 		},
-		wallet:                 w,
-		httpClient:             opts.httpClient,
-		vcsAPIURL:              opts.vcsAPIURL,
-		issuerProfileID:        opts.issuerProfileID,
-		issuerProfileVersion:   opts.issuerProfileVersion,
-		verifierProfileID:      opts.verifierProfileID,
-		verifierProfileVersion: opts.verifierProfileVersion,
-		credentialTemplateID:   opts.credentialTemplateID,
-		credentialType:         opts.credentialType,
-		oidcCredentialFormat:   opts.oidcCredentialFormat,
-		token:                  opts.token,
-		claimData:              opts.claimData,
-		disableRevokeTestCase:  opts.disableRevokeTestCase,
-		disableVPTestCase:      opts.disableVPTestCase,
-		verifierPresentationID: opts.verifierPresentationID,
+		wallet:                  w,
+		httpClient:              opts.httpClient,
+		vcsAPIURL:               opts.vcsAPIURL,
+		issuerProfileID:         opts.issuerProfileID,
+		issuerProfileVersion:    opts.issuerProfileVersion,
+		verifierProfileID:       opts.verifierProfileID,
+		verifierProfileVersion:  opts.verifierProfileVersion,
+		credentialType:          opts.credentialType,
+		oidcCredentialFormat:    opts.oidcCredentialFormat,
+		token:                   opts.token,
+		initiateIssuanceRequest: opts.initiateIssuanceRequest,
+		disableRevokeTestCase:   opts.disableRevokeTestCase,
+		disableVPTestCase:       opts.disableVPTestCase,
+		verifierPresentationID:  opts.verifierPresentationID,
+		walletConfiguration:     opts.walletConfiguration,
+		urls:                    opts.urls,
 	}, nil
 }
 
@@ -242,6 +270,18 @@ func WithDisableRevokeTestCase(disableRevokeTestCase bool) TestCaseOption {
 func WithDisableVPTestCase(disableVpTestCase bool) TestCaseOption {
 	return func(opts *TestCaseOptions) {
 		opts.disableVPTestCase = disableVpTestCase
+	}
+}
+
+func WithWalletConfiguration(configuration WalletConfiguration) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.walletConfiguration = configuration
+	}
+}
+
+func WithUrls(configuration Urls) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.urls = configuration
 	}
 }
 
@@ -286,22 +326,15 @@ func WithVerifierProfileID(verifierProfileID string) TestCaseOption {
 		opts.verifierProfileID = verifierProfileID
 	}
 }
-
-func WithCredentialTemplateID(credentialTemplateID string) TestCaseOption {
-	return func(opts *TestCaseOptions) {
-		opts.credentialTemplateID = credentialTemplateID
-	}
-}
-
 func WithCredentialType(credentialType string) TestCaseOption {
 	return func(opts *TestCaseOptions) {
 		opts.credentialType = credentialType
 	}
 }
 
-func WithClaimData(data map[string]interface{}) TestCaseOption {
+func WithInitiateIssuanceRequest(data json.RawMessage) TestCaseOption {
 	return func(opts *TestCaseOptions) {
-		opts.claimData = data
+		opts.initiateIssuanceRequest = data
 	}
 }
 
@@ -318,6 +351,16 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("fetch credential offer url: %w", err)
 	}
+
+	st := time.Now()
+	if c.walletConfiguration.AttestationType != "" {
+		if _, err = c.oidc4vciProvider.attestationService.GetAttestation(context.Background(), attestation.GetAttestationRequest{
+			AttestationType: c.walletConfiguration.AttestationType,
+		}); err != nil {
+			return "", nil, fmt.Errorf("get attestation: %w", err)
+		}
+	}
+	attestationTook := time.Since(st)
 
 	// run pre-auth flow and save credential in the wallet
 	vciFlow, err := oidc4vci.NewFlow(c.oidc4vciProvider,
@@ -406,6 +449,11 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	for k, v := range vciPerfInfo {
 		perfInfo[k] = v
 	}
+	for k, v := range c.additionalPerfLogs {
+		perfInfo[k] = v
+	}
+
+	perfInfo["_attestation"] = attestationTook
 
 	if !c.disableRevokeTestCase && credential.Contents().Status != nil && credential.Contents().Status.Type != "" {
 		st := time.Now()
@@ -460,15 +508,6 @@ func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
 }
 
 func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
-	b, err := json.Marshal(&initiateOIDC4CIRequest{
-		ClaimData:            &c.claimData,
-		CredentialTemplateId: c.credentialTemplateID,
-		UserPinRequired:      true,
-	})
-	if err != nil {
-		return "", "", fmt.Errorf("marshal initiate oidc4ci request: %w", err)
-	}
-
 	req, err := http.NewRequest(http.MethodPost,
 		fmt.Sprintf(
 			"%v/issuer/profiles/%s/%s/interactions/initiate-oidc",
@@ -476,7 +515,7 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 			c.issuerProfileID,
 			c.issuerProfileVersion,
 		),
-		bytes.NewBuffer(b))
+		bytes.NewBuffer(c.initiateIssuanceRequest))
 	if err != nil {
 		return "", "", fmt.Errorf("create initiate oidc4ci request: %w", err)
 	}
