@@ -35,14 +35,14 @@ type mongoDocument struct {
 // Store stores claim data with expiration.
 type Store struct {
 	mongoClient *mongodb.Client
-	ttl         int32
+	defaultTTL  int32
 }
 
 // New creates a new instance of Store.
 func New(ctx context.Context, mongoClient *mongodb.Client, ttl int32) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
-		ttl:         ttl,
+		defaultTTL:  ttl,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -66,9 +66,14 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) Create(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
+func (s *Store) Create(ctx context.Context, profileClaimDataTTL int32, data *oidc4ci.ClaimData) (string, error) {
+	claimDataTTL := s.defaultTTL
+	if profileClaimDataTTL > 0 {
+		claimDataTTL = profileClaimDataTTL
+	}
+
 	doc := &mongoDocument{
-		ExpireAt:  time.Now().Add(time.Duration(s.ttl) * time.Second),
+		ExpireAt:  time.Now().Add(time.Duration(claimDataTTL) * time.Second),
 		ClaimData: *data,
 	}
 

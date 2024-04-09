@@ -298,6 +298,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 
 				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
 					AuthorizationRequest: issuer.OAuthParameters{},
+					ProfileAuthStateTtl:  10,
 				})
 				require.NoError(t, err)
 
@@ -321,7 +322,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						}, nil
 					})
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(10), *params.IssuerState, gomock.Any()).
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
@@ -384,7 +385,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						}, nil
 					})
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), gomock.Any(), gomock.Any()).
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), gomock.Any(), gomock.Any()).
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
@@ -445,7 +446,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						}, nil
 					})
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), *params.IssuerState, gomock.Any()).
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
@@ -512,7 +513,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						}, nil
 					})
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), "generated-op-state", gomock.Any()).
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), "generated-op-state", gomock.Any()).
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
@@ -578,7 +579,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 					},
 				)
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).Return(nil)
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), *params.IssuerState, gomock.Any()).Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
@@ -638,7 +639,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 					},
 				)
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), *params.IssuerState, gomock.Any()).
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
@@ -872,7 +873,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						}, nil
 					})
 
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), *params.IssuerState, gomock.Any()).Return(
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), *params.IssuerState, gomock.Any()).Return(
 					errors.New("save state error"))
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {

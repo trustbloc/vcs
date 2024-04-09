@@ -63,20 +63,21 @@ type txStore interface {
 	Create(
 		pd *presexch.PresentationDefinition,
 		profileID, profileVersion string,
+		profileTransactionDataTTL int32,
 		customScopes []string,
 	) (TxID, *Transaction, error)
-	Update(update TransactionUpdate) error
+	Update(update TransactionUpdate, profileTransactionDataTTL int32) error
 	Get(txID TxID) (*Transaction, error)
 }
 
 type txClaimsStore interface {
-	Create(claims *ClaimData) (string, error)
+	Create(claims *ClaimData, profileReceivedClaimsDataTTL int32) (string, error)
 	Get(claimsID string) (*ClaimData, error)
 	Delete(claimsID string) error
 }
 
 type txNonceStore interface {
-	SetIfNotExist(nonce string, txID TxID) (bool, error)
+	SetIfNotExist(nonce string, profileNonceStoreDataTTL int32, txID TxID) (bool, error)
 	GetAndDelete(nonce string) (TxID, bool, error)
 }
 
@@ -115,14 +116,16 @@ func NewTxManager(
 func (tm *TxManager) CreateTx(
 	pd *presexch.PresentationDefinition,
 	profileID, profileVersion string,
+	profileTransactionDataTTL int32,
+	profileNonceStoreDataTTL int32,
 	customScopes []string,
 ) (*Transaction, string, error) {
-	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion, customScopes)
+	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion, profileTransactionDataTTL, customScopes)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}
 
-	nonce, err := tm.tryCreateTxNonce(txID)
+	nonce, err := tm.tryCreateTxNonce(txID, profileNonceStoreDataTTL)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx nonce create failed: %w", err)
 	}
@@ -134,18 +137,21 @@ func (tm *TxManager) DeleteReceivedClaims(claimsID string) error {
 	return tm.txClaimsStore.Delete(claimsID)
 }
 
-func (tm *TxManager) StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error {
+func (tm *TxManager) StoreReceivedClaims(
+	txID TxID,
+	claims *ReceivedClaims,
+	profileTransactionDataTTL, profileReceivedClaimsDataTTL int32) error {
 	encrypted, err := tm.EncryptClaims(context.TODO(), claims)
 	if err != nil {
 		return err
 	}
 
-	receivedClaimsID, err := tm.txClaimsStore.Create(encrypted)
+	receivedClaimsID, err := tm.txClaimsStore.Create(encrypted, profileReceivedClaimsDataTTL)
 	if err != nil {
 		return err
 	}
 
-	return tm.txStore.Update(TransactionUpdate{ID: txID, ReceivedClaimsID: receivedClaimsID})
+	return tm.txStore.Update(TransactionUpdate{ID: txID, ReceivedClaimsID: receivedClaimsID}, profileTransactionDataTTL)
 }
 
 // Get transaction id.
@@ -195,14 +201,14 @@ func (tm *TxManager) GetByOneTimeToken(nonce string) (*Transaction, bool, error)
 	return tx, valid, nil
 }
 
-func (tm *TxManager) tryCreateTxNonce(txID TxID) (string, error) {
+func (tm *TxManager) tryCreateTxNonce(txID TxID, profileNonceStoreDataTTL int32) (string, error) {
 	for i := 1; i <= maxRetries; i++ {
 		nonce, err := genNonce()
 		if err != nil {
 			return "", err
 		}
 
-		isSet, err := tm.nonceStore.SetIfNotExist(nonce, txID)
+		isSet, err := tm.nonceStore.SetIfNotExist(nonce, profileNonceStoreDataTTL, txID)
 		if err != nil {
 			return "", fmt.Errorf("oidc tx nonceStore set failed: %w", err)
 		}

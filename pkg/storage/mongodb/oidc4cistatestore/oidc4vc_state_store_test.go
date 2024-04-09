@@ -56,21 +56,43 @@ func TestStore(t *testing.T) {
 
 		toInsert := &oidc4ci.AuthorizeState{}
 
-		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert)
+		err1 := store.SaveAuthorizeState(context.Background(), 0, id, toInsert)
 		assert.NoError(t, err1)
 
-		err2 := store.SaveAuthorizeState(context.Background(), id, toInsert)
+		err2 := store.SaveAuthorizeState(context.Background(), 0, id, toInsert)
 		assert.ErrorIs(t, err2, resterr.ErrOpStateKeyDuplication)
 	})
 
-	t.Run("test expiration", func(t *testing.T) {
+	t.Run("test default expiration", func(t *testing.T) {
 		id := uuid.New().String()
+
+		expiredStore, e := New(context.Background(), client, -1)
+
+		assert.NoError(t, e)
 
 		toInsert := &oidc4ci.AuthorizeState{}
 
-		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert,
-			oidc4ci.WithDocumentTTL(-2*time.Second))
+		err1 := expiredStore.SaveAuthorizeState(context.Background(), 0, id, toInsert)
 		assert.NoError(t, err1)
+
+		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
+		assert.Nil(t, resp2)
+		assert.ErrorIs(t, err2, resterr.ErrDataNotFound)
+	})
+
+	t.Run("test profile expiration", func(t *testing.T) {
+		id := uuid.New().String()
+
+		expiredStore, e := New(context.Background(), client, 100)
+
+		assert.NoError(t, e)
+
+		toInsert := &oidc4ci.AuthorizeState{}
+
+		err1 := expiredStore.SaveAuthorizeState(context.Background(), 1, id, toInsert)
+		assert.NoError(t, err1)
+
+		time.Sleep(time.Second)
 
 		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp2)
@@ -84,7 +106,7 @@ func TestStore(t *testing.T) {
 			RespondMode: "random",
 		}
 
-		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert)
+		err1 := store.SaveAuthorizeState(context.Background(), 0, id, toInsert)
 		assert.NoError(t, err1)
 
 		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
@@ -140,7 +162,7 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err := store.SaveAuthorizeState(ctx, uuid.NewString(), &oidc4ci.AuthorizeState{})
+		err := store.SaveAuthorizeState(ctx, 0, uuid.NewString(), &oidc4ci.AuthorizeState{})
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 

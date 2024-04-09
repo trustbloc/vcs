@@ -28,7 +28,7 @@ const (
 
 // Store stores oidc transactions in redis.
 type Store struct {
-	ttl         time.Duration
+	defaultTTL  time.Duration
 	redisClient *redis.Client
 }
 
@@ -36,14 +36,14 @@ type Store struct {
 func New(redisClient *redis.Client, ttlSec int32) *Store {
 	return &Store{
 		redisClient: redisClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 }
 
 func (s *Store) Create(
 	ctx context.Context,
+	profileTransactionDataTTL int32,
 	transactionData *oidc4ci.TransactionData,
-	params ...func(insertOptions *oidc4ci.InsertOptions),
 ) (*oidc4ci.Transaction, error) {
 	// Check opStatueBasedKey key existence.
 	opStatueBasedKey := resolveRedisKey(keyPrefix, transactionData.OpState)
@@ -56,14 +56,9 @@ func (s *Store) Create(
 		return nil, resterr.ErrDataNotFound
 	}
 
-	insertCfg := &oidc4ci.InsertOptions{}
-	for _, p := range params {
-		p(insertCfg)
-	}
-
-	ttl := s.ttl
-	if insertCfg.TTL != 0 {
-		ttl = insertCfg.TTL
+	ttl := s.defaultTTL
+	if profileTransactionDataTTL != 0 {
+		ttl = time.Duration(profileTransactionDataTTL) * time.Second
 	}
 
 	transactionID := uuid.NewString()
@@ -158,17 +153,17 @@ func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
 
 	doc := &redisDocument{
 		ID:              string(tx.ID),
-		ExpireAt:        time.Now().UTC().Add(s.ttl),
+		ExpireAt:        time.Now().UTC().Add(s.defaultTTL),
 		TransactionData: &tx.TransactionData,
 	}
 
 	pipeline := s.redisClient.API().TxPipeline()
 	// Set transactionIDBasedKey that points to intermediateKey
-	pipeline.Set(ctx, transactionIDBasedKey, intermediateKey, s.ttl)
+	pipeline.Set(ctx, transactionIDBasedKey, intermediateKey, s.defaultTTL)
 	// Set opStatueBasedKey that points to intermediateKey
-	pipeline.Set(ctx, opStatueBasedKey, intermediateKey, s.ttl)
+	pipeline.Set(ctx, opStatueBasedKey, intermediateKey, s.defaultTTL)
 	// Set intermediateKey that points to redisDocument
-	pipeline.Set(ctx, intermediateKey, doc, s.ttl)
+	pipeline.Set(ctx, intermediateKey, doc, s.defaultTTL)
 
 	if _, err = pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("transactionData Update: %w", err)

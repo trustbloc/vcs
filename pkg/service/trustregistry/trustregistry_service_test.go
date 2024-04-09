@@ -10,6 +10,7 @@ package trustregistry_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -69,9 +70,10 @@ func TestService_ValidateIssuance(t *testing.T) {
 	var proofChecker *checker.ProofChecker
 
 	var (
-		attestationVP string
-		nonce         string
-		profile       *profileapi.Issuer
+		attestationVP   string
+		nonce           string
+		credentialTypes []string
+		profile         *profileapi.Issuer
 	)
 
 	tests := []struct {
@@ -86,6 +88,11 @@ func TestService_ValidateIssuance(t *testing.T) {
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
 					func(req *http.Request) (*http.Response, error) {
+						payload := &trustregistry.IssuancePolicyEvaluationRequest{}
+
+						require.NoError(t, json.NewDecoder(req.Body).Decode(payload))
+						require.Equal(t, []string{"Credential1", "Credential2"}, payload.CredentialTypes)
+
 						return &http.Response{
 							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBufferString(`{"allowed":true}`)),
@@ -99,6 +106,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 				// prepare wallet attestation VP (in jwt_vp format) signed by wallet DID
 				attestationVP = createAttestationVP(t, attestationVC, walletProofCreator, issuerDID, testNonce)
 				nonce = testNonce
+				credentialTypes = []string{"Credential1", "Credential2", "Credential1"}
 				profile = createIssuerProfile(t)
 			},
 			check: func(t *testing.T, err error) {
@@ -320,7 +328,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 					&trustregistry.ValidateIssuanceData{
 						AttestationVP:   attestationVP,
 						Nonce:           nonce,
-						CredentialTypes: nil,
+						CredentialTypes: credentialTypes,
 					},
 				),
 			)

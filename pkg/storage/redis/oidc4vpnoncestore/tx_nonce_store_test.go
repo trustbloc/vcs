@@ -42,17 +42,17 @@ func TestTxStore_Success(t *testing.T) {
 	store := oidc4vpnoncestore.New(client, defaultTTL)
 
 	t.Run("Set not exist", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key", "value")
+		isSet, err := store.SetIfNotExist("key", 0, "value")
 		require.NoError(t, err)
 		require.True(t, isSet)
 	})
 
 	t.Run("Set exist", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key2", "value")
+		isSet, err := store.SetIfNotExist("key2", 0, "value")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
-		isSet, err = store.SetIfNotExist("key2", "txID")
+		isSet, err = store.SetIfNotExist("key2", 0, "txID")
 		require.False(t, isSet)
 		require.NoError(t, err)
 	})
@@ -65,7 +65,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Get exist", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key3", "txID")
+		isSet, err := store.SetIfNotExist("key3", 0, "txID")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Get exist and check if deleted", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key3", "txID")
+		isSet, err := store.SetIfNotExist("key3", 0, "txID")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
@@ -93,14 +93,30 @@ func TestTxStore_Success(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Get expired", func(t *testing.T) {
+	t.Run("Get default expiration", func(t *testing.T) {
 		storeExpired := oidc4vpnoncestore.New(client, 1)
 
-		isSet, err := storeExpired.SetIfNotExist("key4", "txID")
+		isSet, err := storeExpired.SetIfNotExist("key4", 0, "txID")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second)
+
+		data, exists, err := storeExpired.GetAndDelete("key4")
+
+		require.False(t, exists)
+		require.NoError(t, err)
+		require.Empty(t, data)
+	})
+
+	t.Run("Get profile expiration", func(t *testing.T) {
+		storeExpired := oidc4vpnoncestore.New(client, 100)
+
+		isSet, err := storeExpired.SetIfNotExist("key4", 1, "txID")
+		require.True(t, isSet)
+		require.NoError(t, err)
+
+		time.Sleep(time.Second)
 
 		data, exists, err := storeExpired.GetAndDelete("key4")
 

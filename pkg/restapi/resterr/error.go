@@ -93,6 +93,7 @@ var (
 	ErrDataNotFound                     = NewCustomError(DataNotFound, errors.New("data not found"))
 	ErrOpStateKeyDuplication            = NewCustomError(OpStateKeyDuplication, errors.New("op state key duplication"))
 	ErrProfileInactive                  = NewCustomError(ProfileInactive, errors.New("profile not active"))
+	ErrProfileNotFound                  = NewCustomError(ProfileNotFound, errors.New("profile doesn't exist"))
 	ErrCredentialTemplateNotFound       = NewCustomError(CredentialTemplateNotFound, errors.New("credential template not found"))           //nolint:lll
 	ErrCredentialTemplateNotConfigured  = NewCustomError(CredentialTemplateNotConfigured, errors.New("credential template not configured")) //nolint:lll
 	ErrCredentialTemplateIDRequired     = NewCustomError(CredentialTemplateIDRequired, errors.New("credential template ID is required"))    //nolint:lll

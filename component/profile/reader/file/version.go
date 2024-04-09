@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/go-version"
 )
 
+const latest = "latest"
+
 type profileVersionKey string
 
 func getProfileVersionKey(profileID string, profileVersion *version.Version) profileVersionKey {
@@ -31,10 +33,10 @@ func populateLatestTag[Profile any](
 		latestVersion := versions[len(versions)-1]
 		latestMajorVersion := latestVersion.Segments()[0]
 		// Set latest tag.
-		store[fmt.Sprintf("%s_latest", profileID)] =
+		store[fmt.Sprintf("%s_%s", profileID, latest)] =
 			profileData[getProfileVersionKey(profileID, latestVersion)]
 		// Set v<MAJOR>.latest tag for the latest version.
-		store[fmt.Sprintf("%s_v%d.latest", profileID, latestMajorVersion)] =
+		store[fmt.Sprintf("%s_v%d.%s", profileID, latestMajorVersion, latest)] =
 			profileData[getProfileVersionKey(profileID, latestVersion)]
 
 		for i := versions.Len() - 1; i >= 0; i-- {
@@ -45,7 +47,7 @@ func populateLatestTag[Profile any](
 				latestMajorVersion = currentMajorVersion
 
 				// Set v<MAJOR>.latest tag points to the most recent version of the current <MAJOR> version number.
-				store[fmt.Sprintf("%s_v%d.latest", profileID, currentMajorVersion)] =
+				store[fmt.Sprintf("%s_v%d.%s", profileID, currentMajorVersion, latest)] =
 					profileData[getProfileVersionKey(profileID, currentVersion)]
 			}
 		}

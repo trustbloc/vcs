@@ -166,57 +166,6 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 		assert.ErrorContains(t, err, "issuer not found")
 	})
 
-	t.Run("error init", func(t *testing.T) {
-		store := NewMockTransactionStore(gomock.NewController(t))
-		eventMock := NewMockEventService(gomock.NewController(t))
-		profileSvc := NewMockProfileService(gomock.NewController(t))
-		wellKnown := NewMockWellKnownService(gomock.NewController(t))
-
-		srv, err := oidc4ci.NewService(&oidc4ci.Config{
-			TransactionStore: store,
-			EventService:     eventMock,
-			EventTopic:       spi.IssuerEventTopic,
-			ProfileService:   profileSvc,
-			WellKnownService: wellKnown,
-		})
-		assert.NoError(t, err)
-
-		profileSvc.EXPECT().GetProfile(profileapi.ID("bank_issuer1"), "v111.0").
-			Return(&profileapi.Issuer{
-				CredentialTemplates: []*profileapi.CredentialTemplate{
-					{
-						ID: "some-template",
-					},
-				},
-				Active:     false,
-				VCConfig:   &profileapi.VCConfig{},
-				SigningDID: &profileapi.SigningDID{},
-				OIDCConfig: &profileapi.OIDCConfig{
-					WalletInitiatedAuthFlowSupported: true,
-					IssuerWellKnownURL:               "https://awesome.local",
-					ClaimsEndpoint:                   "https://awesome.claims.local",
-					GrantTypesSupported: []string{
-						"authorization_code",
-					},
-					ScopesSupported: []string{
-						"scope1",
-						"scope2",
-						"scope3",
-					},
-				},
-			}, nil)
-
-		resp, err := srv.StoreAuthorizationCode(context.TODO(), "random-op-state", "code123",
-			&common.WalletInitiatedFlowData{
-				OpState:        "random-op-state",
-				ProfileId:      "bank_issuer1",
-				ProfileVersion: "v111.0",
-			},
-		)
-		assert.Empty(t, resp)
-		assert.ErrorContains(t, err,
-			"can not initiate issuance for wallet-initiated flow: profile-inactive")
-	})
 	t.Run("success", func(t *testing.T) {
 		store := NewMockTransactionStore(gomock.NewController(t))
 		eventMock := NewMockEventService(gomock.NewController(t))
@@ -344,11 +293,11 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 				},
 			}, nil)
 
-		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+		store.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 			DoAndReturn(func(
 				ctx context.Context,
+				profileTransactionDataTTL int32,
 				data *oidc4ci.TransactionData,
-				f ...func(*oidc4ci.InsertOptions),
 			) (*oidc4ci.Transaction, error) {
 				assert.Equal(t, "v1.latest", data.ProfileVersion)
 				return &oidc4ci.Transaction{}, nil

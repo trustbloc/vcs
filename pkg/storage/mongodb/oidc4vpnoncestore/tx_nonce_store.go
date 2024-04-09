@@ -32,14 +32,14 @@ type nonceDocument struct {
 // TxNonceStore stores oidc transactions in mongo.
 type TxNonceStore struct {
 	mongoClient *mongodb.Client
-	ttl         time.Duration
+	defaultTTL  time.Duration
 }
 
 // New creates TxNonceStore.
 func New(mongoClient *mongodb.Client, ttlSec int32) (*TxNonceStore, error) {
 	s := &TxNonceStore{
 		mongoClient: mongoClient,
-		ttl:         time.Duration(ttlSec) * time.Second,
+		defaultTTL:  time.Duration(ttlSec) * time.Second,
 	}
 
 	if err := s.migrate(); err != nil {
@@ -91,16 +91,21 @@ func (ts *TxNonceStore) GetAndDelete(nonce string) (oidc4vp.TxID, bool, error) {
 }
 
 // SetIfNotExist stores transaction if key not exists et.
-func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID) (bool, error) {
+func (ts *TxNonceStore) SetIfNotExist(nonce string, profileNonceStoreDataTTL int32, txID oidc4vp.TxID) (bool, error) {
 	ctxWithTimeout, cancel := ts.mongoClient.ContextWithTimeout()
 	defer cancel()
 
 	collection := ts.mongoClient.Database().Collection(nonceCollection)
 
+	ttl := ts.defaultTTL
+	if profileNonceStoreDataTTL > 0 {
+		ttl = time.Duration(profileNonceStoreDataTTL) * time.Second
+	}
+
 	doc := &nonceDocument{
 		ID:       nonce,
 		TxID:     txID,
-		ExpireAt: time.Now().Add(ts.ttl),
+		ExpireAt: time.Now().Add(ttl),
 	}
 
 	_, err := collection.InsertOne(ctxWithTimeout, doc)

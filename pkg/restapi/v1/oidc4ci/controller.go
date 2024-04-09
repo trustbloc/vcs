@@ -87,9 +87,9 @@ var logger = log.New("oidc4ci")
 type StateStore interface {
 	SaveAuthorizeState(
 		ctx context.Context,
+		profileAuthStateTTL int32,
 		opState string,
 		state *oidc4ci.AuthorizeState,
-		params ...func(insertOptions *oidc4ci.InsertOptions),
 	) error
 
 	GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci.AuthorizeState, error)
@@ -352,6 +352,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
+		int32(claimDataAuth.ProfileAuthStateTtl),
 		lo.FromPtr(params.IssuerState),
 		&oidc4ci.AuthorizeState{
 			RedirectURI:         ar.GetRedirectURI(),

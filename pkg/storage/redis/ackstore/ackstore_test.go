@@ -21,9 +21,7 @@ func TestCreate(t *testing.T) {
 		cl := NewMockredisClient(gomock.NewController(t))
 		api := NewMockredisApi(gomock.NewController(t))
 
-		cl.EXPECT().API().Return(api).AnyTimes()
-
-		store := ackstore.New(cl, 30)
+		cl.EXPECT().API().Times(2).Return(api).AnyTimes()
 
 		obj := &oidc4ci.Ack{
 			TxID:        "12354",
@@ -31,6 +29,9 @@ func TestCreate(t *testing.T) {
 		}
 
 		b, _ := json.Marshal(obj) //nolint
+
+		// Default expiration.
+		store := ackstore.New(cl, 30)
 
 		api.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, s string, i interface{}, duration time.Duration) *redisapi.StatusCmd {
@@ -40,7 +41,23 @@ func TestCreate(t *testing.T) {
 
 				return &redisapi.StatusCmd{}
 			})
-		id, err := store.Create(context.TODO(), obj)
+		id, err := store.Create(context.TODO(), 0, obj)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, id)
+		assert.EqualValues(t, id, obj.TxID)
+
+		// Profile expiration.
+		store = ackstore.New(cl, 0)
+
+		api.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, s string, i interface{}, duration time.Duration) *redisapi.StatusCmd {
+				assert.True(t, strings.HasPrefix(s, "oidc4ci_ack"))
+				assert.Equal(t, 20*time.Second, duration)
+				assert.Equal(t, string(b), i)
+
+				return &redisapi.StatusCmd{}
+			})
+		id, err = store.Create(context.TODO(), 20, obj)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, id)
 		assert.EqualValues(t, id, obj.TxID)
@@ -61,7 +78,7 @@ func TestCreate(t *testing.T) {
 		api.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(redisapi.NewStatusResult("", errors.New("unexpected err")))
 
-		id, err := store.Create(context.TODO(), obj)
+		id, err := store.Create(context.TODO(), 0, obj)
 		assert.Empty(t, id)
 		assert.ErrorContains(t, err, "unexpected err")
 	})
