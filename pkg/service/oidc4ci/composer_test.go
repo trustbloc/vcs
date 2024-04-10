@@ -18,6 +18,10 @@ func TestComposer(t *testing.T) {
 		srv := oidc4ci.NewCredentialComposer()
 
 		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
+			Types: []string{"VerifiableCredential"},
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1",
+			},
 			Subject: []verifiable.Subject{{ID: "xxx:yyy"}},
 		}, verifiable.CustomFields{})
 		assert.NoError(t, err)
@@ -49,10 +53,19 @@ func TestComposer(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 
+		credJSON, err := resp.MarshalAsJSONLD()
+		assert.NoError(t, err)
+
+		parsedCred, err := verifiable.ParseCredential(credJSON,
+			verifiable.WithCredDisableValidation(),
+			verifiable.WithDisabledProofCheck(),
+		)
+		assert.NoError(t, err)
+
 		assert.EqualValues(t, "hardcoded:some-awesome-id:suffix", resp.Contents().ID)
 		assert.EqualValues(t, "did:example:123", resp.Contents().Issuer.ID)
 		assert.EqualValues(t, "some-awesome-did", resp.Contents().Subject[0].ID)
-		assert.EqualValues(t, expectedExpiration, resp.Contents().Expired.Time)
+		assert.EqualValues(t, expectedExpiration, parsedCred.Contents().Expired.Time)
 	})
 
 	t.Run("success with prev-id", func(t *testing.T) {
