@@ -81,4 +81,5 @@ type PerfInfo struct {
 	QueryCredentialFromWallet  time.Duration `json:"vp_query_credential_from_wallet"`
 	CreateAuthorizedResponse   time.Duration `json:"vp_create_authorized_response"`
 	SendAuthorizedResponse     time.Duration `json:"vp_send_authorized_response"`
+	VcsVPFlowDuration          time.Duration `json:"_vcs_vp_flow_duration"`
 }

@@ -95,6 +95,7 @@ type PerfInfo struct {
 	GetAccessToken                 time.Duration `json:"vci_get_access_token"`
 	GetCredential                  time.Duration `json:"vci_get_credential"`
 	CredentialsAck                 time.Duration `json:"vci_credentials_ack"`
+	VcsCIFlowDuration              time.Duration `json:"_vcs_ci_flow_duration"`
 }
 
 type parseCredentialResponseData struct {

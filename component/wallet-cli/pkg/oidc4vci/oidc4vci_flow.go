@@ -232,6 +232,11 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 }
 
 func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
+	start := time.Now()
+	defer func() {
+		f.perfInfo.VcsCIFlowDuration = time.Since(start)
+	}()
+
 	slog.Info("Running OIDC4VCI flow",
 		"flow_type", f.flowType,
 		"credential_offer_uri", f.credentialOffer,
