@@ -155,9 +155,9 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 }
 
 func (f *Flow) Run(ctx context.Context) error {
-	start := time.Now()
+	totalFlowStart := time.Now()
 	defer func() {
-		f.perfInfo.VcsVPFlowDuration = time.Since(start)
+		f.perfInfo.VcsVPFlowDuration = time.Since(totalFlowStart)
 	}()
 
 	slog.Info("Running OIDC4VP flow",
