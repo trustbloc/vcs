@@ -1,0 +1,59 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2.4'
+
+services:
+  redis.perf:
+    image: redis:alpine3.17
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    networks:
+      - bdd_net
+
+  node01:
+    container_name: node01
+    image: ghcr.io/trustbloc/vcs-stress:latest
+    platform: linux/amd64
+    ports:
+      - "5566:46212"
+    environment:
+      - REDIS_DISABLE_TLS=true
+      - CLUSTER_MINIMUM_HEALTHY_MEMBERS=3
+      - API_ADDRESS=0.0.0.0:46212
+      - REDIS_URL=redis.perf:6379
+      - CUSTOM_HOST=node01
+    networks:
+      - bdd_net
+
+  node02:
+    container_name: node02
+    image: ghcr.io/trustbloc/vcs-stress:latest
+    platform: linux/amd64
+    environment:
+      - REDIS_DISABLE_TLS=true
+      - CLUSTER_MINIMUM_HEALTHY_MEMBERS=3
+      - API_ADDRESS=0.0.0.0:46212
+      - REDIS_URL=redis.perf:6379
+      - CUSTOM_HOST=node02
+    networks:
+      - bdd_net
+
+  node03:
+    container_name: node03
+    image: ghcr.io/trustbloc/vcs-stress:latest
+    platform: linux/amd64
+    environment:
+      - REDIS_DISABLE_TLS=true
+      - CLUSTER_MINIMUM_HEALTHY_MEMBERS=3
+      - API_ADDRESS=0.0.0.0:46212
+      - REDIS_URL=redis.perf:6379
+      - CUSTOM_HOST=node03
+    networks:
+      - bdd_net
+
+networks:
+  bdd_net:
+    driver: bridge
