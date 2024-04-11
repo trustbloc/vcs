@@ -138,11 +138,6 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Malicious attacker changed signature value and makes /credential request and receives "([^"]*)" error$`, s.runOIDC4VCIAuthWithErrorInvalidSignatureValue)
 	sc.Step(`^Malicious attacker changed nonce value and makes /credential request and receives "([^"]*)" error$`, s.runOIDC4VCIAuthWithErrorInvalidNonce)
 	sc.Step(`^User initiates credential issuance flow and receives "([^"]*)" error$`, s.initiateCredentialIssuanceWithError)
-
-	// Stress tests
-	sc.Step(`^number of users "([^"]*)" making "([^"]*)" concurrent requests$`, s.getUsersNum)
-	sc.Step(`^stress test is done$`, s.runStressTest)
-	sc.Step(`^metrics are collected and displayed$`, s.displayMetrics)
 }
 
 func (s *Steps) ResetAndSetup() error {
