@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/google/uuid"
+	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -34,7 +35,10 @@ func (c *CredentialComposer) Compose(
 	}
 
 	if idTemplate := txCredentialConfiguration.CredentialComposeConfiguration.IDTemplate; idTemplate != "" {
-		id, err := c.renderRaw(idTemplate, c.baseParams(tx))
+		params := c.baseParams(tx)
+		params["CredentialID"] = credential.Contents().ID
+
+		id, err := c.renderRaw(idTemplate, params)
 		if err != nil {
 			return nil, err
 		}
@@ -43,7 +47,14 @@ func (c *CredentialComposer) Compose(
 	}
 
 	if txCredentialConfiguration.CredentialComposeConfiguration.OverrideIssuer {
-		credential = credential.WithModifiedIssuer(&verifiable.Issuer{ID: tx.DID})
+		issuer := credential.Contents().Issuer
+		if issuer == nil {
+			issuer = &verifiable.Issuer{}
+		}
+
+		issuer.ID = tx.DID
+
+		credential = credential.WithModifiedIssuer(issuer)
 	}
 
 	if txCredentialConfiguration.CredentialComposeConfiguration.OverrideSubjectDID {
@@ -55,6 +66,10 @@ func (c *CredentialComposer) Compose(
 		}
 
 		credential = credential.WithModifiedSubject(newSubjects)
+	}
+
+	if credential.Contents().Expired == nil && txCredentialConfiguration.CredentialExpiresAt != nil {
+		credential.SetCustomField("expirationDate", util.NewTime(*txCredentialConfiguration.CredentialExpiresAt))
 	}
 
 	return credential, nil
