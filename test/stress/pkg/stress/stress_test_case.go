@@ -366,7 +366,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	vciFlow, err := oidc4vci.NewFlow(c.oidc4vciProvider,
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(credentialOfferURL),
-		oidc4vci.WithCredentialFilter(c.credentialType, c.oidcCredentialFormat),
+		oidc4vci.WithBatchCredentialIssuance(),
 		oidc4vci.WithPin(pin),
 	)
 	if err != nil {
