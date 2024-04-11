@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -200,6 +202,8 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 	perfLogs := map[string]time.Duration{}
 	var perfLogsMutex = &sync.Mutex{}
 
+	logAllUrls, _ := strconv.ParseBool(os.Getenv("LOG_ALL_URLS"))
+
 	opts.httpClient.Transport = &mitmTransport{
 		root: opts.httpClient.Transport,
 		requestInterceptor: func(request *http.Request, parent http.RoundTripper) (*http.Response, error) {
@@ -207,7 +211,7 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 
 			resp, respErr := parent.RoundTrip(request)
 
-			if strings.Contains(request.URL.String(), "trustregistry") {
+			if logAllUrls || strings.Contains(request.URL.String(), "trustregistry") {
 				perfLogsMutex.Lock()
 				perfLogs[request.URL.String()] = time.Since(start)
 				perfLogsMutex.Unlock()
