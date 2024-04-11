@@ -155,6 +155,11 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 }
 
 func (f *Flow) Run(ctx context.Context) error {
+	totalFlowStart := time.Now()
+	defer func() {
+		f.perfInfo.VcsVPFlowDuration = time.Since(totalFlowStart)
+	}()
+
 	slog.Info("Running OIDC4VP flow",
 		"wallet_did", f.walletDID.String(),
 		"request_uri", f.requestURI,
