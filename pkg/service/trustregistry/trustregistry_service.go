@@ -108,6 +108,10 @@ func (s *Service) ValidateIssuance(
 	}
 
 	if !resp.Allowed {
+		if resp.DenyReasons != nil && len(*resp.DenyReasons) > 0 {
+			return fmt.Errorf("%w: %s", ErrInteractionRestricted, lo.FromPtr(resp.DenyReasons))
+		}
+
 		return ErrInteractionRestricted
 	}
 
@@ -177,6 +181,10 @@ func (s *Service) ValidatePresentation(
 	}
 
 	if !resp.Allowed {
+		if resp.DenyReasons != nil && len(*resp.DenyReasons) > 0 {
+			return fmt.Errorf("%w: %s", ErrInteractionRestricted, lo.FromPtr(resp.DenyReasons))
+		}
+
 		return ErrInteractionRestricted
 	}
 

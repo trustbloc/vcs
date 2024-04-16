@@ -65,6 +65,10 @@ func (c *Client) ValidateIssuer(
 	}
 
 	if !resp.Allowed {
+		if resp.DenyReasons != nil && len(*resp.DenyReasons) > 0 {
+			return false, fmt.Errorf("%w: %s", ErrInteractionRestricted, lo.FromPtr(resp.DenyReasons))
+		}
+
 		return false, ErrInteractionRestricted
 	}
 
@@ -106,6 +110,10 @@ func (c *Client) ValidateVerifier(
 	}
 
 	if !resp.Allowed {
+		if resp.DenyReasons != nil && len(*resp.DenyReasons) > 0 {
+			return false, fmt.Errorf("%w: %s", ErrInteractionRestricted, lo.FromPtr(resp.DenyReasons))
+		}
+
 		return false, ErrInteractionRestricted
 	}
 
