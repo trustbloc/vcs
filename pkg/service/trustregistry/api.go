@@ -74,6 +74,7 @@ type PresentationPolicyEvaluationRequest struct {
 
 // PolicyEvaluationResponse is a response from policy evaluation service.
 type PolicyEvaluationResponse struct {
-	Allowed bool                   `json:"allowed"`
-	Payload map[string]interface{} `json:"payload,omitempty"`
+	Allowed     bool                   `json:"allowed"`
+	DenyReasons *[]string              `json:"deny_reasons,omitempty"`
+	Payload     map[string]interface{} `json:"payload,omitempty"`
 }

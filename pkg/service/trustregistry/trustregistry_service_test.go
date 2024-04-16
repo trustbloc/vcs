@@ -295,7 +295,9 @@ func TestService_ValidateIssuance(t *testing.T) {
 					func(req *http.Request) (*http.Response, error) {
 						return &http.Response{
 							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBufferString(`{"allowed":false}`)),
+							Body: io.NopCloser(
+								bytes.NewBufferString(`{"allowed":false,"deny_reasons":["issuer is not authorized"]}`),
+							),
 						}, nil
 					},
 				)
@@ -308,6 +310,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, err error) {
 				require.ErrorIs(t, err, trustregistry.ErrInteractionRestricted)
+				require.ErrorContains(t, err, "issuer is not authorized")
 			},
 		},
 	}
