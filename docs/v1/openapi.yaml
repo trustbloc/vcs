@@ -215,7 +215,7 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4CIRequest'
       tags:
         - issuer
-  '/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-compose-oidc':
+  '/issuer/profiles/{profileID}/{profileVersion}/interactions/compose-and-initiate-issuance':
     parameters:
       - schema:
           type: string

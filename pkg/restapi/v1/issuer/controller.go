@@ -393,7 +393,7 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 }
 
 // InitiateCredentialComposeIssuance initiates OIDC credential issuance flow.
-// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-compose-oidc.
+// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/compose-and-initiate-issuance.
 func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID string, profileVersion string) error {
 	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateCredentialComposeIssuance")
 	defer span.End()
