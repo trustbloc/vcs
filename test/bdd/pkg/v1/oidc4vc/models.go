@@ -41,7 +41,7 @@ type InitiateIssuanceCredentialConfiguration struct {
 	CredentialName        string                 `json:"credential_name,omitempty"`
 	CredentialDescription string                 `json:"credential_description,omitempty"`
 
-	Compose *issuer.ComposeOIDC4CICredential `json:"compose,omitempty"`
+	Compose *issuer.DeprecatedComposeOIDC4CICredential `json:"compose,omitempty"`
 }
 
 type initiateOIDC4VCIResponse struct {

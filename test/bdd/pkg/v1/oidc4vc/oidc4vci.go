@@ -290,7 +290,7 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 				return fmt.Errorf("unmarshal: %w", err)
 			}
 
-			configuration.Compose = &issuer.ComposeOIDC4CICredential{
+			configuration.Compose = &issuer.DeprecatedComposeOIDC4CICredential{
 				Credential:     &dict,
 				IdTemplate:     lo.ToPtr("prefix:{{.TxID}}:suffix"),
 				OverrideIssuer: lo.ToPtr(true),

@@ -193,17 +193,17 @@ type InitiateIssuanceCredentialConfigurationCompose struct {
 	// Date when credentials should be consider as expired
 	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
 
-	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
-	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
-
-	// ID of the credential template.
-	IdTemplate *string `json:"id_template"`
+	// override for the ID field in credentialSubject. Supports templating.
+	CredentialOverrideId *string `json:"credential_override_id"`
 
 	// Override issuer.
-	OverrideIssuer *bool `json:"override_issuer"`
+	CredentialOverrideIssuer *bool `json:"credential_override_issuer"`
 
 	// Override credential subject did.
-	OverrideSubjectDid *bool `json:"override_subject_did"`
+	CredentialOverrideSubjectDid *bool `json:"credential_override_subject_did"`
+
+	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
+	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 }
 
 // Model for Initiate OIDC Compose Credential Issuance Request.
@@ -1708,7 +1708,7 @@ func NewInitiateCredentialComposeIssuanceRequestWithBody(server string, profileI
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/issuer/profiles/%s/%s/interactions/initiate-compose-oidc", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/%s/interactions/compose-and-initiate-issuance", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2943,7 +2943,7 @@ type ServerInterface interface {
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string, profileVersion string) error
 	// Initiate OIDC Compose Credential Issuance
-	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-compose-oidc)
+	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/compose-and-initiate-issuance)
 	InitiateCredentialComposeIssuance(ctx echo.Context, profileID string, profileVersion string) error
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc)
@@ -3232,7 +3232,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
 	router.GET(baseURL+"/issuer/profiles/:profileID/issued-credentials", wrapper.CredentialIssuanceHistory)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)
-	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-compose-oidc", wrapper.InitiateCredentialComposeIssuance)
+	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/compose-and-initiate-issuance", wrapper.InitiateCredentialComposeIssuance)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
 	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfigV2)

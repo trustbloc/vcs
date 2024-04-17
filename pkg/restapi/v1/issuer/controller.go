@@ -425,9 +425,9 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 		configs = append(configs, InitiateIssuanceCredentialConfiguration{
 			Compose: &DeprecatedComposeOIDC4CICredential{
 				Credential:         compose.Credential,
-				IdTemplate:         compose.IdTemplate,
-				OverrideIssuer:     compose.OverrideIssuer,
-				OverrideSubjectDid: compose.OverrideSubjectDid,
+				IdTemplate:         compose.CredentialOverrideId,
+				OverrideIssuer:     compose.CredentialOverrideIssuer,
+				OverrideSubjectDid: compose.CredentialOverrideSubjectDid,
 			},
 			CredentialExpiresAt:  compose.CredentialExpiresAt,
 			CredentialTemplateId: compose.CredentialTemplateId,

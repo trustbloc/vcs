@@ -2235,15 +2235,15 @@ components:
       type: object
       description: An object that describes specifics of the Multiple Credential Issuance.
       properties:
-        id_template:
+        credential_override_id:
           type: string
-          description: ID of the credential template.
+          description: override for the ID field in credentialSubject. Supports templating.
           nullable: true
-        override_issuer:
+        credential_override_issuer:
           type: boolean
           description: Override issuer.
           nullable: true
-        override_subject_did:
+        credential_override_subject_did:
           type: boolean
           description: Override credential subject did.
           nullable: true
