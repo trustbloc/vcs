@@ -751,7 +751,7 @@ func TestController_initiateCredentialIssuance_CompatibilityV1(t *testing.T) {
 		CredentialExpiresAt:       now,
 		CredentialName:            lo.ToPtr("name1"),
 		CredentialTemplateId:      lo.ToPtr("templateID"),
-		GrantType:                 lo.ToPtr(AuthorizationCode),
+		GrantType:                 lo.ToPtr(InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
 		OpState:                   lo.ToPtr("eyJhbGciOiJSU0Et"),
 		ResponseType:              lo.ToPtr("token"),
 		Scope:                     lo.ToPtr([]string{"openid"}),
@@ -856,7 +856,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				CredentialExpiresAt:   now,
 				CredentialName:        lo.ToPtr("name2"),
 				CredentialTemplateId:  lo.ToPtr("templateID1"),
-				Compose: &ComposeOIDC4CICredential{
+				Compose: &DeprecatedComposeOIDC4CICredential{
 					Credential:     nil,
 					IdTemplate:     lo.ToPtr("something"),
 					OverrideIssuer: lo.ToPtr(true),
@@ -864,7 +864,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			},
 		}),
 		CredentialExpiresAt:     now,
-		GrantType:               lo.ToPtr(AuthorizationCode),
+		GrantType:               lo.ToPtr(InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
 		OpState:                 lo.ToPtr("eyJhbGciOiJSU0Et"),
 		ResponseType:            lo.ToPtr("token"),
 		Scope:                   lo.ToPtr([]string{"openid"}),
