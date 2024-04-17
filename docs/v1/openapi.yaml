@@ -1496,27 +1496,6 @@ components:
         - profileVersion
         - claimEndpoint
         - credentialTemplateID
-    ComposeOIDC4CICredential:
-      title: ComposeOIDC4CICredential
-      type: object
-      description: Model for composing OIDC4CI credential.
-      properties:
-        id_template:
-          type: string
-          description: ID of the credential template.
-          nullable: true
-        override_issuer:
-          type: boolean
-          description: Override issuer.
-          nullable: true
-        override_subject_did:
-          type: boolean
-          description: Override credential subject did.
-          nullable: true
-        credential:
-          type: object
-          description: Raw Complete credential for sign and customization
-          nullable: false
     DeprecatedComposeOIDC4CICredential:
       title: DeprecatedComposeOIDC4CICredential
       type: object
@@ -2256,8 +2235,22 @@ components:
       type: object
       description: An object that describes specifics of the Multiple Credential Issuance.
       properties:
-        compose:
-          $ref: '#/components/schemas/ComposeOIDC4CICredential'
+        id_template:
+          type: string
+          description: ID of the credential template.
+          nullable: true
+        override_issuer:
+          type: boolean
+          description: Override issuer.
+          nullable: true
+        override_subject_did:
+          type: boolean
+          description: Override credential subject did.
+          nullable: true
+        credential:
+          type: object
+          description: Raw Complete credential for sign and customization
+          nullable: false
         credential_template_id:
           type: string
           description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'

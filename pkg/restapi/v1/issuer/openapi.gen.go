@@ -32,21 +32,6 @@ const (
 	InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode InitiateOIDC4CIRequestGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 )
 
-// Model for composing OIDC4CI credential.
-type ComposeOIDC4CICredential struct {
-	// Raw Complete credential for sign and customization
-	Credential *map[string]interface{} `json:"credential,omitempty"`
-
-	// ID of the credential template.
-	IdTemplate *string `json:"id_template"`
-
-	// Override issuer.
-	OverrideIssuer *bool `json:"override_issuer"`
-
-	// Override credential subject did.
-	OverrideSubjectDid *bool `json:"override_subject_did"`
-}
-
 // An object that describes specifics of the Credential that the Credential Issuer supports issuance of.
 type CredentialConfigurationsSupported struct {
 	// For mso_mdoc and vc+sd-jwt vc only. Object containing a list of name/value pairs, where each name identifies a claim about the subject offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.
@@ -202,14 +187,23 @@ type InitiateIssuanceCredentialConfiguration struct {
 
 // An object that describes specifics of the Multiple Credential Issuance.
 type InitiateIssuanceCredentialConfigurationCompose struct {
-	// Model for composing OIDC4CI credential.
-	Compose *ComposeOIDC4CICredential `json:"compose,omitempty"`
+	// Raw Complete credential for sign and customization
+	Credential *map[string]interface{} `json:"credential,omitempty"`
 
 	// Date when credentials should be consider as expired
 	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
 
 	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
+
+	// ID of the credential template.
+	IdTemplate *string `json:"id_template"`
+
+	// Override issuer.
+	OverrideIssuer *bool `json:"override_issuer"`
+
+	// Override credential subject did.
+	OverrideSubjectDid *bool `json:"override_subject_did"`
 }
 
 // Model for Initiate OIDC Compose Credential Issuance Request.
