@@ -20,10 +20,16 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
+// Defines values for InitiateOIDC4CIComposeRequestGrantType.
+const (
+	InitiateOIDC4CIComposeRequestGrantTypeAuthorizationCode                            InitiateOIDC4CIComposeRequestGrantType = "authorization_code"
+	InitiateOIDC4CIComposeRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode InitiateOIDC4CIComposeRequestGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+)
+
 // Defines values for InitiateOIDC4CIRequestGrantType.
 const (
-	AuthorizationCode                            InitiateOIDC4CIRequestGrantType = "authorization_code"
-	UrnIetfParamsOauthGrantTypePreAuthorizedCode InitiateOIDC4CIRequestGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+	InitiateOIDC4CIRequestGrantTypeAuthorizationCode                            InitiateOIDC4CIRequestGrantType = "authorization_code"
+	InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode InitiateOIDC4CIRequestGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 )
 
 // Model for composing OIDC4CI credential.
@@ -136,6 +142,21 @@ type CredentialStatusOpt struct {
 	Type string `json:"type"`
 }
 
+// Deprecated. Use /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-compose. Model for composing OIDC4CI credential.
+type DeprecatedComposeOIDC4CICredential struct {
+	// Raw Complete credential for sign and customization
+	Credential *map[string]interface{} `json:"credential,omitempty"`
+
+	// ID of the credential template.
+	IdTemplate *string `json:"id_template"`
+
+	// Override issuer.
+	OverrideIssuer *bool `json:"override_issuer"`
+
+	// Override credential subject did.
+	OverrideSubjectDid *bool `json:"override_subject_did"`
+}
+
 // Model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeRequest struct {
 	// The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.
@@ -163,8 +184,8 @@ type InitiateIssuanceCredentialConfiguration struct {
 	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint"`
 
-	// Model for composing OIDC4CI credential.
-	Compose *ComposeOIDC4CICredential `json:"compose,omitempty"`
+	// Deprecated. Use /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-compose. Model for composing OIDC4CI credential.
+	Compose *DeprecatedComposeOIDC4CICredential `json:"compose,omitempty"`
 
 	// Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
@@ -179,15 +200,63 @@ type InitiateIssuanceCredentialConfiguration struct {
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 }
 
+// An object that describes specifics of the Multiple Credential Issuance.
+type InitiateIssuanceCredentialConfigurationCompose struct {
+	// Model for composing OIDC4CI credential.
+	Compose *ComposeOIDC4CICredential `json:"compose,omitempty"`
+
+	// Date when credentials should be consider as expired
+	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
+
+	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
+	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
+}
+
+// Model for Initiate OIDC Compose Credential Issuance Request.
+type InitiateOIDC4CIComposeRequest struct {
+	// Customizes what kind of access Issuer wants to give to VCS.
+	AuthorizationDetails *string `json:"authorization_details,omitempty"`
+
+	// URL of the issuance initiation endpoint of a Wallet. Takes precedence over client_wellknown request parameter. If both client_initiate_issuance_url and client_wellknown are not provided then response initiate issuance URL will contain custom initiate issuance URL in format openid-initiate-issuance://.
+	ClientInitiateIssuanceUrl *string `json:"client_initiate_issuance_url,omitempty"`
+
+	// String containing wallet/holder application OIDC client wellknown configuration URL.
+	ClientWellknown *string `json:"client_wellknown,omitempty"`
+
+	// An array of objects that describes specifics of the Multiple Credential Issuance.
+	Compose *[]InitiateIssuanceCredentialConfigurationCompose `json:"compose,omitempty"`
+
+	// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+	GrantType *InitiateOIDC4CIComposeRequestGrantType `json:"grant_type,omitempty"`
+
+	// String value created by the Credential Issuer and opaque to the Wallet that is used to bind the sub-sequent authentication request with the Credential Issuer to a context set up during previous steps. If the client receives a value for this parameter, it MUST include it in the subsequent Authentication Request to the Credential Issuer as the op_state parameter value. MUST NOT be used in Authorization Code flow when pre-authorized_code is present.
+	OpState *string `json:"op_state,omitempty"`
+
+	// Contains response type that issuer expects VCS to use while performing OIDC authorization request. Defaults to token.
+	ResponseType *string `json:"response_type,omitempty"`
+
+	// Contains scopes that issuer expects VCS to use while requesting authorization code for claim data. Defaults to openid.
+	Scope *[]string `json:"scope,omitempty"`
+
+	// Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
+	UserPinRequired *bool `json:"user_pin_required,omitempty"`
+
+	// Boolean flags indicates whether given transaction is initiated by Wallet.
+	WalletInitiatedIssuance *bool `json:"wallet_initiated_issuance,omitempty"`
+}
+
+// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+type InitiateOIDC4CIComposeRequestGrantType string
+
 // Model for Initiate OIDC Credential Issuance Request.
 type InitiateOIDC4CIRequest struct {
 	// Customizes what kind of access Issuer wants to give to VCS.
 	AuthorizationDetails *string `json:"authorization_details,omitempty"`
 
-	// Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+	// Deprecated: Use CredentialConfiguration instead. Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
 	ClaimData *map[string]interface{} `json:"claim_data"`
 
-	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
+	// Deprecated: Use CredentialConfiguration instead. Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
 
 	// URL of the issuance initiation endpoint of a Wallet. Takes precedence over client_wellknown request parameter. If both client_initiate_issuance_url and client_wellknown are not provided then response initiate issuance URL will contain custom initiate issuance URL in format openid-initiate-issuance://.
@@ -199,16 +268,16 @@ type InitiateOIDC4CIRequest struct {
 	// An array of objects that describes specifics of the Multiple Credential Issuance.
 	CredentialConfiguration *[]InitiateIssuanceCredentialConfiguration `json:"credential_configuration,omitempty"`
 
-	// Credential description
+	// Deprecated: Use CredentialConfiguration instead. Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
 
-	// Date when credentials should be consider as expired
+	// Deprecated: Use CredentialConfiguration instead. Date when credentials should be consider as expired.
 	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
 
-	// Credential name
+	// Deprecated: Use CredentialConfiguration instead. Credential name
 	CredentialName *string `json:"credential_name,omitempty"`
 
-	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
+	// Deprecated: Use CredentialConfiguration instead. Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 
 	// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
@@ -564,6 +633,9 @@ type ValidatePreAuthorizedCodeRequestJSONBody = ValidatePreAuthorizedCodeRequest
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
 
+// InitiateCredentialComposeIssuanceJSONBody defines parameters for InitiateCredentialComposeIssuance.
+type InitiateCredentialComposeIssuanceJSONBody = InitiateOIDC4CIRequest
+
 // InitiateCredentialIssuanceJSONBody defines parameters for InitiateCredentialIssuance.
 type InitiateCredentialIssuanceJSONBody = InitiateOIDC4CIRequest
 
@@ -593,6 +665,9 @@ type ValidatePreAuthorizedCodeRequestJSONRequestBody = ValidatePreAuthorizedCode
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
+
+// InitiateCredentialComposeIssuanceJSONRequestBody defines body for InitiateCredentialComposeIssuance for application/json ContentType.
+type InitiateCredentialComposeIssuanceJSONRequestBody = InitiateCredentialComposeIssuanceJSONBody
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
@@ -826,6 +901,11 @@ type ClientInterface interface {
 	PostIssueCredentialsWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostIssueCredentials(ctx context.Context, profileID string, profileVersion string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InitiateCredentialComposeIssuance request with any body
+	InitiateCredentialComposeIssuanceWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	InitiateCredentialComposeIssuance(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialComposeIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InitiateCredentialIssuance request with any body
 	InitiateCredentialIssuanceWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1069,6 +1149,30 @@ func (c *Client) PostIssueCredentialsWithBody(ctx context.Context, profileID str
 
 func (c *Client) PostIssueCredentials(ctx context.Context, profileID string, profileVersion string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostIssueCredentialsRequest(c.Server, profileID, profileVersion, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateCredentialComposeIssuanceWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateCredentialComposeIssuanceRequestWithBody(c.Server, profileID, profileVersion, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateCredentialComposeIssuance(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialComposeIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateCredentialComposeIssuanceRequest(c.Server, profileID, profileVersion, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1576,6 +1680,60 @@ func NewPostIssueCredentialsRequestWithBody(server string, profileID string, pro
 	return req, nil
 }
 
+// NewInitiateCredentialComposeIssuanceRequest calls the generic InitiateCredentialComposeIssuance builder with application/json body
+func NewInitiateCredentialComposeIssuanceRequest(server string, profileID string, profileVersion string, body InitiateCredentialComposeIssuanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInitiateCredentialComposeIssuanceRequestWithBody(server, profileID, profileVersion, "application/json", bodyReader)
+}
+
+// NewInitiateCredentialComposeIssuanceRequestWithBody generates requests for InitiateCredentialComposeIssuance with any type of body
+func NewInitiateCredentialComposeIssuanceRequestWithBody(server string, profileID string, profileVersion string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/%s/interactions/initiate-compose-oidc", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewInitiateCredentialIssuanceRequest calls the generic InitiateCredentialIssuance builder with application/json body
 func NewInitiateCredentialIssuanceRequest(server string, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1805,6 +1963,11 @@ type ClientWithResponsesInterface interface {
 	PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
 
 	PostIssueCredentialsWithResponse(ctx context.Context, profileID string, profileVersion string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
+
+	// InitiateCredentialComposeIssuance request with any body
+	InitiateCredentialComposeIssuanceWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialComposeIssuanceResponse, error)
+
+	InitiateCredentialComposeIssuanceWithResponse(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialComposeIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialComposeIssuanceResponse, error)
 
 	// InitiateCredentialIssuance request with any body
 	InitiateCredentialIssuanceWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
@@ -2059,6 +2222,28 @@ func (r PostIssueCredentialsResponse) StatusCode() int {
 	return 0
 }
 
+type InitiateCredentialComposeIssuanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InitiateOIDC4CIComposeRequest
+}
+
+// Status returns HTTPResponse.Status
+func (r InitiateCredentialComposeIssuanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InitiateCredentialComposeIssuanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type InitiateCredentialIssuanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2294,6 +2479,23 @@ func (c *ClientWithResponses) PostIssueCredentialsWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParsePostIssueCredentialsResponse(rsp)
+}
+
+// InitiateCredentialComposeIssuanceWithBodyWithResponse request with arbitrary body returning *InitiateCredentialComposeIssuanceResponse
+func (c *ClientWithResponses) InitiateCredentialComposeIssuanceWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialComposeIssuanceResponse, error) {
+	rsp, err := c.InitiateCredentialComposeIssuanceWithBody(ctx, profileID, profileVersion, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateCredentialComposeIssuanceResponse(rsp)
+}
+
+func (c *ClientWithResponses) InitiateCredentialComposeIssuanceWithResponse(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialComposeIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialComposeIssuanceResponse, error) {
+	rsp, err := c.InitiateCredentialComposeIssuance(ctx, profileID, profileVersion, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateCredentialComposeIssuanceResponse(rsp)
 }
 
 // InitiateCredentialIssuanceWithBodyWithResponse request with arbitrary body returning *InitiateCredentialIssuanceResponse
@@ -2607,6 +2809,32 @@ func ParsePostIssueCredentialsResponse(rsp *http.Response) (*PostIssueCredential
 	return response, nil
 }
 
+// ParseInitiateCredentialComposeIssuanceResponse parses an HTTP response from a InitiateCredentialComposeIssuanceWithResponse call
+func ParseInitiateCredentialComposeIssuanceResponse(rsp *http.Response) (*InitiateCredentialComposeIssuanceResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InitiateCredentialComposeIssuanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InitiateOIDC4CIComposeRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseInitiateCredentialIssuanceResponse parses an HTTP response from a InitiateCredentialIssuanceWithResponse call
 func ParseInitiateCredentialIssuanceResponse(rsp *http.Response) (*InitiateCredentialIssuanceResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2720,6 +2948,9 @@ type ServerInterface interface {
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string, profileVersion string) error
+	// Initiate OIDC Compose Credential Issuance
+	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-compose-oidc)
+	InitiateCredentialComposeIssuance(ctx echo.Context, profileID string, profileVersion string) error
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc)
 	InitiateCredentialIssuance(ctx echo.Context, profileID string, profileVersion string) error
@@ -2872,6 +3103,30 @@ func (w *ServerInterfaceWrapper) PostIssueCredentials(ctx echo.Context) error {
 	return err
 }
 
+// InitiateCredentialComposeIssuance converts echo context to params.
+func (w *ServerInterfaceWrapper) InitiateCredentialComposeIssuance(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.InitiateCredentialComposeIssuance(ctx, profileID, profileVersion)
+	return err
+}
+
 // InitiateCredentialIssuance converts echo context to params.
 func (w *ServerInterfaceWrapper) InitiateCredentialIssuance(ctx echo.Context) error {
 	var err error
@@ -2983,6 +3238,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
 	router.GET(baseURL+"/issuer/profiles/:profileID/issued-credentials", wrapper.CredentialIssuanceHistory)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)
+	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-compose-oidc", wrapper.InitiateCredentialComposeIssuance)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
 	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfigV2)

@@ -392,6 +392,72 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 	return ctx.NoContent(http.StatusOK)
 }
 
+// InitiateCredentialComposeIssuance initiates OIDC credential issuance flow.
+// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-compose-oidc.
+func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID string, profileVersion string) error {
+	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateCredentialComposeIssuance")
+	defer span.End()
+
+	tenantID, err := util.GetTenantIDFromRequest(e)
+	if err != nil {
+		// Don't send a failed event since we have no context for the event, i,e, no tenant ID, etc.
+		return err
+	}
+
+	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
+	if err != nil {
+		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+
+		return err
+	}
+
+	var body InitiateOIDC4CIComposeRequest
+
+	if err = util.ReadBody(e, &body); err != nil {
+		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+
+		return err
+	}
+
+	var configs []InitiateIssuanceCredentialConfiguration
+
+	for _, compose := range lo.FromPtr(body.Compose) {
+		configs = append(configs, InitiateIssuanceCredentialConfiguration{
+			Compose: &DeprecatedComposeOIDC4CICredential{
+				Credential:         compose.Compose.Credential,
+				IdTemplate:         compose.Compose.IdTemplate,
+				OverrideIssuer:     compose.Compose.OverrideIssuer,
+				OverrideSubjectDid: compose.Compose.OverrideSubjectDid,
+			},
+			CredentialExpiresAt:  compose.CredentialExpiresAt,
+			CredentialTemplateId: compose.CredentialTemplateId,
+		})
+	}
+
+	mapped := InitiateOIDC4CIRequest{
+		AuthorizationDetails:      body.AuthorizationDetails,
+		ClientInitiateIssuanceUrl: body.ClientInitiateIssuanceUrl,
+		ClientWellknown:           body.ClientWellknown,
+		CredentialConfiguration:   &configs,
+		OpState:                   body.OpState,
+		ResponseType:              body.ResponseType,
+		Scope:                     body.Scope,
+		UserPinRequired:           body.UserPinRequired,
+		WalletInitiatedIssuance:   body.WalletInitiatedIssuance,
+	}
+
+	if body.GrantType != nil {
+		mapped.GrantType = lo.ToPtr(InitiateOIDC4CIRequestGrantType(*body.GrantType))
+	}
+
+	resp, ct, err := c.initiateIssuance(ctx, &mapped, profile)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutputWithContentType(e)(resp, ct, nil)
+}
+
 // InitiateCredentialIssuance initiates OIDC credential issuance flow.
 // POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc.
 func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profileVersion string) error {
