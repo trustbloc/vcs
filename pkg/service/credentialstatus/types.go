@@ -103,6 +103,7 @@ type UpdateCredentialStatusEventPayload struct {
 type CredentialMetadata struct {
 	CredentialID   string            `json:"credential"`
 	Issuer         string            `json:"issuer,omitempty"`
+	ProfileVersion string            `json:"profile_version,omitempty"`
 	CredentialType []string          `json:"credentialType,omitempty"`
 	TransactionID  string            `json:"transactionId,omitempty"`
 	IssuanceDate   *time.TimeWrapper `json:"issuanceDate,omitempty"`

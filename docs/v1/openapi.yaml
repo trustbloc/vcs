@@ -946,6 +946,9 @@ components:
         credential_id:
           type: string
           description: Credential ID.
+        profile_version:
+          type: string
+          description: Issuer Profile version.
         issuer:
           type: string
           description: Issuer identifier.

@@ -2759,6 +2759,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 		credentialMetadata := &credentialstatus.CredentialMetadata{
 			CredentialID:   "credentialID",
 			Issuer:         "testIssuer",
+			ProfileVersion: profileVersion,
 			CredentialType: []string{"verifiableCredential"},
 			TransactionID:  txID,
 			IssuanceDate:   iss,
@@ -2793,6 +2794,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 				IssuanceDate:    lo.ToPtr(iss.Time.Format(time.RFC3339)),
 				Issuer:          "testIssuer",
 				TransactionId:   &txID,
+				ProfileVersion:  lo.ToPtr(profileVersion),
 			},
 		}
 

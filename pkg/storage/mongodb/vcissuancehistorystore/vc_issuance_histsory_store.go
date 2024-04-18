@@ -126,6 +126,7 @@ func parseMongoDocuments(
 
 		credentialMetadataList[i] = &credentialstatus.CredentialMetadata{
 			CredentialID:   index.CredentialMetadata.VcID,
+			ProfileVersion: index.ProfileVersion,
 			Issuer:         index.CredentialMetadata.Issuer,
 			CredentialType: index.CredentialMetadata.CredentialType,
 			TransactionID:  index.CredentialMetadata.TransactionID,

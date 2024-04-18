@@ -923,6 +923,7 @@ func (c *Controller) CredentialIssuanceHistory(e echo.Context, profileID string)
 			CredentialId:    meta.CredentialID,
 			CredentialTypes: meta.CredentialType,
 			Issuer:          meta.Issuer,
+			ProfileVersion:  lo.ToPtr(meta.ProfileVersion),
 			ExpirationDate:  c.parseTime(meta.ExpirationDate),
 			IssuanceDate:    c.parseTime(meta.IssuanceDate),
 			TransactionId:   lo.ToPtr(meta.TransactionID),
