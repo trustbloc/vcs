@@ -37,6 +37,18 @@
       ]
     },
     {
+      "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/interactions/compose-and-initiate-issuance",
+      "method": "POST",
+      "protected": true,
+      "roles_to_validate": [
+        "issuer"
+      ],
+      "input_headers": [
+        "X-Tenant-ID",
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/oidc/authorize",
       "method": "GET",
       "input_query_strings": [
