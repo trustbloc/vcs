@@ -60,6 +60,7 @@ func TestVCIssuanceHistoryStore(t *testing.T) {
 		transactionID := uuid.NewString()
 		credentialMeta := &credentialstatus.CredentialMetadata{
 			CredentialID:   "credentialID",
+			ProfileVersion: testProfileVersion10,
 			Issuer:         "credentialIssuerID",
 			CredentialType: []string{"verifiableCredential"},
 			TransactionID:  transactionID,

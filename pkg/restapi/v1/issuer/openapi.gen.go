@@ -100,6 +100,9 @@ type CredentialIssuanceHistoryData struct {
 	// Issuer identifier.
 	Issuer string `json:"issuer"`
 
+	// Issuer Profile version.
+	ProfileVersion *string `json:"profile_version,omitempty"`
+
 	// Transaction ID.
 	TransactionId *string `json:"transaction_id,omitempty"`
 }
