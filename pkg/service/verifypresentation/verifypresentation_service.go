@@ -350,14 +350,28 @@ func (s *Service) validateCredentialsProof(
 	vpJWT string,
 	credentials []*verifiable.Credential,
 ) error {
-	for _, cred := range credentials {
-		err := s.vcVerifier.ValidateCredentialProof(ctx, cred, "", "", true, vpJWT == "")
-		if err != nil {
-			return err
+	chans := make([]chan error, 0)
+
+	for _, credElement := range credentials {
+		cred := credElement
+		ch := make(chan error)
+		chans = append(chans, ch)
+
+		go func() {
+			defer close(ch)
+
+			ch <- s.vcVerifier.ValidateCredentialProof(ctx, cred, "", "", true, vpJWT == "")
+		}()
+	}
+
+	var finalErr error
+	for _, ch := range chans {
+		if err := <-ch; err != nil {
+			finalErr = errors.Join(finalErr, err)
 		}
 	}
 
-	return nil
+	return finalErr
 }
 
 func (s *Service) validateCredentialsStatus(

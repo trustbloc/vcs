@@ -269,7 +269,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
-						gomock.Any()).Times(1).Return(errors.New("some error"))
+						gomock.Any()).Times(2).Return(errors.New("some error"))
 					mockVerifier.EXPECT().ValidateVCStatus(
 						context.Background(),
 						gomock.Any(),
@@ -317,7 +317,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 				{
 					Check: "credentialProof",
-					Error: "some error",
+					Error: "some error\nsome error",
 				},
 				{
 					Check: "credentialStatus",
