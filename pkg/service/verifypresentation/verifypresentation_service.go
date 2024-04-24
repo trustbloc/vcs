@@ -378,14 +378,26 @@ func (s *Service) validateCredentialsStatus(
 	ctx context.Context,
 	credentials []*verifiable.Credential,
 ) error {
-	for _, cred := range credentials {
-		typedID, issuer := s.extractCredentialStatus(cred)
+	var chArr []chan error
 
-		if typedID != nil {
-			err := s.vcVerifier.ValidateVCStatus(ctx, typedID, issuer)
-			if err != nil {
-				return err
+	for _, credItem := range credentials {
+		cred := credItem
+		ch := make(chan error)
+		chArr = append(chArr, ch)
+
+		go func() {
+			defer close(ch)
+			typedID, issuer := s.extractCredentialStatus(cred)
+
+			if typedID != nil {
+				ch <- s.vcVerifier.ValidateVCStatus(ctx, typedID, issuer)
 			}
+		}()
+	}
+
+	for _, ch := range chArr {
+		if err := <-ch; err != nil {
+			return err
 		}
 	}
 
