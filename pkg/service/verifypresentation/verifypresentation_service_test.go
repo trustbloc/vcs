@@ -273,7 +273,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 					mockVerifier.EXPECT().ValidateVCStatus(
 						context.Background(),
 						gomock.Any(),
-						gomock.Any()).Times(1).Return(errors.New("some error"))
+						gomock.Any()).Times(2).Return(errors.New("some error"))
 					mockVerifier.EXPECT().ValidateLinkedDomain(
 						context.Background(),
 						gomock.Any()).Times(1).Return(errors.New("some error"))
