@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -857,46 +858,93 @@ func (c *Controller) prepareCredential(
 	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
 ) ([]PrepareCredentialResult, error) {
 	var result []PrepareCredentialResult
-	for index, credentialData := range credentials {
-		if credentialData.Credential == nil {
+	var resultErr error
+	var mut sync.Mutex
+	var wg sync.WaitGroup
+
+	for index1, credentialData1 := range credentials {
+		if credentialData1.Credential == nil {
 			return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
 				errors.New("credentials should not be nil"))
 		}
 
-		if err := c.validateClaims(
-			credentialData.Credential,
-			credentialData.CredentialTemplate,
-			credentialData.EnforceStrictValidation,
-		); err != nil {
-			return nil, resterr.NewCustomError(resterr.ClaimsValidationErr, err)
-		}
+		credentialData := credentialData1
+		index := index1
 
-		if err := validateCredentialResponseEncryption(profile, requestedCredentialResponseEncryption[index]); err != nil {
-			return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters,
-				"credential_response_encryption", err)
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		signedCredential, err := c.signCredential(
-			ctx,
-			credentialData.Credential,
-			profile,
-			issuecredential.WithTransactionID(txID),
-			issuecredential.WithSkipIDPrefix(),
-		)
-		if err != nil {
-			return nil, err
-		}
+			singleResp, singleErr := c.issueSingleCredential(
+				ctx,
+				credentialData,
+				txID,
+				profile,
+				requestedCredentialResponseEncryption,
+				index,
+			)
 
-		result = append(result, PrepareCredentialResult{
-			Credential:     signedCredential,
-			Format:         string(credentialData.Format),
-			OidcFormat:     string(credentialData.OidcFormat),
-			Retry:          credentialData.Retry,
-			NotificationId: credentialData.NotificationID,
-		})
+			mut.Lock()
+			defer mut.Unlock()
+
+			if singleResp != nil {
+				result = append(result, *singleResp)
+			}
+
+			if singleErr != nil {
+				resultErr = errors.Join(resultErr, singleErr)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	if resultErr != nil {
+		return nil, resultErr
 	}
 
 	return result, nil
+}
+
+func (c *Controller) issueSingleCredential(
+	ctx context.Context,
+	credentialData *oidc4ci.PrepareCredentialResultData,
+	txID string,
+	profile *profileapi.Issuer,
+	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
+	index int,
+) (*PrepareCredentialResult, error) {
+	if err := c.validateClaims(
+		credentialData.Credential,
+		credentialData.CredentialTemplate,
+		credentialData.EnforceStrictValidation,
+	); err != nil {
+		return nil, resterr.NewCustomError(resterr.ClaimsValidationErr, err)
+	}
+
+	if err := validateCredentialResponseEncryption(profile, requestedCredentialResponseEncryption[index]); err != nil {
+		return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters,
+			"credential_response_encryption", err)
+	}
+
+	signedCredential, err := c.signCredential(
+		ctx,
+		credentialData.Credential,
+		profile,
+		issuecredential.WithTransactionID(txID),
+		issuecredential.WithSkipIDPrefix(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PrepareCredentialResult{
+		Credential:     signedCredential,
+		Format:         string(credentialData.Format),
+		OidcFormat:     string(credentialData.OidcFormat),
+		Retry:          credentialData.Retry,
+		NotificationId: credentialData.NotificationID,
+	}, nil
 }
 
 // PrepareBatchCredential requests claim data and prepares batch of requested VC for signing by issuer.
