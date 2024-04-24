@@ -450,15 +450,21 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
-	if err = s.checkPolicy(ctx, profile, authResponse.AttestationVP, authResponse.VPTokens); err != nil {
-		return err
-	}
+	policyChan := make(chan error)
+	go func() {
+		defer close(policyChan)
+		policyChan <- s.checkPolicy(ctx, profile, authResponse.AttestationVP, authResponse.VPTokens)
+	}()
 
 	logger.Debugc(ctx, fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(authResponse.VPTokens)))
 
 	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, authResponse.VPTokens)
 	if err != nil {
 		return err
+	}
+
+	if policyErr := <-policyChan; policyErr != nil {
+		return policyErr
 	}
 
 	receivedClaims, err := s.extractClaimData(ctx, tx, authResponse, profile, verifiedPresentations)
