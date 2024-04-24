@@ -392,6 +392,7 @@ func (s *Service) verifyTokens(
 	return verifiedPresentations, nil
 }
 
+//nolint:funlen
 func (s *Service) VerifyOIDCVerifiablePresentation(
 	ctx context.Context,
 	txID TxID,
