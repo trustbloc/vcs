@@ -156,6 +156,26 @@ func (mr *MockawsClientMockRecorder) GetPublicKey(ctx, params interface{}, optFn
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublicKey", reflect.TypeOf((*MockawsClient)(nil).GetPublicKey), varargs...)
 }
 
+// ScheduleKeyDeletion mocks base method.
+func (m *MockawsClient) ScheduleKeyDeletion(ctx context.Context, params *kms.ScheduleKeyDeletionInput, optFns ...func(*kms.Options)) (*kms.ScheduleKeyDeletionOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, params}
+	for _, a := range optFns {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ScheduleKeyDeletion", varargs...)
+	ret0, _ := ret[0].(*kms.ScheduleKeyDeletionOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ScheduleKeyDeletion indicates an expected call of ScheduleKeyDeletion.
+func (mr *MockawsClientMockRecorder) ScheduleKeyDeletion(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, params}, optFns...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScheduleKeyDeletion", reflect.TypeOf((*MockawsClient)(nil).ScheduleKeyDeletion), varargs...)
+}
+
 // Sign mocks base method.
 func (m *MockawsClient) Sign(ctx context.Context, params *kms.SignInput, optFns ...func(*kms.Options)) (*kms.SignOutput, error) {
 	m.ctrl.T.Helper()
