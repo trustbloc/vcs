@@ -181,13 +181,21 @@ func (s *Service) newTxCredentialConf(
 		return nil, err
 	}
 
-	credentialTemplate, err := findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
-	if err != nil {
-		return nil, err
+	var targetCredentialTemplate *profileapi.CredentialTemplate
+
+	if credentialConfiguration.CredentialTemplateID == "" &&
+		credentialConfiguration.ComposeCredential != nil &&
+		credentialConfiguration.ComposeCredential.Credential != nil {
+		targetCredentialTemplate = s.buildVirtualTemplate(&credentialConfiguration)
+	} else {
+		targetCredentialTemplate, err = findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	credentialConfigurationID, _, err := findCredentialConfigurationID(
-		credentialTemplate.ID, credentialTemplate.Type, profile)
+		targetCredentialTemplate.ID, targetCredentialTemplate.Type, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -198,13 +206,13 @@ func (s *Service) newTxCredentialConf(
 
 	txCredentialConfiguration := &TxCredentialConfiguration{
 		ID:                    uuid.NewString(),
-		CredentialTemplate:    credentialTemplate,
+		CredentialTemplate:    targetCredentialTemplate,
 		OIDCCredentialFormat:  metaCredentialConfiguration.Format,
 		ClaimEndpoint:         credentialConfiguration.ClaimEndpoint,
 		CredentialName:        credentialConfiguration.CredentialName,
 		CredentialDescription: credentialConfiguration.CredentialDescription,
 		CredentialExpiresAt: lo.ToPtr(
-			s.GetCredentialsExpirationTime(credentialConfiguration.CredentialExpiresAt, credentialTemplate)),
+			s.GetCredentialsExpirationTime(credentialConfiguration.CredentialExpiresAt, targetCredentialTemplate)),
 		CredentialConfigurationID: credentialConfigurationID,
 		ClaimDataID:               "",
 		PreAuthCodeExpiresAt:      nil,
@@ -216,7 +224,7 @@ func (s *Service) newTxCredentialConf(
 			ctx,
 			profile.DataConfig.ClaimDataTTL,
 			credentialConfiguration,
-			credentialTemplate,
+			targetCredentialTemplate,
 			txCredentialConfiguration,
 		)
 		if err != nil {
@@ -225,6 +233,25 @@ func (s *Service) newTxCredentialConf(
 	}
 
 	return txCredentialConfiguration, nil
+}
+
+func (s *Service) buildVirtualTemplate(req *InitiateIssuanceCredentialConfiguration) *profileapi.CredentialTemplate {
+	result := &profileapi.CredentialTemplate{
+		ID: fmt.Sprintf("virtual_%s", uuid.NewString()),
+	}
+
+	if req.ComposeCredential.Credential != nil {
+		types := (*req.ComposeCredential.Credential)["type"]
+
+		if v, ok := types.([]interface{}); ok && len(v) > 0 {
+			targetType, targetOk := v[len(v)-1].(string)
+			if targetOk {
+				result.Type = targetType
+			}
+		}
+	}
+
+	return result
 }
 
 func (s *Service) applyPreAuthFlowModifications(

@@ -430,8 +430,7 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 				OverrideIssuer:     compose.CredentialOverrideIssuer,
 				OverrideSubjectDid: compose.CredentialOverrideSubjectDid,
 			},
-			CredentialExpiresAt:  compose.CredentialExpiresAt,
-			CredentialTemplateId: compose.CredentialTemplateId,
+			CredentialExpiresAt: compose.CredentialExpiresAt,
 		})
 	}
 

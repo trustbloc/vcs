@@ -310,7 +310,6 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 						CredentialExpiresAt:      configuration.CredentialExpiresAt,
 						CredentialOverrideId:     lo.ToPtr("prefix:{{.TxID}}:suffix"),
 						CredentialOverrideIssuer: lo.ToPtr(true),
-						CredentialTemplateId:     configuration.CredentialTemplateId,
 					},
 				}),
 				GrantType:               lo.ToPtr(issuer.InitiateOIDC4CIComposeRequestGrantType(lo.FromPtr(initiateIssuanceRequest.GrantType))),

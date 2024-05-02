@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -43,24 +43,23 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: '${{ env.GO_VERSION }}'
       - name: Run unit tests
         run: make unit-test
-      - name: Upload coverage to Codecov
-        run: |
-          bash <(curl https://codecov.io/bash)
-        env:
-          CODECOV_UPLOAD_TOKEN: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
+      - uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
+          verbose: true
 
   BDDTest:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -93,7 +92,7 @@ jobs:
         with:
           go-version: '1.21'
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
       - name: Get current published version

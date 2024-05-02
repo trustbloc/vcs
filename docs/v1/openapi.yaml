@@ -2254,9 +2254,6 @@ components:
           type: object
           description: Raw Complete credential for sign and customization
           nullable: false
-        credential_template_id:
-          type: string
-          description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'
         credential_expires_at:
           type: string
           format: date-time
