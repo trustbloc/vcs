@@ -113,7 +113,7 @@ func (s *Service) IssueCredential(
 		f(options)
 	}
 
-	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
+	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig) // If nil - default config is used.
 	if err != nil {
 		return nil, fmt.Errorf("get kms: %w", err)
 	}
