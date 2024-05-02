@@ -186,7 +186,6 @@ func (s *Service) newTxCredentialConf(
 	if credentialConfiguration.CredentialTemplateID == "" &&
 		credentialConfiguration.ComposeCredential != nil &&
 		credentialConfiguration.ComposeCredential.Credential != nil {
-
 		targetCredentialTemplate = s.buildVirtualTemplate(&credentialConfiguration)
 	} else {
 		targetCredentialTemplate, err = findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
@@ -245,7 +244,10 @@ func (s *Service) buildVirtualTemplate(req *InitiateIssuanceCredentialConfigurat
 		types := (*req.ComposeCredential.Credential)["type"]
 
 		if v, ok := types.([]interface{}); ok && len(v) > 0 {
-			result.Type = v[len(v)-1].(string)
+			targetType, targetOk := v[len(v)-1].(string)
+			if targetOk {
+				result.Type = targetType
+			}
 		}
 	}
 
