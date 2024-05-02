@@ -42,6 +42,8 @@ type awsClient interface {
 		optFns ...func(*kms.Options)) (*kms.CreateAliasOutput, error)
 	Encrypt(ctx context.Context, params *kms.EncryptInput, optFns ...func(*kms.Options)) (*kms.EncryptOutput, error)
 	Decrypt(ctx context.Context, params *kms.DecryptInput, optFns ...func(*kms.Options)) (*kms.DecryptOutput, error)
+	ScheduleKeyDeletion(ctx context.Context, params *kms.ScheduleKeyDeletionInput,
+		optFns ...func(*kms.Options)) (*kms.ScheduleKeyDeletionOutput, error)
 }
 
 type metricsProvider interface {
@@ -391,6 +393,20 @@ func (s *Service) CreateAndExportPubKeyBytes(kt arieskms.KeyType, _ ...arieskms.
 	}
 
 	return keyID, pubKeyBytes, nil
+}
+
+// Remove removes kms key referenced by keyURI from KMS.
+func (s *Service) Remove(keyURI string) error {
+	keyID, err := s.getKeyID(keyURI)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.client.ScheduleKeyDeletion(context.Background(), &kms.ScheduleKeyDeletionInput{
+		KeyId: aws.String(keyID),
+	})
+
+	return err
 }
 
 // ImportPrivateKey private key.

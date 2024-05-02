@@ -396,6 +396,59 @@ func TestCreate(t *testing.T) {
 	})
 }
 
+func TestRemove(t *testing.T) {
+	awsConfig := &aws.Config{
+		Region: "ca",
+	}
+
+	t.Run("success", func(t *testing.T) {
+		ctr := gomock.NewController(t)
+
+		metric := NewMockmetricsProvider(ctr)
+		client := NewMockawsClient(ctr)
+
+		keyURI := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+		expectedKeyID := "800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+
+		client.EXPECT().ScheduleKeyDeletion(gomock.Any(), &kms.ScheduleKeyDeletionInput{KeyId: &expectedKeyID}).
+			Return(nil, nil)
+
+		svc := New(awsConfig, metric, "", WithAWSClient(client))
+
+		err := svc.Remove(keyURI)
+		require.NoError(t, err)
+	})
+
+	t.Run("failed to parse key id", func(t *testing.T) {
+		metric := NewMockmetricsProvider(gomock.NewController(t))
+
+		svc := New(awsConfig, metric, "", []Opts{}...)
+
+		err := svc.Remove("aws-kms://arn:aws:kms:key1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "extracting key id from URI failed")
+	})
+
+	t.Run("failed to schedule key deletion", func(t *testing.T) {
+		ctr := gomock.NewController(t)
+
+		metric := NewMockmetricsProvider(ctr)
+		client := NewMockawsClient(ctr)
+
+		keyURI := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+		expectedKeyID := "800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+
+		client.EXPECT().ScheduleKeyDeletion(gomock.Any(), &kms.ScheduleKeyDeletionInput{KeyId: &expectedKeyID}).
+			Return(nil, errors.New("some error"))
+
+		svc := New(awsConfig, metric, "", WithAWSClient(client))
+
+		err := svc.Remove(keyURI)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "some error")
+	})
+}
+
 func TestGet(t *testing.T) {
 	awsConfig := aws.Config{
 		Region: "ca",
