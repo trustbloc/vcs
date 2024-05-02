@@ -1,0 +1,55 @@
+{
+  "id": "test_issuer",
+  "name": "test_issuer",
+  "version": "1.1",
+  "organizationID": "test_org1",
+  "url": "https://issuer.example.com",
+  "active": true,
+  "signingDID": {
+    "did" : "did:orb:anything"
+  },
+  "vcConfig": {
+    "signingAlgorithm": "JsonWebSignature2020",
+    "signatureRepresentation": 0,
+    "keyType": "ECDSASecp256k1DER",
+    "format": "ldp",
+    "didMethod": "orb"
+  },
+  "oidcConfig": {
+    "client_id": "test_issuer_client_id",
+    "client_secret_handle": "test_issuer_client_secret_handle",
+    "issuer_well_known": "https://issuer.example.com/.well-known/openid-configuration",
+    "scopes_supported": [
+      "openid",
+      "profile"
+    ],
+    "grant_types_supported": [
+      "authorization_code",
+      "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+    ]
+  },
+  "credentialTemplates": [],
+  "credentialMetadata": {
+    "display": [],
+    "credential_configurations_supported": {
+      "PermanentResidentCardIdentifier": {
+        "format": "jwt_vc_json",
+        "credential_definition": {
+          "type": [
+            "VerifiableCredential",
+            "PermanentResidentCard"
+          ]
+        }
+      },
+      "UniversityDegreeCredentialIdentifier": {
+        "format": "jwt_vc_json",
+        "credential_definition": {
+          "type": [
+            "VerifiableCredential",
+            "UniversityDegreeCredential"
+          ]
+        }
+      }
+    }
+  }
+}

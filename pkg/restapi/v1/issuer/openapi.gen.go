@@ -204,9 +204,6 @@ type InitiateIssuanceCredentialConfigurationCompose struct {
 
 	// Override credential subject did.
 	CredentialOverrideSubjectDid *bool `json:"credential_override_subject_did"`
-
-	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
-	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 }
 
 // Model for Initiate OIDC Compose Credential Issuance Request.

@@ -39,6 +39,9 @@ const (
 //go:embed testdata/issuer_profile.json
 var profileJSON []byte
 
+//go:embed testdata/issuer_profile_without_template.json
+var profileWithoutTemplateJSON []byte
+
 type mocks struct {
 	transactionStore    *MockTransactionStore
 	wellKnownService    *MockWellKnownService
@@ -801,6 +804,123 @@ func TestService_InitiateIssuance(t *testing.T) {
 							CredentialTemplateID: "templateID",
 							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
 								Credential:     &claimData,
+								IDTemplate:     "some-template",
+								OverrideIssuer: true,
+							},
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				assert.NotNil(t, resp.Tx)
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+					resp.InitiateIssuanceURL)
+			},
+		},
+		{
+			name: "Success Compose feature with no template",
+			setup: func(mocks *mocks) {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				expectedCode := "super-secret-pre-auth-code"
+				claimData := degreeClaims
+
+				var tempProfile *profileapi.Issuer
+				require.NoError(t, json.Unmarshal(profileWithoutTemplateJSON, &tempProfile)) // hack profile ref
+				profile = tempProfile
+
+				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						profileTransactionDataTTL int32,
+						data *oidc4ci.TransactionData,
+					) (*oidc4ci.Transaction, error) {
+						assert.NotEqual(t, data.OpState, initialOpState)
+						assert.Equal(t, data.OpState, data.PreAuthCode)
+						assert.Empty(t, data.UserPin)
+						assert.Equal(t, true, data.IsPreAuthFlow)
+
+						configuration := data.CredentialConfiguration[0]
+
+						assert.NotEmpty(t, configuration.ClaimDataID)
+						assert.EqualValues(t, oidc4ci.ClaimDataTypeVC, configuration.ClaimDataType)
+
+						assert.EqualValues(t, "some-template",
+							configuration.CredentialComposeConfiguration.IDTemplate)
+
+						assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								ProfileID:     profile.ID,
+								PreAuthCode:   expectedCode,
+								IsPreAuthFlow: true,
+								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+									{
+										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
+										CredentialTemplate: &profileapi.CredentialTemplate{
+											ID: "templateID",
+										},
+										CredentialConfigurationID: "PermanentResidentCardIdentifier",
+									},
+								},
+							},
+						}, nil
+					})
+
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
+				}
+
+				mocks.crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
+
+				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return("claimDataID", nil)
+
+				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
+
+				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
+
+				targetCred := map[string]interface{}{
+					"type": []string{
+						"VerifiableCredential",
+						"PermanentResidentCard",
+					},
+					"context": []string{
+						"https://www.w3.org/2018/credentials/examples/v1",
+					},
+					"credentialSubject": claimData,
+				}
+
+				targetCredBytes, err := json.Marshal(targetCred)
+				require.NoError(t, err)
+				assert.NoError(t, json.Unmarshal(targetCredBytes, &targetCred)) // just to ensure type castings
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientInitiateIssuanceURL: "",
+					ClientWellKnownURL:        walletWellKnownURL,
+					GrantType:                 oidc4ci.GrantTypePreAuthorizedCode,
+					ResponseType:              "",
+					Scope:                     []string{"openid", "profile"},
+					OpState:                   initialOpState,
+					UserPinRequired:           false,
+					WalletInitiatedIssuance:   false,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
+								Credential:     &targetCred,
 								IDTemplate:     "some-template",
 								OverrideIssuer: true,
 							},

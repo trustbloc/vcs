@@ -15,7 +15,7 @@ on:
 
 jobs:
   SemanticPullRequest:
-    name: Semantic Pull Request Check
+    name: Semantv2ic Pull Request Check
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
