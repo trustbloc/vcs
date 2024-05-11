@@ -34,6 +34,7 @@ jobs:
             GO_IMAGE=golang
             ALPINE_VER=3.18
             GO_VER=1.21
+            ALPINE_IMAGE=alpine
           push: false
           tags: |
             ghcr.io/trustbloc/mock-webhook:latest
@@ -63,6 +64,7 @@ jobs:
             GO_IMAGE=golang
             ALPINE_VER=3.18
             GO_VER=1.21
+            ALPINE_IMAGE=alpine
           push: false
           tags: |
             ghcr.io/trustbloc/mock-login-consent:latest
@@ -92,6 +94,7 @@ jobs:
             GO_IMAGE=golang
             ALPINE_VER=3.18
             GO_VER=1.21
+            ALPINE_IMAGE=alpine
           push: false
           tags: |
             ghcr.io/trustbloc/mock-trustregistry-docker:latest
@@ -121,6 +124,7 @@ jobs:
             GO_IMAGE=golang
             ALPINE_VER=3.18
             GO_VER=1.21
+            ALPINE_IMAGE=alpine
           push: false
           tags: |
             ghcr.io/trustbloc/mock-attestation:latest
@@ -151,6 +155,7 @@ jobs:
             GO_IMAGE=golang
             ALPINE_VER=3.18
             GO_VER=1.21
+            ALPINE_IMAGE=alpine
           push: false
           tags: |
             ghcr.io/trustbloc/mock-cognito-auth:latest
