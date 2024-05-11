@@ -133,7 +133,6 @@ jobs:
             ghcr.io/trustbloc/mock-attestation:latest
 
   mock-cognito-auth:
-    name: Publish image
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -146,7 +145,7 @@ jobs:
         with:
           go-version: '1.21'
 
-      - run: sample-cognito-auth
+      - run: make sample-cognito-auth
 
       #      - name: Login to Github Container Registry
       #        uses: docker/login-action@v3
