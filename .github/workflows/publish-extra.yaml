@@ -9,7 +9,6 @@ on:
   pull_request:
 jobs:
   mock-webhook:
-    name: Publish image
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -46,7 +45,6 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-webhook:latest
   mock-login-consent:
-    name: Publish image
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -64,7 +62,7 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: test/bdd/loginconsent
           file: ./images/mocks/loginconsent/Dockerfile
           platforms: linux/amd64
           build-args: |
