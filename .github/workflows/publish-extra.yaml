@@ -60,6 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -98,6 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -135,6 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -173,6 +176,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
