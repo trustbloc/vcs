@@ -24,6 +24,13 @@ jobs:
 #          username: ${{ secrets.CR_USER }}
 #          password: ${{ secrets.CR_PAT }}
 
+      - name: Setup Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - run: make sample-webhook
+
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
