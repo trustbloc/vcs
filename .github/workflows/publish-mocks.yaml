@@ -52,7 +52,7 @@ jobs:
             ALPINE_VER=3.18
             GO_VER=1.21
             ALPINE_IMAGE=alpine
-          push: false
+          push: true
           tags: |
             ghcr.io/trustbloc/mock-webhook:latest
             ghcr.io/trustbloc/mock-webhook:${{ env.IMAGE_TAG }}-latest
@@ -90,7 +90,7 @@ jobs:
             ALPINE_VER=3.18
             GO_VER=1.21
             ALPINE_IMAGE=alpine
-          push: false
+          push: true
           tags: |
             ghcr.io/trustbloc/mock-login-consent:latest
             ghcr.io/trustbloc/mock-login-consent:${{ env.IMAGE_TAG }}-latest
@@ -129,7 +129,7 @@ jobs:
             ALPINE_VER=3.18
             GO_VER=1.21
             ALPINE_IMAGE=alpine
-          push: false
+          push: true
           tags: |
             ghcr.io/trustbloc/mock-trustregistry:latest
             ghcr.io/trustbloc/mock-trustregistry:${{ env.IMAGE_TAG }}-latest
@@ -167,7 +167,7 @@ jobs:
             ALPINE_VER=3.18
             GO_VER=1.21
             ALPINE_IMAGE=alpine
-          push: false
+          push: true
           tags: |
             ghcr.io/trustbloc/mock-attestation:latest
             ghcr.io/trustbloc/mock-attestation:${{ env.IMAGE_TAG }}-latest
@@ -213,7 +213,7 @@ jobs:
             ALPINE_VER=3.18
             GO_VER=1.21
             ALPINE_IMAGE=alpine
-          push: false
+          push: true
           tags: |
             ghcr.io/trustbloc/mock-cognito-auth:latest
             ghcr.io/trustbloc/mock-cognito-auth:${{ env.IMAGE_TAG }}-latest
