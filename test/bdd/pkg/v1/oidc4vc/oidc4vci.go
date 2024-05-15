@@ -489,8 +489,15 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 
 		var rfcError fosite.RFC6749Error
 
+		var errFromBody string
+		if oauthError.Response != nil && oauthError.Response.Body != nil {
+			xx, _ := io.ReadAll(oauthError.Response.Body)
+			errFromBody = string(xx)
+		}
+
 		if err = json.Unmarshal(oauthError.Body, &rfcError); err != nil {
-			return fmt.Errorf("unmarshal RFC6749Error: %w && %s", err, string(oauthError.Body))
+			return fmt.Errorf("unmarshal RFC6749Error: %w && %s || %s $$ %v", err,
+				string(oauthError.Body), errFromBody, oauthError.Error())
 		}
 
 		if rfcError.ErrorField != errorContains {
