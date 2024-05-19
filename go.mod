@@ -21,6 +21,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9
 	github.com/labstack/echo/v4 v4.9.0

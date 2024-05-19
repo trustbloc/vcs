@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	jsonld "github.com/piprate/json-gold/ld"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	ldstore "github.com/trustbloc/did-go/doc/ld/store"
@@ -27,6 +29,8 @@ import (
 const (
 	contextCollectionName = "ldcontext"
 	contextURLFieldName   = "contextURL"
+	cacheSize             = 200
+	cacheTTL              = 1 * time.Minute
 )
 
 var _ ldstore.ContextStore = (*ContextStore)(nil)
@@ -37,15 +41,22 @@ type bsonRemoteDocument struct {
 	ContextURL  string                 `bson:"contextURL"`
 }
 
+type targetDoc struct {
+	bsonDoc   *bsonRemoteDocument
+	remoteDoc *jsonld.RemoteDocument
+}
+
 // ContextStore is mongodb implementation of JSON-LD context repository.
 type ContextStore struct {
 	mongoClient *mongodb.Client
+	cache       *expirable.LRU[string, *jsonld.RemoteDocument]
 }
 
 // NewContextStore returns a new instance of ContextStore.
 func NewContextStore(mongoClient *mongodb.Client) (*ContextStore, error) {
 	s := &ContextStore{
 		mongoClient: mongoClient,
+		cache:       expirable.NewLRU[string, *jsonld.RemoteDocument](cacheSize, nil, cacheTTL),
 	}
 
 	if err := s.migrate(); err != nil {
@@ -81,6 +92,10 @@ func (s *ContextStore) migrate() error {
 
 // Get returns JSON-LD remote document from DB by context URL.
 func (s *ContextStore) Get(u string) (*jsonld.RemoteDocument, error) {
+	if rd, ok := s.cache.Get(u); ok {
+		return rd, nil
+	}
+
 	collection := s.mongoClient.Database().Collection(contextCollectionName)
 
 	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
@@ -128,6 +143,8 @@ func (s *ContextStore) Put(u string, rd *jsonld.RemoteDocument) error {
 		return fmt.Errorf("insert document: %w", err)
 	}
 
+	s.cache.Add(u, rd)
+
 	return nil
 }
 
@@ -158,7 +175,7 @@ func (s *ContextStore) Import(documents []ldcontext.Document) error {
 		return nil
 	}
 
-	var bsonDocs []interface{}
+	var targetDocs []*targetDoc
 
 	for _, d := range documentsToImport {
 		content, err := jsonld.DocumentFromReader(bytes.NewReader(d.Content))
@@ -177,7 +194,10 @@ func (s *ContextStore) Import(documents []ldcontext.Document) error {
 			return fmt.Errorf("map to bson: %w", err)
 		}
 
-		bsonDocs = append(bsonDocs, bsonDoc)
+		targetDocs = append(targetDocs, &targetDoc{
+			bsonDoc:   bsonDoc,
+			remoteDoc: rd,
+		})
 	}
 
 	collection := s.mongoClient.Database().Collection(contextCollectionName)
@@ -185,8 +205,19 @@ func (s *ContextStore) Import(documents []ldcontext.Document) error {
 	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
 	defer cancel()
 
-	if _, err := collection.InsertMany(ctxWithTimeout, bsonDocs); err != nil {
-		return fmt.Errorf("insert documents: %w", err)
+	for _, doc := range targetDocs {
+		_, err := collection.InsertOne(ctxWithTimeout, doc.bsonDoc)
+
+		if err != nil {
+			if mongo.IsDuplicateKeyError(err) {
+				s.cache.Add(doc.remoteDoc.ContextURL, doc.remoteDoc)
+				continue
+			}
+
+			return fmt.Errorf("insert document: %w", err)
+		}
+
+		s.cache.Add(doc.remoteDoc.ContextURL, doc.remoteDoc)
 	}
 
 	return nil
@@ -223,6 +254,8 @@ func (s *ContextStore) Delete(documents []ldcontext.Document) error {
 			); err != nil {
 				return fmt.Errorf("delete context document: %w", err)
 			}
+
+			s.cache.Remove(d.URL)
 		}
 	}
 
