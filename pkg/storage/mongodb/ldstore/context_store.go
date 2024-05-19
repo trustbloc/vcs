@@ -212,9 +212,9 @@ func (s *ContextStore) Import(documents []ldcontext.Document) error {
 			if mongo.IsDuplicateKeyError(err) {
 				s.cache.Add(doc.remoteDoc.ContextURL, doc.remoteDoc)
 				continue
-			} else {
-				return fmt.Errorf("insert document: %w", err)
 			}
+
+			return fmt.Errorf("insert document: %w", err)
 		}
 
 		s.cache.Add(doc.remoteDoc.ContextURL, doc.remoteDoc)
