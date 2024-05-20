@@ -140,6 +140,11 @@ func (s *ContextStore) Put(u string, rd *jsonld.RemoteDocument) error {
 	}
 
 	if _, err = collection.InsertOne(ctxWithTimeout, bsonDoc); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			s.cache.Add(rd.ContextURL, rd)
+			return nil
+		}
+
 		return fmt.Errorf("insert document: %w", err)
 	}
 
