@@ -53,6 +53,12 @@ const (
 	customScopeProperty  = "_scope"
 )
 
+const (
+	additionalClaimFieldName        = "name"
+	additionalClaimFieldDesc        = "description"
+	additionalClaimFieldAwardedDate = "awardedDate"
+)
+
 var ErrDataNotFound = errors.New("data not found")
 
 type eventService interface {
@@ -600,6 +606,10 @@ func (s *Service) RetrieveClaims(
 			IssuanceDate:   credContents.Issued,
 			ExpirationDate: credContents.Expired,
 		}
+
+		credMeta.Name = cred.CustomField(additionalClaimFieldName)
+		credMeta.Description = cred.CustomField(additionalClaimFieldDesc)
+		credMeta.AwardedDate = cred.CustomField(additionalClaimFieldAwardedDate)
 
 		if credContents.Issuer != nil {
 			credMeta.Issuer = verifiable.IssuerToJSON(*credContents.Issuer)

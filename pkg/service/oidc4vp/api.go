@@ -48,6 +48,10 @@ type CredentialMetadata struct {
 	IssuanceDate   *util.TimeWrapper    `json:"issuanceDate,omitempty"`
 	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]Claims    `json:"customClaims,omitempty"`
+
+	Name        interface{} `json:"name,omitempty"`
+	AwardedDate interface{} `json:"awardedDate,omitempty"`
+	Description interface{} `json:"description,omitempty"`
 }
 
 type ServiceInterface interface {

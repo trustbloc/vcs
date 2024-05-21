@@ -993,6 +993,11 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
 		require.Empty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
+
+		require.Equal(t, "abcd", claims["http://example.gov/credentials/3732"].Name)
+		require.Equal(t, "some-description", claims["http://example.gov/credentials/3732"].Description)
+		require.Nil(t, claims["http://example.gov/credentials/3732"].AwardedDate)
+
 		require.Equal(t,
 			oidc4vp.CredentialMetadata{CustomClaims: map[string]oidc4vp.Claims{customScope: {"key1": "value1"}}},
 			claims["_scope"],
