@@ -168,7 +168,6 @@ func (s *Service) validateFlowSpecificRequestParams(
 	return nil
 }
 
-//nolint:nestif
 func (s *Service) newTxCredentialConf(
 	ctx context.Context,
 	credentialConfiguration InitiateIssuanceCredentialConfiguration,
@@ -188,10 +187,10 @@ func (s *Service) newTxCredentialConf(
 	isCompose := credentialConfiguration.ComposeCredential != nil &&
 		credentialConfiguration.ComposeCredential.Credential != nil
 
-	if credentialConfiguration.CredentialTemplateID == "" && isCompose {
+	if credentialConfiguration.CredentialTemplateID == "" && isCompose { //nolint:nestif
 		targetCredentialTemplate = s.buildVirtualTemplate(&credentialConfiguration)
 
-		if targetCredentialTemplate.Checks.Strict {
+		if targetCredentialTemplate.Checks.Strict { //nolint:nestif
 			if err = s.validateComposeCredential(*credentialConfiguration.ComposeCredential.Credential); err != nil {
 				return nil, err
 			}
