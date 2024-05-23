@@ -143,6 +143,9 @@ type DeprecatedComposeOIDC4CICredential struct {
 
 	// Override credential subject did.
 	OverrideSubjectDid *bool `json:"override_subject_did"`
+
+	// Perform strict validation.
+	PerformStrictValidation *bool `json:"perform_strict_validation"`
 }
 
 // Model for exchanging auth code from issuer oauth
@@ -204,6 +207,9 @@ type InitiateIssuanceCredentialConfigurationCompose struct {
 
 	// Override credential subject did.
 	CredentialOverrideSubjectDid *bool `json:"credential_override_subject_did"`
+
+	// Perform strict validation.
+	CredentialPerformStrictValidation *bool `json:"credential_perform_strict_validation"`
 }
 
 // Model for Initiate OIDC Compose Credential Issuance Request.

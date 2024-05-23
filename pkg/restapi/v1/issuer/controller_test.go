@@ -817,6 +817,79 @@ func TestController_initiateCredentialIssuance_CompatibilityV1(t *testing.T) {
 	})
 }
 
+func TestController_ComposeIssuance(t *testing.T) {
+	issuerProfile := &profileapi.Issuer{
+		OrganizationID: orgID,
+		ID:             profileID,
+		Version:        profileVersion,
+		Active:         true,
+		OIDCConfig:     &profileapi.OIDCConfig{},
+		CredentialTemplates: []*profileapi.CredentialTemplate{
+			{
+				ID: "templateID",
+			},
+		},
+	}
+
+	var (
+		mockProfileSvc = NewMockProfileService(gomock.NewController(t))
+		mockOIDC4CISvc = NewMockOIDC4CIService(gomock.NewController(t))
+		mockEventSvc   = NewMockEventService(gomock.NewController(t))
+		c              echo.Context
+	)
+
+	t.Run("Success", func(t *testing.T) {
+		expectedCred := map[string]interface{}{
+			"a": "b",
+		}
+		req, err := json.Marshal(&InitiateOIDC4CIComposeRequest{
+			ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
+			ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
+			Compose: lo.ToPtr([]InitiateIssuanceCredentialConfigurationCompose{
+				{
+					CredentialOverrideId: lo.ToPtr("abc"),
+					Credential:           &expectedCred,
+				},
+			}),
+		})
+
+		require.NoError(t, err)
+
+		resp := &oidc4ci.InitiateIssuanceResponse{
+			InitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+			TxID:                "txID",
+		}
+
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
+		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), issuerProfile).
+			DoAndReturn(func(
+				ctx context.Context,
+				request *oidc4ci.InitiateIssuanceRequest,
+				issuer *profileapi.Issuer,
+			) (*oidc4ci.InitiateIssuanceResponse, error) {
+				require.Len(t, request.CredentialConfiguration, 1)
+				require.EqualValues(t, expectedCred,
+					*request.CredentialConfiguration[0].ComposeCredential.Credential)
+
+				return resp, nil
+			})
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(0)
+
+		controller := NewController(&Config{
+			ProfileSvc:     mockProfileSvc,
+			OIDC4CIService: mockOIDC4CISvc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.IssuerEventTopic,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		c = echoContext(withRequestBody(req))
+
+		err = controller.InitiateCredentialComposeIssuance(c, profileID, profileVersion)
+		require.NoError(t, err)
+	})
+}
+
 func TestController_InitiateCredentialIssuance(t *testing.T) {
 	issuerProfile := &profileapi.Issuer{
 		OrganizationID: orgID,

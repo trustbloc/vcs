@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,trustRegistry=MockTrustRegistry,ackStore=MockAckStore,ackService=MockAckService,composer=MockComposer
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector,kmsRegistry=MockKMSRegistry,cryptoJWTSigner=MockCryptoJWTSigner,jsonSchemaValidator=MockJSONSchemaValidator,trustRegistry=MockTrustRegistry,ackStore=MockAckStore,ackService=MockAckService,composer=MockComposer,documentLoader=MockDocumentLoader
 
 package oidc4ci
 
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -153,6 +154,11 @@ type composer interface {
 	) (*verifiable.Credential, error)
 }
 
+// DocumentLoader knows how to load remote documents.
+type documentLoader interface {
+	LoadDocument(u string) (*ld.RemoteDocument, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -173,6 +179,7 @@ type Config struct {
 	TrustRegistry                 trustRegistry
 	AckService                    ackService
 	Composer                      composer
+	DocumentLoader                documentLoader
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -195,6 +202,7 @@ type Service struct {
 	trustRegistry                 trustRegistry
 	ackService                    ackService
 	composer                      composer
+	documentLoader                documentLoader
 }
 
 // NewService returns a new Service instance.
@@ -218,6 +226,7 @@ func NewService(config *Config) (*Service, error) {
 		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
 		composer:                      config.Composer,
+		documentLoader:                config.DocumentLoader,
 	}, nil
 }
 
