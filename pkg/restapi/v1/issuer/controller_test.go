@@ -862,7 +862,11 @@ func TestController_ComposeIssuance(t *testing.T) {
 
 		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), issuerProfile).
-			DoAndReturn(func(ctx context.Context, request *oidc4ci.InitiateIssuanceRequest, issuer *profileapi.Issuer) (*oidc4ci.InitiateIssuanceResponse, error) {
+			DoAndReturn(func(
+				ctx context.Context,
+				request *oidc4ci.InitiateIssuanceRequest,
+				issuer *profileapi.Issuer,
+			) (*oidc4ci.InitiateIssuanceResponse, error) {
 				require.Len(t, request.CredentialConfiguration, 1)
 				require.EqualValues(t, expectedCred,
 					*request.CredentialConfiguration[0].ComposeCredential.Credential)
