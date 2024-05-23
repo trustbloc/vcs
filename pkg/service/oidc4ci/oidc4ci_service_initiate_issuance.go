@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/jwt"
+	verifiable2 "github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -183,10 +184,17 @@ func (s *Service) newTxCredentialConf(
 
 	var targetCredentialTemplate *profileapi.CredentialTemplate
 
-	if credentialConfiguration.CredentialTemplateID == "" &&
-		credentialConfiguration.ComposeCredential != nil &&
-		credentialConfiguration.ComposeCredential.Credential != nil {
+	isCompose := credentialConfiguration.ComposeCredential != nil &&
+		credentialConfiguration.ComposeCredential.Credential != nil
+
+	if credentialConfiguration.CredentialTemplateID == "" && isCompose {
 		targetCredentialTemplate = s.buildVirtualTemplate(&credentialConfiguration)
+
+		if targetCredentialTemplate.Checks.Strict {
+			if err = s.validateComposeCredential(*credentialConfiguration.ComposeCredential.Credential); err != nil {
+				return nil, err
+			}
+		}
 	} else {
 		targetCredentialTemplate, err = findCredentialTemplate(credentialConfiguration.CredentialTemplateID, profile)
 		if err != nil {
@@ -235,9 +243,43 @@ func (s *Service) newTxCredentialConf(
 	return txCredentialConfiguration, nil
 }
 
+func (s *Service) validateComposeCredential(credential map[string]interface{}) error {
+	requiredFields := map[string]string{
+		"issuer":       "did:orb:anything",
+		"issuanceDate": "2021-01-01T00:00:00Z",
+	}
+
+	var missingFieldsAdded []string
+
+	for key, value := range requiredFields {
+		if _, ok := credential[key]; !ok {
+			credential[key] = value
+			missingFieldsAdded = append(missingFieldsAdded, key)
+		}
+	}
+
+	if _, credCheckErr := verifiable2.ParseCredentialJSON(credential,
+		verifiable2.WithJSONLDDocumentLoader(s.documentLoader),
+		verifiable2.WithDisabledProofCheck(),
+		verifiable2.WithStrictValidation(),
+	); credCheckErr != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential",
+			fmt.Errorf("parse credential: %w", credCheckErr))
+	}
+
+	for _, key := range missingFieldsAdded {
+		delete(credential, key)
+	}
+
+	return nil
+}
+
 func (s *Service) buildVirtualTemplate(req *InitiateIssuanceCredentialConfiguration) *profileapi.CredentialTemplate {
 	result := &profileapi.CredentialTemplate{
 		ID: fmt.Sprintf("virtual_%s", uuid.NewString()),
+		Checks: profileapi.CredentialTemplateChecks{
+			Strict: req.ComposeCredential.EnableStrictValidation,
+		},
 	}
 
 	if req.ComposeCredential.Credential != nil {

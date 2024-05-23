@@ -12,10 +12,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,6 +54,7 @@ type mocks struct {
 	crypto              *MockDataProtector
 	jsonSchemaValidator *MockJSONSchemaValidator
 	ackService          *MockAckService
+	documentLoader      *jsonld.DefaultDocumentLoader
 }
 
 func TestService_InitiateIssuance(t *testing.T) {
@@ -723,7 +726,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
-				claimData := degreeClaims
+				claimData := map[string]interface{}{
+					"name":   "John Doe",
+					"spouse": "Jane Doe",
+					"degree": map[string]interface{}{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
+				}
 
 				profile = &testProfile
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
@@ -790,6 +800,18 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.wellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 
+				targetCred := map[string]interface{}{
+					"type": []string{
+						"VerifiableCredential",
+						"PermanentResidentCard",
+					},
+					"@context": []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://www.w3.org/2018/credentials/examples/v1",
+					},
+					"credentialSubject": claimData,
+				}
+
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientInitiateIssuanceURL: "",
 					ClientWellKnownURL:        walletWellKnownURL,
@@ -803,9 +825,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 						{
 							CredentialTemplateID: "templateID",
 							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
-								Credential:     &claimData,
-								IDTemplate:     "some-template",
-								OverrideIssuer: true,
+								Credential:             &targetCred,
+								IDTemplate:             "some-template",
+								OverrideIssuer:         true,
+								EnableStrictValidation: true,
 							},
 						},
 					},
@@ -823,7 +846,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
 				expectedCode := "super-secret-pre-auth-code"
-				claimData := degreeClaims
+				claimData := map[string]interface{}{
+					"name":   "John Doe",
+					"spouse": "Jane Doe",
+					"degree": map[string]interface{}{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
+				}
 
 				var tempProfile *profileapi.Issuer
 				require.NoError(t, json.Unmarshal(profileWithoutTemplateJSON, &tempProfile)) // hack profile ref
@@ -898,9 +928,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 						"VerifiableCredential",
 						"PermanentResidentCard",
 					},
-					"context": []string{
+					"@context": []string{
+						"https://www.w3.org/2018/credentials/v1",
 						"https://www.w3.org/2018/credentials/examples/v1",
 					},
+					"issuer":            "did:orb:anything",
+					"issuanceDate":      "2020-03-10T04:24:12.164Z",
 					"credentialSubject": claimData,
 				}
 
@@ -933,6 +966,67 @@ func TestService_InitiateIssuance(t *testing.T) {
 				assert.NotNil(t, resp.Tx)
 				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
+			},
+		},
+		{
+			name: "Fail Compose feature with strict validation",
+			setup: func(mocks *mocks) {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				claimData := map[string]interface{}{
+					"name":                               "John Doe",
+					"spouse":                             "Jane Doe",
+					"totally-random-field-not-in-jsonld": "should not be here",
+					"degree": map[string]interface{}{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
+				}
+
+				var tempProfile *profileapi.Issuer
+				require.NoError(t, json.Unmarshal(profileWithoutTemplateJSON, &tempProfile)) // hack profile ref
+				profile = tempProfile
+
+				targetCred := map[string]interface{}{
+					"type": []string{
+						"VerifiableCredential",
+						"PermanentResidentCard",
+					},
+					"@context": []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://www.w3.org/2018/credentials/examples/v1",
+					},
+					"issuer":            "did:orb:anything",
+					"issuanceDate":      "2020-03-10T04:24:12.164Z",
+					"credentialSubject": claimData,
+				}
+
+				targetCredBytes, err := json.Marshal(targetCred)
+				require.NoError(t, err)
+				assert.NoError(t, json.Unmarshal(targetCredBytes, &targetCred)) // just to ensure type castings
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientInitiateIssuanceURL: "",
+					ClientWellKnownURL:        walletWellKnownURL,
+					GrantType:                 oidc4ci.GrantTypePreAuthorizedCode,
+					ResponseType:              "",
+					Scope:                     []string{"openid", "profile"},
+					OpState:                   initialOpState,
+					UserPinRequired:           false,
+					WalletInitiatedIssuance:   false,
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
+								Credential:             &targetCred,
+								IDTemplate:             "some-template",
+								OverrideIssuer:         true,
+								EnableStrictValidation: true,
+							},
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.Error(t, err, "JSON-LD doc has different structure after compaction")
 			},
 		},
 		{
@@ -1772,6 +1866,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				pinGenerator:        NewMockPinGenerator(gomock.NewController(t)),
 				crypto:              NewMockDataProtector(gomock.NewController(t)),
 				jsonSchemaValidator: NewMockJSONSchemaValidator(gomock.NewController(t)),
+				documentLoader:      jsonld.NewDefaultDocumentLoader(http.DefaultClient),
 			}
 
 			tt.setup(m)
@@ -1787,6 +1882,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				DataProtector:       m.crypto,
 				JSONSchemaValidator: m.jsonSchemaValidator,
 				Composer:            m.composer,
+				DocumentLoader:      m.documentLoader,
 			})
 			require.NoError(t, err)
 
@@ -1845,6 +1941,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 		referenceStore       = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
 		kmsRegistry          = NewMockKMSRegistry(gomock.NewController(t))
 		cryptoJWTSigner      = NewMockCryptoJWTSigner(gomock.NewController(t))
+		documentLoader       = NewMockDocumentLoader(gomock.NewController(t))
 		issuanceReq          *oidc4ci.InitiateIssuanceRequest
 		profile              *profileapi.Issuer
 	)
@@ -2245,6 +2342,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				KMSRegistry:                   kmsRegistry,
 				CryptoJWTSigner:               cryptoJWTSigner,
 				EventTopic:                    spi.IssuerEventTopic,
+				DocumentLoader:                documentLoader,
 			})
 			require.NoError(t, err)
 

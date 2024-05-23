@@ -721,6 +721,7 @@ func buildEchoHandler(
 		TrustRegistry:                 trustRegistryService,
 		AckService:                    ackService,
 		Composer:                      oidc4ci.NewCredentialComposer(),
+		DocumentLoader:                documentLoader,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
