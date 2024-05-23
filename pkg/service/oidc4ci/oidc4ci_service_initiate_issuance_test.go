@@ -932,8 +932,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 						"https://www.w3.org/2018/credentials/v1",
 						"https://www.w3.org/2018/credentials/examples/v1",
 					},
-					"issuer":            "did:orb:anything",
-					"issuanceDate":      "2020-03-10T04:24:12.164Z",
 					"credentialSubject": claimData,
 				}
 
