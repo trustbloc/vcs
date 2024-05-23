@@ -825,10 +825,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 						{
 							CredentialTemplateID: "templateID",
 							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
-								Credential:             &targetCred,
-								IDTemplate:             "some-template",
-								OverrideIssuer:         true,
-								EnableStrictValidation: true,
+								Credential:              &targetCred,
+								IDTemplate:              "some-template",
+								OverrideIssuer:          true,
+								PerformStrictValidation: true,
 							},
 						},
 					},
@@ -1016,10 +1016,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
 						{
 							ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
-								Credential:             &targetCred,
-								IDTemplate:             "some-template",
-								OverrideIssuer:         true,
-								EnableStrictValidation: true,
+								Credential:              &targetCred,
+								IDTemplate:              "some-template",
+								OverrideIssuer:          true,
+								PerformStrictValidation: true,
 							},
 						},
 					},

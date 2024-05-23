@@ -1517,6 +1517,10 @@ components:
           type: boolean
           description: Override credential subject did.
           nullable: true
+        perform_strict_validation:
+          type: boolean
+          description: Perform strict validation.
+          nullable: true
         credential:
           type: object
           description: Raw Complete credential for sign and customization
@@ -2249,6 +2253,10 @@ components:
         credential_override_subject_did:
           type: boolean
           description: Override credential subject did.
+          nullable: true
+        credential_perform_strict_validation:
+          type: boolean
+          description: Perform strict validation.
           nullable: true
         credential:
           type: object

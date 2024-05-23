@@ -278,7 +278,7 @@ func (s *Service) buildVirtualTemplate(req *InitiateIssuanceCredentialConfigurat
 	result := &profileapi.CredentialTemplate{
 		ID: fmt.Sprintf("virtual_%s", uuid.NewString()),
 		Checks: profileapi.CredentialTemplateChecks{
-			Strict: req.ComposeCredential.EnableStrictValidation,
+			Strict: req.ComposeCredential.PerformStrictValidation,
 		},
 	}
 

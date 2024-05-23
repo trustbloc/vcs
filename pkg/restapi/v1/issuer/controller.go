@@ -425,10 +425,11 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 	for _, compose := range lo.FromPtr(body.Compose) {
 		configs = append(configs, InitiateIssuanceCredentialConfiguration{
 			Compose: &DeprecatedComposeOIDC4CICredential{
-				Credential:         compose.Credential,
-				IdTemplate:         compose.CredentialOverrideId,
-				OverrideIssuer:     compose.CredentialOverrideIssuer,
-				OverrideSubjectDid: compose.CredentialOverrideSubjectDid,
+				Credential:              compose.Credential,
+				IdTemplate:              compose.CredentialOverrideId,
+				OverrideIssuer:          compose.CredentialOverrideIssuer,
+				OverrideSubjectDid:      compose.CredentialOverrideSubjectDid,
+				PerformStrictValidation: compose.CredentialPerformStrictValidation,
 			},
 			CredentialExpiresAt: compose.CredentialExpiresAt,
 		})
@@ -524,10 +525,11 @@ func (c *Controller) initiateIssuance(
 
 		if multiCredentialIssuance.Compose != nil {
 			credConfig.ComposeCredential = &oidc4ci.InitiateIssuanceComposeCredential{
-				Credential:         multiCredentialIssuance.Compose.Credential,
-				IDTemplate:         lo.FromPtr(multiCredentialIssuance.Compose.IdTemplate),
-				OverrideIssuer:     lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
-				OverrideSubjectDID: lo.FromPtr(multiCredentialIssuance.Compose.OverrideSubjectDid),
+				Credential:              multiCredentialIssuance.Compose.Credential,
+				IDTemplate:              lo.FromPtr(multiCredentialIssuance.Compose.IdTemplate),
+				OverrideIssuer:          lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
+				OverrideSubjectDID:      lo.FromPtr(multiCredentialIssuance.Compose.OverrideSubjectDid),
+				PerformStrictValidation: lo.FromPtr(multiCredentialIssuance.Compose.PerformStrictValidation),
 			}
 		}
 
