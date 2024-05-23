@@ -168,6 +168,7 @@ func (s *Service) validateFlowSpecificRequestParams(
 	return nil
 }
 
+//nolint:nestif
 func (s *Service) newTxCredentialConf(
 	ctx context.Context,
 	credentialConfiguration InitiateIssuanceCredentialConfiguration,
