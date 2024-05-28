@@ -34,8 +34,8 @@ type ValidatePresentation interface {
 }
 
 type ValidatePresentationData struct {
-	AttestationVP      string
-	CredentialMetadata []CredentialMetadata
+	AttestationVP     string
+	CredentialMatches []CredentialMatches
 }
 
 // ServiceInterface defines an interface for Trust Registry service.
@@ -44,8 +44,8 @@ type ServiceInterface interface {
 	ValidatePresentation
 }
 
-// CredentialMetadata represents metadata of matched credentials for policy evaluation.
-type CredentialMetadata struct {
+// CredentialMatches represents metadata of matched credentials for policy evaluation.
+type CredentialMatches struct {
 	// Credential ID
 	CredentialID string `json:"credential_id"`
 	// Credential Types.
@@ -67,9 +67,9 @@ type IssuancePolicyEvaluationRequest struct {
 
 // PresentationPolicyEvaluationRequest is a request payload for presentation policy evaluation service.
 type PresentationPolicyEvaluationRequest struct {
-	AttestationVC      *[]string            `json:"attestation_vc,omitempty"`
-	CredentialMetadata []CredentialMetadata `json:"credential_metadata"`
-	VerifierDID        string               `json:"verifier_did"`
+	AttestationVC     *[]string           `json:"attestation_vc,omitempty"`
+	CredentialMatches []CredentialMatches `json:"credential_matches"`
+	VerifierDID       string              `json:"verifier_did"`
 }
 
 // PolicyEvaluationResponse is a response from policy evaluation service.

@@ -157,8 +157,8 @@ func (s *Service) ValidatePresentation(
 	}
 
 	req := &PresentationPolicyEvaluationRequest{
-		VerifierDID:        profile.SigningDID.DID,
-		CredentialMetadata: data.CredentialMetadata,
+		VerifierDID:       profile.SigningDID.DID,
+		CredentialMatches: data.CredentialMatches,
 	}
 
 	if data.AttestationVP != "" {
