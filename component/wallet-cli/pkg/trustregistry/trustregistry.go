@@ -88,15 +88,15 @@ func (c *Client) ValidateVerifier(
 	logger.Debug("verifier validation begin", log.WithURL(endpoint))
 
 	req := &WalletPresentationRequest{
-		VerifierDID:        verifierDID,
-		VerifierDomain:     verifierDomain,
-		CredentialMetadata: make([]CredentialMetadata, len(credentials)),
+		VerifierDID:       verifierDID,
+		VerifierDomain:    verifierDomain,
+		CredentialMatches: make([]CredentialMatches, len(credentials)),
 	}
 
 	for i, credential := range credentials {
 		content := credential.Contents()
 
-		req.CredentialMetadata[i] = getCredentialMetadata(content)
+		req.CredentialMatches[i] = getCredentialMatches(content)
 	}
 
 	body, err := json.Marshal(req)
@@ -122,7 +122,7 @@ func (c *Client) ValidateVerifier(
 	return resp.Payload != nil && lo.FromPtr(resp.Payload)["attestations_required"] != nil, nil
 }
 
-func getCredentialMetadata(content verifiable.CredentialContents) CredentialMetadata {
+func getCredentialMatches(content verifiable.CredentialContents) CredentialMatches {
 	var iss, exp string
 	if content.Issued != nil {
 		iss = content.Issued.FormatToString()
@@ -132,7 +132,7 @@ func getCredentialMetadata(content verifiable.CredentialContents) CredentialMeta
 		exp = content.Expired.FormatToString()
 	}
 
-	return CredentialMetadata{
+	return CredentialMatches{
 		CredentialID:    content.ID,
 		CredentialTypes: content.Types,
 		ExpirationDate:  exp,

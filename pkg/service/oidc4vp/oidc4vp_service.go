@@ -517,7 +517,7 @@ func (s *Service) checkPolicy(
 
 	st := time.Now()
 
-	metadata := make([]trustregistry.CredentialMetadata, 0)
+	matches := make([]trustregistry.CredentialMatches, 0)
 
 	for _, token := range vpTokens {
 		for _, credential := range token.Presentation.Credentials() {
@@ -533,7 +533,7 @@ func (s *Service) checkPolicy(
 				exp = vcc.Expired.FormatToString()
 			}
 
-			metadata = append(metadata, trustregistry.CredentialMetadata{
+			matches = append(matches, trustregistry.CredentialMatches{
 				CredentialID: vcc.ID,
 				Types:        vcc.Types,
 				IssuerID:     vcc.Issuer.ID,
@@ -547,8 +547,8 @@ func (s *Service) checkPolicy(
 		ctx,
 		profile,
 		&trustregistry.ValidatePresentationData{
-			AttestationVP:      attestationVP,
-			CredentialMetadata: metadata,
+			AttestationVP:     attestationVP,
+			CredentialMatches: matches,
 		},
 	); err != nil {
 		return fmt.Errorf("check policy: %w", err)

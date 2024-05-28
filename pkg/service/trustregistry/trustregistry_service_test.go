@@ -533,8 +533,8 @@ func TestService_ValidatePresentation(t *testing.T) {
 					context.Background(),
 					profile,
 					&trustregistry.ValidatePresentationData{
-						AttestationVP:      attestationVP,
-						CredentialMetadata: nil,
+						AttestationVP:     attestationVP,
+						CredentialMatches: nil,
 					},
 				),
 			)

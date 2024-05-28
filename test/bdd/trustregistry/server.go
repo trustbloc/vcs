@@ -97,7 +97,7 @@ func (s *server) evaluateWalletPresentationPolicy(w http.ResponseWriter, r *http
 		return
 	}
 
-	if len(request.CredentialMetadata) == 0 {
+	if len(request.CredentialMatches) == 0 {
 		s.writeResponse(
 			w, http.StatusBadRequest, "no credential metadata supplied")
 
@@ -183,7 +183,7 @@ func (s *server) evaluateVerifierPresentationPolicy(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if request.CredentialMetadata == nil || len(request.CredentialMetadata) == 0 {
+	if request.CredentialMatches == nil || len(request.CredentialMatches) == 0 {
 		s.writeResponse(
 			w, http.StatusBadRequest, "no credential metadata supplied")
 
