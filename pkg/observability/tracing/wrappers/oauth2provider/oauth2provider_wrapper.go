@@ -101,7 +101,6 @@ func (w *Wrapper) IntrospectToken(ctx context.Context, token string, tokenUse fo
 	ctx, span := w.tracer.Start(ctx, "oauth2provider.IntrospectToken")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("token", token))
 	span.SetAttributes(attribute.String("tokenUse", string(tokenUse)))
 	span.SetAttributes(attribute.StringSlice("scope", scope))
 

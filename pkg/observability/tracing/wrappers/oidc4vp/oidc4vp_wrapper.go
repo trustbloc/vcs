@@ -17,7 +17,6 @@ import (
 
 	"github.com/trustbloc/vc-go/presexch"
 
-	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
@@ -45,7 +44,6 @@ func (w *Wrapper) InitiateOidcInteraction(
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
 	span.SetAttributes(attribute.String("purpose", purpose))
 	span.SetAttributes(attribute.StringSlice("custom_copes", customScopes))
-	span.SetAttributes(attributeutil.JSON("presentation_definition", presentationDefinition))
 
 	resp, err := w.svc.InitiateOidcInteraction(ctx, presentationDefinition, purpose, customScopes, profile)
 	if err != nil {
@@ -60,7 +58,6 @@ func (w *Wrapper) VerifyOIDCVerifiablePresentation(ctx context.Context, txID oid
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(txID)))
-	span.SetAttributes(attributeutil.JSON("token", authResponse.VPTokens, attributeutil.WithRedacted("#.Presentation")))
 
 	return w.svc.VerifyOIDCVerifiablePresentation(ctx, txID, authResponse)
 }
@@ -84,7 +81,6 @@ func (w *Wrapper) RetrieveClaims(ctx context.Context, tx *oidc4vp.Transaction, p
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(tx.ID)))
-	span.SetAttributes(attributeutil.JSON("tx", tx, attributeutil.WithRedacted("ReceivedClaims.credentials")))
 
 	cm := w.svc.RetrieveClaims(ctx, tx, profile)
 

@@ -55,7 +55,6 @@ func (w *Wrapper) ValidateCredentialProof(ctx context.Context,
 	ctx, span := w.tracer.Start(ctx, "verifycredential.ValidateCredentialProof")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("proof_challenge", proofChallenge))
 	span.SetAttributes(attribute.String("proof_domain", proofDomain))
 	span.SetAttributes(attribute.Bool("vc_in_vp_validation", vcInVPValidation))
 	span.SetAttributes(attribute.Bool("strict_validation", strictValidation))

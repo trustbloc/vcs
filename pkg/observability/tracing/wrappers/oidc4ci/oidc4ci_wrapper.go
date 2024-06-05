@@ -11,12 +11,12 @@ package oidc4ci
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
+	"github.com/trustbloc/vcs/internal/utils"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -42,12 +42,18 @@ func (w *Wrapper) InitiateIssuance(
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
-	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", req, attributeutil.WithRedacted("ClaimData")))
 
-	for _, credConfig := range req.CredentialConfiguration {
+	var allClaims []string
+	for i, credConfig := range req.CredentialConfiguration {
 		if len(credConfig.ClaimData) > 0 { //nolint:staticcheck
-			span.SetAttributes(attribute.StringSlice("claim_keys", lo.Keys(credConfig.ClaimData))) //nolint:staticcheck
+			allClaims = append(allClaims,
+				utils.ExtractKeys(fmt.Sprintf("%v_%v_$", i, credConfig.CredentialTemplateID),
+					credConfig.ClaimData)...)
 		}
+	}
+
+	if len(allClaims) > 0 {
+		span.SetAttributes(attribute.StringSlice("claim_keys", allClaims)) //nolint:staticcheck
 	}
 
 	resp, err := w.svc.InitiateIssuance(ctx, req, profile)
@@ -80,8 +86,6 @@ func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAutho
 	ctx, span := w.tracer.Start(ctx, "oidc4ci.ValidatePreAuthorizedCodeRequest")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("pre-authorized_code", preAuthorizedCode))
-	span.SetAttributes(attribute.String("pin", pin))
 	span.SetAttributes(attribute.String("client_id", clientID))
 
 	tx, err := w.svc.ValidatePreAuthorizedCodeRequest(ctx, preAuthorizedCode, pin, clientID, clientAttestationType, clientAttestation)
@@ -102,7 +106,6 @@ func (w *Wrapper) PrepareCredential(
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(req.TxID)))
-	span.SetAttributes(attributeutil.JSON("prepare_credential_request", req))
 
 	res, err := w.svc.PrepareCredential(ctx, req)
 	if err != nil {

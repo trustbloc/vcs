@@ -504,9 +504,6 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	ctx, span := c.tracer.Start(req.Context(), "OidcToken")
 	defer span.End()
 
-	params, _ := e.FormParams()
-	span.SetAttributes(attributeutil.FormParams("form_params", params))
-
 	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, new(fosite.DefaultSession))
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
