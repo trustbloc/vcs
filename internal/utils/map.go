@@ -11,9 +11,10 @@ func ExtractKeys(prefix string, m map[string]interface{}) []string {
 	for k, v := range m {
 		fullKey := prefix + "." + k
 		keys = append(keys, fullKey)
-		switch v := v.(type) {
+
+		switch nestedVal := v.(type) { //nolint:gocritic
 		case map[string]interface{}:
-			subKeys := ExtractKeys(fullKey, v)
+			subKeys := ExtractKeys(fullKey, nestedVal)
 			keys = append(keys, subKeys...)
 		}
 	}
