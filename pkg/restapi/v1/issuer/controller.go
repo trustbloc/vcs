@@ -28,6 +28,7 @@ import (
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"
@@ -35,7 +36,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -151,12 +151,12 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 		return err
 	}
 
-	span.SetAttributes(attributeutil.JSON("issue_credential_request", body, attributeutil.WithRedacted("credential")))
-
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		return err
 	}
+
+	span.SetAttributes(attribute.String("profile_id", profileID))
 
 	credential, err := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
 	if err != nil {
@@ -405,6 +405,8 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 		return err
 	}
 
+	span.SetAttributes(attribute.String("profile_id", profileID))
+
 	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
@@ -471,6 +473,8 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 		return err
 	}
 
+	span.SetAttributes(attribute.String("profile_id", profileID))
+
 	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
@@ -485,8 +489,6 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 
 		return err
 	}
-
-	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", body, attributeutil.WithRedacted("claim_data")))
 
 	resp, ct, err := c.initiateIssuance(ctx, &body, profile)
 	if err != nil {
