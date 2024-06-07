@@ -61,20 +61,15 @@ var (
 )
 
 type rawAuthorizationResponse struct {
-	IDToken string
-	VPToken []string
-	State   string
-}
-
-type IDTokenVPToken struct {
-	// TODO: use *presexch.PresentationSubmission instead of map[string]interface{}
-	PresentationSubmission map[string]interface{} `json:"presentation_submission"`
+	IDToken                string
+	VPToken                []string
+	PresentationSubmission string
+	State                  string
 }
 
 type IDTokenClaims struct {
 	// CustomScopeClaims stores claims retrieved using custom scope.
 	CustomScopeClaims map[string]oidc4vp.Claims `json:"_scope,omitempty"`
-	VPToken           IDTokenVPToken            `json:"_vp_token"`
 	AttestationVP     string                    `json:"_attestation_vp"`
 	Nonce             string                    `json:"nonce"`
 	Aud               string                    `json:"aud"`
@@ -82,11 +77,13 @@ type IDTokenClaims struct {
 }
 
 type VPTokenClaims struct {
-	Nonce         string
-	Aud           string
-	SignerDIDID   string
-	VpTokenFormat vcsverifiable.Format
-	VP            *verifiable.Presentation
+	Nonce         string                   `json:"nonce"`
+	Aud           string                   `json:"aud"`
+	Iss           string                   `json:"iss"`
+	Exp           int64                    `json:"exp"`
+	SignerDIDID   string                   `json:"signer_did_id"`
+	VpTokenFormat vcsverifiable.Format     `json:"vp_token_format"`
+	VP            *verifiable.Presentation `json:"vp"`
 }
 
 type PresentationDefinition = json.RawMessage
@@ -460,17 +457,16 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 		return err
 	}
 
-	authorisationResponseParsed, err := c.verifyAuthorizationResponseTokens(ctx, rawAuthResp)
+	responseParsed, err := c.verifyAuthorizationResponseTokens(ctx, rawAuthResp)
 	if err != nil {
-		if tenantID, e := util.GetTenantIDFromRequest(e); e == nil {
+		if tenantID, authErr := util.GetTenantIDFromRequest(e); authErr == nil {
 			c.sendFailedEvent(ctx, rawAuthResp.State, tenantID, "", "", err)
 		}
 
 		return err
 	}
 
-	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(
-		ctx, oidc4vp.TxID(rawAuthResp.State), authorisationResponseParsed)
+	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(ctx, oidc4vp.TxID(rawAuthResp.State), responseParsed)
 	if err != nil {
 		return err
 	}
@@ -565,9 +561,22 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 		logger.Debugc(ctx, "validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
 	}()
 
-	idTokenClaims, err := validateIDToken(authResp.IDToken, c.proofChecker)
+	var presentationSubmission map[string]interface{}
+
+	if authResp.PresentationSubmission != "" {
+		if err := json.Unmarshal([]byte(authResp.PresentationSubmission), &presentationSubmission); err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation_submission", err)
+		}
+	}
+
+	idTokenClaims, err := validateIDToken(authResp.IDToken, &presentationSubmission, c.proofChecker)
 	if err != nil {
 		return nil, err
+	}
+
+	if presentationSubmission == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation_submission",
+			fmt.Errorf("presentation_submission is missed"))
 	}
 
 	logger.Debugc(ctx, "CheckAuthorizationResponse id_token verified")
@@ -603,15 +612,17 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 
 		vpTokenClaims.VP.Context = append(vpTokenClaims.VP.Context, presexch.PresentationSubmissionJSONLDContextIRI)
 		vpTokenClaims.VP.Type = append(vpTokenClaims.VP.Type, presexch.PresentationSubmissionJSONLDType)
-		vpTokenClaims.VP.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
+		vpTokenClaims.VP.CustomFields[vpSubmissionProperty] = presentationSubmission
 
-		processedVPTokens = append(processedVPTokens, &oidc4vp.ProcessedVPToken{
-			Nonce:         idTokenClaims.Nonce,
-			ClientID:      idTokenClaims.Aud,
-			VpTokenFormat: vpTokenClaims.VpTokenFormat,
-			Presentation:  vpTokenClaims.VP,
-			SignerDIDID:   vpTokenClaims.SignerDIDID,
-		})
+		processedVPTokens = append(processedVPTokens,
+			&oidc4vp.ProcessedVPToken{
+				Nonce:         idTokenClaims.Nonce,
+				ClientID:      idTokenClaims.Aud,
+				VpTokenFormat: vpTokenClaims.VpTokenFormat,
+				Presentation:  vpTokenClaims.VP,
+				SignerDIDID:   vpTokenClaims.SignerDIDID,
+			},
+		)
 	}
 
 	return &oidc4vp.AuthorizationResponseParsed{
@@ -621,59 +632,62 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 	}, nil
 }
 
-func validateIDToken(idToken string, verifier jwt.ProofChecker) (*IDTokenClaims, error) {
-	_, rawClaims, err := jwt.ParseAndCheckProof(idToken,
-		verifier, false,
+func validateIDToken(
+	idTokenJWT string,
+	presentationSubmission *map[string]interface{},
+	verifier jwt.ProofChecker,
+) (*IDTokenClaims, error) {
+	_, rawClaims, err := jwt.ParseAndCheckProof(
+		idTokenJWT,
+		verifier,
+		false,
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
 	}
 
-	var fastParser fastjson.Parser
-	v, err := fastParser.ParseBytes(rawClaims)
-	if err != nil {
-		return nil, fmt.Errorf("decode claims: %w", err)
-	}
+	var parser fastjson.Parser
 
-	var presentationSubmission map[string]interface{}
-	sb, err := v.Get("_vp_token", "presentation_submission").Object()
-	if err == nil {
-		if err = json.Unmarshal(sb.MarshalTo([]byte{}), &presentationSubmission); err != nil {
-			return nil, fmt.Errorf("decode presentation_submission: %w", err)
-		}
+	v, err := parser.ParseBytes(rawClaims)
+	if err != nil {
+		return nil, fmt.Errorf("decode id_token claims: %w", err)
 	}
 
 	var customScopeClaims map[string]oidc4vp.Claims
+
 	if val := v.Get("_scope"); val != nil {
-		sb, err = val.Object()
+		var obj *fastjson.Object
+
+		obj, err = val.Object()
 		if err == nil {
-			if err = json.Unmarshal(sb.MarshalTo([]byte{}), &customScopeClaims); err != nil {
+			if err = json.Unmarshal(obj.MarshalTo([]byte{}), &customScopeClaims); err != nil {
 				return nil, fmt.Errorf("decode _scope: %w", err)
+			}
+		}
+	}
+
+	if val := v.Get("_vp_token", "presentation_submission"); val != nil { // _vp_token is obsolete
+		var obj *fastjson.Object
+
+		obj, err = v.Get("_vp_token", "presentation_submission").Object()
+		if err == nil {
+			if err = json.Unmarshal(obj.MarshalTo([]byte{}), &presentationSubmission); err != nil {
+				return nil, fmt.Errorf("decode presentation_submission: %w", err)
 			}
 		}
 	}
 
 	idTokenClaims := &IDTokenClaims{
 		CustomScopeClaims: customScopeClaims,
-		VPToken: IDTokenVPToken{
-			PresentationSubmission: presentationSubmission,
-		},
-		AttestationVP: string(v.GetStringBytes("_attestation_vp")),
-		Nonce:         string(v.GetStringBytes("nonce")),
-		Aud:           string(v.GetStringBytes("aud")),
-		Exp:           v.GetInt64("exp"),
+		AttestationVP:     string(v.GetStringBytes("_attestation_vp")),
+		Nonce:             string(v.GetStringBytes("nonce")),
+		Aud:               string(v.GetStringBytes("aud")),
+		Exp:               v.GetInt64("exp"),
 	}
 
 	if idTokenClaims.Exp < time.Now().Unix() {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token.exp", fmt.Errorf(
-			"token expired"))
-	}
-
-	if idTokenClaims.VPToken.PresentationSubmission == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue,
-			"id_token._vp_token.presentation_submission", fmt.Errorf(
-				"$_vp_token.presentation_submission is missed"))
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token.exp", fmt.Errorf("token expired"))
 	}
 
 	return idTokenClaims, nil
@@ -695,16 +709,16 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
 	}
 
-	var fastParser fastjson.Parser
-	v, err := fastParser.ParseBytes(rawClaims)
+	var parser fastjson.Parser
+	v, err := parser.ParseBytes(rawClaims)
 	if err != nil {
-		return nil, fmt.Errorf("decode claims: %w", err)
+		return nil, fmt.Errorf("decode vp token claims: %w", err)
 	}
 
 	exp := v.GetInt64("exp")
 	if exp < time.Now().Unix() {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
-			"token expired"))
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp",
+			fmt.Errorf("token expired"))
 	}
 
 	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
@@ -714,7 +728,7 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
 
-	// Do not need to check since is has passed jwt.Parse().
+	// Do not need to check err since token has passed jwt.Parse().
 	kid, _ := jsonWebToken.Headers.KeyID()
 
 	return &VPTokenClaims{
@@ -766,14 +780,16 @@ func (c *Controller) validateVPTokenLDP(vpToken string) (*VPTokenClaims, error) 
 
 func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, error) {
 	startTime := time.Now().UTC()
+
 	defer func() {
-		logger.Debugc(ctx.Request().Context(),
-			"validateAuthorizationResponse", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(ctx.Request().Context(), "validateAuthorizationResponse", log.WithDuration(time.Since(startTime)))
 	}()
+
 	req := ctx.Request()
 
-	headerContentType := req.Header.Get("Content-Type")
-	if headerContentType != "application/x-www-form-urlencoded" {
+	contentType := req.Header.Get("Content-Type")
+
+	if contentType != "application/x-www-form-urlencoded" {
 		return nil, fmt.Errorf("content type is not application/x-www-form-urlencoded")
 	}
 
@@ -789,8 +805,8 @@ func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse,
 		return nil, err
 	}
 
-	logger.Debugc(ctx.Request().Context(),
-		"AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
+	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse id_token decoded",
+		logfields.WithIDToken(res.IDToken))
 
 	var vpTokenStr string
 
@@ -802,6 +818,16 @@ func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse,
 	res.VPToken = getVPTokens(vpTokenStr)
 
 	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse vp_token decoded")
+
+	if req.PostForm.Has("presentation_submission") {
+		err = decodeFormValue(&res.PresentationSubmission, "presentation_submission", req.PostForm)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse presentation_submission decoded",
+		log.WithState(res.State))
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {

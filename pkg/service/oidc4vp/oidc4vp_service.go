@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry
+//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectStore=MockRequestObjectStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry
 
 package oidc4vp
 
@@ -49,8 +49,11 @@ import (
 var logger = log.New("oidc4vp-service")
 
 const (
-	vpSubmissionProperty = "presentation_submission"
-	customScopeProperty  = "_scope"
+	vpSubmissionProperty       = "presentation_submission"
+	customScopeProperty        = "_scope"
+	vpTokenIDTokenResponseType = "vp_token id_token" //nolint:gosec
+	directPostResponseMode     = "direct_post"
+	didClientIDScheme          = "did"
 )
 
 const (
@@ -58,8 +61,6 @@ const (
 	additionalClaimFieldDesc        = "description"
 	additionalClaimFieldAwardedDate = "awardedDate"
 )
-
-var ErrDataNotFound = errors.New("data not found")
 
 type eventService interface {
 	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
@@ -83,7 +84,7 @@ type transactionManager interface {
 	Get(txID TxID) (*Transaction, error)
 }
 
-type requestObjectPublicStore interface {
+type requestObjectStore interface {
 	Publish(ctx context.Context, requestObject string) (string, error)
 }
 
@@ -110,76 +111,42 @@ type trustRegistry interface {
 	trustregistry.ValidatePresentation
 }
 
-type RequestObjectClaims struct {
-	VPToken VPToken `json:"vp_token"`
-}
-type VPToken struct {
-	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition"`
-}
-
-// RequestObject represents the request object sent to the wallet. It contains the presentation definition
-// that specifies what verifiable credentials should be sent back by the wallet.
-type RequestObject struct {
-	JTI          string                    `json:"jti"`
-	IAT          int64                     `json:"iat"`
-	ISS          string                    `json:"iss"`
-	ResponseType string                    `json:"response_type"`
-	ResponseMode string                    `json:"response_mode"`
-	Scope        string                    `json:"scope"`
-	Nonce        string                    `json:"nonce"`
-	ClientID     string                    `json:"client_id"`
-	RedirectURI  string                    `json:"redirect_uri"`
-	State        string                    `json:"state"`
-	Exp          int64                     `json:"exp"`
-	Registration RequestObjectRegistration `json:"registration"`
-	Claims       RequestObjectClaims       `json:"claims"`
-}
-
-type Config struct {
-	TransactionManager       transactionManager
-	RequestObjectPublicStore requestObjectPublicStore
-	KMSRegistry              kmsRegistry
-	DocumentLoader           ld.DocumentLoader
-	ProfileService           profileService
-	EventSvc                 eventService
-	EventTopic               string
-	PresentationVerifier     presentationVerifier
-	VDR                      vdrapi.Registry
-	TrustRegistry            trustRegistry
-
-	RedirectURL   string
-	TokenLifetime time.Duration
-	Metrics       metricsProvider
-}
-
 type metricsProvider interface {
 	VerifyOIDCVerifiablePresentationTime(value time.Duration)
 }
 
+type Config struct {
+	TransactionManager   transactionManager
+	RequestObjectStore   requestObjectStore
+	KMSRegistry          kmsRegistry
+	DocumentLoader       ld.DocumentLoader
+	ProfileService       profileService
+	EventSvc             eventService
+	EventTopic           string
+	PresentationVerifier presentationVerifier
+	VDR                  vdrapi.Registry
+	TrustRegistry        trustRegistry
+	RedirectURL          string
+	TokenLifetime        time.Duration
+	Metrics              metricsProvider
+}
+
 type Service struct {
-	eventSvc                 eventService
-	eventTopic               string
-	transactionManager       transactionManager
-	requestObjectPublicStore requestObjectPublicStore
-	kmsRegistry              kmsRegistry
-	documentLoader           ld.DocumentLoader
-	profileService           profileService
-	presentationVerifier     presentationVerifier
-	vdr                      vdrapi.Registry
-	trustRegistry            trustRegistry
+	eventSvc             eventService
+	eventTopic           string
+	transactionManager   transactionManager
+	requestObjectStore   requestObjectStore
+	kmsRegistry          kmsRegistry
+	documentLoader       ld.DocumentLoader
+	profileService       profileService
+	presentationVerifier presentationVerifier
+	vdr                  vdrapi.Registry
+	trustRegistry        trustRegistry
 
 	redirectURL   string
 	tokenLifetime time.Duration
 
 	metrics metricsProvider
-}
-
-type RequestObjectRegistration struct {
-	ClientName                  string           `json:"client_name"`
-	SubjectSyntaxTypesSupported []string         `json:"subject_syntax_types_supported"`
-	VPFormats                   *presexch.Format `json:"vp_formats"`
-	ClientPurpose               string           `json:"client_purpose"`
-	LogoURI                     string           `json:"logo_uri"`
 }
 
 func NewService(cfg *Config) *Service {
@@ -190,19 +157,19 @@ func NewService(cfg *Config) *Service {
 	}
 
 	return &Service{
-		eventSvc:                 cfg.EventSvc,
-		eventTopic:               cfg.EventTopic,
-		transactionManager:       cfg.TransactionManager,
-		requestObjectPublicStore: cfg.RequestObjectPublicStore,
-		kmsRegistry:              cfg.KMSRegistry,
-		documentLoader:           cfg.DocumentLoader,
-		profileService:           cfg.ProfileService,
-		presentationVerifier:     cfg.PresentationVerifier,
-		redirectURL:              cfg.RedirectURL,
-		tokenLifetime:            cfg.TokenLifetime,
-		vdr:                      cfg.VDR,
-		trustRegistry:            cfg.TrustRegistry,
-		metrics:                  metrics,
+		eventSvc:             cfg.EventSvc,
+		eventTopic:           cfg.EventTopic,
+		transactionManager:   cfg.TransactionManager,
+		requestObjectStore:   cfg.RequestObjectStore,
+		kmsRegistry:          cfg.KMSRegistry,
+		documentLoader:       cfg.DocumentLoader,
+		profileService:       cfg.ProfileService,
+		presentationVerifier: cfg.PresentationVerifier,
+		redirectURL:          cfg.RedirectURL,
+		tokenLifetime:        cfg.TokenLifetime,
+		vdr:                  cfg.VDR,
+		trustRegistry:        cfg.TrustRegistry,
+		metrics:              metrics,
 	}
 }
 
@@ -295,7 +262,7 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction request object created")
 
-	requestURI, err := s.requestObjectPublicStore.Publish(ctx, token)
+	requestURI, err := s.requestObjectStore.Publish(ctx, token)
 	if err != nil {
 		e := fmt.Errorf("failed to publish request object: %w", err)
 
@@ -864,17 +831,18 @@ func (s *Service) createRequestObject(
 	tokenLifetime := s.tokenLifetime
 	now := time.Now()
 	return &RequestObject{
-		JTI:          uuid.New().String(),
-		IAT:          now.Unix(),
-		ISS:          profile.SigningDID.DID,
-		ResponseType: "id_token",
-		ResponseMode: "post",
-		Scope:        getScope(customScopes),
-		Nonce:        nonce,
-		ClientID:     profile.SigningDID.DID,
-		RedirectURI:  s.redirectURL,
-		State:        string(tx.ID),
-		Exp:          now.Add(tokenLifetime).Unix(),
+		JTI:            uuid.New().String(),
+		IAT:            now.Unix(),
+		ISS:            profile.SigningDID.DID,
+		ResponseType:   vpTokenIDTokenResponseType,
+		ResponseMode:   directPostResponseMode,
+		Scope:          getScope(customScopes),
+		Nonce:          nonce,
+		ClientID:       profile.SigningDID.DID,
+		ClientIDScheme: didClientIDScheme,
+		RedirectURI:    s.redirectURL,
+		State:          string(tx.ID),
+		Exp:            now.Add(tokenLifetime).Unix(),
 		Registration: RequestObjectRegistration{
 			ClientName:                  profile.Name,
 			SubjectSyntaxTypesSupported: []string{"did:ion"},
@@ -885,6 +853,14 @@ func (s *Service) createRequestObject(
 		Claims: RequestObjectClaims{VPToken: VPToken{
 			presentationDefinition,
 		}},
+		ClientMetadata: &ClientMetadata{
+			ClientName:                  profile.Name,
+			SubjectSyntaxTypesSupported: []string{"did:web", "did:jwk", "did:key", "did:ion"},
+			VPFormats:                   vpFormats,
+			ClientPurpose:               purpose,
+			LogoURI:                     profile.LogoURL,
+		},
+		PresentationDefinition: presentationDefinition,
 	}
 }
 

@@ -8,6 +8,7 @@ package oidc4vp
 
 import (
 	"context"
+	"errors"
 
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/presexch"
@@ -16,6 +17,8 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
+
+var ErrDataNotFound = errors.New("data not found")
 
 type InteractionInfo struct {
 	AuthorizationRequest string
@@ -98,3 +101,51 @@ type TxNonceStore txNonceStore
 type TxClaimsStore txClaimsStore
 
 type TxStore txStore
+
+// RequestObject represents the request object sent to the wallet. It contains the presentation definition
+// that specifies what verifiable credentials should be sent back by the wallet.
+type RequestObject struct {
+	JTI            string `json:"jti"`
+	IAT            int64  `json:"iat"`
+	ISS            string `json:"iss"`
+	ResponseType   string `json:"response_type"`
+	ResponseMode   string `json:"response_mode"`
+	Scope          string `json:"scope"`
+	Nonce          string `json:"nonce"`
+	ClientID       string `json:"client_id"`
+	ClientIDScheme string `json:"client_id_scheme"`
+	RedirectURI    string `json:"redirect_uri"`
+	ResponseURI    string `json:"response_uri"`
+	State          string `json:"state"`
+	Exp            int64  `json:"exp"`
+	// Deprecated: Use client_metadata instead.
+	Registration RequestObjectRegistration `json:"registration"`
+	// Deprecated: Use top-level "presentation_definition" instead.
+	Claims                 RequestObjectClaims              `json:"claims"`
+	ClientMetadata         *ClientMetadata                  `json:"client_metadata"`
+	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition"`
+}
+
+type RequestObjectRegistration struct {
+	ClientName                  string           `json:"client_name"`
+	SubjectSyntaxTypesSupported []string         `json:"subject_syntax_types_supported"`
+	VPFormats                   *presexch.Format `json:"vp_formats"`
+	ClientPurpose               string           `json:"client_purpose"`
+	LogoURI                     string           `json:"logo_uri"`
+}
+
+type RequestObjectClaims struct {
+	VPToken VPToken `json:"vp_token"`
+}
+
+type VPToken struct {
+	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition"`
+}
+
+type ClientMetadata struct {
+	ClientName                  string           `json:"client_name"`
+	SubjectSyntaxTypesSupported []string         `json:"subject_syntax_types_supported"`
+	VPFormats                   *presexch.Format `json:"vp_formats"`
+	ClientPurpose               string           `json:"client_purpose"`
+	LogoURI                     string           `json:"logo_uri"`
+}
