@@ -32,52 +32,55 @@ type HTTPClient interface {
 
 // Config holds configuration options for Controller.
 type Config struct {
-	DefaultHTTPClient HTTPClient
-	ExternalHostURL   string
-	Tracer            trace.Tracer
+	HTTPClient      HTTPClient
+	ExternalHostURL string
+	Tracer          trace.Tracer
 }
 
 // Controller for OIDC credential issuance API.
 type Controller struct {
-	defaultHTTPClient HTTPClient
-	internalHostURL   string
-	tracer            trace.Tracer
+	httpClient      HTTPClient
+	internalHostURL string
+	tracer          trace.Tracer
 }
 
 // NewController creates a new Controller instance.
 func NewController(config *Config) *Controller {
 	return &Controller{
-		defaultHTTPClient: config.DefaultHTTPClient,
-		internalHostURL:   config.ExternalHostURL,
-		tracer:            config.Tracer,
+		httpClient:      config.HTTPClient,
+		internalHostURL: config.ExternalHostURL,
+		tracer:          config.Tracer,
 	}
 }
 
 // PresentAuthorizationResponse (POST /oidc/present).
 func (c *Controller) PresentAuthorizationResponse(e echo.Context) error {
-	req := e.Request()
+	request := e.Request()
 
-	ctx, span := c.tracer.Start(req.Context(), "PresentAuthorizationResponse")
+	ctx, span := c.tracer.Start(request.Context(), "PresentAuthorizationResponse")
 	defer span.End()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.internalHostURL+oidc4VPCheckEndpoint, req.Body)
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodPost,
+		c.internalHostURL+oidc4VPCheckEndpoint,
+		request.Body,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.defaultHTTPClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 
 	defer closeResponseBody(e.Request().Context(), resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

@@ -846,9 +846,9 @@ func buildEchoHandler(
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
-		DefaultHTTPClient: getHTTPClient(metricsProvider.ClientOIDC4PV1),
-		ExternalHostURL:   conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		Tracer:            conf.Tracer,
+		HTTPClient:      getHTTPClient(metricsProvider.ClientOIDC4PV1),
+		ExternalHostURL: conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
+		Tracer:          conf.Tracer,
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
@@ -945,19 +945,19 @@ func buildEchoHandler(
 	var oidc4vpService oidc4vp.ServiceInterface
 
 	oidc4vpService = oidc4vp.NewService(&oidc4vp.Config{
-		EventSvc:                 eventSvc,
-		EventTopic:               conf.StartupParameters.verifierEventTopic,
-		TransactionManager:       oidc4vpTxManager,
-		RequestObjectPublicStore: requestObjectStoreService,
-		KMSRegistry:              kmsRegistry,
-		VDR:                      conf.VDR,
-		DocumentLoader:           documentLoader,
-		ProfileService:           verifierProfileSvc,
-		PresentationVerifier:     verifyPresentationSvc,
-		TrustRegistry:            trustRegistryService,
-		RedirectURL:              conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
-		TokenLifetime:            15 * time.Minute,
-		Metrics:                  metrics,
+		EventSvc:             eventSvc,
+		EventTopic:           conf.StartupParameters.verifierEventTopic,
+		TransactionManager:   oidc4vpTxManager,
+		RequestObjectStore:   requestObjectStoreService,
+		KMSRegistry:          kmsRegistry,
+		VDR:                  conf.VDR,
+		DocumentLoader:       documentLoader,
+		ProfileService:       verifierProfileSvc,
+		PresentationVerifier: verifyPresentationSvc,
+		TrustRegistry:        trustRegistryService,
+		RedirectURL:          conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
+		TokenLifetime:        15 * time.Minute,
+		Metrics:              metrics,
 	})
 
 	if conf.IsTraceEnabled {

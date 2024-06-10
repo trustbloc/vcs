@@ -84,20 +84,21 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			PresentationDefinition: &presexch.PresentationDefinition{},
 			CustomScopes:           []string{customScope},
 		}, "nonce1", nil)
-	requestObjectPublicStore := NewMockRequestObjectPublicStore(gomock.NewController(t))
-	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any()).
+
+	requestObjectStore := NewMockRequestObjectStore(gomock.NewController(t))
+	requestObjectStore.EXPECT().Publish(gomock.Any(), gomock.Any()).
 		AnyTimes().DoAndReturn(func(ctx context.Context, token string) (string, error) {
 		return "someurl/abc", nil
 	})
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
-		EventSvc:                 &mockEvent{},
-		EventTopic:               spi.VerifierEventTopic,
-		TransactionManager:       txManager,
-		RequestObjectPublicStore: requestObjectPublicStore,
-		KMSRegistry:              kmsRegistry,
-		RedirectURL:              "test://redirect",
-		TokenLifetime:            time.Second * 100,
+		EventSvc:           &mockEvent{},
+		EventTopic:         spi.VerifierEventTopic,
+		TransactionManager: txManager,
+		RequestObjectStore: requestObjectStore,
+		KMSRegistry:        kmsRegistry,
+		RedirectURL:        "test://redirect",
+		TokenLifetime:      time.Second * 100,
 	})
 
 	pubKey, err := keyCreator.Create(kms.ED25519Type)
@@ -165,12 +166,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			Return(nil, "", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			EventSvc:                 &mockEvent{},
-			EventTopic:               spi.VerifierEventTopic,
-			TransactionManager:       txManagerErr,
-			RequestObjectPublicStore: requestObjectPublicStore,
-			KMSRegistry:              kmsRegistry,
-			RedirectURL:              "test://redirect",
+			EventSvc:           &mockEvent{},
+			EventTopic:         spi.VerifierEventTopic,
+			TransactionManager: txManagerErr,
+			RequestObjectStore: requestObjectStore,
+			KMSRegistry:        kmsRegistry,
+			RedirectURL:        "test://redirect",
 		})
 
 		info, err := withError.InitiateOidcInteraction(
@@ -186,17 +187,17 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	})
 
 	t.Run("publish request object failed", func(t *testing.T) {
-		requestObjectPublicStoreErr := NewMockRequestObjectPublicStore(gomock.NewController(t))
-		requestObjectPublicStoreErr.EXPECT().Publish(gomock.Any(), gomock.Any()).
+		requestObjectStoreErr := NewMockRequestObjectStore(gomock.NewController(t))
+		requestObjectStoreErr.EXPECT().Publish(gomock.Any(), gomock.Any()).
 			AnyTimes().Return("", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			EventSvc:                 &mockEvent{},
-			EventTopic:               spi.VerifierEventTopic,
-			TransactionManager:       txManager,
-			RequestObjectPublicStore: requestObjectPublicStoreErr,
-			KMSRegistry:              kmsRegistry,
-			RedirectURL:              "test://redirect",
+			EventSvc:           &mockEvent{},
+			EventTopic:         spi.VerifierEventTopic,
+			TransactionManager: txManager,
+			RequestObjectStore: requestObjectStoreErr,
+			KMSRegistry:        kmsRegistry,
+			RedirectURL:        "test://redirect",
 		})
 
 		info, err := withError.InitiateOidcInteraction(
@@ -216,12 +217,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			EventSvc:                 &mockEvent{},
-			EventTopic:               spi.VerifierEventTopic,
-			TransactionManager:       txManager,
-			RequestObjectPublicStore: requestObjectPublicStore,
-			KMSRegistry:              kmsRegistry,
-			RedirectURL:              "test://redirect",
+			EventSvc:           &mockEvent{},
+			EventTopic:         spi.VerifierEventTopic,
+			TransactionManager: txManager,
+			RequestObjectStore: requestObjectStore,
+			KMSRegistry:        kmsRegistry,
+			RedirectURL:        "test://redirect",
 		})
 
 		info, err := withError.InitiateOidcInteraction(

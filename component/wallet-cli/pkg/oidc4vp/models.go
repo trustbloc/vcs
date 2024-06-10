@@ -14,37 +14,25 @@ import (
 )
 
 type RequestObject struct {
-	JTI          string                    `json:"jti"`
-	IAT          int64                     `json:"iat"`
-	ResponseType string                    `json:"response_type"`
-	ResponseMode string                    `json:"response_mode"`
-	Scope        string                    `json:"scope"`
-	Nonce        string                    `json:"nonce"`
-	ClientID     string                    `json:"client_id"`
-	RedirectURI  string                    `json:"redirect_uri"`
-	State        string                    `json:"state"`
-	Exp          int64                     `json:"exp"`
-	Registration RequestObjectRegistration `json:"registration"`
-	Claims       RequestObjectClaims       `json:"claims"`
-}
-
-type RequestObjectRegistration struct {
-	ClientName                  string           `json:"client_name"`
-	SubjectSyntaxTypesSupported []string         `json:"subject_syntax_types_supported"`
-	VPFormats                   *presexch.Format `json:"vp_formats"`
-	ClientPurpose               string           `json:"client_purpose"`
-}
-
-type RequestObjectClaims struct {
-	VPToken VPToken `json:"vp_token"`
-}
-
-type VPToken struct {
+	JTI                    string                           `json:"jti"`
+	IAT                    int64                            `json:"iat"`
+	ResponseType           string                           `json:"response_type"`
+	ResponseMode           string                           `json:"response_mode"`
+	Scope                  string                           `json:"scope"`
+	Nonce                  string                           `json:"nonce"`
+	ClientID               string                           `json:"client_id"`
+	RedirectURI            string                           `json:"redirect_uri"`
+	State                  string                           `json:"state"`
+	Exp                    int64                            `json:"exp"`
+	ClientMetadata         *ClientMetadata                  `json:"client_metadata"`
 	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition"`
 }
 
-type IDTokenVPToken struct {
-	PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+type ClientMetadata struct {
+	ClientName                  string           `json:"client_name"`
+	ClientPurpose               string           `json:"client_purpose"`
+	SubjectSyntaxTypesSupported []string         `json:"subject_syntax_types_supported"`
+	VPFormats                   *presexch.Format `json:"vp_formats"`
 }
 
 type Claims = map[string]interface{}
@@ -52,7 +40,6 @@ type Claims = map[string]interface{}
 type IDTokenClaims struct {
 	// ScopeAdditionalClaims stores claims retrieved using custom scope.
 	ScopeAdditionalClaims map[string]Claims `json:"_scope,omitempty"` //custom scope -> additional claims
-	VPToken               IDTokenVPToken    `json:"_vp_token"`
 	AttestationVP         string            `json:"_attestation_vp"`
 	Nonce                 string            `json:"nonce"`
 	Exp                   int64             `json:"exp"`

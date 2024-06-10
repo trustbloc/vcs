@@ -183,7 +183,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 	if err = copier.CopyWithOption(
 		&pd,
-		requestObject.Claims.VPToken.PresentationDefinition,
+		requestObject.PresentationDefinition,
 		copier.Option{IgnoreEmpty: true, DeepCopy: true},
 	); err != nil {
 		return fmt.Errorf("copy presentation definition: %w", err)
@@ -191,7 +191,7 @@ func (f *Flow) Run(ctx context.Context) error {
 
 	if f.disableSchemaValidation && len(pd.InputDescriptors) > 0 {
 		pd.InputDescriptors[0].Schema = nil
-		requestObject.Claims.VPToken.PresentationDefinition.InputDescriptors[0].Schema = nil
+		requestObject.PresentationDefinition.InputDescriptors[0].Schema = nil
 	}
 
 	vp, err := f.queryWallet(&pd)
@@ -412,7 +412,7 @@ func (f *Flow) sendAuthorizationResponse(
 		return fmt.Errorf("missing or invalid presentation_submission")
 	}
 
-	vpFormats := requestObject.Registration.VPFormats
+	vpFormats := requestObject.ClientMetadata.VPFormats
 
 	for i := range presentationSubmission.DescriptorMap {
 		if vpFormats.JwtVP != nil {
@@ -429,7 +429,6 @@ func (f *Flow) sendAuthorizationResponse(
 
 	idToken, err := f.createIDToken(
 		ctx,
-		presentationSubmission,
 		requestObject.ClientID, requestObject.Nonce, requestObject.Scope,
 		attestationRequired,
 	)
@@ -437,10 +436,16 @@ func (f *Flow) sendAuthorizationResponse(
 		return fmt.Errorf("create id token: %w", err)
 	}
 
+	presentationSubmissionJSON, err := json.Marshal(presentationSubmission)
+	if err != nil {
+		return fmt.Errorf("marshal presentation submission: %w", err)
+	}
+
 	v := url.Values{
-		"id_token": {idToken},
-		"vp_token": {vpToken},
-		"state":    {requestObject.State},
+		"id_token":                {idToken},
+		"vp_token":                {vpToken},
+		"presentation_submission": {string(presentationSubmissionJSON)},
+		"state":                   {requestObject.State},
 	}
 
 	f.perfInfo.CreateAuthorizedResponse = time.Since(start)
@@ -459,7 +464,7 @@ func (f *Flow) createVPToken(
 		return "", fmt.Errorf("get subject did: %w", err)
 	}
 
-	vpFormats := requestObject.Registration.VPFormats
+	vpFormats := requestObject.ClientMetadata.VPFormats
 
 	switch {
 	case vpFormats.JwtVP != nil:
@@ -599,7 +604,6 @@ func (f *Flow) signPresentationLDP(
 
 func (f *Flow) createIDToken(
 	ctx context.Context,
-	presentationSubmission *presexch.PresentationSubmission,
 	clientID, nonce, requestObjectScope string,
 	attestationRequired bool,
 ) (string, error) {
@@ -610,17 +614,14 @@ func (f *Flow) createIDToken(
 
 	idToken := &IDTokenClaims{
 		ScopeAdditionalClaims: scopeAdditionalClaims,
-		VPToken: IDTokenVPToken{
-			PresentationSubmission: presentationSubmission,
-		},
-		Nonce: nonce,
-		Exp:   time.Now().Unix() + tokenLifetimeSeconds,
-		Iss:   "https://self-issued.me/v2/openid-vc",
-		Aud:   clientID,
-		Sub:   f.walletDID.String(),
-		Nbf:   time.Now().Unix(),
-		Iat:   time.Now().Unix(),
-		Jti:   uuid.NewString(),
+		Nonce:                 nonce,
+		Exp:                   time.Now().Unix() + tokenLifetimeSeconds,
+		Iss:                   "https://self-issued.me/v2/openid-vc",
+		Aud:                   clientID,
+		Sub:                   f.walletDID.String(),
+		Nbf:                   time.Now().Unix(),
+		Iat:                   time.Now().Unix(),
+		Jti:                   uuid.NewString(),
 	}
 
 	if attestationRequired {

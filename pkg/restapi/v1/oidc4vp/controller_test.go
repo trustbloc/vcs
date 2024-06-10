@@ -9,6 +9,7 @@ package oidc4vp_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -33,8 +34,12 @@ func TestController_OidcPresent(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer(nil)),
+					}, nil,
+				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
@@ -42,10 +47,40 @@ func TestController_OidcPresent(t *testing.T) {
 			},
 		},
 		{
+			name: "fail to send request",
+			setup: func() {
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(
+					nil,
+					errors.New("do request error"),
+				)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "failed to send request")
+			},
+		},
+		{
+			name: "fail to read response body",
+			setup: func() {
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(&failReader{}),
+					}, nil,
+				)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "failed to read response body")
+			},
+		},
+		{
 			name: "fail to present",
 			setup: func() {
-				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{StatusCode: http.StatusInternalServerError,
-					Body: io.NopCloser(bytes.NewBuffer([]byte("error check id token")))}, nil)
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(bytes.NewBuffer([]byte("error check id token"))),
+					}, nil,
+				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "error check id token")
@@ -57,8 +92,8 @@ func TestController_OidcPresent(t *testing.T) {
 			tt.setup()
 
 			controller := oidc4vp.NewController(&oidc4vp.Config{
-				DefaultHTTPClient: mockHTTPClient,
-				Tracer:            trace.NewNoopTracerProvider().Tracer(""),
+				HTTPClient: mockHTTPClient,
+				Tracer:     trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
@@ -70,4 +105,10 @@ func TestController_OidcPresent(t *testing.T) {
 			tt.check(t, rec, err)
 		})
 	}
+}
+
+type failReader struct{}
+
+func (f *failReader) Read([]byte) (int, error) {
+	return 0, errors.New("read error")
 }

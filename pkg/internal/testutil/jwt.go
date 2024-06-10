@@ -52,10 +52,14 @@ func SignedClaimsJWT(t *testing.T, claims interface{}) *SignedClaimsJWTResult {
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	token, err := jwt.NewSigned(claims, jwt.SignParameters{
-		KeyID:  didDoc.VerificationMethod[0].ID,
-		JWTAlg: algName,
-	}, creator.New(creator.WithJWTAlg(eddsa.New(), fks)))
+	token, err := jwt.NewSigned(
+		claims,
+		jwt.SignParameters{
+			KeyID:  didDoc.VerificationMethod[0].ID,
+			JWTAlg: algName,
+		},
+		creator.New(creator.WithJWTAlg(eddsa.New(), fks)),
+	)
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)
@@ -85,10 +89,14 @@ func SignedClaimsJWTWithExistingPrivateKey(
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	token, err := jwt.NewSigned(claims, jwt.SignParameters{
-		KeyID:  verMethodDIDKeyID,
-		JWTAlg: algName,
-	}, creator.New(creator.WithJWTAlg(eddsa.New(), signer)))
+	token, err := jwt.NewSigned(
+		claims,
+		jwt.SignParameters{
+			KeyID:  verMethodDIDKeyID,
+			JWTAlg: algName,
+		},
+		creator.New(creator.WithJWTAlg(eddsa.New(), signer)),
+	)
 	require.NoError(t, err)
 
 	jws, err := token.Serialize(false)
