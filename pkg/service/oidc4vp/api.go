@@ -110,12 +110,12 @@ type RequestObject struct {
 	ISS            string `json:"iss"`
 	ResponseType   string `json:"response_type"`
 	ResponseMode   string `json:"response_mode"`
+	ResponseURI    string `json:"response_uri"`
 	Scope          string `json:"scope"`
 	Nonce          string `json:"nonce"`
 	ClientID       string `json:"client_id"`
 	ClientIDScheme string `json:"client_id_scheme"`
 	RedirectURI    string `json:"redirect_uri"`
-	ResponseURI    string `json:"response_uri"`
 	State          string `json:"state"`
 	Exp            int64  `json:"exp"`
 	// Deprecated: Use client_metadata instead.

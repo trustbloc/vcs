@@ -97,7 +97,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		TransactionManager: txManager,
 		RequestObjectStore: requestObjectStore,
 		KMSRegistry:        kmsRegistry,
-		RedirectURL:        "test://redirect",
+		ResponseURI:        "test://response",
 		TokenLifetime:      time.Second * 100,
 	})
 
@@ -171,7 +171,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			TransactionManager: txManagerErr,
 			RequestObjectStore: requestObjectStore,
 			KMSRegistry:        kmsRegistry,
-			RedirectURL:        "test://redirect",
+			ResponseURI:        "test://response",
 		})
 
 		info, err := withError.InitiateOidcInteraction(
@@ -197,7 +197,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			TransactionManager: txManager,
 			RequestObjectStore: requestObjectStoreErr,
 			KMSRegistry:        kmsRegistry,
-			RedirectURL:        "test://redirect",
+			ResponseURI:        "test://response",
 		})
 
 		info, err := withError.InitiateOidcInteraction(
@@ -222,7 +222,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			TransactionManager: txManager,
 			RequestObjectStore: requestObjectStore,
 			KMSRegistry:        kmsRegistry,
-			RedirectURL:        "test://redirect",
+			ResponseURI:        "test://response",
 		})
 
 		info, err := withError.InitiateOidcInteraction(
