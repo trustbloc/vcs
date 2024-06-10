@@ -402,7 +402,7 @@ func (f *Flow) sendAuthorizationResponse(
 	attestationRequired bool,
 ) error {
 	slog.Info("Sending authorization response",
-		"redirect_uri", requestObject.RedirectURI,
+		"response_uri", requestObject.ResponseURI,
 	)
 
 	start := time.Now()
@@ -450,7 +450,7 @@ func (f *Flow) sendAuthorizationResponse(
 
 	f.perfInfo.CreateAuthorizedResponse = time.Since(start)
 
-	return f.postAuthorizationResponse(ctx, requestObject.RedirectURI, []byte(v.Encode()))
+	return f.postAuthorizationResponse(ctx, requestObject.ResponseURI, []byte(v.Encode()))
 }
 
 func (f *Flow) createVPToken(
@@ -683,9 +683,9 @@ func extractCustomScopeClaims(requestObjectScope string) (map[string]Claims, err
 	return claimsData, nil
 }
 
-func (f *Flow) postAuthorizationResponse(ctx context.Context, redirectURI string, body []byte) error {
+func (f *Flow) postAuthorizationResponse(ctx context.Context, responseURI string, body []byte) error {
 	slog.Info("Sending authorization response",
-		"redirect_uri", redirectURI,
+		"response_uri", responseURI,
 	)
 
 	start := time.Now()
@@ -693,7 +693,7 @@ func (f *Flow) postAuthorizationResponse(ctx context.Context, redirectURI string
 		f.perfInfo.SendAuthorizedResponse = time.Since(start)
 	}()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, redirectURI, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, responseURI, bytes.NewBuffer(body))
 	if err != nil {
 		return fmt.Errorf("new authorization response request: %w", err)
 	}

@@ -18,10 +18,10 @@ type RequestObject struct {
 	IAT                    int64                            `json:"iat"`
 	ResponseType           string                           `json:"response_type"`
 	ResponseMode           string                           `json:"response_mode"`
+	ResponseURI            string                           `json:"response_uri"`
 	Scope                  string                           `json:"scope"`
 	Nonce                  string                           `json:"nonce"`
 	ClientID               string                           `json:"client_id"`
-	RedirectURI            string                           `json:"redirect_uri"`
 	State                  string                           `json:"state"`
 	Exp                    int64                            `json:"exp"`
 	ClientMetadata         *ClientMetadata                  `json:"client_metadata"`

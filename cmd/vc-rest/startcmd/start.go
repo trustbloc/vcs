@@ -955,7 +955,7 @@ func buildEchoHandler(
 		ProfileService:       verifierProfileSvc,
 		PresentationVerifier: verifyPresentationSvc,
 		TrustRegistry:        trustRegistryService,
-		RedirectURL:          conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
+		ResponseURI:          conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
 		TokenLifetime:        15 * time.Minute,
 		Metrics:              metrics,
 	})

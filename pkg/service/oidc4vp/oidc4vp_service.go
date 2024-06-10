@@ -126,7 +126,7 @@ type Config struct {
 	PresentationVerifier presentationVerifier
 	VDR                  vdrapi.Registry
 	TrustRegistry        trustRegistry
-	RedirectURL          string
+	ResponseURI          string
 	TokenLifetime        time.Duration
 	Metrics              metricsProvider
 }
@@ -143,7 +143,7 @@ type Service struct {
 	vdr                  vdrapi.Registry
 	trustRegistry        trustRegistry
 
-	redirectURL   string
+	responseURI   string
 	tokenLifetime time.Duration
 
 	metrics metricsProvider
@@ -165,7 +165,7 @@ func NewService(cfg *Config) *Service {
 		documentLoader:       cfg.DocumentLoader,
 		profileService:       cfg.ProfileService,
 		presentationVerifier: cfg.PresentationVerifier,
-		redirectURL:          cfg.RedirectURL,
+		responseURI:          cfg.ResponseURI,
 		tokenLifetime:        cfg.TokenLifetime,
 		vdr:                  cfg.VDR,
 		trustRegistry:        cfg.TrustRegistry,
@@ -836,11 +836,12 @@ func (s *Service) createRequestObject(
 		ISS:            profile.SigningDID.DID,
 		ResponseType:   vpTokenIDTokenResponseType,
 		ResponseMode:   directPostResponseMode,
+		ResponseURI:    s.responseURI,
 		Scope:          getScope(customScopes),
 		Nonce:          nonce,
 		ClientID:       profile.SigningDID.DID,
 		ClientIDScheme: didClientIDScheme,
-		RedirectURI:    s.redirectURL,
+		RedirectURI:    s.responseURI,
 		State:          string(tx.ID),
 		Exp:            now.Add(tokenLifetime).Unix(),
 		Registration: RequestObjectRegistration{
