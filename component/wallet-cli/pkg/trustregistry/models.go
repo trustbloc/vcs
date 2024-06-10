@@ -20,19 +20,21 @@ type CredentialOffer struct {
 	CredentialType             string `json:"credential_type,omitempty"`
 }
 
-type CredentialMatches struct {
-	CredentialID    string   `json:"credential_id,omitempty"`
-	CredentialTypes []string `json:"credential_types,omitempty"`
-	ExpirationDate  string   `json:"expiration_date,omitempty"`
-	IssuanceDate    string   `json:"issuance_date,omitempty"`
-	IssuerID        string   `json:"issuer_id,omitempty"`
+type CredentialMatch struct {
+	CredentialID        string                 `json:"credential_id,omitempty"`
+	CredentialTypes     []string               `json:"credential_types,omitempty"`
+	ExpirationDate      string                 `json:"expiration_date,omitempty"`
+	IssuanceDate        string                 `json:"issuance_date,omitempty"`
+	IssuerID            string                 `json:"issuer_id,omitempty"`
+	CredentialClaimKeys map[string]interface{} `json:"credential_claim_keys,omitempty"`
+	CredentialFormat    string                 `json:"credential_format,omitempty"`
 }
 
 // WalletPresentationRequest is a request model for wallet presentation policy evaluation.
 type WalletPresentationRequest struct {
-	CredentialMatches []CredentialMatches `json:"credential_matches"`
-	VerifierDID       string              `json:"verifier_did"`
-	VerifierDomain    string              `json:"verifier_domain,omitempty"`
+	CredentialMatches []CredentialMatch `json:"credential_matches"`
+	VerifierDID       string            `json:"verifier_did"`
+	VerifierDomain    string            `json:"verifier_domain,omitempty"`
 }
 
 type PolicyEvaluationResponse struct {

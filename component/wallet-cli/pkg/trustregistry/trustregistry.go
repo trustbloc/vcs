@@ -16,6 +16,7 @@ import (
 	"net/http"
 
 	"github.com/samber/lo"
+
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -90,13 +91,11 @@ func (c *Client) ValidateVerifier(
 	req := &WalletPresentationRequest{
 		VerifierDID:       verifierDID,
 		VerifierDomain:    verifierDomain,
-		CredentialMatches: make([]CredentialMatches, len(credentials)),
+		CredentialMatches: make([]CredentialMatch, len(credentials)),
 	}
 
 	for i, credential := range credentials {
-		content := credential.Contents()
-
-		req.CredentialMatches[i] = getCredentialMatches(content)
+		req.CredentialMatches[i] = getCredentialMatches(credential)
 	}
 
 	body, err := json.Marshal(req)
@@ -122,7 +121,9 @@ func (c *Client) ValidateVerifier(
 	return resp.Payload != nil && lo.FromPtr(resp.Payload)["attestations_required"] != nil, nil
 }
 
-func getCredentialMatches(content verifiable.CredentialContents) CredentialMatches {
+func getCredentialMatches(credential *verifiable.Credential) CredentialMatch {
+	content := credential.Contents()
+
 	var iss, exp string
 	if content.Issued != nil {
 		iss = content.Issued.FormatToString()
@@ -132,13 +133,25 @@ func getCredentialMatches(content verifiable.CredentialContents) CredentialMatch
 		exp = content.Expired.FormatToString()
 	}
 
-	return CredentialMatches{
+	m := CredentialMatch{
 		CredentialID:    content.ID,
 		CredentialTypes: content.Types,
 		ExpirationDate:  exp,
 		IssuanceDate:    iss,
 		IssuerID:        content.Issuer.ID,
 	}
+
+	if len(credential.SDJWTDisclosures()) > 0 {
+		m.CredentialFormat = "sd-jwt_vc"
+	} else if credential.IsJWT() {
+		m.CredentialFormat = "jwt_vc"
+	}
+
+	m.CredentialClaimKeys = make(map[string]interface{})
+
+	populateClaimKeys(m.CredentialClaimKeys, credential.Contents().Subject[0].CustomFields)
+
+	return m
 }
 
 func (c *Client) doRequest(ctx context.Context, policyURL string, body []byte) (*PolicyEvaluationResponse, error) {
@@ -169,4 +182,21 @@ func (c *Client) doRequest(ctx context.Context, policyURL string, body []byte) (
 	}
 
 	return policyEvaluationResp, nil
+}
+
+func populateClaimKeys(claimKeys, doc map[string]interface{}) {
+	for k, v := range doc {
+		if k == "_sd" {
+			continue
+		}
+
+		keys := make(map[string]interface{})
+
+		claimKeys[k] = keys
+
+		obj, ok := v.(map[string]interface{})
+		if ok {
+			populateClaimKeys(keys, obj)
+		}
+	}
 }
