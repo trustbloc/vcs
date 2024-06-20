@@ -4,7 +4,9 @@
 
 module github.com/trustbloc/vcs/component/wallet-cli
 
-go 1.21
+go 1.22
+
+toolchain go1.22.4
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0
@@ -22,14 +24,14 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/trustbloc/did-go v1.2.0
-	github.com/trustbloc/kms-go v1.1.1
+	github.com/trustbloc/did-go v1.2.1
+	github.com/trustbloc/kms-go v1.1.2
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.1.2-0.20240325152303-366b12dbb6d3
+	github.com/trustbloc/vc-go v1.1.3-0.20240620092325-2aed839ce709
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.3
-	github.com/veraison/go-cose v1.1.0
+	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd
 	go.mongodb.org/mongo-driver v1.11.4
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0

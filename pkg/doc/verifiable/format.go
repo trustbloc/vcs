@@ -19,10 +19,12 @@ type Format string
 const (
 	Jwt Format = "jwt"
 	Ldp Format = "ldp"
+	Cwt Format = "cwt"
 )
 
 const (
 	JwtVCJsonLD OIDCFormat = "jwt_vc_json-ld"
+	CwtVcLD     OIDCFormat = "cwt_vc-ld"
 	JwtVCJson   OIDCFormat = "jwt_vc_json"
 	LdpVC       OIDCFormat = "ldp_vc"
 )

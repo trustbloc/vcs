@@ -50,6 +50,7 @@ components:
       type: string
       enum:
         - jwt_vc_json-ld
+        - cwt_vc-ld
         - jwt_vc_json
         - ldp_vc
       description: Supported VC formats.
@@ -59,6 +60,7 @@ components:
       enum:
         - jwt_vp
         - ldp_vp
+        - cwt_vp
       description: Supported VP formats.
     DIDMethod:
       type: string
