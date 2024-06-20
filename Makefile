@@ -35,9 +35,9 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 endif
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.18
-GO_ALPINE_VER ?= 3.18
-GO_VER ?= 1.21
+ALPINE_VER ?= 3.20
+GO_ALPINE_VER ?= 3.20
+GO_VER ?= 1.22
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))
