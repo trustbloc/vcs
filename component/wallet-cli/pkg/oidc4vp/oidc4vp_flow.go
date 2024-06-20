@@ -194,7 +194,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		requestObject.PresentationDefinition.InputDescriptors[0].Schema = nil
 	}
 
-	vp, err := f.queryWallet(&pd)
+	vp, err := f.queryWallet(&pd, requestObject.ClientMetadata.VPFormats)
 	if err != nil {
 		return fmt.Errorf("query wallet: %w", err)
 	}
@@ -358,7 +358,10 @@ func getServiceType(serviceType interface{}) string {
 	return val
 }
 
-func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) (*verifiable.Presentation, error) {
+func (f *Flow) queryWallet(
+	pd *presexch.PresentationDefinition,
+	vpFormat *presexch.Format,
+) (*verifiable.Presentation, error) {
 	slog.Info("Querying wallet")
 
 	start := time.Now()
@@ -371,7 +374,7 @@ func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) (*verifiable.Pre
 		return nil, fmt.Errorf("marshal presentation definition: %w", err)
 	}
 
-	presentations, err := f.wallet.Query(b)
+	presentations, err := f.wallet.Query(b, vpFormat.JwtVP != nil)
 	if err != nil {
 		return nil, err
 	}

@@ -37,7 +37,7 @@ endif
 # Tool commands (overridable)
 ALPINE_VER ?= 3.18
 GO_ALPINE_VER ?= 3.18
-GO_VER ?= 1.21
+GO_VER ?= 1.22
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))

@@ -423,7 +423,7 @@ func (w *Wallet) GetAll() (map[string]json.RawMessage, error) {
 }
 
 // Query runs the given presentation definition on the stored credentials.
-func (w *Wallet) Query(pdBytes []byte) ([]*verifiable.Presentation, error) {
+func (w *Wallet) Query(pdBytes []byte, jwtVPFormat bool) ([]*verifiable.Presentation, error) {
 	vcContent, err := w.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("query credentials: %w", err)
@@ -438,19 +438,24 @@ func (w *Wallet) Query(pdBytes []byte) ([]*verifiable.Presentation, error) {
 		return nil, err
 	}
 
-	var presDefinition presexch.PresentationDefinition
+	var pd presexch.PresentationDefinition
 
-	if err = json.Unmarshal(pdBytes, &presDefinition); err != nil {
+	if err = json.Unmarshal(pdBytes, &pd); err != nil {
 		return nil, err
 	}
 
-	vp, err := presDefinition.CreateVP(credentials,
-		w.documentLoader,
+	opts := []presexch.MatchRequirementsOpt{
 		presexch.WithSDCredentialOptions(
 			verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(w.documentLoader),
 		),
-	)
+	}
+
+	if jwtVPFormat {
+		opts = append(opts, presexch.WithDefaultPresentationFormat(presexch.FormatJWTVP))
+	}
+
+	vp, err := pd.CreateVP(credentials, w.documentLoader, opts...)
 	if err != nil {
 		if errors.Is(err, presexch.ErrNoCredentials) {
 			return nil, fmt.Errorf("no matching credentials found")

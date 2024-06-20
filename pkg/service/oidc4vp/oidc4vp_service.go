@@ -630,11 +630,10 @@ func (s *Service) extractClaimData(
 	var presentations []*verifiable.Presentation
 
 	for _, token := range authResponse.VPTokens {
-		// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
-		token.Presentation.JWT = ""
 		presentations = append(presentations, token.Presentation)
 	}
-	diVerifier, err := s.getDataIntegrityVerifier()
+
+	dataIntegrityVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierDataIntegrityVerifier, "create-verifier",
 			fmt.Errorf("get data integrity verifier: %w", err))
@@ -642,16 +641,19 @@ func (s *Service) extractClaimData(
 
 	opts := []presexch.MatchOption{
 		presexch.WithCredentialOptions(
-			verifiable.WithDataIntegrityVerifier(diVerifier),
+			verifiable.WithDataIntegrityVerifier(dataIntegrityVerifier),
 			verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)))),
+			verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr))),
+		),
 		presexch.WithDisableSchemaValidation(),
 	}
 
 	if len(presentations) > 1 {
 		opts = append(opts,
-			presexch.WithMergedSubmissionMap(presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})))
+			presexch.WithMergedSubmissionMap(
+				presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})),
+		)
 	}
 
 	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader, opts...)
