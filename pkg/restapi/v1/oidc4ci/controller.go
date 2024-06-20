@@ -63,7 +63,7 @@ const (
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 	jwtProofTypHeader          = "openid4vci-proof+jwt"
-	cwtProofTypHeader          = "openid4vci-proof+cwt"
+	cwtProofTypHeader          = "application/openid4vci-proof+cwt"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
 	cNonceSize                 = 15
@@ -717,12 +717,17 @@ func (c *Controller) HandleProof(
 		}
 		proofHeaders.Type = typ
 
-		cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
+		//cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
+		//if !ok {
+		//	return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
+		//}
+
+		keyBytes, ok := cwtParsed.Headers.Protected[cose.HeaderLabelKeyID].([]byte)
 		if !ok {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
 		}
 
-		proofHeaders.KeyID = string(cosKeyBytes.([]byte))
+		proofHeaders.KeyID = string(keyBytes)
 	case proofTypeLDPVP:
 		if credentialReq.Proof.LdpVp == nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))

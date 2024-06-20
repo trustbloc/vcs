@@ -106,8 +106,8 @@ func (b *CWTProofBuilder) Build(
 		Headers: cose.Headers{
 			Protected: cose.ProtectedHeader{
 				cose.HeaderLabelAlgorithm:   targetAlgo,
-				cose.HeaderLabelContentType: "openid4vci-proof+cwt",
-				"COSE_Key":                  []byte(keyID),
+				cose.HeaderLabelContentType: "application/openid4vci-proof+cwt",
+				cose.HeaderLabelKeyID:       []byte(keyID),
 			},
 		},
 		Payload: encoded,

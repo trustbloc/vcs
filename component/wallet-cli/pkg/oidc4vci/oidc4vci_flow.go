@@ -892,9 +892,17 @@ func (f *Flow) parseCredentialsResponse(
 	credentials := make([]*verifiable.Credential, 0, len(parseCredentialResponseDataList))
 
 	for i, parseCredentialData := range parseCredentialResponseDataList {
-		vcBytes, err := json.Marshal(parseCredentialData.credential)
-		if err != nil {
-			return nil, fmt.Errorf("marshal credential response: %w", err)
+		var vcBytes []byte
+		var err error
+
+		switch credVal := parseCredentialData.credential.(type) {
+		case string:
+			vcBytes = []byte(credVal) // cwt
+		default:
+			vcBytes, err = json.Marshal(parseCredentialData.credential)
+			if err != nil {
+				return nil, fmt.Errorf("marshal credential response: %w", err)
+			}
 		}
 
 		parsedVC, err := verifiable.ParseCredential(vcBytes,

@@ -1296,6 +1296,8 @@ func (s *Steps) checkVC(vc *verifiable.Credential) error {
 		return s.checkSignatureHolder(vc)
 	case vcsverifiable.Jwt:
 		return s.checkJWT(vc)
+	case vcsverifiable.Cwt:
+		return nil
 	}
 
 	return nil

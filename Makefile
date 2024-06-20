@@ -18,7 +18,7 @@ ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 GOPROXY ?= https://proxy.golang.org
 
-VC_FRAMEWORK_VERSION				= cose-vc
+VC_FRAMEWORK_VERSION				= f30f647e78e5f18f1b339bb2bd0971aac13fbad5
 KMS_FRAMEWORK_VERSION 				= 59c2830d27fd44f9a3a663242a4aa61544ce622e
 DID_GO_VERSION						= aa500e57d8bdf51c90c20d3a6c815fdc76f716c3
 SIDE_TREE_VERSION							= f4260aff710479ba5fa3f0c61b51d451d9041225
@@ -78,7 +78,7 @@ vc-rest:
 .PHONY: vc-rest-docker
 vc-rest-docker: generate
 	@echo "Building vc rest docker image"
-	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
+	@docker build -f ./images/vc-rest/Dockerfile -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_ALPINE_VER=$(GO_ALPINE_VER) \
@@ -95,7 +95,7 @@ vcs-stress:
 .PHONY: vcs-stress-docker
 vcs-stress-docker: generate
 	@echo "Building vcs-stress docker image"
-	@docker build -f ./images/vcs-stress/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VCS_STRESS_IMAGE_NAME):latest \
+	@docker build -f ./images/vcs-stress/Dockerfile -t $(DOCKER_OUTPUT_NS)/$(VCS_STRESS_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg GO_PROXY=$(GOPROXY) \
 	--build-arg GO_ALPINE_VER=$(GO_ALPINE_VER) \
@@ -111,7 +111,7 @@ sample-webhook:
 .PHONY: sample-webhook-docker
 sample-webhook-docker:
 	@echo "Building sample webhook server docker image"
-	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(WEBHOOK_IMAGE_NAME):latest \
+	@docker build -f ./images/mocks/webhook/Dockerfile -t $(WEBHOOK_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_PROXY=$(GOPROXY) \
@@ -121,7 +121,7 @@ sample-webhook-docker:
 .PHONY: mock-login-consent-docker
 mock-login-consent-docker:
 	@echo "Building mock login consent server"
-	@docker build -f ./images/mocks/loginconsent/Dockerfile --no-cache -t  vcs/mock-login-consent:latest \
+	@docker build -f ./images/mocks/loginconsent/Dockerfile -t  vcs/mock-login-consent:latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_PROXY=$(GOPROXY) \
@@ -130,7 +130,7 @@ mock-login-consent-docker:
 .PHONY: mock-trustregistry-docker
 mock-trustregistry-docker:
 	@echo "Building mock Trust Registry server"
-	@docker build -f ./images/mocks/trustregistry/Dockerfile --no-cache -t  vcs/mock-trustregistry:latest \
+	@docker build -f ./images/mocks/trustregistry/Dockerfile -t  vcs/mock-trustregistry:latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_PROXY=$(GOPROXY) \
