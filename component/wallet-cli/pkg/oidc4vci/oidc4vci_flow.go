@@ -676,7 +676,7 @@ func (f *Flow) getAttestationVP() (string, error) {
 		return "", fmt.Errorf("marshal presentation definition: %w", err)
 	}
 
-	presentations, err := f.wallet.Query(b)
+	presentations, err := f.wallet.Query(b, false)
 	if err != nil {
 		return "", fmt.Errorf("query wallet: %w", err)
 	}
