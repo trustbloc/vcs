@@ -4,14 +4,14 @@
 
 module github.com/trustbloc/vcs/test/bdd/attestation
 
-go 1.21
+go 1.22
 
 require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.2.0
-	github.com/trustbloc/vc-go v1.1.2-0.20240325152303-366b12dbb6d3
+	github.com/trustbloc/did-go v1.2.1
+	github.com/trustbloc/vc-go v1.1.3-0.20240620163211-50ca5ae38234
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 
@@ -47,7 +47,7 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.4 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/kms-go v1.1.1 // indirect
+	github.com/trustbloc/kms-go v1.1.2 // indirect
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 // indirect
 	github.com/veraison/go-cose v1.1.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
