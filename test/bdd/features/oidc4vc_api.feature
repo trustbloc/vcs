@@ -277,6 +277,7 @@ Feature: OIDC4VC REST API
     Then "1" credentials are issued
     And User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile with presentation definition ID "32f54163-no-limit-disclosure-optional-fields" and fields "lpr_category_id,commuter_classification,invalidfield" and receives "field invalidfield not found" error
 
+  @oidc4vc_auth_malicious_attacker_steals_signingKeyID
   Scenario: OIDC credential issuance and verification Auth flow (Malicious attacker stealing auth code & calling token endpoint with it)
     Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And   User holds credential "UniversityDegreeCredential" with templateID "universityDegreeTemplateID"

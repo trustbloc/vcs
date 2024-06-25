@@ -41,9 +41,6 @@ import (
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/testsupport"
 	verifiable2 "github.com/trustbloc/vc-go/verifiable"
-	"github.com/veraison/go-cose"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -53,6 +50,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/veraison/go-cose"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -238,7 +237,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				IssuerVCSPublicHost:     "https://issuer.example.com",
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(q.Encode()))
@@ -1221,7 +1220,7 @@ func TestController_OidcToken_Authorize(t *testing.T) {
 			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
@@ -1262,7 +1261,7 @@ func TestMissingProof(t *testing.T) {
 			ctr := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 			})
 
 			credReq := oidc4ci.CredentialRequest{
@@ -2643,7 +2642,7 @@ func TestController_OidcCredential(t *testing.T) {
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				JWTVerifier:             proofChecker,
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 				IssuerVCSPublicHost:     aud,
 				JWEEncrypterCreator:     jweEncrypterCreator,
 			})
@@ -4230,7 +4229,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				JWTVerifier:             proofChecker,
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 				IssuerVCSPublicHost:     aud,
 				JWEEncrypterCreator:     jweEncrypterCreator,
 			})
@@ -4518,7 +4517,7 @@ func TestController_OidcToken_PreAuthorize(t *testing.T) {
 			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
-				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", tt.body)
@@ -4547,7 +4546,7 @@ func TestController_Ack(t *testing.T) {
 		controller := oidc4ci.NewController(&oidc4ci.Config{
 			OAuth2Provider: mockOAuthProvider,
 			AckService:     ackMock,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		expectedToken := "xxxx"
@@ -4583,7 +4582,7 @@ func TestController_Ack(t *testing.T) {
 		controller := oidc4ci.NewController(&oidc4ci.Config{
 			OAuth2Provider: mockOAuthProvider,
 			AckService:     ackMock,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
@@ -4615,7 +4614,7 @@ func TestController_Ack(t *testing.T) {
 			Return(&fosite.AccessRequest{}, nil).AnyTimes()
 		controller := oidc4ci.NewController(&oidc4ci.Config{
 			OAuth2Provider: mockOAuthProvider,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
@@ -4638,7 +4637,7 @@ func TestController_Ack(t *testing.T) {
 		controller := oidc4ci.NewController(&oidc4ci.Config{
 			OAuth2Provider: mockOAuthProvider,
 			AckService:     ackMock,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
@@ -4837,7 +4836,7 @@ func TestController_OidcRegisterClient(t *testing.T) {
 			controller := oidc4ci.NewController(&oidc4ci.Config{
 				ClientManager:  mockClientManager,
 				ProfileService: mockProfileService,
-				Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+				Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(reqBody))

@@ -27,8 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -39,6 +37,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -81,7 +80,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
@@ -104,7 +103,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJWT)))
@@ -140,7 +139,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -187,7 +186,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -238,7 +237,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -282,7 +281,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -318,7 +317,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -363,7 +362,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -380,7 +379,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(&Config{Tracer: trace.NewNoopTracerProvider().Tracer("")})
+		controller := NewController(&Config{Tracer: nooptracer.NewTracerProvider().Tracer("")})
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 
@@ -409,7 +408,7 @@ func TestController_IssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
@@ -439,7 +438,7 @@ func TestController_IssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
-			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJWT)))
@@ -568,7 +567,7 @@ func TestController_IssueCredentials(t *testing.T) {
 					ProfileSvc:             testCase.getProfileSvc(),
 					DocumentLoader:         testutil.DocumentLoader(t),
 					IssueCredentialService: testCase.getIssueCredentialService(),
-					Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
+					Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
 				})
 				ctx := testCase.getCtx()
 				var body IssueCredentialData
@@ -594,7 +593,7 @@ func TestController_AuthFailed(t *testing.T) {
 		controller := NewController(&Config{
 			ProfileSvc: mockProfileSvc,
 			// KMSRegistry: kmsRegistry,
-			Tracer: trace.NewNoopTracerProvider().Tracer(""),
+			Tracer: nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
@@ -607,7 +606,7 @@ func TestController_AuthFailed(t *testing.T) {
 		controller := NewController(&Config{
 			ProfileSvc: mockProfileSvc,
 			// KMSRegistry: kmsRegistry,
-			Tracer: trace.NewNoopTracerProvider().Tracer(""),
+			Tracer: nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
@@ -807,7 +806,7 @@ func TestController_initiateCredentialIssuance_CompatibilityV1(t *testing.T) {
 			OIDC4CIService: mockOIDC4CISvc,
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.IssuerEventTopic,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c = echoContext(withRequestBody(req))
@@ -880,7 +879,7 @@ func TestController_ComposeIssuance(t *testing.T) {
 			OIDC4CIService: mockOIDC4CISvc,
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.IssuerEventTopic,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c = echoContext(withRequestBody(req))
@@ -1008,7 +1007,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			OIDC4CIService: mockOIDC4CISvc,
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.IssuerEventTopic,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		c = echoContext(withRequestBody(req))
@@ -1209,7 +1208,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				controller := NewController(&Config{
 					ProfileSvc:     mockProfileSvc,
 					OIDC4CIService: mockOIDC4CISvc,
-					Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+					Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 					EventSvc:       mockEventSvc,
 					EventTopic:     spi.IssuerEventTopic,
 				})

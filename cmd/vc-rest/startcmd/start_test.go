@@ -25,13 +25,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vcs/cmd/common"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/trustbloc/vcs/cmd/common"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -397,7 +396,7 @@ func TestCreateVDRI(t *testing.T) {
 			tlsParameters: &tlsParameters{
 				systemCertPool: false,
 			},
-		}, trace.NewNoopTracerProvider().Tracer("test"))
+		}, nooptracer.NewTracerProvider().Tracer("test"))
 
 		require.Nil(t, cfg)
 		require.Error(t, err)
