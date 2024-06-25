@@ -69,6 +69,7 @@ var signatureTypes = []signatureTypeDesc{
 		kms.ED25519Type, kms.X25519ECDHKWType, kms.ECDSASecp256k1DER,
 		kms.ECDSASecp256k1TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.RSAPS256Type,
 	}},
+
 	{EdDSA, Jwt, []kms.KeyType{kms.ED25519Type}},
 	{ES256K, Jwt, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363,
 		kms.ECDSASecp256k1DER}},
@@ -76,6 +77,14 @@ var signatureTypes = []signatureTypeDesc{
 	{ES384, Jwt, []kms.KeyType{kms.ECDSAP384TypeDER}},
 	{PS256, Jwt, []kms.KeyType{kms.RSAPS256Type}},
 	{RS256, Jwt, []kms.KeyType{kms.RSARS256Type}},
+
+	{EdDSA, Cwt, []kms.KeyType{kms.ED25519Type}},
+	{ES256K, Cwt, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363,
+		kms.ECDSASecp256k1DER}},
+	{ES256, Cwt, []kms.KeyType{kms.ECDSAP256TypeDER}},
+	{ES384, Cwt, []kms.KeyType{kms.ECDSAP384TypeDER}},
+	{PS256, Cwt, []kms.KeyType{kms.RSAPS256Type}},
+	{RS256, Cwt, []kms.KeyType{kms.RSARS256Type}},
 }
 
 func ValidateSignatureAlgorithm(format Format, signatureType string, kmsKeyTypes []kms.KeyType) (SignatureType, error) {

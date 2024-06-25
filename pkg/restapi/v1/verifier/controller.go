@@ -698,7 +698,7 @@ func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, error) 
 		return c.validateVPTokenJWT(vpToken)
 	}
 
-	return c.validateVPTokenLDP(vpToken)
+	return c.validateVPToken(vpToken)
 }
 
 func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) {
@@ -740,13 +740,42 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 	}, nil
 }
 
-func (c *Controller) validateVPTokenLDP(vpToken string) (*VPTokenClaims, error) {
+func (c *Controller) validateVPTokenCWT(
+	presentation *verifiable.Presentation,
+) (*VPTokenClaims, error) {
+	if presentation.CWT == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp",
+			errors.New("cwt presentation is missed"))
+	}
+	if len(presentation.CWT.VPMap) == 0 {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp",
+			errors.New("cwt vp map is empty"))
+	}
+	if presentation.CWT.Message == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp",
+			errors.New("cwt message is missed"))
+	}
+
+	return &VPTokenClaims{
+		Nonce:         fmt.Sprint(presentation.CWT.VPMap["nonce"]),
+		Aud:           fmt.Sprint(presentation.CWT.VPMap["aud"]),
+		SignerDIDID:   strings.Split(fmt.Sprint(presentation.CWT.VPMap["iss"]), "#")[0],
+		VpTokenFormat: vcsverifiable.Cwt,
+		VP:            presentation,
+	}, nil
+}
+
+func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
 	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 		verifiable.WithPresProofChecker(c.proofChecker),
 	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+	}
+
+	if presentation.CWT != nil {
+		return c.validateVPTokenCWT(presentation)
 	}
 
 	verificationMethod, err := crypto.GetVerificationMethodFromProof(presentation.Proofs[0])

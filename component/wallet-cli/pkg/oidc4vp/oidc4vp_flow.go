@@ -9,6 +9,7 @@ package oidc4vp
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/piprate/json-gold/ld"
@@ -32,7 +34,9 @@ import (
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/trustbloc/vc-go/vermethod"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
@@ -419,6 +423,8 @@ func (f *Flow) sendAuthorizationResponse(
 			presentationSubmission.DescriptorMap[i].Format = "jwt_vp"
 		} else if vpFormats.LdpVP != nil {
 			presentationSubmission.DescriptorMap[i].Format = "ldp_vp"
+		} else if vpFormats.CwtVP != nil {
+			presentationSubmission.DescriptorMap[i].Format = "cwt_vp"
 		}
 	}
 
@@ -478,6 +484,13 @@ func (f *Flow) createVPToken(
 		return f.signPresentationLDP(
 			presentation,
 			vcs.SignatureType(vpFormats.LdpVP.ProofType[0]),
+			subjectDID,
+			requestObject.ClientID,
+			requestObject.Nonce,
+		)
+	case vpFormats.CwtVP != nil:
+		return f.signPresentationCWT(
+			presentation,
 			subjectDID,
 			requestObject.ClientID,
 			requestObject.Nonce,
@@ -544,6 +557,87 @@ func (f *Flow) signPresentationJWT(
 	}
 
 	return jws, nil
+}
+
+func (f *Flow) signPresentationCWT(
+	vp *verifiable.Presentation,
+	signerDID,
+	clientID,
+	nonce string,
+) (string, error) {
+	var kmsKeyID string
+
+	var coseAlgo cose.Algorithm
+	var err error
+
+	for _, didInfo := range f.wallet.DIDs() {
+		if didInfo.ID == signerDID {
+			kmsKeyID = didInfo.KeyID
+			coseAlgo, err = verifiable.KeyTypeToCWSAlgo(didInfo.KeyType)
+			if err != nil {
+				return "", fmt.Errorf("convert key type to cose algorithm: %w", err)
+			}
+
+			break
+		}
+	}
+
+	signer, err := f.cryptoSuite.FixedKeyMultiSigner(kmsKeyID)
+	if err != nil {
+		return "", fmt.Errorf("create signer for key %s: %w", kmsKeyID, err)
+	}
+
+	kmsSigner := kmssigner.NewKMSSigner(signer, f.wallet.SignatureType(), nil)
+
+	claims := VPTokenClaims{
+		VP:    vp,
+		Nonce: nonce,
+		Exp:   time.Now().Unix() + tokenLifetimeSeconds,
+		Iss:   signerDID,
+		Aud:   clientID,
+		Nbf:   time.Now().Unix(),
+		Iat:   time.Now().Unix(),
+		Jti:   uuid.NewString(),
+	}
+
+	//
+	payload, err := cbor.Marshal(claims)
+	if err != nil {
+		return "", fmt.Errorf("marshal cbor claims: %w", err)
+	}
+
+	msg := &cose.Sign1Message{
+		Headers: cose.Headers{
+			Protected: cose.ProtectedHeader{
+				cose.HeaderLabelAlgorithm: coseAlgo,
+				cose.HeaderLabelKeyID:     []byte(kmsKeyID),
+			},
+			Unprotected: cose.UnprotectedHeader{
+				//cose.HeaderLabelTyp: "application/vc+ld+json+cose", // todo
+			},
+		},
+		Payload: payload,
+	}
+
+	//verifiable.KeyTypeToCWSAlgo(f.wallet.SignatureType()
+	signData, err := cwt2.GetProofValue(msg)
+	if err != nil {
+		return "", err
+	}
+
+	signed, err := kmsSigner.Sign(signData)
+	if err != nil {
+		return "", err
+	}
+
+	msg.Signature = signed
+
+	final, err := cbor.Marshal(msg)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(final), nil
 }
 
 func (f *Flow) signPresentationLDP(
