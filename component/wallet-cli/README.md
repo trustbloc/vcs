@@ -187,7 +187,7 @@ To trace HTTP requests between `wallet-cli` and `vcs`, use the `--enable-tracing
 Use the `oidc4vp` command to present Verifiable Credential(s) to the Verifier:
 ```bash
       --attestation-url string              attestation url, i.e. https://<host>/vcs/wallet/attestation
-      --authorization-request-uri string    authorization request uri, starts with 'openid-vc://?request_uri=' prefix
+      --authorization-request-uri string    authorization request uri, starts with 'openid-vc://?request_uri=' prefix if default URL schema is used 
       --disable-domain-matching             disables domain matching for issuer and verifier when presenting credentials (only for did:web)
       --enable-linked-domain-verification   enables linked domain verification
       --enable-tracing                      enables http tracing

@@ -410,8 +410,13 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 			return credID, nil, fmt.Errorf("cred id [%v]; fetch authorization request: %w", credID, err)
 		}
 
+		requestURI := strings.SplitN(authorizationRequest, "?request_uri=", 2)
+		if len(requestURI) != 2 {
+			return "", nil, fmt.Errorf("invalid authorizationRequest format: %s", authorizationRequest)
+		}
+
 		vpFlow, err = oidc4vp.NewFlow(c.oidc4vpProvider,
-			oidc4vp.WithRequestURI(strings.TrimPrefix(authorizationRequest, "openid-vc://?request_uri=")),
+			oidc4vp.WithRequestURI(requestURI[1]),
 			oidc4vp.WithDomainMatchingDisabled(),
 			oidc4vp.WithSchemaValidationDisabled(),
 		)

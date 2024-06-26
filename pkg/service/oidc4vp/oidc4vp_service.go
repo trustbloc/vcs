@@ -54,6 +54,7 @@ const (
 	vpTokenIDTokenResponseType = "vp_token id_token" //nolint:gosec
 	directPostResponseMode     = "direct_post"
 	didClientIDScheme          = "did"
+	defaultURLScheme           = "openid-vc://"
 )
 
 const (
@@ -229,6 +230,7 @@ func (s *Service) InitiateOidcInteraction(
 	presentationDefinition *presexch.PresentationDefinition,
 	purpose string,
 	customScopes []string,
+	customURLScheme string,
 	profile *profileapi.Verifier,
 ) (*InteractionInfo, error) {
 	logger.Debugc(ctx, "InitiateOidcInteraction begin")
@@ -273,7 +275,13 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction request object published")
 
-	authorizationRequest := "openid-vc://?request_uri=" + requestURI
+	urlScheme := defaultURLScheme
+
+	if customURLScheme != "" {
+		urlScheme = customURLScheme
+	}
+
+	authorizationRequest := fmt.Sprintf("%s?request_uri=%s", urlScheme, requestURI)
 
 	if errSendEvent := s.sendOIDCInteractionInitiatedEvent(ctx, tx, profile, authorizationRequest); errSendEvent != nil {
 		return nil, errSendEvent

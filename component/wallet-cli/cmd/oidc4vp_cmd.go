@@ -138,12 +138,15 @@ func NewOIDC4VPCommand() *cobra.Command {
 				return fmt.Errorf("either --qr-code-path or --authorization-request-uri flag must be set")
 			}
 
-			requestURI := strings.TrimPrefix(authorizationRequest, "openid-vc://?request_uri=")
+			requestURI := strings.SplitN(authorizationRequest, "?request_uri=", 2)
+			if len(requestURI) != 2 {
+				return fmt.Errorf("invalid authorizationRequest format: %s", authorizationRequest)
+			}
 
 			var flow *oidc4vp.Flow
 
 			opts := []oidc4vp.Opt{
-				oidc4vp.WithRequestURI(requestURI),
+				oidc4vp.WithRequestURI(requestURI[1]),
 				oidc4vp.WithWalletDIDIndex(walletDIDIndex),
 			}
 
@@ -177,7 +180,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
 
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
-	cmd.Flags().StringVar(&flags.authorizationRequestURI, "authorization-request-uri", "", "authorization request uri, starts with 'openid-vc://?request_uri=' prefix")
+	cmd.Flags().StringVar(&flags.authorizationRequestURI, "authorization-request-uri", "", "authorization request uri, starts with 'openid-vc://?request_uri=' prefix if default URL schema is used")
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
 	cmd.Flags().BoolVar(&flags.disableDomainMatching, "disable-domain-matching", false, "disables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")

@@ -63,6 +63,7 @@ type ServiceInterface interface {
 		presentationDefinition *presexch.PresentationDefinition,
 		purpose string,
 		customScopes []string,
+		customURLScheme string,
 		profile *profileapi.Verifier,
 	) (*InteractionInfo, error)
 	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, authResponse *AuthorizationResponseParsed) error
