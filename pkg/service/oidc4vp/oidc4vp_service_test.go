@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,10 +141,21 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{
 			ID: "test",
-		}, "test", []string{customScope}, correctProfile)
+		}, "test", []string{customScope}, "", correctProfile)
 
 		require.NoError(t, err)
 		require.NotNil(t, info)
+		require.True(t, strings.HasPrefix(info.AuthorizationRequest, "openid-vc://"))
+	})
+
+	t.Run("Success with custom URL scheme", func(t *testing.T) {
+		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{
+			ID: "test",
+		}, "test", []string{customScope}, "openid4vp://", correctProfile)
+
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.True(t, strings.HasPrefix(info.AuthorizationRequest, "openid4vp://"))
 	})
 
 	t.Run("No signature did", func(t *testing.T) {
@@ -152,7 +164,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.SigningDID = nil
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, "", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -179,6 +191,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			&presexch.PresentationDefinition{},
 			"test",
 			[]string{customScope},
+			"",
 			correctProfile,
 		)
 
@@ -205,6 +218,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			&presexch.PresentationDefinition{},
 			"test",
 			[]string{customScope},
+			"",
 			correctProfile,
 		)
 
@@ -230,6 +244,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			&presexch.PresentationDefinition{},
 			"test",
 			[]string{customScope},
+			"",
 			correctProfile,
 		)
 
@@ -243,7 +258,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.SigningDID.KMSKeyID = "invalid"
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, "", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -255,7 +270,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.OIDCConfig.KeyType = "invalid"
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, "", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)

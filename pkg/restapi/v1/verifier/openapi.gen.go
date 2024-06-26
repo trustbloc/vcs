@@ -13,6 +13,7 @@ import (
 
 // InitiateOIDC4VPData defines model for InitiateOIDC4VPData.
 type InitiateOIDC4VPData struct {
+	CustomURLScheme               *string                        `json:"customURLScheme,omitempty"`
 	PresentationDefinitionFilters *PresentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
 	PresentationDefinitionId      *string                        `json:"presentationDefinitionId,omitempty"`
 	Purpose                       *string                        `json:"purpose,omitempty"`

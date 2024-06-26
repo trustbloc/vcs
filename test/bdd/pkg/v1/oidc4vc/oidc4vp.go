@@ -273,10 +273,13 @@ func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, 
 		return fmt.Errorf("init oidc4vp interaction: %w", err)
 	}
 
-	requestURI := strings.TrimPrefix(initiateInteractionResult.AuthorizationRequest, "openid-vc://?request_uri=")
+	requestURI := strings.SplitN(initiateInteractionResult.AuthorizationRequest, "?request_uri=", 2)
+	if len(requestURI) != 2 {
+		return fmt.Errorf("invalid AuthorizationRequest format: %s", initiateInteractionResult.AuthorizationRequest)
+	}
 
 	flow, err := oidc4vp.NewFlow(s.oidc4vpProvider,
-		oidc4vp.WithRequestURI(requestURI),
+		oidc4vp.WithRequestURI(requestURI[1]),
 		oidc4vp.WithDomainMatchingDisabled(),
 		oidc4vp.WithSchemaValidationDisabled(),
 	)

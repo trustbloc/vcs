@@ -24,11 +24,11 @@ func TestWrapper_InitiateOidcInteraction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().InitiateOidcInteraction(gomock.Any(), &presexch.PresentationDefinition{}, "purpose", []string{"additionalScope"}, &profileapi.Verifier{}).Times(1)
+	svc.EXPECT().InitiateOidcInteraction(gomock.Any(), &presexch.PresentationDefinition{}, "purpose", []string{"additionalScope"}, "", &profileapi.Verifier{}).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.InitiateOidcInteraction(context.Background(), &presexch.PresentationDefinition{}, "purpose", []string{"additionalScope"}, &profileapi.Verifier{})
+	_, err := w.InitiateOidcInteraction(context.Background(), &presexch.PresentationDefinition{}, "purpose", []string{"additionalScope"}, "", &profileapi.Verifier{})
 	require.NoError(t, err)
 }
 

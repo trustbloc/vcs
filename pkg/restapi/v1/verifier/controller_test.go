@@ -2039,8 +2039,8 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any()).AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Times(1).Return(&profileapi.Verifier{
@@ -2090,7 +2090,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
 	oidc4VPSvc.EXPECT().InitiateOidcInteraction(
-		gomock.Any(), gomock.Any(), gomock.Any(), []string{"test_scope"}, gomock.Any()).
+		gomock.Any(), gomock.Any(), gomock.Any(), []string{"test_scope"}, "", gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -2321,7 +2321,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 	t.Run("oidc4VPService.InitiateOidcInteraction failed", func(t *testing.T) {
 		oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPSvc.EXPECT().
-			InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return(nil, errors.New("fail"))
 
 		controller := NewController(&Config{

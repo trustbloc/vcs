@@ -1268,11 +1268,13 @@ components:
           type: string
         scopes:
           type: array
+          description: List of custom scopes that defines additional claims requested from Holder to Verifier.
           items:
             type: string
-          description: List of custom scopes that defines additional claims requested from Holder to Verifier.
         presentationDefinitionFilters:
           $ref: '#/components/schemas/PresentationDefinitionFilters'
+        customURLScheme:
+          type: string
     PresentationDefinitionFilters:
       title: PresentationDefinitionFilters
       x-tags:

@@ -37,6 +37,7 @@ func (w *Wrapper) InitiateOidcInteraction(
 	presentationDefinition *presexch.PresentationDefinition,
 	purpose string,
 	customScopes []string,
+	customURLScheme string,
 	profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error) {
 	ctx, span := w.tracer.Start(ctx, "oidc4vp.InitiateOidcInteraction")
 	defer span.End()
@@ -45,7 +46,8 @@ func (w *Wrapper) InitiateOidcInteraction(
 	span.SetAttributes(attribute.String("purpose", purpose))
 	span.SetAttributes(attribute.StringSlice("custom_copes", customScopes))
 
-	resp, err := w.svc.InitiateOidcInteraction(ctx, presentationDefinition, purpose, customScopes, profile)
+	resp, err := w.svc.InitiateOidcInteraction(ctx,
+		presentationDefinition, purpose, customScopes, customURLScheme, profile)
 	if err != nil {
 		return nil, err
 	}
