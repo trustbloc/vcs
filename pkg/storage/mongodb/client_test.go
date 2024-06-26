@@ -17,14 +17,13 @@ import (
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -44,7 +43,7 @@ func TestClient(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, testDatabaseName,
 		mongodb.WithTimeout(testTimeout),
 		mongodb.WithReadPref(readpref.PrimaryPreferred()),
-		mongodb.WithTraceProvider(trace.NewNoopTracerProvider()),
+		mongodb.WithTraceProvider(nooptracer.NewTracerProvider()),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, client)

@@ -52,7 +52,6 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/veraison/go-cose"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -63,6 +62,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -89,7 +89,7 @@ func TestAuthorizeCodeGrantFlowWithLDPVProof(t *testing.T) {
 
 func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler(nooptracer.NewTracerProvider().Tracer(""))
 
 	opState := "QIn85XAEHwlPyCVRhTww"
 
@@ -163,7 +163,7 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		IssuerVCSPublicHost:     srv.URL,
 		JWTVerifier:             proofChecker,
 		CWTVerifier:             proofChecker,
-		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+		Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 		Vdr:                     vdr,
 		DocumentLoader:          testutil.DocumentLoader(t),
 		LDPProofParser:          mockProofParser,
@@ -313,7 +313,7 @@ func generateProof(
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler(nooptracer.NewTracerProvider().Tracer(""))
 
 	srv := httptest.NewServer(e)
 	defer srv.Close()
@@ -361,7 +361,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		IssuerVCSPublicHost:     srv.URL,
 		ExternalHostURL:         srv.URL,
 		HTTPClient:              httpClient,
-		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
+		Tracer:                  nooptracer.NewTracerProvider().Tracer(""),
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)

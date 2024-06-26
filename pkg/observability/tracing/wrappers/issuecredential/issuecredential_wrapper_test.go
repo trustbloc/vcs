@@ -14,9 +14,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/verifiable"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/trustbloc/vcs/pkg/profile"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestWrapper_IssueCredential(t *testing.T) {
@@ -25,7 +24,7 @@ func TestWrapper_IssueCredential(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().IssueCredential(gomock.Any(), &verifiable.Credential{}, &profile.Issuer{}, nil).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.IssueCredential(context.Background(), &verifiable.Credential{}, &profile.Issuer{}, nil)
 	require.NoError(t, err)

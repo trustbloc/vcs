@@ -117,10 +117,6 @@ func MetricsMiddlewareWithConfig(config Config) echo.MiddlewareFunc {
 			err := next(context)
 			timer.ObserveDuration()
 
-			if err != nil {
-				context.Error(err)
-			}
-
 			status := ""
 			if config.NormalizeHTTPStatus {
 				status = normalizeHTTPStatus(context.Response().Status)

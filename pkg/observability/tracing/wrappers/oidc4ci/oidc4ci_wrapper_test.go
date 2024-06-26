@@ -13,10 +13,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestWrapper_InitiateIssuance(t *testing.T) {
@@ -33,7 +32,7 @@ func TestWrapper_InitiateIssuance(t *testing.T) {
 		},
 		&profile.Issuer{}).Return(&oidc4ci.InitiateIssuanceResponse{}, nil).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.InitiateIssuance(context.Background(), &oidc4ci.InitiateIssuanceRequest{
 		CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
@@ -51,7 +50,7 @@ func TestWrapper_PushAuthorizationDetails(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", []*oidc4ci.AuthorizationDetails{{}}).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	err := w.PushAuthorizationDetails(context.Background(), "opState", []*oidc4ci.AuthorizationDetails{{}})
 	require.NoError(t, err)
@@ -63,7 +62,7 @@ func TestWrapper_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), &oidc4ci.PrepareClaimDataAuthorizationRequest{}).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.PrepareClaimDataAuthorizationRequest(context.Background(), &oidc4ci.PrepareClaimDataAuthorizationRequest{})
 	require.NoError(t, err)
@@ -75,7 +74,7 @@ func TestWrapper_StoreAuthorizationCode(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().StoreAuthorizationCode(gomock.Any(), "opState", "code", nil).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.StoreAuthorizationCode(context.Background(), "opState", "code", nil)
 	require.NoError(t, err)
@@ -87,7 +86,7 @@ func TestWrapper_ExchangeAuthorizationCode(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().ExchangeAuthorizationCode(gomock.Any(), "opState", "", "", "").Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.ExchangeAuthorizationCode(context.Background(), "opState", "", "", "")
 	require.NoError(t, err)
@@ -99,7 +98,7 @@ func TestWrapper_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin", "clientID", "", "").Return(&oidc4ci.Transaction{ID: "id"}, nil)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.ValidatePreAuthorizedCodeRequest(context.Background(), "code", "pin", "clientID", "", "")
 	require.NoError(t, err)
@@ -111,7 +110,7 @@ func TestWrapper_PrepareCredential(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().PrepareCredential(gomock.Any(), &oidc4ci.PrepareCredential{}).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, err := w.PrepareCredential(context.Background(), &oidc4ci.PrepareCredential{})
 	require.NoError(t, err)

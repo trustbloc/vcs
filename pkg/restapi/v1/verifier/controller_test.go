@@ -28,8 +28,6 @@ import (
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
-	"go.opentelemetry.io/otel/trace"
-
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -41,6 +39,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -143,7 +142,7 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 		ProfileSvc:          mockProfileSvc,
 		DocumentLoader:      testutil.DocumentLoader(t),
 		VDR:                 &vdrmock.VDRegistry{},
-		Tracer:              trace.NewNoopTracerProvider().Tracer(""),
+		Tracer:              nooptracer.NewTracerProvider().Tracer(""),
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -315,7 +314,7 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 		ProfileSvc:            mockProfileSvc,
 		DocumentLoader:        testutil.DocumentLoader(t),
 		VDR:                   &vdrmock.VDRegistry{},
-		Tracer:                trace.NewNoopTracerProvider().Tracer(""),
+		Tracer:                nooptracer.NewTracerProvider().Tracer(""),
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -519,7 +518,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -575,7 +574,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -772,7 +771,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			DocumentLoader: testutil.DocumentLoader(t),
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -825,7 +824,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -881,7 +880,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -937,7 +936,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -994,7 +993,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1050,7 +1049,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1106,7 +1105,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1162,7 +1161,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1209,7 +1208,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1268,7 +1267,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1328,7 +1327,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1387,7 +1386,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -1429,7 +1428,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1468,7 +1467,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1504,7 +1503,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1541,7 +1540,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventTopic:     spi.VerifierEventTopic,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1565,7 +1564,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1588,7 +1587,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1618,7 +1617,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -2009,7 +2008,7 @@ func TestController_AuthFailed(t *testing.T) {
 		c := createContext("")
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry,
-			Tracer: trace.NewNoopTracerProvider().Tracer("")})
+			Tracer: nooptracer.NewTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
 		requireAuthError(t, err)
@@ -2022,7 +2021,7 @@ func TestController_AuthFailed(t *testing.T) {
 		c := createContext("orgID2")
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry,
-			Tracer: trace.NewNoopTracerProvider().Tracer("")})
+			Tracer: nooptracer.NewTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
 		requireCustomError(t, resterr.ProfileNotFound, err)
@@ -2057,7 +2056,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			ProfileSvc:    mockProfileSvc,
 			KMSRegistry:   kmsRegistry,
 			OIDCVPService: oidc4VPSvc,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:        nooptracer.NewTracerProvider().Tracer(""),
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
@@ -2071,7 +2070,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			ProfileSvc:    mockProfileSvc,
 			KMSRegistry:   kmsRegistry,
 			OIDCVPService: oidc4VPSvc,
-			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
+			Tracer:        nooptracer.NewTracerProvider().Tracer(""),
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
