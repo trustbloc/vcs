@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package utils_test
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,12 +30,14 @@ func TestExtract(t *testing.T) {
 
 	keys := utils.ExtractKeys("$", claimData)
 
+	sort.Strings(keys)
+
 	assert.EqualValues(t, []string{
 		"$.claim",
+		"$.claim.anotherKey",
 		"$.claim.value",
 		"$.claim.value.xx",
 		"$.claim.value.yy",
 		"$.claim.value.yy.zz",
-		"$.claim.anotherKey",
 	}, keys)
 }
