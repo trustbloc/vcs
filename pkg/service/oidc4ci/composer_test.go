@@ -50,6 +50,9 @@ func TestComposer(t *testing.T) {
 			},
 		)
 
+		assert.NotNil(t, resp.Contents().Issued)
+		assert.NotNil(t, resp.Contents().Expired)
+
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 
