@@ -69,6 +69,7 @@ func TestComposer(t *testing.T) {
 		assert.EqualValues(t, "did:example:123", resp.Contents().Issuer.ID)
 		assert.EqualValues(t, "some-awesome-did", resp.Contents().Subject[0].ID)
 		assert.EqualValues(t, expectedExpiration, parsedCred.Contents().Expired.Time)
+		assert.NotNil(t, expectedExpiration, parsedCred.Contents().Issued)
 	})
 
 	t.Run("success with prev-id", func(t *testing.T) {
