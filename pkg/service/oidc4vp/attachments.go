@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/util/maphelpers"
@@ -45,33 +46,42 @@ func NewAttachmentService(
 	}
 }
 
-func (s *AttachmentService) PrepareAttachments(
+func (s *AttachmentService) GetAttachments(
 	ctx context.Context,
-	subjects []*verifiable.Subject,
+	subjects []verifiable.Subject,
 ) ([]map[string]interface{}, error) {
 	var allAttachments []*Attachment
 
 	for _, subject := range subjects {
 		allAttachments = append(allAttachments,
-			s.findAttachments(subject.CustomFields, make([]*Attachment, 0))...,
+			s.findAttachments(subject.CustomFields)...,
 		)
+	}
+
+	if len(allAttachments) == 0 {
+		return nil, nil
 	}
 
 	var final []map[string]interface{}
 
+	var wg sync.WaitGroup
 	for _, attachment := range allAttachments {
-		cloned := maphelpers.CopyMap(attachment.Claim) // shallow copy
-		final = append(final, cloned)
+		attachment.Claim = maphelpers.CopyMap(attachment.Claim) // clone
+		final = append(final, attachment.Claim)
 
 		if attachment.Type == AttachmentTypeRemote {
+			wg.Add(1)
 			go func() {
-				err := s.handleRemoteAttachment(ctx, cloned)
+				defer wg.Done()
+
+				err := s.handleRemoteAttachment(ctx, attachment.Claim)
 				if err != nil {
 					attachment.Claim["error"] = fmt.Sprintf("failed to handle remote attachment: %s", err)
 				}
 			}()
 		}
 	}
+	wg.Wait()
 
 	return final, nil
 }
@@ -114,16 +124,19 @@ func (s *AttachmentService) handleRemoteAttachment(
 
 func (s *AttachmentService) findAttachments(
 	targetMap map[string]interface{},
-	attachments []*Attachment,
 ) []*Attachment {
-	hasAttachment := false
-	for k, v := range targetMap {
-		if nested, ok := v.(map[string]interface{}); ok {
-			attachments = append(attachments, s.findAttachments(nested, attachments)...)
-		}
+	var attachments []*Attachment
 
-		if hasAttachment {
-			continue
+	for k, v := range targetMap {
+		switch valTyped := v.(type) {
+		case []interface{}:
+			for _, item := range valTyped {
+				if nested, ok := item.(map[string]interface{}); ok {
+					attachments = append(attachments, s.findAttachments(nested)...)
+				}
+			}
+		case map[string]interface{}:
+			attachments = append(attachments, s.findAttachments(valTyped)...)
 		}
 
 		if k != "type" && k != "@type" {
@@ -137,8 +150,6 @@ func (s *AttachmentService) findAttachments(
 					Type:  typed,
 					Claim: targetMap,
 				})
-
-				hasAttachment = true
 			}
 		case []interface{}:
 			newSlice := make([]string, 0, len(typed))
@@ -152,8 +163,6 @@ func (s *AttachmentService) findAttachments(
 						Type:  item,
 						Claim: targetMap,
 					})
-
-					hasAttachment = true
 				}
 			}
 		case []string:
@@ -163,8 +172,6 @@ func (s *AttachmentService) findAttachments(
 						Type:  item,
 						Claim: targetMap,
 					})
-
-					hasAttachment = true
 				}
 			}
 		}
