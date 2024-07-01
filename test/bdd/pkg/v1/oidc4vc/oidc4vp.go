@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
@@ -220,11 +221,33 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 		issuedVCID[vcParsed.Contents().ID] = struct{}{}
 	}
 
-	for retrievedVCID := range claims {
+	for retrievedVCID, val := range claims {
 		_, exist := issuedVCID[retrievedVCID]
+
 		if !exist {
 			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
 		}
+
+		var attachments []string
+		for _, attachment := range val.Attachments {
+			attachments = append(attachments, attachment["uri"].(string))
+		}
+
+		if len(s.expectedAttachment) > 0 {
+			if len(attachments) != len(s.expectedAttachment) {
+				return fmt.Errorf("unexpected attachment amount. Expected %d, got %d",
+					len(s.expectedAttachment),
+					len(attachments),
+				)
+			}
+
+			for _, expectedAttachment := range s.expectedAttachment {
+				if !lo.Contains(attachments, expectedAttachment) {
+					return fmt.Errorf("attachment %s not found", expectedAttachment)
+				}
+			}
+		}
+
 	}
 
 	return nil
