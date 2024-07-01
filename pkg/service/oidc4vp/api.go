@@ -150,3 +150,8 @@ type ClientMetadata struct {
 	ClientPurpose               string           `json:"client_purpose"`
 	LogoURI                     string           `json:"logo_uri"`
 }
+
+type Attachment struct {
+	Type  string
+	Claim map[string]interface{}
+}
