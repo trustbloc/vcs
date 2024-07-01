@@ -120,7 +120,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/vc-go v1.1.3-0.20240627155354-563ff5d6e098 // indirect
+	github.com/trustbloc/vc-go v1.1.3-0.20240701160147-81ac17678f82 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/veraison/go-cose v1.1.0 // indirect
