@@ -10,12 +10,9 @@ package oidc4vp
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -32,7 +29,6 @@ import (
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
-	"github.com/trustbloc/vc-go/util/maphelpers"
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/valyala/fastjson"
@@ -611,111 +607,6 @@ func (s *Service) RetrieveClaims(
 	}
 
 	return result
-}
-
-const (
-	AttachmentTypeRemote   = "RemoteAttachment"
-	AttachmentTypeEmbedded = "EmbeddedAttachment"
-)
-
-var knownAttachmentTypes = []string{AttachmentTypeRemote, AttachmentTypeEmbedded}
-
-func (s *Service) PrepareAttachments(
-	ctx context.Context,
-	subjects []*verifiable.Subject,
-) ([]map[string]interface{}, error) {
-	var allAttachments []*Attachment
-
-	for _, subject := range subjects {
-		allAttachments = append(allAttachments, s.findAttachments(subject.CustomFields,
-			make([]*Attachment, 0))...)
-	}
-
-	var final []map[string]interface{}
-
-	for _, attachment := range allAttachments {
-		clone := maphelpers.CopyMap(attachment.Claim) // shallow copy
-		final = append(final, clone)
-
-		if attachment.Type != AttachmentTypeRemote {
-			continue
-		}
-
-		targetUrl := fmt.Sprint(attachment.Claim["url"])
-		if targetUrl == "" {
-			attachment.Claim["error"] = "url is required"
-
-			continue
-		}
-
-		resp, err := http.Get(targetUrl)
-		if err != nil {
-			attachment.Claim["error"] = fmt.Sprintf("failed to fetch url: %s", err)
-
-			continue
-		}
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			attachment.Claim["error"] = fmt.Sprintf("failed to read response body: %s", err)
-
-			continue
-		}
-
-		attachment.Claim["data"] = base64.StdEncoding.EncodeToString(body)
-	}
-
-	return final, nil
-}
-
-func (s *Service) findAttachments(
-	targetMap map[string]interface{},
-	attachments []*Attachment,
-) []*Attachment {
-	for k, v := range targetMap {
-		if nested, ok := v.(map[string]interface{}); ok {
-			attachments = append(attachments, s.findAttachments(nested, attachments)...)
-		}
-
-		if k != "type" && k != "@type" {
-			continue
-		}
-
-		switch typed := v.(type) {
-		case string:
-			if lo.Contains(knownAttachmentTypes, typed) {
-				attachments = append(attachments, &Attachment{
-					Type:  typed,
-					Claim: targetMap,
-				})
-			}
-		case []interface{}:
-			newSlice := make([]string, len(typed), 0)
-			for _, item := range typed {
-				newSlice = append(newSlice, fmt.Sprint(item))
-			}
-
-			for _, item := range newSlice {
-				if lo.Contains(knownAttachmentTypes, item) {
-					attachments = append(attachments, &Attachment{
-						Type:  item,
-						Claim: targetMap,
-					})
-				}
-			}
-		case []string:
-			for _, item := range typed {
-				if lo.Contains(knownAttachmentTypes, item) {
-					attachments = append(attachments, &Attachment{
-						Type:  item,
-						Claim: targetMap,
-					})
-				}
-			}
-		}
-	}
-
-	return attachments
 }
 
 func (s *Service) DeleteClaims(_ context.Context, claimsID string) error {
