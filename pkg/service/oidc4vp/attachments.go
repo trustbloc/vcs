@@ -28,7 +28,7 @@ const (
 	AttachmentDataField    = "uri"
 )
 
-var knownAttachmentTypes = []string{AttachmentTypeRemote, AttachmentTypeEmbedded}
+var knownAttachmentTypes = []string{AttachmentTypeRemote, AttachmentTypeEmbedded} // nolint:gochecknoglobals
 
 type AttachmentService struct {
 	httpClient httpClient
@@ -66,7 +66,9 @@ func (s *AttachmentService) GetAttachments(
 
 	var wg sync.WaitGroup
 	for _, attachment := range allAttachments {
-		attachment.Claim = maphelpers.CopyMap(attachment.Claim) // clone
+		cloned := maphelpers.CopyMap(attachment.Claim)
+		attachment.Claim = cloned
+
 		final = append(final, attachment.Claim)
 
 		if attachment.Type == AttachmentTypeRemote {
@@ -74,9 +76,9 @@ func (s *AttachmentService) GetAttachments(
 			go func() {
 				defer wg.Done()
 
-				err := s.handleRemoteAttachment(ctx, attachment.Claim)
+				err := s.handleRemoteAttachment(ctx, cloned)
 				if err != nil {
-					attachment.Claim["error"] = fmt.Sprintf("failed to handle remote attachment: %s", err)
+					cloned["error"] = fmt.Sprintf("failed to handle remote attachment: %s", err)
 				}
 			}()
 		}
@@ -90,12 +92,12 @@ func (s *AttachmentService) handleRemoteAttachment(
 	ctx context.Context,
 	attachment map[string]interface{},
 ) error {
-	targetUrl := fmt.Sprint(attachment[AttachmentDataField])
-	if targetUrl == "" {
+	targetURL := fmt.Sprint(attachment[AttachmentDataField])
+	if targetURL == "" {
 		return errors.New("url is required")
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, targetUrl, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create http request: %w", err)
 	}
@@ -107,6 +109,10 @@ func (s *AttachmentService) handleRemoteAttachment(
 
 	var body []byte
 	if resp.Body != nil {
+		defer func() {
+			_ = resp.Body.Close() // nolint
+		}()
+
 		body, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response body: %w", err)
@@ -125,6 +131,7 @@ func (s *AttachmentService) handleRemoteAttachment(
 	return nil
 }
 
+// nolint:gocognit
 func (s *AttachmentService) findAttachments(
 	targetMap map[string]interface{},
 ) []*Attachment {

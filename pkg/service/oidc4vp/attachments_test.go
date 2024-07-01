@@ -64,10 +64,10 @@ func TestAttachment(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithRemoteAttachment), &data))
 
-		mockHttp := NewMockHttpClient(gomock.NewController(t))
-		srv := oidc4vp.NewAttachmentService(mockHttp)
+		mockHTTP := NewMockHttpClient(gomock.NewController(t))
+		srv := oidc4vp.NewAttachmentService(mockHTTP)
 
-		mockHttp.EXPECT().Do(gomock.Any()).
+		mockHTTP.EXPECT().Do(gomock.Any()).
 			DoAndReturn(func(request *http.Request) (*http.Response, error) {
 				assert.EqualValues(t, "https://someurl.local", request.URL.String())
 				assert.EqualValues(t, "GET", request.Method)
@@ -90,10 +90,10 @@ func TestAttachment(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithRemoteAttachment), &data))
 
-		mockHttp := NewMockHttpClient(gomock.NewController(t))
-		srv := oidc4vp.NewAttachmentService(mockHttp)
+		mockHTTP := NewMockHttpClient(gomock.NewController(t))
+		srv := oidc4vp.NewAttachmentService(mockHTTP)
 
-		mockHttp.EXPECT().Do(gomock.Any()).
+		mockHTTP.EXPECT().Do(gomock.Any()).
 			DoAndReturn(func(request *http.Request) (*http.Response, error) {
 				assert.EqualValues(t, "https://someurl.local", request.URL.String())
 				assert.EqualValues(t, "GET", request.Method)
@@ -157,13 +157,13 @@ func TestAttachment(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWitAttachments), &data))
 
-		mockHttp := NewMockHttpClient(gomock.NewController(t))
-		srv := oidc4vp.NewAttachmentService(mockHttp)
+		mockHTTP := NewMockHttpClient(gomock.NewController(t))
+		srv := oidc4vp.NewAttachmentService(mockHTTP)
 
 		var mut sync.Mutex
 		urlsCalled := []string{}
 
-		mockHttp.EXPECT().Do(gomock.Any()).
+		mockHTTP.EXPECT().Do(gomock.Any()).
 			DoAndReturn(func(request *http.Request) (*http.Response, error) {
 				mut.Lock()
 				urlsCalled = append(urlsCalled, request.URL.String())
