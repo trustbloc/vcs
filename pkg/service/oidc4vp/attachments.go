@@ -117,7 +117,10 @@ func (s *AttachmentService) handleRemoteAttachment(
 		return fmt.Errorf("unexpected status code: %d and body %v", resp.StatusCode, string(body))
 	}
 
-	attachment[AttachmentDataField] = base64.StdEncoding.EncodeToString(body) // todo prefix type
+	attachment[AttachmentDataField] = fmt.Sprintf("data:%s;base64,%s",
+		resp.Header.Get("Content-Type"),
+		base64.StdEncoding.EncodeToString(body),
+	)
 
 	return nil
 }
