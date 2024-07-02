@@ -202,14 +202,18 @@ func TestAttachment(t *testing.T) {
 		attachment = resp[0]
 		assert.EqualValues(t, "doc1", attachment["id"])
 		assert.EqualValues(t, []interface{}{"RemoteAttachment"}, attachment["type"])
-		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n", attachment["uri"])
+		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
+			attachment["uri"])
+
 		assert.Nil(t, attachment["error"])
 		assert.EqualValues(t, "abcd", attachment["hash"])
 
 		attachment = resp[2]
 		assert.EqualValues(t, "doc445", attachment["id"])
 		assert.EqualValues(t, []interface{}{"RemoteAttachment"}, attachment["type"])
-		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9waG90by5wbmc=", attachment["uri"])
+		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9waG90by5wbmc=",
+			attachment["uri"])
+
 		assert.Nil(t, attachment["error"])
 		assert.EqualValues(t, "xyz", attachment["hash"])
 	})
