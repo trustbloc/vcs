@@ -1,0 +1,46 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://w3id.org/vc/status-list/2021/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "id": "http://example.gov/credentials/3732",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "expirationDate": "2030-03-16T22:37:26.544Z",
+  "issuer": {
+    "id": "did:trustblock:abc",
+    "name": "University"
+  },
+  "credentialStatus": {
+    "id": "https://issuer-vcs.sandbox.trustbloc.dev/vc-issuer-test-2/status/1#0",
+    "type": "StatusList2021Entry",
+    "statusListIndex": "1",
+    "statusListCredential": "",
+    "statusPurpose": "2"
+  },
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "degree": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+    "attachment1" : {
+        "id": "doc1",
+        "type": [
+          "EmbeddedAttachment"
+        ],
+        "mimeType": "image/jpeg",
+        "uri": "base64content",
+        "description": "Scanned copy of something",
+        "hash": "5d41402abc4b2a76b9719d911017c592",
+        "hash-alg": "SHA-256"
+    }
+  }
+}

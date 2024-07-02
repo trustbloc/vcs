@@ -1138,6 +1138,12 @@ func getOrgAuthTokenKey(org string) string {
 	return org + "-accessToken"
 }
 
+func (s *Steps) addExpectedAttachmentForVP(data string) error {
+	s.expectedAttachment = append(s.expectedAttachment, data)
+
+	return nil
+}
+
 func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount string) error {
 	amount, err := strconv.Atoi(expectedCredentialsAmount)
 	if err != nil {
@@ -1148,6 +1154,7 @@ func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount stri
 
 	return nil
 }
+
 func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {

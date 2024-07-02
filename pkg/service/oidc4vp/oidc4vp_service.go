@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectStore=MockRequestObjectStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry
+//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectStore=MockRequestObjectStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry,attachmentService=MockAttachmentService
 
 package oidc4vp
 
@@ -97,6 +97,13 @@ type profileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error)
 }
 
+type attachmentService interface {
+	GetAttachments(
+		ctx context.Context,
+		subjects []verifiable.Subject,
+	) ([]map[string]interface{}, error)
+}
+
 type presentationVerifier interface {
 	VerifyPresentation(
 		ctx context.Context,
@@ -130,6 +137,7 @@ type Config struct {
 	ResponseURI          string
 	TokenLifetime        time.Duration
 	Metrics              metricsProvider
+	AttachmentService    attachmentService
 }
 
 type Service struct {
@@ -143,6 +151,7 @@ type Service struct {
 	presentationVerifier presentationVerifier
 	vdr                  vdrapi.Registry
 	trustRegistry        trustRegistry
+	attachmentService    attachmentService
 
 	responseURI   string
 	tokenLifetime time.Duration
@@ -171,6 +180,7 @@ func NewService(cfg *Config) *Service {
 		vdr:                  cfg.VDR,
 		trustRegistry:        cfg.TrustRegistry,
 		metrics:              metrics,
+		attachmentService:    cfg.AttachmentService,
 	}
 }
 
@@ -588,6 +598,15 @@ func (s *Service) RetrieveClaims(
 
 		if credContents.Issuer != nil {
 			credMeta.Issuer = verifiable.IssuerToJSON(*credContents.Issuer)
+		}
+
+		if s.attachmentService != nil {
+			att, attErr := s.attachmentService.GetAttachments(ctx, credContents.Subject)
+			if attErr != nil {
+				logger.Errorc(ctx, fmt.Sprintf("Failed to get attachments: %+v", attErr))
+			}
+
+			credMeta.Attachments = att
 		}
 
 		result[credContents.ID] = credMeta

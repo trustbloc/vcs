@@ -49,6 +49,7 @@ type ClientID string
 const (
 	ClientPreAuth                    ClientID = "preauthorize"
 	ClientIssuerProfile              ClientID = "issuer-profile"
+	Attachments                      ClientID = "attachments"
 	ClientVerifierProfile            ClientID = "verifier-profile"
 	ClientCredentialStatus           ClientID = "credential-status" //nolint:gosec
 	ClientOIDC4CI                    ClientID = "oidc4ci"

@@ -52,9 +52,10 @@ type CredentialMetadata struct {
 	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]Claims    `json:"customClaims,omitempty"`
 
-	Name        interface{} `json:"name,omitempty"`
-	AwardedDate interface{} `json:"awardedDate,omitempty"`
-	Description interface{} `json:"description,omitempty"`
+	Name        interface{}              `json:"name,omitempty"`
+	AwardedDate interface{}              `json:"awardedDate,omitempty"`
+	Description interface{}              `json:"description,omitempty"`
+	Attachments []map[string]interface{} `json:"attachments"`
 }
 
 type ServiceInterface interface {
@@ -149,4 +150,9 @@ type ClientMetadata struct {
 	VPFormats                   *presexch.Format `json:"vp_formats"`
 	ClientPurpose               string           `json:"client_purpose"`
 	LogoURI                     string           `json:"logo_uri"`
+}
+
+type Attachment struct {
+	Type  string
+	Claim map[string]interface{}
 }

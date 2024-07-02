@@ -1050,6 +1050,63 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.Empty(t, claims["_scope"])
 	})
 
+	t.Run("Success JsonLD with attachments", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, nil),
+		)
+
+		attachmentSvc := NewMockAttachmentService(gomock.NewController(t))
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:          mockEventSvc,
+			EventTopic:        spi.VerifierEventTopic,
+			AttachmentService: attachmentSvc,
+		})
+		ldvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
+			verifiable.WithJSONLDDocumentLoader(loader),
+			verifiable.WithDisabledProofCheck())
+
+		attachmentVals := []map[string]interface{}{
+			{
+				"id":  123,
+				"uri": "base64-content",
+			},
+			{
+				"id":  456,
+				"uri": "base64-content2",
+			},
+		}
+
+		attachmentSvc.EXPECT().GetAttachments(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, subjects []verifiable.Subject) ([]map[string]interface{}, error) {
+				require.Len(t, subjects, 1)
+				require.EqualValues(t, ldvc.Contents().Subject[0], subjects[0])
+
+				return attachmentVals, errors.New("ignored")
+			})
+
+		require.NoError(t, err)
+
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: []*verifiable.Credential{
+				ldvc,
+			}}}, &profileapi.Verifier{})
+
+		require.NotNil(t, claims)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
+
+		require.True(t, ok)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0]["id"])
+
+		require.EqualValues(t, attachmentVals, claims["http://example.gov/credentials/3732"].Attachments)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
+
+		require.Empty(t, claims["_scope"])
+	})
+
 	t.Run("Empty claims", func(t *testing.T) {
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(

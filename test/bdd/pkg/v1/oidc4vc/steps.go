@@ -74,6 +74,7 @@ type Steps struct {
 	composeFeatureEnabled          bool
 	composeCredential              *verifiable.Credential
 	expectedCredentialsAmountForVP int
+	expectedAttachment             []string
 }
 
 // NewSteps returns new Steps context.
@@ -98,6 +99,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
 	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
 	sc.Step(`^expected credential count for vp flow is "([^"]*)"$`, s.setExpectedCredentialsAmountForVP)
+	sc.Step(`^expected attachment for vp flow is "([^"]*)"$`, s.addExpectedAttachmentForVP)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// OIDC4VCI
@@ -164,6 +166,7 @@ func (s *Steps) ResetAndSetup() error {
 	s.composeFeatureEnabled = false
 	s.composeCredential = nil
 	s.expectedCredentialsAmountForVP = 0
+	s.expectedAttachment = nil
 
 	s.tlsConfig = s.bddContext.TLSConfig
 
