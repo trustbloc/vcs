@@ -423,25 +423,29 @@ func (w *Wallet) GetAll() (map[string]json.RawMessage, error) {
 }
 
 // Query runs the given presentation definition on the stored credentials.
-func (w *Wallet) Query(pdBytes []byte, jwtVPFormat bool) ([]*verifiable.Presentation, error) {
+func (w *Wallet) Query(
+	pdBytes []byte,
+	jwtVPFormat bool,
+	useMultiVPs bool,
+) ([]*verifiable.Presentation, *presexch.PresentationSubmission, error) {
 	vcContent, err := w.GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("query credentials: %w", err)
+		return nil, nil, fmt.Errorf("query credentials: %w", err)
 	}
 
 	if len(vcContent) == 0 {
-		return nil, fmt.Errorf("no credentials found in wallet")
+		return nil, nil, fmt.Errorf("no credentials found in wallet")
 	}
 
 	credentials, err := parseCredentialContents(vcContent, w.documentLoader)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var pd presexch.PresentationDefinition
 
 	if err = json.Unmarshal(pdBytes, &pd); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	opts := []presexch.MatchRequirementsOpt{
@@ -455,16 +459,36 @@ func (w *Wallet) Query(pdBytes []byte, jwtVPFormat bool) ([]*verifiable.Presenta
 		opts = append(opts, presexch.WithDefaultPresentationFormat(presexch.FormatJWTVP))
 	}
 
-	vp, err := pd.CreateVP(credentials, w.documentLoader, opts...)
-	if err != nil {
-		if errors.Is(err, presexch.ErrNoCredentials) {
-			return nil, fmt.Errorf("no matching credentials found")
+	if useMultiVPs {
+		vps, presentationSubmission, createErr := pd.CreateVPArray(credentials, w.documentLoader, opts...)
+		if createErr != nil {
+			if errors.Is(createErr, presexch.ErrNoCredentials) {
+				return nil, nil, fmt.Errorf("no matching credentials found")
+			}
+
+			return nil, nil, createErr
 		}
 
-		return nil, err
+		return vps, presentationSubmission, nil
 	}
 
-	return []*verifiable.Presentation{vp}, nil
+	var vp *verifiable.Presentation
+
+	vp, err = pd.CreateVP(credentials, w.documentLoader, opts...)
+	if err != nil {
+		if errors.Is(err, presexch.ErrNoCredentials) {
+			return nil, nil, fmt.Errorf("no matching credentials found")
+		}
+
+		return nil, nil, err
+	}
+
+	presentationSubmission, ok := vp.CustomFields["presentation_submission"].(*presexch.PresentationSubmission)
+	if !ok {
+		return nil, nil, fmt.Errorf("missing or invalid presentation_submission")
+	}
+
+	return []*verifiable.Presentation{vp}, presentationSubmission, nil
 }
 
 func parseCredentialContents(m map[string]json.RawMessage, loader ld.DocumentLoader) ([]*verifiable.Credential, error) {

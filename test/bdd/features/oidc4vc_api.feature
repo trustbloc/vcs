@@ -400,3 +400,18 @@ Feature: OIDC4VC REST API
     And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" retrieves interactions claims
     Then we wait 2 seconds
     And Verifier with profile "v_myprofile_jwt_client_attestation/v1.0" requests deleted interactions claims
+
+  @oidc4vc_rest_multi_vp
+  Scenario: OIDC credential pre-authorized code flow issuance and verification with multiple VPs
+    Given Profile "bank_issuer/v1.0" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "UniversityDegreeCredential,VerifiedEmployee" with templateID "nil"
+    And  User wants to make credentials request based on credential offer "false"
+    And Profile "v_myprofile_multivp_jwt/v1.0" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+
+    When User interacts with Wallet to initiate batch credential issuance using pre authorization code flow
+    Then "2" credentials are issued
+    Then expected credential count for vp flow is "2"
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_multivp_jwt/v1.0" profile with presentation definition ID "8bc45260-ed00-4c23-a32a-b70e5aef3d92" and fields "degree_type_id,verified_employee_id" using multi vps
+    And Verifier with profile "v_myprofile_multivp_jwt/v1.0" retrieves interactions claims
+    Then we wait 2 seconds
+    And Verifier with profile "v_myprofile_multivp_jwt/v1.0" requests deleted interactions claims

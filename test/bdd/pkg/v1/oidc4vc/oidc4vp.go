@@ -231,15 +231,19 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 }
 
 func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
-	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil)
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil, false)
 }
 
 func (s *Steps) runOIDC4VPFlowWithCustomScopes(profileVersionedID, pdID, fields, customScopes string) error {
-	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, strings.Split(customScopes, ","))
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, strings.Split(customScopes, ","), false)
+}
+
+func (s *Steps) runOIDC4VPFlowWithMultiVPs(profileVersionedID, pdID, fields string) error {
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil, true)
 }
 
 func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorContains string) error {
-	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil)
+	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil, false)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -251,7 +255,11 @@ func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorC
 	return nil
 }
 
-func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, scopes []string) error {
+func (s *Steps) runOIDC4VPFlowWithOpts(
+	profileVersionedID, pdID, fields string,
+	scopes []string,
+	useMultiVPs bool,
+) error {
 	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
 	s.presentationDefinitionID = pdID
 
@@ -278,11 +286,17 @@ func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, 
 		return fmt.Errorf("invalid AuthorizationRequest format: %s", initiateInteractionResult.AuthorizationRequest)
 	}
 
-	flow, err := oidc4vp.NewFlow(s.oidc4vpProvider,
+	opts := []oidc4vp.Opt{
 		oidc4vp.WithRequestURI(requestURI[1]),
 		oidc4vp.WithDomainMatchingDisabled(),
 		oidc4vp.WithSchemaValidationDisabled(),
-	)
+	}
+
+	if useMultiVPs {
+		opts = append(opts, oidc4vp.WithMultiVPs())
+	}
+
+	flow, err := oidc4vp.NewFlow(s.oidc4vpProvider, opts...)
 	if err != nil {
 		return fmt.Errorf("init flow: %w", err)
 	}
