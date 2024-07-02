@@ -120,6 +120,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	// OIDC4VP
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
+	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" using multi vps$`, s.runOIDC4VPFlowWithMultiVPs)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and custom scopes "([^"]*)"$`, s.runOIDC4VPFlowWithCustomScopes)
 	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims$`, s.retrieveInteractionsClaim)
 	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims with additional claims associated with custom scopes "([^"]*)"$`, s.retrieveInteractionsClaimWithCustomScopes)
