@@ -27,6 +27,9 @@ var (
 	//go:embed testdata/university_degree_remote_attachment.jsonld
 	sampleVCWithRemoteAttachment string
 
+	//go:embed testdata/university_degree_evidence_attachment.jsonld
+	sampleVCWithEvidenceAttachment string
+
 	//go:embed testdata/university_degree_with_attachments.jsonld
 	sampleVCWitAttachments string
 )
@@ -38,7 +41,7 @@ func TestAttachment(t *testing.T) {
 
 		srv := oidc4vp.NewAttachmentService(nil)
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Empty(t, resp)
 	})
@@ -49,7 +52,7 @@ func TestAttachment(t *testing.T) {
 
 		srv := oidc4vp.NewAttachmentService(nil)
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 
@@ -75,7 +78,7 @@ func TestAttachment(t *testing.T) {
 				return nil, errors.New("connection failed")
 			})
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 
@@ -106,7 +109,7 @@ func TestAttachment(t *testing.T) {
 				}, nil
 			})
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 
@@ -124,7 +127,7 @@ func TestAttachment(t *testing.T) {
 		data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})["type"] = "EmbeddedAttachment" //nolint
 		srv := oidc4vp.NewAttachmentService(nil)
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 
@@ -142,7 +145,7 @@ func TestAttachment(t *testing.T) {
 		data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})["type"] = []string{"EmbeddedAttachment"} //nolint
 		srv := oidc4vp.NewAttachmentService(nil)
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 
@@ -181,7 +184,7 @@ func TestAttachment(t *testing.T) {
 				}, nil
 			}).Times(2)
 
-		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}})
+		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 3)
 
@@ -217,4 +220,140 @@ func TestAttachment(t *testing.T) {
 		assert.Nil(t, attachment["error"])
 		assert.EqualValues(t, "xyz", attachment["hash"])
 	})
+}
+
+func TestValidateEvidences(t *testing.T) {
+	t.Run("no attachments", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCJsonLD), &data))
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
+		assert.NoError(t, err)
+		assert.Len(t, att, 0)
+	})
+
+	t.Run("empty idToken", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
+		assert.Len(t, att, 1)
+		assert.NoError(t, err)
+
+		assert.Contains(t, att[0]["error"], "id token attachments are empty")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, map[string]string{
+			"doc1": "data:application/json;base64,aGVsbG8gd29ybGQh",
+		})
+
+		assert.Len(t, att, 1)
+		assert.NoError(t, err)
+		assert.EqualValues(t, "data:application/json;base64,aGVsbG8gd29ybGQh", att[0]["uri"])
+		assert.Nil(t, att[0]["error"])
+	})
+
+	t.Run("success SHA-384", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}) //nolint
+		att["hash"] = "d33d40f7010ce34aa86efd353630309ed5c3d7ffac66d988825cf699f4803ccdf3f033230612f0945332fb580d8af805"
+		att["hash-alg"] = "SHA-384"
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		attRes, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+			map[string]string{
+				"doc1": "data:application/json;base64,aGVsbG8gd29ybGQh",
+			})
+
+		assert.Len(t, attRes, 1)
+		assert.NoError(t, err)
+		assert.EqualValues(t, "data:application/json;base64,aGVsbG8gd29ybGQh", attRes[0]["uri"])
+		assert.Nil(t, attRes[0]["error"])
+	})
+
+	t.Run("attachment not found in id token", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+			map[string]string{
+				"doc2": "data:application/json;base64,aGVsbG8gd29ybGQh",
+			})
+
+		assert.NoError(t, err)
+		assert.Contains(t, att[0]["error"], "id token attachment not found for id: doc1")
+	})
+
+	t.Run("invalid base64", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+			map[string]string{
+				"doc1": "data:application/json;base64,xxx",
+			})
+
+		assert.NoError(t, err)
+		assert.Contains(t, att[0]["error"], "failed to decode base64 body id token attachment")
+	})
+
+	t.Run("invalid hash", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+			map[string]string{
+				"doc1": "data:application/json;base64,eHh4",
+			})
+
+		assert.NoError(t, err)
+		assert.Contains(t, att[0]["error"], "hash: hash mismatch")
+	})
+
+	t.Run("invalid hash SHA-384", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}) //nolint
+		att["hash-alg"] = "SHA-384"
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		attRes, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+			map[string]string{
+				"doc1": "data:application/json;base64,aGVsbG8gd29ybGQh",
+			})
+
+		assert.NoError(t, err)
+		assert.Contains(t, attRes[0]["error"], "hash: hash mismatch")
+	})
+
+	missingFields := []string{"id", "hash", "hash-alg"}
+	for _, field := range missingFields {
+		t.Run(fmt.Sprintf("missing %s", field), func(t *testing.T) {
+			var data map[string]interface{}
+			assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+			delete(data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}), field) //nolint
+			srv := oidc4vp.NewAttachmentService(nil)
+			att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+				map[string]string{
+					"doc1": "data:application/json;base64,aGVsbG8gd29ybGQh",
+				})
+
+			assert.NoError(t, err)
+			assert.Contains(t, att[0]["error"], fmt.Sprintf("attachment %s field is required", field))
+		})
+	}
 }

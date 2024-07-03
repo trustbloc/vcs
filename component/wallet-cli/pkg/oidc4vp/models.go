@@ -49,6 +49,7 @@ type IDTokenClaims struct {
 	Nbf                   int64             `json:"nbf"`
 	Iat                   int64             `json:"iat"`
 	Jti                   string            `json:"jti"`
+	Attachments           map[string]string `json:"_attachments"`
 }
 
 type VPTokenClaims struct {

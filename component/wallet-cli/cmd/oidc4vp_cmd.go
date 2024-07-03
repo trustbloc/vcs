@@ -8,12 +8,14 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 
 	"github.com/henvic/httpretty"
 	"github.com/piprate/json-gold/ld"
@@ -38,6 +40,7 @@ type oidc4vpCommandFlags struct {
 	trustRegistryHost              string
 	attestationURL                 string
 	proxyURL                       string
+	attachments                    string
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -87,7 +90,6 @@ func NewOIDC4VPCommand() *cobra.Command {
 
 				httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
 			}
-
 			var walletDIDIndex int
 
 			if flags.walletDIDIndex != -1 {
@@ -150,6 +152,16 @@ func NewOIDC4VPCommand() *cobra.Command {
 				oidc4vp.WithWalletDIDIndex(walletDIDIndex),
 			}
 
+			if flags.attachments != "" {
+				targetAttachments := map[string]string{}
+
+				if err = json.Unmarshal([]byte(flags.attachments), &targetAttachments); err != nil {
+					return fmt.Errorf("can not unmarshal attachments: %w", err)
+				}
+
+				opts = append(opts, oidc4vp.WithAttachments(targetAttachments))
+			}
+
 			if flags.enableLinkedDomainVerification {
 				opts = append(opts, oidc4vp.WithLinkedDomainVerification())
 			}
@@ -186,6 +198,8 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url, i.e. https://<host>/vcs/wallet/attestation")
 	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "trust registry host, i.e. https://<host>/trustregistry")
+	cmd.Flags().StringVar(&flags.attachments, "trust-registry-host", "",
+		`list of attachment. json expected. example {"some_id" : "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n"}`)
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")

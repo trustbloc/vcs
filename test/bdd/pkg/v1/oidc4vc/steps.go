@@ -75,6 +75,7 @@ type Steps struct {
 	composeCredential              *verifiable.Credential
 	expectedCredentialsAmountForVP int
 	expectedAttachment             []string
+	vpAttachments                  map[string]string
 }
 
 // NewSteps returns new Steps context.
@@ -127,6 +128,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims$`, s.retrieveInteractionsClaim)
 	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims with additional claims associated with custom scopes "([^"]*)"$`, s.retrieveInteractionsClaimWithCustomScopes)
 	sc.Step(`^wallet configured to use hardcoded vp_token format "([^"]*)" for OIDC4VP interaction$`, s.setHardcodedVPTokenFormat)
+	sc.Step(`^wallet add attachments to vp flow with data "([^"]*)"$`, s.setVPAttachments)
 
 	// Error cases
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims$`, s.runOIDC4VCIPreAuthWithInvalidClaims)
@@ -167,6 +169,7 @@ func (s *Steps) ResetAndSetup() error {
 	s.composeCredential = nil
 	s.expectedCredentialsAmountForVP = 0
 	s.expectedAttachment = nil
+	s.vpAttachments = nil
 
 	s.tlsConfig = s.bddContext.TLSConfig
 

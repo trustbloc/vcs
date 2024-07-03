@@ -33,6 +33,7 @@ type AuthorizationResponseParsed struct {
 	CustomScopeClaims map[string]Claims
 	VPTokens          []*ProcessedVPToken
 	AttestationVP     string
+	Attachments       map[string]string // Attachments from IDToken for AttachmentEvidence type
 }
 
 type ProcessedVPToken struct {

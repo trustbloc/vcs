@@ -45,7 +45,9 @@ func (tm *TxManager) ClaimsToClaimsRaw(data *ReceivedClaims) (*ReceivedClaimsRaw
 
 	raw := &ReceivedClaimsRaw{
 		Credentials: [][]byte{},
+		Attachment:  data.Attachments,
 	}
+
 	for _, cred := range data.Credentials {
 		cl, err := json.Marshal(cred)
 		if err != nil {
@@ -88,6 +90,7 @@ func (tm *TxManager) DecryptClaims(ctx context.Context, data *ClaimData) (*Recei
 
 	final := &ReceivedClaims{
 		Credentials: []*verifiable.Credential{},
+		Attachments: raw.Attachment,
 	}
 
 	for _, v := range raw.Credentials {

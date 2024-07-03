@@ -315,6 +315,10 @@ func (s *Steps) runOIDC4VPFlowWithOpts(
 		oidc4vp.WithSchemaValidationDisabled(),
 	}
 
+	if len(s.vpAttachments) > 0 {
+		opts = append(opts, oidc4vp.WithAttachments(s.vpAttachments))
+	}
+
 	if useMultiVPs {
 		opts = append(opts, oidc4vp.WithMultiVPs())
 	}
