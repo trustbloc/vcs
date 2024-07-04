@@ -61,7 +61,7 @@ func NewAttachmentService(
 	}
 }
 
-func (s *AttachmentService) GetAttachmentByTypes(
+func (s *AttachmentService) getAttachmentByTypes(
 	_ context.Context,
 	subjects []verifiable.Subject,
 	attachmentTypes []string,
@@ -116,7 +116,7 @@ func (s *AttachmentService) GetAttachments(
 	subjects []verifiable.Subject,
 	idTokenAttachments map[string]string,
 ) ([]*Attachment, error) {
-	allAttachments := s.GetAttachmentByTypes(ctx, subjects, knownAttachmentTypes)
+	allAttachments := s.getAttachmentByTypes(ctx, subjects, knownAttachmentTypes)
 
 	if len(allAttachments) == 0 {
 		return nil, nil
