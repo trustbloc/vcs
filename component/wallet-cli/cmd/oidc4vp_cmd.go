@@ -198,7 +198,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url, i.e. https://<host>/vcs/wallet/attestation")
 	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "trust registry host, i.e. https://<host>/trustregistry")
-	cmd.Flags().StringVar(&flags.attachments, "trust-registry-host", "",
+	cmd.Flags().StringVar(&flags.attachments, "attachments", "",
 		`list of attachment. json expected. example {"some_id" : "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n"}`)
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")

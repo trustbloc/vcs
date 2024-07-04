@@ -261,6 +261,10 @@ func (s *AttachmentService) handleRemoteAttachment(
 		return fmt.Errorf("unexpected status code: %d and body %v", resp.StatusCode, string(body))
 	}
 
+	if err = s.validateHash(attachment, body); err != nil {
+		return fmt.Errorf("failed to validate hash for remote attachment: %w", err)
+	}
+
 	attachment[AttachmentDataField] = fmt.Sprintf("data:%s;base64,%s",
 		resp.Header.Get("Content-Type"),
 		base64.StdEncoding.EncodeToString(body),

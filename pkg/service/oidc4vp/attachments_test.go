@@ -196,6 +196,7 @@ func TestAttachment(t *testing.T) {
 		assert.EqualValues(t, "doc1", attachment.ID)
 		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
 			attachment.DataURI)
+		assert.Empty(t, attachment.Error)
 
 		assert.Empty(t, attachment.Error)
 
@@ -342,4 +343,21 @@ func TestValidateEvidences(t *testing.T) {
 			assert.Contains(t, att[0].Error, fmt.Sprintf("attachment %s field is required", field))
 		})
 	}
+
+	t.Run("unsupported algo", func(t *testing.T) {
+		var data map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
+
+		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}) //nolint
+		att["hash-alg"] = "Murmur3-NOT-SUPPORTED"
+
+		srv := oidc4vp.NewAttachmentService(nil)
+		attRes, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
+			map[string]string{
+				"doc1": "data:application/json;base64,aGVsbG8gd29ybGQh",
+			})
+
+		assert.NoError(t, err)
+		assert.Contains(t, attRes[0].Error, "unsupported hash algorithm: Murmur3-NOT-SUPPORTED")
+	})
 }

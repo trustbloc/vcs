@@ -53,7 +53,8 @@
             "mimeType": "image/png",
             "uri": "https://localhost/cat.png",
             "description": "Description 1",
-            "hash" : "abcd"
+            "hash": "2550cfe05f0263a1a709799e3e6728a853207c67207484aaf26661b2f5fbfc02",
+            "hash-alg": "SHA-256"
           }
         ]
       }
@@ -67,7 +68,8 @@
         "mimeType": "image/png",
         "uri": "https://localhost/photo.png",
         "description": "Description 1",
-        "hash" : "xyz"
+        "hash": "11431164598bcb8b83a3cb3f5eab7485dd3d4e0b14c7458e5573dc57c030af5f",
+        "hash-alg": "SHA-256"
       }
     }
   }
