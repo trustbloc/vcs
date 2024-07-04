@@ -101,7 +101,8 @@ type attachmentService interface {
 	GetAttachments(
 		ctx context.Context,
 		subjects []verifiable.Subject,
-	) ([]map[string]interface{}, error)
+		idTokenAttachments map[string]string,
+	) ([]*Attachment, error)
 }
 
 type presentationVerifier interface {
@@ -601,7 +602,11 @@ func (s *Service) RetrieveClaims(
 		}
 
 		if s.attachmentService != nil {
-			att, attErr := s.attachmentService.GetAttachments(ctx, credContents.Subject)
+			att, attErr := s.attachmentService.GetAttachments(
+				ctx,
+				credContents.Subject,
+				tx.ReceivedClaims.Attachments,
+			)
 			if attErr != nil {
 				logger.Errorc(ctx, fmt.Sprintf("Failed to get attachments: %+v", attErr))
 			}
@@ -712,6 +717,7 @@ func (s *Service) extractClaimData(
 
 	receivedClaims := &ReceivedClaims{
 		CustomScopeClaims: authResponse.CustomScopeClaims,
+		Attachments:       authResponse.Attachments,
 		Credentials:       storeCredentials,
 	}
 

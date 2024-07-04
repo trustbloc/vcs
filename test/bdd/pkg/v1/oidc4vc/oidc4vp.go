@@ -230,7 +230,7 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 
 		var attachments []string
 		for _, attachment := range val.Attachments {
-			attachments = append(attachments, attachment["uri"].(string))
+			attachments = append(attachments, attachment.DataURI)
 		}
 
 		if len(s.expectedAttachment) > 0 {
@@ -313,6 +313,10 @@ func (s *Steps) runOIDC4VPFlowWithOpts(
 		oidc4vp.WithRequestURI(requestURI[1]),
 		oidc4vp.WithDomainMatchingDisabled(),
 		oidc4vp.WithSchemaValidationDisabled(),
+	}
+
+	if len(s.vpAttachments) > 0 {
+		opts = append(opts, oidc4vp.WithAttachments(s.vpAttachments))
 	}
 
 	if useMultiVPs {

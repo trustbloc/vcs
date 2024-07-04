@@ -33,6 +33,7 @@ type AuthorizationResponseParsed struct {
 	CustomScopeClaims map[string]Claims
 	VPTokens          []*ProcessedVPToken
 	AttestationVP     string
+	Attachments       map[string]string // Attachments from IDToken for AttachmentEvidence type
 }
 
 type ProcessedVPToken struct {
@@ -52,10 +53,10 @@ type CredentialMetadata struct {
 	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]Claims    `json:"customClaims,omitempty"`
 
-	Name        interface{}              `json:"name,omitempty"`
-	AwardedDate interface{}              `json:"awardedDate,omitempty"`
-	Description interface{}              `json:"description,omitempty"`
-	Attachments []map[string]interface{} `json:"attachments"`
+	Name        interface{}   `json:"name,omitempty"`
+	AwardedDate interface{}   `json:"awardedDate,omitempty"`
+	Description interface{}   `json:"description,omitempty"`
+	Attachments []*Attachment `json:"attachments"`
 }
 
 type ServiceInterface interface {
@@ -152,7 +153,14 @@ type ClientMetadata struct {
 	LogoURI                     string           `json:"logo_uri"`
 }
 
-type Attachment struct {
+type attachmentData struct {
 	Type  string
 	Claim map[string]interface{}
+}
+
+type Attachment struct {
+	ID          string `json:"id"`
+	DataURI     string `json:"data_uri"`
+	Description string `json:"description"`
+	Error       string `json:"error,omitempty"`
 }

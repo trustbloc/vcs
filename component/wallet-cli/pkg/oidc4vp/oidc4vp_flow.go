@@ -83,6 +83,7 @@ type Flow struct {
 	disableSchemaValidation        bool
 	perfInfo                       *PerfInfo
 	useMultiVPs                    bool
+	attachments                    map[string]string
 }
 
 type provider interface {
@@ -153,6 +154,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		disableSchemaValidation:        o.disableSchemaValidation,
 		useMultiVPs:                    o.useMultiVPs,
 		perfInfo:                       &PerfInfo{},
+		attachments:                    o.attachments,
 	}, nil
 }
 
@@ -439,8 +441,11 @@ func (f *Flow) sendAuthorizationResponse(
 
 	idToken, err := f.createIDToken(
 		ctx,
-		requestObject.ClientID, requestObject.Nonce, requestObject.Scope,
+		requestObject.ClientID,
+		requestObject.Nonce,
+		requestObject.Scope,
 		attestationRequired,
+		f.attachments,
 	)
 	if err != nil {
 		return fmt.Errorf("create id token: %w", err)
@@ -645,8 +650,11 @@ func (f *Flow) signPresentationLDP(
 
 func (f *Flow) createIDToken(
 	ctx context.Context,
-	clientID, nonce, requestObjectScope string,
+	clientID string,
+	nonce string,
+	requestObjectScope string,
 	attestationRequired bool,
+	attachments map[string]string,
 ) (string, error) {
 	scopeAdditionalClaims, err := extractCustomScopeClaims(requestObjectScope)
 	if err != nil {
@@ -663,6 +671,7 @@ func (f *Flow) createIDToken(
 		Nbf:                   time.Now().Unix(),
 		Iat:                   time.Now().Unix(),
 		Jti:                   uuid.NewString(),
+		Attachments:           attachments,
 	}
 
 	if attestationRequired {
@@ -782,6 +791,7 @@ type options struct {
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
 	useMultiVPs                    bool
+	attachments                    map[string]string
 }
 
 type Opt func(opts *options)
@@ -789,6 +799,12 @@ type Opt func(opts *options)
 func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
 		opts.walletDIDIndex = idx
+	}
+}
+
+func WithAttachments(attachments map[string]string) func(opts *options) {
+	return func(opts *options) {
+		opts.attachments = attachments
 	}
 }
 

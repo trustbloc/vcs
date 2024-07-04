@@ -40,6 +40,7 @@ type Transaction struct {
 }
 
 type ReceivedClaims struct {
+	Attachments       map[string]string
 	CustomScopeClaims map[string]Claims
 	Credentials       []*verifiable.Credential
 }
@@ -48,6 +49,7 @@ type ReceivedClaims struct {
 type ReceivedClaimsRaw struct {
 	Credentials       [][]byte          `json:"credentials"`
 	CustomScopeClaims map[string][]byte `json:"customScopeClaims,omitempty"`
+	Attachment        map[string]string `json:"attachments,omitempty"`
 }
 
 type ClaimData struct {

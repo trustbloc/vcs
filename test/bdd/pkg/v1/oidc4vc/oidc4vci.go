@@ -344,6 +344,17 @@ func (s *Steps) setProofType(proofType string) {
 	s.proofType = proofType
 }
 
+func (s *Steps) setVPAttachments(rawJSON string) error {
+	attachments := make(map[string]string)
+	if err := json.Unmarshal([]byte(rawJSON), &attachments); err != nil {
+		return fmt.Errorf("unmarshal attachment: %w", err)
+	}
+
+	s.vpAttachments = attachments
+
+	return nil
+}
+
 func (s *Steps) setInitiateIssuanceVersion(version string) {
 	s.initiateIssuanceApiVersion = version
 }

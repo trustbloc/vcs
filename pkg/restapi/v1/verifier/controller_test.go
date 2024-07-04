@@ -28,6 +28,8 @@ import (
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -39,7 +41,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
-	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -641,6 +642,75 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		require.Nil(t, authorisationResponseParsed.CustomScopeClaims)
 		require.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+	})
+
+	t.Run("Success LDP With Attachments", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
+			&IDTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				Attachments: map[string]string{
+					"id1": "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
+				},
+			},
+		)
+
+		vpSigned := testutil.SignedVPWithExistingPrivateKey(t,
+			&verifiable.Presentation{
+				Context: []string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://identity.foundation/presentation-exchange/submission/v1",
+					"https://w3id.org/security/suites/jws-2020/v1",
+				},
+				Type: []string{
+					"VerifiablePresentation",
+					"PresentationSubmission",
+				},
+			},
+			vcsverifiable.Ldp,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.KeyType,
+			signedClaimsJWTResult.Signer,
+			func(ldpc *verifiable.LinkedDataProofContext) {
+				ldpc.Domain = validAud
+				ldpc.Challenge = validNonce
+			})
+
+		vpToken, err := vpSigned.MarshalJSON()
+		require.NoError(t, err)
+
+		presentationSubmission, err := json.Marshal(map[string]interface{}{})
+		require.NoError(t, err)
+
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
+		c := NewController(&Config{
+			OIDCVPService:  svc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
+			VDR:            signedClaimsJWTResult.VDR,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		authorisationResponseParsed, err := c.verifyAuthorizationResponseTokens(context.TODO(),
+			&rawAuthorizationResponse{
+				IDToken:                signedClaimsJWTResult.JWT,
+				VPToken:                []string{string(vpToken)},
+				PresentationSubmission: string(presentationSubmission),
+				State:                  "txid",
+			},
+		)
+
+		require.NoError(t, err)
+
+		require.Nil(t, authorisationResponseParsed.CustomScopeClaims)
+		require.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+
+		require.Len(t, authorisationResponseParsed.Attachments, 1)
+		require.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
+			authorisationResponseParsed.Attachments["id1"])
 	})
 
 	t.Run("Success JWT ID1", func(t *testing.T) {

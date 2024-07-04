@@ -1067,19 +1067,23 @@ func TestService_RetrieveClaims(t *testing.T) {
 			verifiable.WithJSONLDDocumentLoader(loader),
 			verifiable.WithDisabledProofCheck())
 
-		attachmentVals := []map[string]interface{}{
+		attachmentVals := []*oidc4vp.Attachment{
 			{
-				"id":  123,
-				"uri": "base64-content",
+				ID:      "123",
+				DataURI: "base64-content",
 			},
 			{
-				"id":  456,
-				"uri": "base64-content2",
+				ID:      "456",
+				DataURI: "base64-content2",
 			},
 		}
 
-		attachmentSvc.EXPECT().GetAttachments(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, subjects []verifiable.Subject) ([]map[string]interface{}, error) {
+		attachmentSvc.EXPECT().GetAttachments(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(
+				ctx context.Context,
+				subjects []verifiable.Subject,
+				idTokenAttachments map[string]string,
+			) ([]*oidc4vp.Attachment, error) {
 				require.Len(t, subjects, 1)
 				require.EqualValues(t, ldvc.Contents().Subject[0], subjects[0])
 

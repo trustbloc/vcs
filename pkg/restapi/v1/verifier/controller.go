@@ -74,6 +74,7 @@ type IDTokenClaims struct {
 	Nonce             string                    `json:"nonce"`
 	Aud               string                    `json:"aud"`
 	Exp               int64                     `json:"exp"`
+	Attachments       map[string]string         `json:"_attachments"`
 }
 
 type VPTokenClaims struct {
@@ -629,6 +630,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 		CustomScopeClaims: idTokenClaims.CustomScopeClaims,
 		VPTokens:          processedVPTokens,
 		AttestationVP:     idTokenClaims.AttestationVP,
+		Attachments:       idTokenClaims.Attachments,
 	}, nil
 }
 
@@ -684,6 +686,17 @@ func validateIDToken(
 		Nonce:             string(v.GetStringBytes("nonce")),
 		Aud:               string(v.GetStringBytes("aud")),
 		Exp:               v.GetInt64("exp"),
+		Attachments:       map[string]string{},
+	}
+
+	if val := v.Get("_attachments"); val != nil {
+		o, _ := val.Object() //nolint
+
+		if o != nil {
+			o.Visit(func(k []byte, v *fastjson.Value) {
+				idTokenClaims.Attachments[string(k)] = string(v.GetStringBytes())
+			})
+		}
 	}
 
 	if idTokenClaims.Exp < time.Now().Unix() {

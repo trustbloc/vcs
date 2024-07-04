@@ -31,46 +31,16 @@
     },
     "name": "Jayden Doe",
     "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-    "attachment1": {
-      "id": "doc12",
-      "type": [
-        "EmbeddedAttachment"
-      ],
-      "mimeType": "image/jpeg",
-      "uri": "base64content",
-      "description": "Scanned copy of something",
-      "hash": "5d41402abc4b2a76b9719d911017c592",
-      "hash-alg": "SHA-256"
-    },
-    "obj2": {
-      "nested1": {
-        "arr": [
-          {
-            "id": "doc1",
-            "type": [
-              "RemoteAttachment"
-            ],
-            "mimeType": "image/png",
-            "uri": "https://localhost/cat.png",
-            "description": "Description 1",
-            "hash": "2550cfe05f0263a1a709799e3e6728a853207c67207484aaf26661b2f5fbfc02",
-            "hash-alg": "SHA-256"
-          }
-        ]
-      }
-    },
-    "some_object": {
-      "photo": {
-        "id": "doc445",
+    "attachment1" : {
+        "id": "doc1",
         "type": [
-          "RemoteAttachment"
+          "AttachmentEvidence"
         ],
-        "mimeType": "image/png",
-        "uri": "https://localhost/photo.png",
-        "description": "Description 1",
-        "hash": "11431164598bcb8b83a3cb3f5eab7485dd3d4e0b14c7458e5573dc57c030af5f",
+        "mimeType": "image/jpeg",
+        "uri": "base64content",
+        "description": "Scanned copy of something",
+        "hash": "7509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9",
         "hash-alg": "SHA-256"
-      }
     }
   }
 }

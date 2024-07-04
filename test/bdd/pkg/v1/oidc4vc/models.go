@@ -10,6 +10,7 @@ import (
 	util "github.com/trustbloc/did-go/doc/util/time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
 
 type initiateOIDC4VCIResponse struct {
@@ -109,7 +110,7 @@ type credentialMetadata struct {
 	IssuanceDate   *util.TimeWrapper                 `json:"issuanceDate,omitempty"`
 	ExpirationDate *util.TimeWrapper                 `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]map[string]interface{} `json:"customClaims,omitempty"`
-	Attachments    []map[string]interface{}          `json:"attachments,omitempty"`
+	Attachments    []*oidc4vp.Attachment             `json:"attachments,omitempty"`
 }
 
 type retrievedCredentialClaims map[string]credentialMetadata
