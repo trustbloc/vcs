@@ -230,7 +230,7 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 
 		var attachments []string
 		for _, attachment := range val.Attachments {
-			attachments = append(attachments, attachment["uri"].(string))
+			attachments = append(attachments, attachment.DataURI)
 		}
 
 		if len(s.expectedAttachment) > 0 {
