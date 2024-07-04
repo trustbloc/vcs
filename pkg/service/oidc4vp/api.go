@@ -153,7 +153,14 @@ type ClientMetadata struct {
 	LogoURI                     string           `json:"logo_uri"`
 }
 
-type Attachment struct {
+type attachmentData struct {
 	Type  string
 	Claim map[string]interface{}
+}
+
+type Attachment struct {
+	ID          string `json:"id"`
+	DataURI     string `json:"data_uri"`
+	Description string `json:"description"`
+	Error       string `json:"error,omitempty"`
 }

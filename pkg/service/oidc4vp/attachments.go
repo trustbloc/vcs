@@ -27,13 +27,15 @@ import (
 )
 
 const (
-	AttachmentTypeRemote    = "RemoteAttachment"
-	AttachmentTypeEmbedded  = "EmbeddedAttachment"
-	AttachmentEvidence      = "AttachmentEvidence"
-	AttachmentDataField     = "uri"
-	AttachmentIDField       = "id"
-	AttachmentHashField     = "hash"
-	AttachmentHashAlgoField = "hash-alg"
+	AttachmentTypeRemote       = "RemoteAttachment"
+	AttachmentTypeEmbedded     = "EmbeddedAttachment"
+	AttachmentEvidence         = "AttachmentEvidence"
+	AttachmentDataField        = "uri"
+	AttachmentIDField          = "id"
+	AttachmentHashField        = "hash"
+	AttachmentHashAlgoField    = "hash-alg"
+	AttachmentErrorField       = "error"
+	AttachmentDescriptionField = "description"
 )
 
 // nolint:gochecknoglobals
@@ -63,8 +65,8 @@ func (s *AttachmentService) GetAttachmentByTypes(
 	_ context.Context,
 	subjects []verifiable.Subject,
 	attachmentTypes []string,
-) []*Attachment {
-	var allAttachments []*Attachment
+) []*attachmentData {
+	var allAttachments []*attachmentData
 
 	for _, subject := range subjects {
 		allAttachments = append(allAttachments,
@@ -74,46 +76,6 @@ func (s *AttachmentService) GetAttachmentByTypes(
 
 	return allAttachments
 }
-
-//
-//func (s *AttachmentService) ValidateEvidences(
-//	ctx context.Context,
-//	subjects []verifiable.Subject,
-//	idTokenAttachments map[string]string,
-//) error {
-//	attachments := s.GetAttachmentByTypes(ctx, subjects, []string{AttachmentEvidence})
-//	if len(attachments) == 0 {
-//		return nil
-//	}
-//
-//	if len(idTokenAttachments) == 0 {
-//		return errors.New("id token attachments are empty")
-//	}
-//
-//	for _, attachment := range attachments {
-//		idAttachment, ok := attachment.Claim[AttachmentIDField].(string)
-//		if !ok {
-//			return errors.New("attachment id field is required")
-//		}
-//
-//		idTokenAttachment, ok := idTokenAttachments[idAttachment]
-//		if !ok {
-//			return fmt.Errorf("id token attachment not found for id: %s", idAttachment)
-//		}
-//
-//		bodySegments := strings.Split(idTokenAttachment, ",") // skip data:%s;base64,%s
-//		rawBody, err := base64.StdEncoding.DecodeString(bodySegments[len(bodySegments)-1])
-//		if err != nil {
-//			return fmt.Errorf("failed to decode base64 body id token attachment: %w", err)
-//		}
-//
-//		if err = s.validateHash(attachment.Claim, rawBody); err != nil {
-//			return fmt.Errorf("failed to validate hash for attachment id %s: %w", idAttachment, err)
-//		}
-//	}
-//
-//	return nil
-//}
 
 func (s *AttachmentService) handleEvidenceAttachment(
 	_ context.Context,
@@ -153,26 +115,26 @@ func (s *AttachmentService) GetAttachments(
 	ctx context.Context,
 	subjects []verifiable.Subject,
 	idTokenAttachments map[string]string,
-) ([]map[string]interface{}, error) {
+) ([]*Attachment, error) {
 	allAttachments := s.GetAttachmentByTypes(ctx, subjects, knownAttachmentTypes)
 
 	if len(allAttachments) == 0 {
 		return nil, nil
 	}
 
-	var final []map[string]interface{}
+	var resultAttachments []map[string]interface{}
 
 	var wg sync.WaitGroup
 	for _, attachment := range allAttachments {
 		cloned := maphelpers.CopyMap(attachment.Claim)
 		attachment.Claim = cloned
 
-		final = append(final, attachment.Claim)
+		resultAttachments = append(resultAttachments, attachment.Claim)
 
 		switch attachment.Type {
 		case AttachmentEvidence:
 			if err := s.handleEvidenceAttachment(ctx, cloned, idTokenAttachments); err != nil {
-				cloned["error"] = fmt.Sprintf("failed to handle evidence attachment: %s", err)
+				cloned[AttachmentErrorField] = fmt.Sprintf("failed to handle evidence attachment: %s", err)
 			}
 		case AttachmentTypeRemote:
 			wg.Add(1)
@@ -181,7 +143,7 @@ func (s *AttachmentService) GetAttachments(
 
 				err := s.handleRemoteAttachment(ctx, cloned)
 				if err != nil {
-					cloned["error"] = fmt.Sprintf("failed to handle remote attachment: %s", err)
+					cloned[AttachmentErrorField] = fmt.Sprintf("failed to handle remote attachment: %s", err)
 				}
 			}()
 		default:
@@ -189,6 +151,25 @@ func (s *AttachmentService) GetAttachments(
 		}
 	}
 	wg.Wait()
+
+	var final []*Attachment
+	for _, attachment := range resultAttachments {
+		att := &Attachment{
+			ID: fmt.Sprint(attachment[AttachmentIDField]),
+		}
+
+		if v, ok := attachment[AttachmentDataField]; ok {
+			att.DataURI = fmt.Sprint(v)
+		}
+		if v, ok := attachment[AttachmentDescriptionField]; ok {
+			att.Description = fmt.Sprint(v)
+		}
+		if v, ok := attachment[AttachmentErrorField]; ok {
+			att.Error = fmt.Sprint(v)
+		}
+
+		final = append(final, att)
+	}
 
 	return final, nil
 }
@@ -292,8 +273,8 @@ func (s *AttachmentService) handleRemoteAttachment(
 func (s *AttachmentService) findAttachments(
 	targetMap map[string]interface{},
 	types []string,
-) []*Attachment {
-	var attachments []*Attachment
+) []*attachmentData {
+	var attachments []*attachmentData
 
 	for k, v := range targetMap {
 		switch valTyped := v.(type) {
@@ -314,7 +295,7 @@ func (s *AttachmentService) findAttachments(
 		switch typed := v.(type) {
 		case string:
 			if lo.Contains(types, typed) {
-				attachments = append(attachments, &Attachment{
+				attachments = append(attachments, &attachmentData{
 					Type:  typed,
 					Claim: targetMap,
 				})
@@ -327,7 +308,7 @@ func (s *AttachmentService) findAttachments(
 
 			for _, item := range newSlice {
 				if lo.Contains(types, item) {
-					attachments = append(attachments, &Attachment{
+					attachments = append(attachments, &attachmentData{
 						Type:  item,
 						Claim: targetMap,
 					})
@@ -336,7 +317,7 @@ func (s *AttachmentService) findAttachments(
 		case []string:
 			for _, item := range typed {
 				if lo.Contains(types, item) {
-					attachments = append(attachments, &Attachment{
+					attachments = append(attachments, &attachmentData{
 						Type:  item,
 						Claim: targetMap,
 					})

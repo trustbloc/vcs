@@ -57,10 +57,8 @@ func TestAttachment(t *testing.T) {
 		assert.Len(t, resp, 1)
 
 		attachment := resp[0]
-		assert.EqualValues(t, []interface{}{"EmbeddedAttachment"}, attachment["type"])
-		assert.EqualValues(t, "base64content", attachment["uri"])
-		assert.Nil(t, attachment["error"])
-		assert.EqualValues(t, "5d41402abc4b2a76b9719d911017c592", attachment["hash"])
+		assert.EqualValues(t, "base64content", attachment.DataURI)
+		assert.Empty(t, attachment.Error)
 	})
 
 	t.Run("with remote attachment err", func(t *testing.T) {
@@ -83,10 +81,9 @@ func TestAttachment(t *testing.T) {
 		assert.Len(t, resp, 1)
 
 		attachment := resp[0]
-		assert.EqualValues(t, []interface{}{"RemoteAttachment"}, attachment["type"])
-		assert.EqualValues(t, "https://someurl.local", attachment["uri"])
+		assert.EqualValues(t, "https://someurl.local", attachment.DataURI)
 		assert.EqualValues(t, "failed to handle remote attachment: failed to fetch url: connection failed",
-			attachment["error"])
+			attachment.Error)
 	})
 
 	t.Run("with remote attachment invalid status", func(t *testing.T) {
@@ -114,10 +111,9 @@ func TestAttachment(t *testing.T) {
 		assert.Len(t, resp, 1)
 
 		attachment := resp[0]
-		assert.EqualValues(t, []interface{}{"RemoteAttachment"}, attachment["type"])
-		assert.EqualValues(t, "https://someurl.local", attachment["uri"])
+		assert.EqualValues(t, "https://someurl.local", attachment.DataURI)
 		assert.EqualValues(t, "failed to handle remote attachment: unexpected status code: 404 and body file not found",
-			attachment["error"])
+			attachment.Error)
 	})
 
 	t.Run("with embedded attachment as string type", func(t *testing.T) {
@@ -132,10 +128,8 @@ func TestAttachment(t *testing.T) {
 		assert.Len(t, resp, 1)
 
 		attachment := resp[0]
-		assert.EqualValues(t, "EmbeddedAttachment", attachment["type"])
-		assert.EqualValues(t, "base64content", attachment["uri"])
-		assert.Nil(t, attachment["error"])
-		assert.EqualValues(t, "5d41402abc4b2a76b9719d911017c592", attachment["hash"])
+		assert.EqualValues(t, "base64content", attachment.DataURI)
+		assert.Empty(t, attachment.Error)
 	})
 
 	t.Run("with embedded attachment as string arr", func(t *testing.T) {
@@ -150,10 +144,8 @@ func TestAttachment(t *testing.T) {
 		assert.Len(t, resp, 1)
 
 		attachment := resp[0]
-		assert.EqualValues(t, []string{"EmbeddedAttachment"}, attachment["type"])
-		assert.EqualValues(t, "base64content", attachment["uri"])
-		assert.Nil(t, attachment["error"])
-		assert.EqualValues(t, "5d41402abc4b2a76b9719d911017c592", attachment["hash"])
+		assert.EqualValues(t, "base64content", attachment.DataURI)
+		assert.Empty(t, attachment.Error)
 	})
 
 	t.Run("multiple attachments", func(t *testing.T) {
@@ -192,33 +184,27 @@ func TestAttachment(t *testing.T) {
 		assert.EqualValues(t, []string{"https://localhost/cat.png", "https://localhost/photo.png"}, urlsCalled)
 
 		sort.Slice(resp, func(i, j int) bool {
-			return resp[i]["id"].(string) < resp[j]["id"].(string)
+			return resp[i].ID < resp[j].ID
 		})
 
 		attachment := resp[1]
-		assert.EqualValues(t, "doc12", attachment["id"])
-		assert.EqualValues(t, []interface{}{"EmbeddedAttachment"}, attachment["type"])
-		assert.EqualValues(t, "base64content", attachment["uri"])
-		assert.Nil(t, attachment["error"])
-		assert.EqualValues(t, "5d41402abc4b2a76b9719d911017c592", attachment["hash"])
+		assert.EqualValues(t, "doc12", attachment.ID)
+		assert.EqualValues(t, "base64content", attachment.DataURI)
+		assert.Empty(t, attachment.Error)
 
 		attachment = resp[0]
-		assert.EqualValues(t, "doc1", attachment["id"])
-		assert.EqualValues(t, []interface{}{"RemoteAttachment"}, attachment["type"])
+		assert.EqualValues(t, "doc1", attachment.ID)
 		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
-			attachment["uri"])
+			attachment.DataURI)
 
-		assert.Nil(t, attachment["error"])
-		assert.EqualValues(t, "abcd", attachment["hash"])
+		assert.Empty(t, attachment.Error)
 
 		attachment = resp[2]
-		assert.EqualValues(t, "doc445", attachment["id"])
-		assert.EqualValues(t, []interface{}{"RemoteAttachment"}, attachment["type"])
+		assert.EqualValues(t, "doc445", attachment.ID)
 		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9waG90by5wbmc=",
-			attachment["uri"])
+			attachment.DataURI)
 
-		assert.Nil(t, attachment["error"])
-		assert.EqualValues(t, "xyz", attachment["hash"])
+		assert.Empty(t, attachment.Error)
 	})
 }
 
@@ -242,7 +228,7 @@ func TestValidateEvidences(t *testing.T) {
 		assert.Len(t, att, 1)
 		assert.NoError(t, err)
 
-		assert.Contains(t, att[0]["error"], "id token attachments are empty")
+		assert.Contains(t, att[0].Error, "id token attachments are empty")
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -256,8 +242,8 @@ func TestValidateEvidences(t *testing.T) {
 
 		assert.Len(t, att, 1)
 		assert.NoError(t, err)
-		assert.EqualValues(t, "data:application/json;base64,aGVsbG8gd29ybGQh", att[0]["uri"])
-		assert.Nil(t, att[0]["error"])
+		assert.EqualValues(t, "data:application/json;base64,aGVsbG8gd29ybGQh", att[0].DataURI)
+		assert.Empty(t, att[0].Error)
 	})
 
 	t.Run("success SHA-384", func(t *testing.T) {
@@ -276,8 +262,8 @@ func TestValidateEvidences(t *testing.T) {
 
 		assert.Len(t, attRes, 1)
 		assert.NoError(t, err)
-		assert.EqualValues(t, "data:application/json;base64,aGVsbG8gd29ybGQh", attRes[0]["uri"])
-		assert.Nil(t, attRes[0]["error"])
+		assert.EqualValues(t, "data:application/json;base64,aGVsbG8gd29ybGQh", attRes[0].DataURI)
+		assert.Empty(t, attRes[0].Error)
 	})
 
 	t.Run("attachment not found in id token", func(t *testing.T) {
@@ -291,7 +277,7 @@ func TestValidateEvidences(t *testing.T) {
 			})
 
 		assert.NoError(t, err)
-		assert.Contains(t, att[0]["error"], "id token attachment not found for id: doc1")
+		assert.Contains(t, att[0].Error, "id token attachment not found for id: doc1")
 	})
 
 	t.Run("invalid base64", func(t *testing.T) {
@@ -305,7 +291,7 @@ func TestValidateEvidences(t *testing.T) {
 			})
 
 		assert.NoError(t, err)
-		assert.Contains(t, att[0]["error"], "failed to decode base64 body id token attachment")
+		assert.Contains(t, att[0].Error, "failed to decode base64 body id token attachment")
 	})
 
 	t.Run("invalid hash", func(t *testing.T) {
@@ -319,7 +305,7 @@ func TestValidateEvidences(t *testing.T) {
 			})
 
 		assert.NoError(t, err)
-		assert.Contains(t, att[0]["error"], "hash: hash mismatch")
+		assert.Contains(t, att[0].Error, "hash: hash mismatch")
 	})
 
 	t.Run("invalid hash SHA-384", func(t *testing.T) {
@@ -336,7 +322,7 @@ func TestValidateEvidences(t *testing.T) {
 			})
 
 		assert.NoError(t, err)
-		assert.Contains(t, attRes[0]["error"], "hash: hash mismatch")
+		assert.Contains(t, attRes[0].Error, "hash: hash mismatch")
 	})
 
 	missingFields := []string{"id", "hash", "hash-alg"}
@@ -353,7 +339,7 @@ func TestValidateEvidences(t *testing.T) {
 				})
 
 			assert.NoError(t, err)
-			assert.Contains(t, att[0]["error"], fmt.Sprintf("attachment %s field is required", field))
+			assert.Contains(t, att[0].Error, fmt.Sprintf("attachment %s field is required", field))
 		})
 	}
 }

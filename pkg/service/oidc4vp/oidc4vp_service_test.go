@@ -1078,8 +1078,12 @@ func TestService_RetrieveClaims(t *testing.T) {
 			},
 		}
 
-		attachmentSvc.EXPECT().GetAttachments(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, subjects []verifiable.Subject) ([]map[string]interface{}, error) {
+		attachmentSvc.EXPECT().GetAttachments(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(
+				ctx context.Context,
+				subjects []verifiable.Subject,
+				idTokenAttachments map[string]string,
+			) ([]map[string]interface{}, error) {
 				require.Len(t, subjects, 1)
 				require.EqualValues(t, ldvc.Contents().Subject[0], subjects[0])
 

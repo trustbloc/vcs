@@ -351,6 +351,8 @@ func (s *Steps) setVPAttachments(rawJSON string) error {
 	}
 
 	s.vpAttachments = attachments
+
+	return nil
 }
 
 func (s *Steps) setInitiateIssuanceVersion(version string) {

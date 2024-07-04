@@ -101,13 +101,8 @@ type attachmentService interface {
 	GetAttachments(
 		ctx context.Context,
 		subjects []verifiable.Subject,
-	) ([]map[string]interface{}, error)
-
-	ValidateEvidences(
-		ctx context.Context,
-		subjects []verifiable.Subject,
 		idTokenAttachments map[string]string,
-	) error
+	) ([]map[string]interface{}, error)
 }
 
 type presentationVerifier interface {
@@ -472,19 +467,6 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 		return err
 	}
 
-	for _, cred := range receivedClaims.Credentials {
-		if err = s.attachmentService.ValidateEvidences(
-			ctx,
-			cred.Contents().Subject,
-			authResponse.Attachments,
-		); err != nil {
-			s.sendFailedTransactionEvent(ctx, tx, profile, err)
-
-			return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "attachment-evidence",
-				fmt.Errorf("failed to validate attachment evidences: %w", err))
-		}
-	}
-
 	err = s.transactionManager.StoreReceivedClaims(
 		tx.ID,
 		receivedClaims,
@@ -620,7 +602,11 @@ func (s *Service) RetrieveClaims(
 		}
 
 		if s.attachmentService != nil {
-			att, attErr := s.attachmentService.GetAttachments(ctx, credContents.Subject)
+			att, attErr := s.attachmentService.GetAttachments(
+				ctx,
+				credContents.Subject,
+				tx.ReceivedClaims.Attachments,
+			)
 			if attErr != nil {
 				logger.Errorc(ctx, fmt.Sprintf("Failed to get attachments: %+v", attErr))
 			}
