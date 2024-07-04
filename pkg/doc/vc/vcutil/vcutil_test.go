@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -205,4 +206,25 @@ func TestPrependCredentialPrefix(t *testing.T) {
 	credential = PrependCredentialPrefix(credential, "prefix_")
 
 	require.Equal(t, "prefix_did:example:ebfeb1f712ebc6f1c276e12ec21", credential.Contents().ID)
+}
+
+func TestAppendIfMissing(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
+		assert.EqualValues(t, []string{
+			"abcd",
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		}, AppendSignatureTypeContext([]string{
+			"abcd",
+		}, vcsverifiable.JSONWebSignature2020))
+	})
+
+	t.Run("already exists", func(t *testing.T) {
+		assert.EqualValues(t, []string{
+			"abcd",
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		}, AppendSignatureTypeContext([]string{
+			"abcd",
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		}, vcsverifiable.JSONWebSignature2020))
+	})
 }
