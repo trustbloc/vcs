@@ -102,7 +102,7 @@ type attachmentService interface {
 		ctx context.Context,
 		subjects []verifiable.Subject,
 		idTokenAttachments map[string]string,
-	) ([]map[string]interface{}, error)
+	) ([]*Attachment, error)
 }
 
 type presentationVerifier interface {
