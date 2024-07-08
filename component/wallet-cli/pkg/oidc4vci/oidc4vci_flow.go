@@ -109,6 +109,7 @@ type Flow struct {
 	walletKeyID                 string
 	walletKeyType               kms.KeyType
 	perfInfo                    *PerfInfo
+	verificationMethod          did.VerificationMethod
 }
 
 type credentialFilter struct {
@@ -190,8 +191,9 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 
 	signatureType := p.Wallet().SignatureType()
 
+	targetVerMethod := docResolution.DIDDocument.VerificationMethod[0]
 	jwsSigner := jwssigner.NewJWSSigner(
-		docResolution.DIDDocument.VerificationMethod[0].ID,
+		targetVerMethod.ID,
 		string(signatureType),
 		kmssigner.NewKMSSigner(signer, signatureType, nil),
 	)
@@ -228,6 +230,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		issuerState:                 o.issuerState,
 		pin:                         o.pin,
 		perfInfo:                    &PerfInfo{},
+		verificationMethod:          targetVerMethod,
 	}, nil
 }
 
@@ -977,6 +980,7 @@ func (f *Flow) buildProof(
 		VDR:              f.vdrRegistry,
 		WalletDID:        f.wallet.DIDs()[0].ID,
 		CredentialIssuer: credentialIssuer,
+		PubKeyJWK:        f.verificationMethod.JSONWebKey(),
 	})
 }
 

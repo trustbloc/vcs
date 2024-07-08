@@ -28,7 +28,7 @@ require (
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.1.3-0.20240701160147-81ac17678f82
+	github.com/trustbloc/vc-go v1.1.3-0.20240708103248-3cec8d2c08a8
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.3
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd

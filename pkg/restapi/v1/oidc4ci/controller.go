@@ -37,6 +37,7 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/veraison/go-cose"
@@ -717,17 +718,12 @@ func (c *Controller) HandleProof(
 		}
 		proofHeaders.Type = typ
 
-		//cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
-		//if !ok {
-		//	return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
-		//}
-
-		keyBytes, ok := cwtParsed.Headers.Protected[cose.HeaderLabelKeyID].([]byte)
+		keyBytes, ok := cwtParsed.Headers.Protected[proof.COSEKeyHeader].(string)
 		if !ok {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
 		}
 
-		proofHeaders.KeyID = string(keyBytes)
+		proofHeaders.KeyID = keyBytes
 	case proofTypeLDPVP:
 		if credentialReq.Proof.LdpVp == nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))

@@ -214,6 +214,8 @@ func (f *Flow) Run(ctx context.Context) error {
 			presentationSubmission.DescriptorMap[i].Format = "jwt_vp"
 		} else if vpFormats.LdpVP != nil {
 			presentationSubmission.DescriptorMap[i].Format = "ldp_vp"
+		} else if vpFormats.CwtVP != nil {
+			presentationSubmission.DescriptorMap[i].Format = "cwt_vp"
 		}
 	}
 
@@ -443,23 +445,6 @@ func (f *Flow) sendAuthorizationResponse(
 
 	v := url.Values{}
 
-	vpFormats := requestObject.ClientMetadata.VPFormats
-
-	for i := range presentationSubmission.DescriptorMap {
-		if vpFormats.JwtVP != nil {
-			presentationSubmission.DescriptorMap[i].Format = "jwt_vp"
-		} else if vpFormats.LdpVP != nil {
-			presentationSubmission.DescriptorMap[i].Format = "ldp_vp"
-		} else if vpFormats.CwtVP != nil {
-			presentationSubmission.DescriptorMap[i].Format = "cwt_vp"
-		}
-	}
-
-	vpToken, err := f.createVPToken(vp, requestObject)
-	if err != nil {
-		return fmt.Errorf("create vp token: %w", err)
-	}
-
 	idToken, err := f.createIDToken(
 		ctx,
 		requestObject.ClientID,
@@ -504,104 +489,63 @@ func (f *Flow) sendAuthorizationResponse(
 }
 
 func (f *Flow) createVPToken(
-	presentation *verifiable.Presentation,
+	presentations []*verifiable.Presentation,
 	requestObject *RequestObject,
-) (string, error) {
-	credential := presentation.Credentials()[0]
+) ([]string, error) {
+	credential := presentations[0].Credentials()[0]
 
 	subjectDID, err := verifiable.SubjectID(credential.Contents().Subject)
 	if err != nil {
-		return "", fmt.Errorf("get subject did: %w", err)
+		return nil, fmt.Errorf("get subject did: %w", err)
 	}
 
 	vpFormats := requestObject.ClientMetadata.VPFormats
 
-	switch {
-	case vpFormats.JwtVP != nil:
-		return f.signPresentationJWT(
-			presentation,
-			subjectDID,
-			requestObject.ClientID,
-			requestObject.Nonce,
+	var vpTokens []string
+
+	for _, presentation := range presentations {
+		var (
+			vpToken string
+			signErr error
 		)
-	case vpFormats.LdpVP != nil:
-		return f.signPresentationLDP(
-			presentation,
-			vcs.SignatureType(vpFormats.LdpVP.ProofType[0]),
-			subjectDID,
-			requestObject.ClientID,
-			requestObject.Nonce,
-		)
-	case vpFormats.CwtVP != nil:
-		return f.signPresentationCWT(
-			presentation,
-			subjectDID,
-			requestObject.ClientID,
-			requestObject.Nonce,
-		)
-	default:
-		return "", fmt.Errorf("no supported vp formats: %v", vpFormats)
-	}
-}
-	case vpFormats.LdpVP != nil:
 
-func (f *Flow) signPresentationJWT(
-	vp *verifiable.Presentation,
-	signerDID, clientID, nonce string,
-) (string, error) {
-	docResolution, err := f.vdrRegistry.Resolve(signerDID)
-	if err != nil {
-		return "", fmt.Errorf("resolve signer did: %w", err)
-	}
-
-	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
-
-	var kmsKeyID string
-
-	for _, didInfo := range f.wallet.DIDs() {
-		if didInfo.ID == signerDID {
-			kmsKeyID = didInfo.KeyID
-			break
+		switch {
+		case vpFormats.JwtVP != nil:
+			if vpToken, signErr = f.signPresentationJWT(
+				presentation,
+				subjectDID,
+				requestObject.ClientID,
+				requestObject.Nonce,
+			); signErr != nil {
+				return nil, signErr
+			}
+		case vpFormats.LdpVP != nil:
+			if vpToken, signErr = f.signPresentationLDP(
+				presentation,
+				vcs.SignatureType(vpFormats.LdpVP.ProofType[0]),
+				subjectDID,
+				requestObject.ClientID,
+				requestObject.Nonce,
+			); signErr != nil {
+				return nil, signErr
+			}
+		case vpFormats.CwtVP != nil:
+			if vpToken, signErr = f.signPresentationCWT(
+				presentation,
+				subjectDID,
+				requestObject.ClientID,
+				requestObject.Nonce,
+			); signErr != nil {
+				return nil, signErr
+			}
+		default:
+			return nil, fmt.Errorf("unsupported vp formats: %v", vpFormats)
 		}
+
+		vpTokens = append(vpTokens, vpToken)
 	}
 
-	signer, err := f.cryptoSuite.FixedKeyMultiSigner(kmsKeyID)
-	if err != nil {
-		return "", fmt.Errorf("create signer for key %s: %w", kmsKeyID, err)
-	}
-
-	kmsSigner := kmssigner.NewKMSSigner(signer, f.wallet.SignatureType(), nil)
-
-	claims := VPTokenClaims{
-		VP:    vp,
-		Nonce: nonce,
-		Exp:   time.Now().Unix() + tokenLifetimeSeconds,
-		Iss:   signerDID,
-		Aud:   clientID,
-		Nbf:   time.Now().Unix(),
-		Iat:   time.Now().Unix(),
-		Jti:   uuid.NewString(),
-	}
-
-	signedJWT, err := jwt.NewJoseSigned(
-		claims,
-		map[string]interface{}{"typ": "JWT"},
-		jwssigner.NewJWSSigner(
-			verificationMethod.ID,
-			string(f.wallet.SignatureType()),
-			kmsSigner,
-		),
-	)
-	if err != nil {
-		return "", fmt.Errorf("create signed jwt: %w", err)
-	}
-
-	jws, err := signedJWT.Serialize(false)
-	if err != nil {
-		return "", fmt.Errorf("serialize signed jwt: %w", err)
-	}
-
-	return jws, nil
+	return vpTokens, nil
 }
 
 func (f *Flow) signPresentationCWT(
@@ -610,14 +554,17 @@ func (f *Flow) signPresentationCWT(
 	clientID,
 	nonce string,
 ) (string, error) {
-	var kmsKeyID string
-
-	var coseAlgo cose.Algorithm
-	var err error
+	var (
+		kmsKeyID string
+		//kmsKeyType kms.KeyType
+		coseAlgo cose.Algorithm
+		err      error
+	)
 
 	for _, didInfo := range f.wallet.DIDs() {
-		if didInfo.ID == signerDID {
+		if didInfo.ID == clientID {
 			kmsKeyID = didInfo.KeyID
+
 			coseAlgo, err = verifiable.KeyTypeToCWSAlgo(didInfo.KeyType)
 			if err != nil {
 				return "", fmt.Errorf("convert key type to cose algorithm: %w", err)
@@ -683,6 +630,65 @@ func (f *Flow) signPresentationCWT(
 	}
 
 	return hex.EncodeToString(final), nil
+}
+
+func (f *Flow) signPresentationJWT(
+	vp *verifiable.Presentation,
+	signerDID, clientID, nonce string,
+) (string, error) {
+	docResolution, err := f.vdrRegistry.Resolve(signerDID)
+	if err != nil {
+		return "", fmt.Errorf("resolve signer did: %w", err)
+	}
+
+	verificationMethod := docResolution.DIDDocument.VerificationMethod[0]
+
+	var kmsKeyID string
+
+	for _, didInfo := range f.wallet.DIDs() {
+		if didInfo.ID == signerDID {
+			kmsKeyID = didInfo.KeyID
+			break
+		}
+	}
+
+	signer, err := f.cryptoSuite.FixedKeyMultiSigner(kmsKeyID)
+	if err != nil {
+		return "", fmt.Errorf("create signer for key %s: %w", kmsKeyID, err)
+	}
+
+	kmsSigner := kmssigner.NewKMSSigner(signer, f.wallet.SignatureType(), nil)
+
+	claims := VPTokenClaims{
+		VP:    vp,
+		Nonce: nonce,
+		Exp:   time.Now().Unix() + tokenLifetimeSeconds,
+		Iss:   signerDID,
+		Aud:   clientID,
+		Nbf:   time.Now().Unix(),
+		Iat:   time.Now().Unix(),
+		Jti:   uuid.NewString(),
+	}
+
+	signedJWT, err := jwt.NewJoseSigned(
+		claims,
+		map[string]interface{}{"typ": "JWT"},
+		jwssigner.NewJWSSigner(
+			verificationMethod.ID,
+			string(f.wallet.SignatureType()),
+			kmsSigner,
+		),
+	)
+	if err != nil {
+		return "", fmt.Errorf("create signed jwt: %w", err)
+	}
+
+	jws, err := signedJWT.Serialize(false)
+	if err != nil {
+		return "", fmt.Errorf("serialize signed jwt: %w", err)
+	}
+
+	return jws, nil
 }
 
 func (f *Flow) signPresentationLDP(
