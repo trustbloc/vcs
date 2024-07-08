@@ -83,6 +83,8 @@ func (b *CWTProofBuilder) Build(
 	ctx context.Context,
 	req *CreateProofRequest,
 ) (*Proof, error) {
+	req.Claims.Issuer = req.WalletDID // per spec
+
 	encoded, err := cbor.Marshal(req.Claims)
 	if err != nil {
 		return nil, fmt.Errorf("marshal proof claims: %w", err)

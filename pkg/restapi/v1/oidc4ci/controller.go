@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
@@ -1207,7 +1208,17 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid kid"))
 	}
 
-	return strings.Split(headers.KeyID, "#")[0], nil
+	targetDID := strings.Split(headers.KeyID, "#")[0]
+
+	if headers.ProofType == proofTypeCWT { // for CWT extract from claim per spec
+		targetDID = claims.Issuer
+	}
+
+	logger.Warn("proofType: " + headers.ProofType)
+	logger.Warn("targetDID: " + targetDID)
+	logger.Warn("claims: " + spew.Sdump(claims))
+
+	return targetDID, nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.

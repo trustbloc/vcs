@@ -562,7 +562,7 @@ func (f *Flow) signPresentationCWT(
 	)
 
 	for _, didInfo := range f.wallet.DIDs() {
-		if didInfo.ID == clientID {
+		if didInfo.ID == signerDID {
 			kmsKeyID = didInfo.KeyID
 
 			coseAlgo, err = verifiable.KeyTypeToCWSAlgo(didInfo.KeyType)
