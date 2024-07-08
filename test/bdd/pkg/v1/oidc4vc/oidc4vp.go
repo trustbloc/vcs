@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
@@ -220,26 +221,52 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 		issuedVCID[vcParsed.Contents().ID] = struct{}{}
 	}
 
-	for retrievedVCID := range claims {
+	for retrievedVCID, val := range claims {
 		_, exist := issuedVCID[retrievedVCID]
+
 		if !exist {
 			return fmt.Errorf("unexpected credential ID %s", retrievedVCID)
 		}
+
+		var attachments []string
+		for _, attachment := range val.Attachments {
+			attachments = append(attachments, attachment.DataURI)
+		}
+
+		if len(s.expectedAttachment) > 0 {
+			if len(attachments) != len(s.expectedAttachment) {
+				return fmt.Errorf("unexpected attachment amount. Expected %d, got %d",
+					len(s.expectedAttachment),
+					len(attachments),
+				)
+			}
+
+			for _, expectedAttachment := range s.expectedAttachment {
+				if !lo.Contains(attachments, expectedAttachment) {
+					return fmt.Errorf("attachment %s not found", expectedAttachment)
+				}
+			}
+		}
+
 	}
 
 	return nil
 }
 
 func (s *Steps) runOIDC4VPFlow(profileVersionedID, pdID, fields string) error {
-	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil)
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil, false)
 }
 
 func (s *Steps) runOIDC4VPFlowWithCustomScopes(profileVersionedID, pdID, fields, customScopes string) error {
-	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, strings.Split(customScopes, ","))
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, strings.Split(customScopes, ","), false)
+}
+
+func (s *Steps) runOIDC4VPFlowWithMultiVPs(profileVersionedID, pdID, fields string) error {
+	return s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil, true)
 }
 
 func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorContains string) error {
-	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil)
+	err := s.runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields, nil, false)
 	if err == nil {
 		return errors.New("error expected")
 	}
@@ -251,7 +278,11 @@ func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, pdID, fields, errorC
 	return nil
 }
 
-func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, scopes []string) error {
+func (s *Steps) runOIDC4VPFlowWithOpts(
+	profileVersionedID, pdID, fields string,
+	scopes []string,
+	useMultiVPs bool,
+) error {
 	s.verifierProfile = s.bddContext.VerifierProfiles[profileVersionedID]
 	s.presentationDefinitionID = pdID
 
@@ -273,13 +304,26 @@ func (s *Steps) runOIDC4VPFlowWithOpts(profileVersionedID, pdID, fields string, 
 		return fmt.Errorf("init oidc4vp interaction: %w", err)
 	}
 
-	requestURI := strings.TrimPrefix(initiateInteractionResult.AuthorizationRequest, "openid-vc://?request_uri=")
+	requestURI := strings.SplitN(initiateInteractionResult.AuthorizationRequest, "?request_uri=", 2)
+	if len(requestURI) != 2 {
+		return fmt.Errorf("invalid AuthorizationRequest format: %s", initiateInteractionResult.AuthorizationRequest)
+	}
 
-	flow, err := oidc4vp.NewFlow(s.oidc4vpProvider,
-		oidc4vp.WithRequestURI(requestURI),
+	opts := []oidc4vp.Opt{
+		oidc4vp.WithRequestURI(requestURI[1]),
 		oidc4vp.WithDomainMatchingDisabled(),
 		oidc4vp.WithSchemaValidationDisabled(),
-	)
+	}
+
+	if len(s.vpAttachments) > 0 {
+		opts = append(opts, oidc4vp.WithAttachments(s.vpAttachments))
+	}
+
+	if useMultiVPs {
+		opts = append(opts, oidc4vp.WithMultiVPs())
+	}
+
+	flow, err := oidc4vp.NewFlow(s.oidc4vpProvider, opts...)
 	if err != nil {
 		return fmt.Errorf("init flow: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,10 +141,21 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{
 			ID: "test",
-		}, "test", []string{customScope}, correctProfile)
+		}, "test", []string{customScope}, "", correctProfile)
 
 		require.NoError(t, err)
 		require.NotNil(t, info)
+		require.True(t, strings.HasPrefix(info.AuthorizationRequest, "openid-vc://"))
+	})
+
+	t.Run("Success with custom URL scheme", func(t *testing.T) {
+		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{
+			ID: "test",
+		}, "test", []string{customScope}, "openid4vp://", correctProfile)
+
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.True(t, strings.HasPrefix(info.AuthorizationRequest, "openid4vp://"))
 	})
 
 	t.Run("No signature did", func(t *testing.T) {
@@ -152,7 +164,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.SigningDID = nil
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, "", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -179,6 +191,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			&presexch.PresentationDefinition{},
 			"test",
 			[]string{customScope},
+			"",
 			correctProfile,
 		)
 
@@ -205,6 +218,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			&presexch.PresentationDefinition{},
 			"test",
 			[]string{customScope},
+			"",
 			correctProfile,
 		)
 
@@ -230,6 +244,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			&presexch.PresentationDefinition{},
 			"test",
 			[]string{customScope},
+			"",
 			correctProfile,
 		)
 
@@ -243,7 +258,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.SigningDID.KMSKeyID = "invalid"
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, "", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -255,7 +270,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		incorrectProfile.OIDCConfig.KeyType = "invalid"
 
 		info, err := s.InitiateOidcInteraction(
-			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, incorrectProfile)
+			context.TODO(), &presexch.PresentationDefinition{}, "test", []string{customScope}, "", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -1032,6 +1047,67 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
 		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
+		require.Empty(t, claims["_scope"])
+	})
+
+	t.Run("Success JsonLD with attachments", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, nil),
+		)
+
+		attachmentSvc := NewMockAttachmentService(gomock.NewController(t))
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:          mockEventSvc,
+			EventTopic:        spi.VerifierEventTopic,
+			AttachmentService: attachmentSvc,
+		})
+		ldvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
+			verifiable.WithJSONLDDocumentLoader(loader),
+			verifiable.WithDisabledProofCheck())
+
+		attachmentVals := []*oidc4vp.Attachment{
+			{
+				ID:      "123",
+				DataURI: "base64-content",
+			},
+			{
+				ID:      "456",
+				DataURI: "base64-content2",
+			},
+		}
+
+		attachmentSvc.EXPECT().GetAttachments(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(
+				ctx context.Context,
+				subjects []verifiable.Subject,
+				idTokenAttachments map[string]string,
+			) ([]*oidc4vp.Attachment, error) {
+				require.Len(t, subjects, 1)
+				require.EqualValues(t, ldvc.Contents().Subject[0], subjects[0])
+
+				return attachmentVals, errors.New("ignored")
+			})
+
+		require.NoError(t, err)
+
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: []*verifiable.Credential{
+				ldvc,
+			}}}, &profileapi.Verifier{})
+
+		require.NotNil(t, claims)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]map[string]interface{})
+
+		require.True(t, ok)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0]["id"])
+
+		require.EqualValues(t, attachmentVals, claims["http://example.gov/credentials/3732"].Attachments)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
+
 		require.Empty(t, claims["_scope"])
 	})
 

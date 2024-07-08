@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs/test/bdd/loginconsent
 
-go 1.21
+go 1.22
 
 require (
 	github.com/google/uuid v1.3.0

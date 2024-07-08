@@ -74,6 +74,8 @@ type Steps struct {
 	composeFeatureEnabled          bool
 	composeCredential              *verifiable.Credential
 	expectedCredentialsAmountForVP int
+	expectedAttachment             []string
+	vpAttachments                  map[string]string
 }
 
 // NewSteps returns new Steps context.
@@ -98,6 +100,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User saves issued credentials`, s.saveCredentials)
 	sc.Step(`^"([^"]*)" credentials are issued$`, s.checkIssuedCredential)
 	sc.Step(`^expected credential count for vp flow is "([^"]*)"$`, s.setExpectedCredentialsAmountForVP)
+	sc.Step(`^expected attachment for vp flow is "([^"]*)"$`, s.addExpectedAttachmentForVP)
 	sc.Step(`^issued credential history is updated`, s.checkIssuedCredentialHistoryStep)
 
 	// OIDC4VCI
@@ -120,10 +123,12 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	// OIDC4VP
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)"$`, s.runOIDC4VPFlow)
+	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" using multi vps$`, s.runOIDC4VPFlowWithMultiVPs)
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile with presentation definition ID "([^"]*)" and fields "([^"]*)" and custom scopes "([^"]*)"$`, s.runOIDC4VPFlowWithCustomScopes)
 	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims$`, s.retrieveInteractionsClaim)
 	sc.Step(`^Verifier with profile "([^"]*)" retrieves interactions claims with additional claims associated with custom scopes "([^"]*)"$`, s.retrieveInteractionsClaimWithCustomScopes)
 	sc.Step(`^wallet configured to use hardcoded vp_token format "([^"]*)" for OIDC4VP interaction$`, s.setHardcodedVPTokenFormat)
+	sc.Step(`^wallet add attachments to vp flow with data '([^$]*)'$`, s.setVPAttachments)
 
 	// Error cases
 	sc.Step(`^User interacts with Wallet to initiate credential issuance using pre authorization code flow with invalid claims$`, s.runOIDC4VCIPreAuthWithInvalidClaims)
@@ -163,6 +168,8 @@ func (s *Steps) ResetAndSetup() error {
 	s.composeFeatureEnabled = false
 	s.composeCredential = nil
 	s.expectedCredentialsAmountForVP = 0
+	s.expectedAttachment = nil
+	s.vpAttachments = nil
 
 	s.tlsConfig = s.bddContext.TLSConfig
 

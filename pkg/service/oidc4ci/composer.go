@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"text/template"
+	"time"
 
 	"github.com/google/uuid"
 	util "github.com/trustbloc/did-go/doc/util/time"
@@ -69,7 +70,11 @@ func (c *CredentialComposer) Compose(
 	}
 
 	if credential.Contents().Expired == nil && txCredentialConfiguration.CredentialExpiresAt != nil {
-		credential.SetCustomField("expirationDate", util.NewTime(*txCredentialConfiguration.CredentialExpiresAt))
+		credential = credential.WithModifiedExpired(util.NewTime(*txCredentialConfiguration.CredentialExpiresAt))
+	}
+
+	if credential.Contents().Issued == nil {
+		credential = credential.WithModifiedIssued(util.NewTime(time.Now().UTC()))
 	}
 
 	return credential, nil

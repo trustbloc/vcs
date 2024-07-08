@@ -86,6 +86,8 @@ type Flow struct {
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
 	perfInfo                       *PerfInfo
+	useMultiVPs                    bool
+	attachments                    map[string]string
 }
 
 type provider interface {
@@ -154,7 +156,9 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		enableLinkedDomainVerification: o.enableLinkedDomainVerification,
 		disableDomainMatching:          o.disableDomainMatching,
 		disableSchemaValidation:        o.disableSchemaValidation,
+		useMultiVPs:                    o.useMultiVPs,
 		perfInfo:                       &PerfInfo{},
+		attachments:                    o.attachments,
 	}, nil
 }
 
@@ -198,32 +202,54 @@ func (f *Flow) Run(ctx context.Context) error {
 		requestObject.PresentationDefinition.InputDescriptors[0].Schema = nil
 	}
 
-	vp, err := f.queryWallet(&pd)
+	vps, presentationSubmission, err := f.queryWallet(&pd, requestObject.ClientMetadata.VPFormats)
 	if err != nil {
 		return fmt.Errorf("query wallet: %w", err)
+	}
+
+	vpFormats := requestObject.ClientMetadata.VPFormats
+
+	for i := range presentationSubmission.DescriptorMap {
+		if vpFormats.JwtVP != nil {
+			presentationSubmission.DescriptorMap[i].Format = "jwt_vp"
+		} else if vpFormats.LdpVP != nil {
+			presentationSubmission.DescriptorMap[i].Format = "ldp_vp"
+		}
+	}
+
+	var credentials []*verifiable.Credential
+
+	for _, vp := range vps {
+		vpCredentials := vp.Credentials()
+
+		if !f.disableDomainMatching {
+			for i := len(vpCredentials) - 1; i >= 0; i-- {
+				credential := vpCredentials[i]
+				if !sameDIDWebDomain(credential.Contents().Issuer.ID, requestObject.ClientID) {
+					vpCredentials = append(vpCredentials[:i], vpCredentials[i+1:]...)
+				}
+			}
+		}
+
+		credentials = append(credentials, vpCredentials...)
 	}
 
 	var attestationRequired bool
 
 	if f.trustRegistry != nil && !reflect.ValueOf(f.trustRegistry).IsNil() {
-		attestationRequired, err = f.trustRegistry.ValidateVerifier(ctx, requestObject.ClientID, "", vp.Credentials())
+		attestationRequired, err = f.trustRegistry.ValidateVerifier(ctx, requestObject.ClientID, "", credentials)
 		if err != nil {
 			return fmt.Errorf("validate verifier: %w", err)
 		}
 	}
 
-	if !f.disableDomainMatching {
-		credentials := vp.Credentials()
-
-		for i := len(credentials) - 1; i >= 0; i-- {
-			credential := credentials[i]
-			if !sameDIDWebDomain(credential.Contents().Issuer.ID, requestObject.ClientID) {
-				credentials = append(credentials[:i], credentials[i+1:]...)
-			}
-		}
-	}
-
-	if err = f.sendAuthorizationResponse(ctx, requestObject, vp, attestationRequired); err != nil {
+	if err = f.sendAuthorizationResponse(
+		ctx,
+		requestObject,
+		vps,
+		presentationSubmission,
+		attestationRequired,
+	); err != nil {
 		return fmt.Errorf("send authorization response: %w", err)
 	}
 
@@ -362,7 +388,10 @@ func getServiceType(serviceType interface{}) string {
 	return val
 }
 
-func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) (*verifiable.Presentation, error) {
+func (f *Flow) queryWallet(
+	pd *presexch.PresentationDefinition,
+	vpFormat *presexch.Format,
+) ([]*verifiable.Presentation, *presexch.PresentationSubmission, error) {
 	slog.Info("Querying wallet")
 
 	start := time.Now()
@@ -372,19 +401,19 @@ func (f *Flow) queryWallet(pd *presexch.PresentationDefinition) (*verifiable.Pre
 
 	b, err := json.Marshal(pd)
 	if err != nil {
-		return nil, fmt.Errorf("marshal presentation definition: %w", err)
+		return nil, nil, fmt.Errorf("marshal presentation definition: %w", err)
 	}
 
-	presentations, err := f.wallet.Query(b)
+	presentations, submission, err := f.wallet.Query(b, vpFormat.JwtVP != nil, f.useMultiVPs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(presentations) == 0 || len(presentations[0].Credentials()) == 0 {
-		return nil, fmt.Errorf("no matching credentials found")
+		return nil, nil, fmt.Errorf("no matching credentials found")
 	}
 
-	return presentations[0], nil
+	return presentations, submission, nil
 }
 
 func sameDIDWebDomain(did1, did2 string) bool {
@@ -402,7 +431,8 @@ func sameDIDWebDomain(did1, did2 string) bool {
 func (f *Flow) sendAuthorizationResponse(
 	ctx context.Context,
 	requestObject *RequestObject,
-	vp *verifiable.Presentation,
+	presentations []*verifiable.Presentation,
+	presentationSubmission *presexch.PresentationSubmission,
 	attestationRequired bool,
 ) error {
 	slog.Info("Sending authorization response",
@@ -411,10 +441,7 @@ func (f *Flow) sendAuthorizationResponse(
 
 	start := time.Now()
 
-	presentationSubmission, ok := vp.CustomFields["presentation_submission"].(*presexch.PresentationSubmission)
-	if !ok {
-		return fmt.Errorf("missing or invalid presentation_submission")
-	}
+	v := url.Values{}
 
 	vpFormats := requestObject.ClientMetadata.VPFormats
 
@@ -435,11 +462,32 @@ func (f *Flow) sendAuthorizationResponse(
 
 	idToken, err := f.createIDToken(
 		ctx,
-		requestObject.ClientID, requestObject.Nonce, requestObject.Scope,
+		requestObject.ClientID,
+		requestObject.Nonce,
+		requestObject.Scope,
 		attestationRequired,
+		f.attachments,
 	)
 	if err != nil {
 		return fmt.Errorf("create id token: %w", err)
+	}
+
+	v.Add("id_token", idToken)
+
+	vpTokens, err := f.createVPToken(presentations, requestObject)
+	if err != nil {
+		return fmt.Errorf("create vp token: %w", err)
+	}
+
+	if len(vpTokens) == 1 {
+		v.Add("vp_token", vpTokens[0])
+	} else {
+		b, marshalErr := json.Marshal(vpTokens)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal vp tokens: %w", marshalErr)
+		}
+
+		v.Add("vp_token", string(b))
 	}
 
 	presentationSubmissionJSON, err := json.Marshal(presentationSubmission)
@@ -447,12 +495,8 @@ func (f *Flow) sendAuthorizationResponse(
 		return fmt.Errorf("marshal presentation submission: %w", err)
 	}
 
-	v := url.Values{
-		"id_token":                {idToken},
-		"vp_token":                {vpToken},
-		"presentation_submission": {string(presentationSubmissionJSON)},
-		"state":                   {requestObject.State},
-	}
+	v.Add("presentation_submission", string(presentationSubmissionJSON))
+	v.Add("state", requestObject.State)
 
 	f.perfInfo.CreateAuthorizedResponse = time.Since(start)
 
@@ -499,6 +543,7 @@ func (f *Flow) createVPToken(
 		return "", fmt.Errorf("no supported vp formats: %v", vpFormats)
 	}
 }
+	case vpFormats.LdpVP != nil:
 
 func (f *Flow) signPresentationJWT(
 	vp *verifiable.Presentation,
@@ -698,8 +743,11 @@ func (f *Flow) signPresentationLDP(
 
 func (f *Flow) createIDToken(
 	ctx context.Context,
-	clientID, nonce, requestObjectScope string,
+	clientID string,
+	nonce string,
+	requestObjectScope string,
 	attestationRequired bool,
+	attachments map[string]string,
 ) (string, error) {
 	scopeAdditionalClaims, err := extractCustomScopeClaims(requestObjectScope)
 	if err != nil {
@@ -716,6 +764,7 @@ func (f *Flow) createIDToken(
 		Nbf:                   time.Now().Unix(),
 		Iat:                   time.Now().Unix(),
 		Jti:                   uuid.NewString(),
+		Attachments:           attachments,
 	}
 
 	if attestationRequired {
@@ -834,6 +883,8 @@ type options struct {
 	enableLinkedDomainVerification bool
 	disableDomainMatching          bool
 	disableSchemaValidation        bool
+	useMultiVPs                    bool
+	attachments                    map[string]string
 }
 
 type Opt func(opts *options)
@@ -841,6 +892,12 @@ type Opt func(opts *options)
 func WithWalletDIDIndex(idx int) Opt {
 	return func(opts *options) {
 		opts.walletDIDIndex = idx
+	}
+}
+
+func WithAttachments(attachments map[string]string) func(opts *options) {
+	return func(opts *options) {
+		opts.attachments = attachments
 	}
 }
 
@@ -865,5 +922,11 @@ func WithDomainMatchingDisabled() Opt {
 func WithSchemaValidationDisabled() Opt {
 	return func(opts *options) {
 		opts.disableSchemaValidation = true
+	}
+}
+
+func WithMultiVPs() Opt {
+	return func(opts *options) {
+		opts.useMultiVPs = true
 	}
 }

@@ -12,9 +12,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestWrapper_HandleEvent(t *testing.T) {
@@ -28,7 +27,7 @@ func TestWrapper_HandleEvent(t *testing.T) {
 	svc := NewMockEventHandler(ctrl)
 	svc.EXPECT().HandleEvent(gomock.Any(), event).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	err := w.HandleEvent(context.Background(), event)
 	require.NoError(t, err)

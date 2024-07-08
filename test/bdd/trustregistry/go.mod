@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs/test/bdd/trustregistry
 
-go 1.21
+go 1.22
 
 require (
 	github.com/gorilla/mux v1.8.0

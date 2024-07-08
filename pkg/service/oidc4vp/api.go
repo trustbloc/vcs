@@ -33,6 +33,7 @@ type AuthorizationResponseParsed struct {
 	CustomScopeClaims map[string]Claims
 	VPTokens          []*ProcessedVPToken
 	AttestationVP     string
+	Attachments       map[string]string // Attachments from IDToken for AttachmentEvidence type
 }
 
 type ProcessedVPToken struct {
@@ -52,9 +53,10 @@ type CredentialMetadata struct {
 	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]Claims    `json:"customClaims,omitempty"`
 
-	Name        interface{} `json:"name,omitempty"`
-	AwardedDate interface{} `json:"awardedDate,omitempty"`
-	Description interface{} `json:"description,omitempty"`
+	Name        interface{}   `json:"name,omitempty"`
+	AwardedDate interface{}   `json:"awardedDate,omitempty"`
+	Description interface{}   `json:"description,omitempty"`
+	Attachments []*Attachment `json:"attachments"`
 }
 
 type ServiceInterface interface {
@@ -63,6 +65,7 @@ type ServiceInterface interface {
 		presentationDefinition *presexch.PresentationDefinition,
 		purpose string,
 		customScopes []string,
+		customURLScheme string,
 		profile *profileapi.Verifier,
 	) (*InteractionInfo, error)
 	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, authResponse *AuthorizationResponseParsed) error
@@ -148,4 +151,16 @@ type ClientMetadata struct {
 	VPFormats                   *presexch.Format `json:"vp_formats"`
 	ClientPurpose               string           `json:"client_purpose"`
 	LogoURI                     string           `json:"logo_uri"`
+}
+
+type attachmentData struct {
+	Type  string
+	Claim map[string]interface{}
+}
+
+type Attachment struct {
+	ID          string `json:"id"`
+	DataURI     string `json:"data_uri"`
+	Description string `json:"description"`
+	Error       string `json:"error,omitempty"`
 }

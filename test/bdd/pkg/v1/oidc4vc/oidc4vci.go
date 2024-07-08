@@ -344,6 +344,17 @@ func (s *Steps) setProofType(proofType string) {
 	s.proofType = proofType
 }
 
+func (s *Steps) setVPAttachments(rawJSON string) error {
+	attachments := make(map[string]string)
+	if err := json.Unmarshal([]byte(rawJSON), &attachments); err != nil {
+		return fmt.Errorf("unmarshal attachment: %w", err)
+	}
+
+	s.vpAttachments = attachments
+
+	return nil
+}
+
 func (s *Steps) setInitiateIssuanceVersion(version string) {
 	s.initiateIssuanceApiVersion = version
 }
@@ -1138,6 +1149,12 @@ func getOrgAuthTokenKey(org string) string {
 	return org + "-accessToken"
 }
 
+func (s *Steps) addExpectedAttachmentForVP(data string) error {
+	s.expectedAttachment = append(s.expectedAttachment, data)
+
+	return nil
+}
+
 func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount string) error {
 	amount, err := strconv.Atoi(expectedCredentialsAmount)
 	if err != nil {
@@ -1148,6 +1165,7 @@ func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount stri
 
 	return nil
 }
+
 func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {

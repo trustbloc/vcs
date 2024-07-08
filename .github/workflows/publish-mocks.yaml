@@ -34,10 +34,10 @@ jobs:
           username: ${{ secrets.CR_USER }}
           password: ${{ secrets.CR_PAT }}
 
-      - name: Setup Go 1.21
+      - name: Setup Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
       - run: make sample-webhook
 
@@ -50,7 +50,7 @@ jobs:
           build-args: |
             GO_IMAGE=golang
             ALPINE_VER=3.18
-            GO_VER=1.21
+            GO_VER=1.22
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -88,7 +88,7 @@ jobs:
           build-args: |
             GO_IMAGE=golang
             ALPINE_VER=3.18
-            GO_VER=1.21
+            GO_VER=1.22
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -127,7 +127,7 @@ jobs:
           build-args: |
             GO_IMAGE=golang
             ALPINE_VER=3.18
-            GO_VER=1.21
+            GO_VER=1.22
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -165,7 +165,7 @@ jobs:
           build-args: |
             GO_IMAGE=golang
             ALPINE_VER=3.18
-            GO_VER=1.21
+            GO_VER=1.22
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -188,10 +188,10 @@ jobs:
           TAG=$(git describe --tags --always `git rev-list --tags --max-count=1`)
           echo "IMAGE_TAG"=$TAG >> $GITHUB_ENV
 
-      - name: Setup Go 1.21
+      - name: Setup Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
       - run: make sample-cognito-auth
 
@@ -211,7 +211,7 @@ jobs:
           build-args: |
             GO_IMAGE=golang
             ALPINE_VER=3.18
-            GO_VER=1.21
+            GO_VER=1.22
             ALPINE_IMAGE=alpine
           push: true
           tags: |

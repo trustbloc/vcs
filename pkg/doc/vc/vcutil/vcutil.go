@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -102,17 +103,27 @@ func CreateIssuer(issuerDID, issuerName string) *verifiable.Issuer {
 }
 
 // AppendSignatureTypeContext appends context for JSONWebSignature2020 and BbsBlsSignature2020.
-func AppendSignatureTypeContext(context []string, signatureType vcsverifiable.SignatureType,
+func AppendSignatureTypeContext(
+	context []string,
+	signatureType vcsverifiable.SignatureType,
 ) []string {
 	if signatureType == vcsverifiable.JSONWebSignature2020 {
-		return append(context, jsonWebSignature2020Context)
+		return appendIfMissing(context, jsonWebSignature2020Context)
 	}
 
 	if signatureType == vcsverifiable.BbsBlsSignature2020 {
-		return append(context, bbsBlsSignature2020Context)
+		return appendIfMissing(context, bbsBlsSignature2020Context)
 	}
 
 	return context
+}
+
+func appendIfMissing(contexts []string, context string) []string {
+	if lo.Contains(contexts, context) {
+		return contexts
+	}
+
+	return append(contexts, context)
 }
 
 // PrependCredentialPrefix prepends prefix to credential.ID.

@@ -8,12 +8,14 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 
 	"github.com/henvic/httpretty"
 	"github.com/piprate/json-gold/ld"
@@ -38,6 +40,7 @@ type oidc4vpCommandFlags struct {
 	trustRegistryHost              string
 	attestationURL                 string
 	proxyURL                       string
+	attachments                    string
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -87,7 +90,6 @@ func NewOIDC4VPCommand() *cobra.Command {
 
 				httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
 			}
-
 			var walletDIDIndex int
 
 			if flags.walletDIDIndex != -1 {
@@ -138,13 +140,26 @@ func NewOIDC4VPCommand() *cobra.Command {
 				return fmt.Errorf("either --qr-code-path or --authorization-request-uri flag must be set")
 			}
 
-			requestURI := strings.TrimPrefix(authorizationRequest, "openid-vc://?request_uri=")
+			requestURI := strings.SplitN(authorizationRequest, "?request_uri=", 2)
+			if len(requestURI) != 2 {
+				return fmt.Errorf("invalid authorizationRequest format: %s", authorizationRequest)
+			}
 
 			var flow *oidc4vp.Flow
 
 			opts := []oidc4vp.Opt{
-				oidc4vp.WithRequestURI(requestURI),
+				oidc4vp.WithRequestURI(requestURI[1]),
 				oidc4vp.WithWalletDIDIndex(walletDIDIndex),
+			}
+
+			if flags.attachments != "" {
+				targetAttachments := map[string]string{}
+
+				if err = json.Unmarshal([]byte(flags.attachments), &targetAttachments); err != nil {
+					return fmt.Errorf("can not unmarshal attachments: %w", err)
+				}
+
+				opts = append(opts, oidc4vp.WithAttachments(targetAttachments))
 			}
 
 			if flags.enableLinkedDomainVerification {
@@ -177,12 +192,14 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().StringVar(&flags.serviceFlags.mongoDBConnectionString, "mongodb-connection-string", "", "mongodb connection string")
 
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
-	cmd.Flags().StringVar(&flags.authorizationRequestURI, "authorization-request-uri", "", "authorization request uri, starts with 'openid-vc://?request_uri=' prefix")
+	cmd.Flags().StringVar(&flags.authorizationRequestURI, "authorization-request-uri", "", "authorization request uri, starts with 'openid-vc://?request_uri=' prefix if default URL schema is used")
 	cmd.Flags().BoolVar(&flags.enableLinkedDomainVerification, "enable-linked-domain-verification", false, "enables linked domain verification")
 	cmd.Flags().BoolVar(&flags.disableDomainMatching, "disable-domain-matching", false, "disables domain matching for issuer and verifier when presenting credentials (only for did:web)")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")
 	cmd.Flags().StringVar(&flags.attestationURL, "attestation-url", "", "attestation url, i.e. https://<host>/vcs/wallet/attestation")
 	cmd.Flags().StringVar(&flags.trustRegistryHost, "trust-registry-host", "", "trust registry host, i.e. https://<host>/trustregistry")
+	cmd.Flags().StringVar(&flags.attachments, "attachments", "",
+		`list of attachment. json expected. example {"some_id" : "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n"}`)
 
 	cmd.Flags().BoolVar(&flags.enableTracing, "enable-tracing", false, "enables http tracing")
 	cmd.Flags().StringVar(&flags.proxyURL, "proxy-url", "", "proxy url for http client")

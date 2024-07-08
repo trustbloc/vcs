@@ -18,7 +18,7 @@ ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 GOPROXY ?= https://proxy.golang.org
 
-VC_FRAMEWORK_VERSION				= a3f422449a05a7bcb6b1ca12397e0ee3e28b4285
+VC_FRAMEWORK_VERSION				= 81ac17678f827ddaf4da10e37d88fa99153141e2
 KMS_FRAMEWORK_VERSION 				= 59c2830d27fd44f9a3a663242a4aa61544ce622e
 DID_GO_VERSION						= aa500e57d8bdf51c90c20d3a6c815fdc76f716c3
 SIDE_TREE_VERSION							= f4260aff710479ba5fa3f0c61b51d451d9041225
@@ -35,8 +35,8 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 endif
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.20
-GO_ALPINE_VER ?= 3.20
+ALPINE_VER ?= 3.18
+GO_ALPINE_VER ?= 3.18
 GO_VER ?= 1.22
 
 OS := $(shell uname)
@@ -190,7 +190,7 @@ build-wallet-cli-binaries: clean
 	@docker run -i --rm \
 		-v $(abspath .):/opt/workspace/vcs \
 		--entrypoint "/opt/workspace/vcs/scripts/build-cli.sh" \
-		ghcr.io/gythialy/golang-cross:1.21.0-0
+		ghcr.io/gythialy/golang-cross:1.22.4-0
 
 .PHONY: build-krakend-plugin
 build-krakend-plugin: clean

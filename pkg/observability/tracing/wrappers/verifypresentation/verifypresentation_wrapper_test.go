@@ -14,10 +14,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/verifiable"
-	"go.opentelemetry.io/otel/trace"
-
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestWrapper_VerifyPresentation(t *testing.T) {
@@ -26,7 +25,7 @@ func TestWrapper_VerifyPresentation(t *testing.T) {
 	svc := NewMockService(ctrl)
 	svc.EXPECT().VerifyPresentation(gomock.Any(), &verifiable.Presentation{}, &verifypresentation.Options{}, &profileapi.Verifier{}).Times(1)
 
-	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_, _, err := w.VerifyPresentation(context.Background(), &verifiable.Presentation{}, &verifypresentation.Options{}, &profileapi.Verifier{})
 	require.NoError(t, err)

@@ -42,3 +42,5 @@ cmd/vc-rest/.env
 test/stress/cmd/.env
 
 test/stress/.env
+
+component/wallet-cli/wallet-cli

@@ -958,6 +958,7 @@ func buildEchoHandler(
 		ResponseURI:          conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
 		TokenLifetime:        15 * time.Minute,
 		Metrics:              metrics,
+		AttachmentService:    oidc4vp.NewAttachmentService(getHTTPClient(metricsProvider.Attachments)),
 	})
 
 	if conf.IsTraceEnabled {

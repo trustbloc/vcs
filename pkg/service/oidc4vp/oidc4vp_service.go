@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectStore=MockRequestObjectStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry
+//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectStore=MockRequestObjectStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier,trustRegistry=MockTrustRegistry,attachmentService=MockAttachmentService
 
 package oidc4vp
 
@@ -54,6 +54,7 @@ const (
 	vpTokenIDTokenResponseType = "vp_token id_token" //nolint:gosec
 	directPostResponseMode     = "direct_post"
 	didClientIDScheme          = "did"
+	defaultURLScheme           = "openid-vc://"
 )
 
 const (
@@ -96,6 +97,14 @@ type profileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error)
 }
 
+type attachmentService interface {
+	GetAttachments(
+		ctx context.Context,
+		subjects []verifiable.Subject,
+		idTokenAttachments map[string]string,
+	) ([]*Attachment, error)
+}
+
 type presentationVerifier interface {
 	VerifyPresentation(
 		ctx context.Context,
@@ -129,6 +138,7 @@ type Config struct {
 	ResponseURI          string
 	TokenLifetime        time.Duration
 	Metrics              metricsProvider
+	AttachmentService    attachmentService
 }
 
 type Service struct {
@@ -142,6 +152,7 @@ type Service struct {
 	presentationVerifier presentationVerifier
 	vdr                  vdrapi.Registry
 	trustRegistry        trustRegistry
+	attachmentService    attachmentService
 
 	responseURI   string
 	tokenLifetime time.Duration
@@ -170,6 +181,7 @@ func NewService(cfg *Config) *Service {
 		vdr:                  cfg.VDR,
 		trustRegistry:        cfg.TrustRegistry,
 		metrics:              metrics,
+		attachmentService:    cfg.AttachmentService,
 	}
 }
 
@@ -229,6 +241,7 @@ func (s *Service) InitiateOidcInteraction(
 	presentationDefinition *presexch.PresentationDefinition,
 	purpose string,
 	customScopes []string,
+	customURLScheme string,
 	profile *profileapi.Verifier,
 ) (*InteractionInfo, error) {
 	logger.Debugc(ctx, "InitiateOidcInteraction begin")
@@ -273,7 +286,13 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debugc(ctx, "InitiateOidcInteraction request object published")
 
-	authorizationRequest := "openid-vc://?request_uri=" + requestURI
+	urlScheme := defaultURLScheme
+
+	if customURLScheme != "" {
+		urlScheme = customURLScheme
+	}
+
+	authorizationRequest := fmt.Sprintf("%s?request_uri=%s", urlScheme, requestURI)
 
 	if errSendEvent := s.sendOIDCInteractionInitiatedEvent(ctx, tx, profile, authorizationRequest); errSendEvent != nil {
 		return nil, errSendEvent
@@ -582,6 +601,19 @@ func (s *Service) RetrieveClaims(
 			credMeta.Issuer = verifiable.IssuerToJSON(*credContents.Issuer)
 		}
 
+		if s.attachmentService != nil {
+			att, attErr := s.attachmentService.GetAttachments(
+				ctx,
+				credContents.Subject,
+				tx.ReceivedClaims.Attachments,
+			)
+			if attErr != nil {
+				logger.Errorc(ctx, fmt.Sprintf("Failed to get attachments: %+v", attErr))
+			}
+
+			credMeta.Attachments = att
+		}
+
 		result[credContents.ID] = credMeta
 	}
 
@@ -630,11 +662,10 @@ func (s *Service) extractClaimData(
 	var presentations []*verifiable.Presentation
 
 	for _, token := range authResponse.VPTokens {
-		// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
-		token.Presentation.JWT = ""
 		presentations = append(presentations, token.Presentation)
 	}
-	diVerifier, err := s.getDataIntegrityVerifier()
+
+	dataIntegrityVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierDataIntegrityVerifier, "create-verifier",
 			fmt.Errorf("get data integrity verifier: %w", err))
@@ -642,16 +673,19 @@ func (s *Service) extractClaimData(
 
 	opts := []presexch.MatchOption{
 		presexch.WithCredentialOptions(
-			verifiable.WithDataIntegrityVerifier(diVerifier),
+			verifiable.WithDataIntegrityVerifier(dataIntegrityVerifier),
 			verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)))),
+			verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr))),
+		),
 		presexch.WithDisableSchemaValidation(),
 	}
 
 	if len(presentations) > 1 {
 		opts = append(opts,
-			presexch.WithMergedSubmissionMap(presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})))
+			presexch.WithMergedSubmissionMap(
+				presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})),
+		)
 	}
 
 	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader, opts...)
@@ -683,6 +717,7 @@ func (s *Service) extractClaimData(
 
 	receivedClaims := &ReceivedClaims{
 		CustomScopeClaims: authResponse.CustomScopeClaims,
+		Attachments:       authResponse.Attachments,
 		Credentials:       storeCredentials,
 	}
 
