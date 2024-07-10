@@ -89,6 +89,18 @@ paths:
         in: path
         required: true
         description: Profile ID
+      - schema:
+          type: string
+        name: txID
+        in: query
+        required: false
+        description: Issuance transaction ID
+      - schema:
+          type: string
+        name: credentialID
+        in: query
+        required: false
+        description: Credential ID
     get:
       summary: Request Credential Issuance history.
       responses:
