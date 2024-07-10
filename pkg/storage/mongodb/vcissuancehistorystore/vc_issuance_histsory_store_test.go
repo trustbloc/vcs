@@ -73,7 +73,7 @@ func TestVCIssuanceHistoryStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Get credential metadata by same profile version.
-		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile)
+		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile, nil, nil)
 		assert.NoError(t, err)
 
 		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMeta}, metadataFromDB)
@@ -87,7 +87,7 @@ func TestVCIssuanceHistoryStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Get credential metadata by same profile version.
-		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile)
+		metadataFromDB, err = store.GetIssuedCredentialsMetadata(ctx, testProfile, nil, nil)
 		assert.NoError(t, err)
 
 		assert.Equal(t, []*credentialstatus.CredentialMetadata{credentialMetaNew, credentialMeta}, metadataFromDB)
@@ -95,12 +95,75 @@ func TestVCIssuanceHistoryStore(t *testing.T) {
 
 	t.Run("Find non-existing document", func(t *testing.T) {
 		// Get credential metadata by different profile version.
-		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile+"unknown")
+		metadataFromDB, err := store.GetIssuedCredentialsMetadata(ctx, testProfile+"unknown", nil, nil)
 		assert.NoError(t, err)
 		assert.Empty(t, metadataFromDB)
 	})
-}
 
+	t.Run("Test transaction id filter", func(t *testing.T) {
+		transactionID := uuid.NewString()
+		credentialMeta := &credentialstatus.CredentialMetadata{
+			CredentialID:   "credentialID",
+			ProfileVersion: testProfileVersion10,
+			Issuer:         "credentialIssuerID",
+			CredentialType: []string{"verifiableCredential"},
+			TransactionID:  transactionID,
+			IssuanceDate:   timeutil.NewTime(time.Now().Round(time.Second).UTC()),
+			ExpirationDate: nil,
+		}
+		assert.NoError(t, store.Put(ctx, testProfile, testProfileVersion10, credentialMeta))
+
+		transactionID2 := uuid.NewString()
+		credentialMeta2 := &credentialstatus.CredentialMetadata{
+			CredentialID:   "credentialID",
+			ProfileVersion: testProfileVersion10,
+			Issuer:         "credentialIssuerID",
+			CredentialType: []string{"verifiableCredential"},
+			TransactionID:  transactionID2,
+			IssuanceDate:   timeutil.NewTime(time.Now().Round(time.Second).UTC()),
+			ExpirationDate: nil,
+		}
+		assert.NoError(t, store.Put(ctx, testProfile, testProfileVersion10, credentialMeta2))
+
+		resp, err := store.GetIssuedCredentialsMetadata(ctx, testProfile, &transactionID2, nil)
+		assert.NoError(t, err)
+		assert.Len(t, resp, 1)
+
+		assert.EqualValues(t, credentialMeta2.TransactionID, resp[0].TransactionID)
+	})
+
+	t.Run("Test credential id filter", func(t *testing.T) {
+		transactionID := uuid.NewString()
+		credentialMeta := &credentialstatus.CredentialMetadata{
+			CredentialID:   "credentialID123",
+			ProfileVersion: testProfileVersion10,
+			Issuer:         "credentialIssuerID",
+			CredentialType: []string{"verifiableCredential"},
+			TransactionID:  transactionID,
+			IssuanceDate:   timeutil.NewTime(time.Now().Round(time.Second).UTC()),
+			ExpirationDate: nil,
+		}
+		assert.NoError(t, store.Put(ctx, testProfile, testProfileVersion10, credentialMeta))
+
+		transactionID2 := uuid.NewString()
+		credentialMeta2 := &credentialstatus.CredentialMetadata{
+			CredentialID:   "777",
+			ProfileVersion: testProfileVersion10,
+			Issuer:         "credentialIssuerID",
+			CredentialType: []string{"verifiableCredential"},
+			TransactionID:  transactionID2,
+			IssuanceDate:   timeutil.NewTime(time.Now().Round(time.Second).UTC()),
+			ExpirationDate: nil,
+		}
+		assert.NoError(t, store.Put(ctx, testProfile, testProfileVersion10, credentialMeta2))
+
+		resp, err := store.GetIssuedCredentialsMetadata(ctx, testProfile, nil, &credentialMeta2.CredentialID)
+		assert.NoError(t, err)
+		assert.Len(t, resp, 1)
+
+		assert.EqualValues(t, credentialMeta2.CredentialID, resp[0].CredentialID)
+	})
+}
 func TestTimeouts(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
@@ -128,7 +191,7 @@ func TestTimeouts(t *testing.T) {
 	})
 
 	t.Run("Find GetIssuedCredentialsMetadata", func(t *testing.T) {
-		resp, err := store.GetIssuedCredentialsMetadata(ctxWithTimeout, testProfile)
+		resp, err := store.GetIssuedCredentialsMetadata(ctxWithTimeout, testProfile, nil, nil)
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")

@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -37,7 +39,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
-	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -2825,21 +2826,22 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 	credentialIssuanceStore := NewMockCredentialIssuanceHistoryStore(gomock.NewController(t))
 
 	t.Run("Success", func(t *testing.T) {
-		txID := uuid.NewString()
+		txID := lo.ToPtr(uuid.NewString())
 		iss := timeutil.NewTime(time.Now())
+		credID := lo.ToPtr(uuid.NewString())
 
 		credentialMetadata := &credentialstatus.CredentialMetadata{
 			CredentialID:   "credentialID",
 			Issuer:         "testIssuer",
 			ProfileVersion: profileVersion,
 			CredentialType: []string{"verifiableCredential"},
-			TransactionID:  txID,
+			TransactionID:  *txID,
 			IssuanceDate:   iss,
 			ExpirationDate: nil,
 		}
 
 		credentialIssuanceStore.EXPECT().
-			GetIssuedCredentialsMetadata(gomock.Any(), profileID).
+			GetIssuedCredentialsMetadata(gomock.Any(), profileID, txID, credID).
 			Times(1).
 			Return([]*credentialstatus.CredentialMetadata{credentialMetadata}, nil)
 
@@ -2851,7 +2853,10 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 		echoCtx := echoContext(withRecorder(recorder))
 
-		err := c.CredentialIssuanceHistory(echoCtx, profileID)
+		err := c.CredentialIssuanceHistory(echoCtx, profileID, CredentialIssuanceHistoryParams{
+			TxID:         txID,
+			CredentialID: credID,
+		})
 		assert.NoError(t, err)
 
 		var gotResponse []CredentialIssuanceHistoryData
@@ -2865,7 +2870,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 				ExpirationDate:  nil,
 				IssuanceDate:    lo.ToPtr(iss.Time.Format(time.RFC3339)),
 				Issuer:          "testIssuer",
-				TransactionId:   &txID,
+				TransactionId:   txID,
 				ProfileVersion:  lo.ToPtr(profileVersion),
 			},
 		}
@@ -2875,7 +2880,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 	t.Run("credentialIssuanceHistoryStore error", func(t *testing.T) {
 		credentialIssuanceStore.EXPECT().
-			GetIssuedCredentialsMetadata(gomock.Any(), profileID).
+			GetIssuedCredentialsMetadata(gomock.Any(), profileID, nil, nil).
 			Times(1).
 			Return(nil, errors.New("some error"))
 
@@ -2887,7 +2892,7 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 		echoCtx := echoContext(withRecorder(recorder))
 
-		err := c.CredentialIssuanceHistory(echoCtx, profileID)
+		err := c.CredentialIssuanceHistory(echoCtx, profileID, CredentialIssuanceHistoryParams{})
 		assert.Error(t, err)
 	})
 }
