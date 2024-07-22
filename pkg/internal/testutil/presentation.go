@@ -93,6 +93,8 @@ func proveVP(
 		addLDP(t, presentation, didDoc.VerificationMethod[0].ID, fks, kms.ED25519Type, opts...)
 	case vcs.Jwt:
 		signJWS(t, presentation, didDoc.VerificationMethod[0].ID, fks)
+	case vcs.Cwt:
+		signCWT(t, presentation, didDoc.VerificationMethod[0].ID, fks)
 	}
 
 	return &SignedPresentationResult{
@@ -184,6 +186,7 @@ func signCWT(
 	}
 
 	jwsAlgo, err := verifiable.KeyTypeToCWSAlgo(kms.ED25519Type)
+	require.NoError(t, err)
 
 	msg := &cose.Sign1Message{
 		Headers: cose.Headers{
@@ -198,7 +201,6 @@ func signCWT(
 		Payload: payload,
 	}
 
-	//verifiable.KeyTypeToCWSAlgo(f.wallet.SignatureType()
 	signData, err := cwt2.GetProofValue(msg)
 	if err != nil {
 		t.Error(err)
