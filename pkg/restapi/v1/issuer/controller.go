@@ -81,6 +81,8 @@ type credentialIssuanceHistoryStore interface {
 	GetIssuedCredentialsMetadata(
 		ctx context.Context,
 		profileID string,
+		txID *string,
+		credentialID *string,
 	) ([]*credentialstatus.CredentialMetadata, error)
 }
 
@@ -1027,9 +1029,18 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 
 // CredentialIssuanceHistory returns Credential Issuance history.
 // GET /issuer/profiles/{profileID}/issued-credentials.
-func (c *Controller) CredentialIssuanceHistory(e echo.Context, profileID string) error {
+func (c *Controller) CredentialIssuanceHistory(
+	e echo.Context,
+	profileID string,
+	extraParams CredentialIssuanceHistoryParams,
+) error {
 	credentialMetadata, err := c.credentialIssuanceHistoryStore.
-		GetIssuedCredentialsMetadata(e.Request().Context(), profileID)
+		GetIssuedCredentialsMetadata(
+			e.Request().Context(),
+			profileID,
+			extraParams.TxID,
+			extraParams.CredentialID,
+		)
 	if err != nil {
 		return err
 	}

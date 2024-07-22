@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/samber/lo"
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -74,11 +75,23 @@ func (p *Store) Put(
 func (p *Store) GetIssuedCredentialsMetadata(
 	ctx context.Context,
 	profileID string,
+	txID *string,
+	credentialID *string,
 ) ([]*credentialstatus.CredentialMetadata, error) {
 	opts := options.Find().SetSort(bson.D{{Key: "credentialMetadata.issuanceDate", Value: -1}})
-	cursor, err := p.mongoClient.Database().Collection(vcStatusStoreName).Find(ctx, bson.D{
+
+	query := bson.D{
 		{Key: profileIDMongoDBFieldName, Value: profileID},
-	}, opts)
+	}
+
+	if lo.FromPtr(txID) != "" {
+		query = append(query, bson.E{Key: "credentialMetadata.transactionId", Value: *txID})
+	}
+	if lo.FromPtr(credentialID) != "" {
+		query = append(query, bson.E{Key: "credentialMetadata.vcID", Value: *credentialID})
+	}
+
+	cursor, err := p.mongoClient.Database().Collection(vcStatusStoreName).Find(ctx, query, opts)
 	if err != nil {
 		return nil, fmt.Errorf("find credential metadata list MongoDB: %w", err)
 	}
