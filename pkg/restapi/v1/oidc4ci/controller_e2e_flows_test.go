@@ -54,6 +54,8 @@ import (
 	"github.com/veraison/go-cose"
 	"golang.org/x/oauth2"
 
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
@@ -62,7 +64,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
-	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -283,7 +284,7 @@ func generateProof(
 		msg := &cose.Sign1Message{
 			Headers: cose.Headers{
 				Protected: cose.ProtectedHeader{
-					cose.HeaderLabelAlgorithm:   cose.AlgorithmEd25519,
+					cose.HeaderLabelAlgorithm:   cose.AlgorithmEdDSA,
 					cose.HeaderLabelContentType: "openid4vci-proof+cwt",
 					"COSE_Key":                  []byte(testsupport.AnyPubKeyID),
 				},
@@ -296,7 +297,7 @@ func generateProof(
 
 		signed, err := jwtProofCreator.SignCWT(cwt.SignParameters{
 			KeyID:  testsupport.AnyPubKeyID,
-			CWTAlg: cose.AlgorithmEd25519,
+			CWTAlg: cose.AlgorithmEdDSA,
 		}, signData)
 		assert.NoError(t, err)
 

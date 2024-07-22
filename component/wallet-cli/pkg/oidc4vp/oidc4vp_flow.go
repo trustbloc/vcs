@@ -605,7 +605,7 @@ func (f *Flow) signPresentationCWT(
 				cose.HeaderLabelKeyID:     []byte(kmsKeyID),
 			},
 			Unprotected: cose.UnprotectedHeader{
-				//cose.HeaderLabelTyp: "application/vc+ld+json+cose", // todo
+				cose.HeaderLabelContentType: "application/vc+ld+json+cose",
 			},
 		},
 		Payload: payload,

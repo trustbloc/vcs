@@ -92,7 +92,7 @@ func TestDidConfiguration(t *testing.T) {
 			},
 		},
 		{
-			name:        "Get DID Config for Issuer with ldp",
+			name:        "Get DID Config for Issuer with jwt",
 			profileID:   "issuer_profile",
 			profileType: ProfileTypeIssuer,
 			issuerProfile: &profile.Issuer{
@@ -109,6 +109,31 @@ func TestDidConfiguration(t *testing.T) {
 			},
 			expectedIssuer: "sign_did",
 			expectedFormat: vcsverifiable.Jwt,
+			expectedSigner: &vc.Signer{
+				DID:           "sign_did",
+				Creator:       "creator123",
+				SignatureType: vcsverifiable.Ed25519Signature2018,
+				KeyType:       kms.ED25519Type,
+			},
+		},
+		{
+			name:        "Get DID Config for Issuer with cwt",
+			profileID:   "issuer_profile",
+			profileType: ProfileTypeIssuer,
+			issuerProfile: &profile.Issuer{
+				SigningDID: &profile.SigningDID{
+					DID:     "sign_did",
+					Creator: "creator123",
+				},
+				VCConfig: &profile.VCConfig{
+					Format:                  vcsverifiable.Cwt,
+					SigningAlgorithm:        vcsverifiable.Ed25519Signature2018,
+					KeyType:                 kms.ED25519Type,
+					SignatureRepresentation: verifiable.SignatureJWS,
+				},
+			},
+			expectedIssuer: "sign_did",
+			expectedFormat: vcsverifiable.Cwt,
 			expectedSigner: &vc.Signer{
 				DID:           "sign_did",
 				Creator:       "creator123",
@@ -203,7 +228,7 @@ func TestDidConfiguration(t *testing.T) {
 				assert.Len(t, cred.Proofs(), 1)
 				assert.NotNil(t, cred.Contents().Issuer)
 				assert.Equal(t, testCase.expectedIssuer, cred.Contents().Issuer.ID)
-			case vcsverifiable.Jwt:
+			case vcsverifiable.Jwt, vcsverifiable.Cwt:
 				jws, ok := resp.LinkedDiDs[0].(string)
 
 				if !ok {

@@ -195,7 +195,7 @@ func (s *Service) DidConfig(
 		Context: didConfigurationContextURL,
 	}
 
-	if format == vcsverifiable.Jwt {
+	if format == vcsverifiable.Jwt || format == vcsverifiable.Cwt { // not sure about cwt, no spec for now
 		resp.LinkedDiDs = append(resp.LinkedDiDs, cred.JWTEnvelope.JWT)
 	} else {
 		resp.LinkedDiDs = append(resp.LinkedDiDs, cred)

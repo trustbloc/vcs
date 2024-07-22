@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
@@ -20,6 +21,8 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
+	"github.com/veraison/go-cose"
 
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
@@ -137,6 +140,8 @@ func proveVPWithExistingPrivateKey(
 		addLDP(t, presentation, verMethodDIDKeyID, signer, keyType, opts...)
 	case vcs.Jwt:
 		signJWS(t, presentation, verMethodDIDKeyID, signer)
+	case vcs.Cwt:
+		signCWT(t, presentation, verMethodDIDKeyID, signer)
 	}
 
 	return presentation
@@ -160,6 +165,61 @@ func signJWS(
 	require.NoError(t, err)
 
 	presentation.JWT = jws
+}
+
+func signCWT(
+	t *testing.T,
+	presentation *verifiable.Presentation,
+	keyID string,
+	fks api.FixedKeySigner,
+) {
+	t.Helper()
+
+	claims, err := presentation.CWTClaims([]string{}, false)
+	require.NoError(t, err)
+
+	payload, err := cbor.Marshal(claims)
+	if err != nil {
+		t.Error(err)
+	}
+
+	jwsAlgo, err := verifiable.KeyTypeToCWSAlgo(kms.ED25519Type)
+
+	msg := &cose.Sign1Message{
+		Headers: cose.Headers{
+			Protected: cose.ProtectedHeader{
+				cose.HeaderLabelAlgorithm: jwsAlgo,
+				cose.HeaderLabelKeyID:     []byte(keyID),
+			},
+			Unprotected: cose.UnprotectedHeader{
+				cose.HeaderLabelContentType: "application/vc+ld+json+cose",
+			},
+		},
+		Payload: payload,
+	}
+
+	//verifiable.KeyTypeToCWSAlgo(f.wallet.SignatureType()
+	signData, err := cwt2.GetProofValue(msg)
+	if err != nil {
+		t.Error(err)
+	}
+
+	signed, err := fks.Sign(signData)
+	if err != nil {
+		t.Error(err)
+	}
+
+	msg.Signature = signed
+
+	final, err := cbor.Marshal(msg)
+	if err != nil {
+		t.Error(err)
+	}
+
+	presentation.CWT = &verifiable.VpCWT{
+		Raw:     final,
+		Message: msg,
+	}
 }
 
 func addLDP(
