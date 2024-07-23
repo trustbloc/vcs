@@ -351,6 +351,61 @@ func TestService_VerifyPresentation(t *testing.T) {
 	}
 }
 
+func TestService_VerifyPresentationCWT(t *testing.T) {
+	loader := testutil.DocumentLoader(t)
+	signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Cwt)
+
+	mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+	mockVerifier.EXPECT().ValidateCredentialProof(
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any()).Times(1).Return(nil)
+	mockVerifier.EXPECT().ValidateVCStatus(
+		context.Background(),
+		gomock.Any(),
+		gomock.Any()).Times(1).Return(nil)
+	mockVerifier.EXPECT().ValidateLinkedDomain(
+		context.Background(),
+		gomock.Any()).Times(1).Return(nil)
+
+	s := &Service{
+		vdr:            signedRequestedCredentialsVP.VDR,
+		documentLoader: loader,
+		vcVerifier:     mockVerifier,
+	}
+
+	got, _, err := s.VerifyPresentation(context.Background(), signedRequestedCredentialsVP.Presentation,
+		&Options{
+			Domain:    crypto.Domain,
+			Challenge: crypto.Challenge,
+		}, &profileapi.Verifier{
+			SigningDID: &profileapi.SigningDID{DID: verifierDID},
+			Checks: &profileapi.VerificationChecks{
+				Presentation: &profileapi.PresentationChecks{
+					Proof:  true,
+					Format: nil,
+				},
+				Credential: profileapi.CredentialChecks{
+					Proof:            true,
+					Status:           true,
+					LinkedDomain:     true,
+					Format:           nil,
+					CredentialExpiry: true,
+					Strict:           true,
+					IssuerTrustList: map[string]profileapi.TrustList{
+						"https://example.edu/issuers/14": {},
+					},
+				},
+			},
+		})
+
+	assert.NoError(t, err)
+	assert.Len(t, got, 0)
+}
+
 func TestService_validatePresentationProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVPResult := testutil.SignedVP(t, requestedCredentialsVP, vcs.Ldp)

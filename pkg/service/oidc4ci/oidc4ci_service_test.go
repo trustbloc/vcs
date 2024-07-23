@@ -5318,6 +5318,11 @@ func TestSelectProperFormat(t *testing.T) {
 		assert.Equal(t, vcsverifiable.JwtVCJson, srv.SelectProperOIDCFormat(vcsverifiable.Jwt,
 			&profileapi.CredentialTemplate{}))
 	})
+
+	t.Run("cwt", func(t *testing.T) {
+		assert.Equal(t, vcsverifiable.CwtVcLD, srv.SelectProperOIDCFormat(vcsverifiable.Cwt,
+			&profileapi.CredentialTemplate{}))
+	})
 }
 
 func TestExtractNoScope(t *testing.T) {
