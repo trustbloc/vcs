@@ -822,6 +822,43 @@ func TestSignCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, signedVC)
 	})
+
+	t.Run("sign credential CWT - success", func(t *testing.T) {
+		c := New(
+			&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := createVC(t, verifiable.CredentialContents{
+			ID:      "http://example.edu/credentials/1872",
+			Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Now(),
+			},
+			Issuer: &verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+		})
+
+		signedVC, err := c.SignCredential(&vc.Signer{
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+			KMSKeyID:      "key1",
+			KeyType:       kms.ED25519Type,
+			KMS: &vcskms.MockKMS{
+				FixedSigner: &mockwrapper.MockFixedKeyCrypto{
+					SignVal: []byte("signature"),
+				},
+			},
+			Format: vcsverifiable.Cwt,
+		}, unsignedVC)
+		require.NoError(t, err)
+		require.NotNil(t, signedVC)
+		require.True(t, signedVC.IsCWT())
+		require.NotNil(t, signedVC.CWTEnvelope.Sign1MessageParsed)
+		require.NotEmpty(t, signedVC.CWTEnvelope.Sign1MessageRaw)
+	})
 }
 
 func getTestLDPSigner() *vc.Signer {
