@@ -132,6 +132,10 @@ func TestService_VerifyCredential(t *testing.T) {
 								name: "Signature format LDP",
 								sf:   vcs.Ldp,
 							},
+							{
+								name: "Signature format CWT",
+								sf:   vcs.Cwt,
+							},
 						}
 						for _, signatureFormatTestCase := range tests {
 							t.Run(signatureFormatTestCase.name, func(t *testing.T) {
@@ -142,6 +146,10 @@ func TestService_VerifyCredential(t *testing.T) {
 								}{
 									{
 										name:   "Credential format JWT",
+										vcFile: []byte(sampleVCJWT),
+									},
+									{
+										name:   "Credential format CWT",
 										vcFile: []byte(sampleVCJWT),
 									},
 									{

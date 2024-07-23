@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/dataintegrity"
@@ -82,6 +83,8 @@ func (b *CWTProofBuilder) Build(
 	ctx context.Context,
 	req *CreateProofRequest,
 ) (*Proof, error) {
+	req.Claims.Issuer = req.WalletDID // per spec
+
 	encoded, err := cbor.Marshal(req.Claims)
 	if err != nil {
 		return nil, fmt.Errorf("marshal proof claims: %w", err)
@@ -101,13 +104,25 @@ func (b *CWTProofBuilder) Build(
 		return nil, fmt.Errorf("unsupported cosg algorithm: %s", algo)
 	}
 
+	coseKey, err := cose.NewKeyFromPublic(req.PubKeyJWK.Key)
+	if err != nil {
+		return nil, fmt.Errorf("get public key bytes: %w", err)
+	}
+
 	keyID, _ := req.Signer.Headers().KeyID()
+
+	keyBytes, err := coseKey.MarshalCBOR()
+	if err != nil {
+		return nil, fmt.Errorf("COSE_KEY marshal cbor: %w", err)
+	}
+	pubKeyStr := hex.EncodeToString(keyBytes)
+
 	msg := &cose.Sign1Message{
 		Headers: cose.Headers{
 			Protected: cose.ProtectedHeader{
 				cose.HeaderLabelAlgorithm:   targetAlgo,
-				cose.HeaderLabelContentType: "openid4vci-proof+cwt",
-				"COSE_Key":                  []byte(keyID),
+				cose.HeaderLabelContentType: "application/openid4vci-proof+cwt",
+				proof.COSEKeyHeader:         pubKeyStr,
 			},
 		},
 		Payload: encoded,
@@ -254,4 +269,5 @@ type CreateProofRequest struct {
 	Claims           *ProofClaims
 	VDR              vdrapi.Registry
 	CredentialIssuer string
+	PubKeyJWK        *jwk.JWK
 }

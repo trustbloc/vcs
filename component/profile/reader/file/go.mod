@@ -8,6 +8,7 @@ go 1.22
 toolchain go1.22.4
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-version v1.2.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
@@ -66,7 +67,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
@@ -120,10 +120,10 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/vc-go v1.1.3-0.20240708195929-6bd23178e69f // indirect
+	github.com/trustbloc/vc-go v1.1.3-0.20240723144917-8cb417a4df0f // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
-	github.com/veraison/go-cose v1.1.0 // indirect
+	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect

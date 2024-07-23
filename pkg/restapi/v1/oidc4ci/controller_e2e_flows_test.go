@@ -9,6 +9,7 @@ package oidc4ci_test
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	_ "embed"
@@ -47,12 +48,15 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/veraison/go-cose"
 	"golang.org/x/oauth2"
+
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -62,7 +66,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
-	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -222,7 +225,7 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 		Nonce:    token.Extra("c_nonce").(string),
 	}
 
-	proofVal := generateProof(t, proofType, claims, proofCreator)
+	proofVal := generateProof(t, proofType, claims, proofCreator, pub)
 
 	if proofType == "ldp_vp" {
 		mockProofParser.EXPECT().Parse(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -254,6 +257,7 @@ func generateProof(
 	proofType string,
 	claims *oidc4ci.ProofClaims,
 	jwtProofCreator *creator.ProofCreator,
+	pubKey crypto.PublicKey,
 ) *oidc4ci.JWTProof {
 	finalProof := &oidc4ci.JWTProof{ProofType: proofType}
 
@@ -280,12 +284,21 @@ func generateProof(
 	case "cwt":
 		encoded, err := cbor.Marshal(claims)
 		require.NoError(t, err)
+
+		parsedPubKey, err := cose.NewKeyFromPublic(pubKey)
+		require.NoError(t, err)
+
+		keyBytes, err := parsedPubKey.MarshalCBOR()
+		require.NoError(t, err)
+
+		pubKeyStr := hex.EncodeToString(keyBytes)
+
 		msg := &cose.Sign1Message{
 			Headers: cose.Headers{
 				Protected: cose.ProtectedHeader{
-					cose.HeaderLabelAlgorithm:   cose.AlgorithmEd25519,
-					cose.HeaderLabelContentType: "openid4vci-proof+cwt",
-					"COSE_Key":                  []byte(testsupport.AnyPubKeyID),
+					cose.HeaderLabelAlgorithm:   cose.AlgorithmEdDSA,
+					cose.HeaderLabelContentType: proof.CWTProofType,
+					proof.COSEKeyHeader:         pubKeyStr,
 				},
 			},
 			Payload: encoded,
@@ -296,7 +309,7 @@ func generateProof(
 
 		signed, err := jwtProofCreator.SignCWT(cwt.SignParameters{
 			KeyID:  testsupport.AnyPubKeyID,
-			CWTAlg: cose.AlgorithmEd25519,
+			CWTAlg: cose.AlgorithmEdDSA,
 		}, signData)
 		assert.NoError(t, err)
 

@@ -774,6 +774,197 @@
     },
     {
       "issuer": {
+        "id": "awesome_cwt",
+        "version": "v1.0",
+        "groupID": "group_awesome_cwt",
+        "name": "awesome_cwt",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "RSARS256",
+          "format": "cwt",
+          "didMethod": "ion",
+          "status": {
+            "type": "RevocationList2020Status"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://w3id.org/citizenship/v1"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://www.w3.org/2018/credentials/examples/v1"
+            ],
+            "type": "VerifiedEmployee",
+            "id": "templateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://www.w3.org/2018/credentials/examples/v1"
+            ],
+            "type": "UniversityDegreeCredential",
+            "id": "universityDegreeTemplateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialTemplateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployeeIdentifier": {
+              "format": "cwt_vc-ld",
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                },
+                "type": [
+                  "VerifiableCredential",
+                  "PermanentResidentCard"
+                ]
+              }
+            },
+            "CrudeProductCredentialIdentifier": {
+              "format": "cwt_vc-ld",
+              "scope": "CrudeProductCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
+                ],
+                "credentialSubject": {}
+              },
+              "display": []
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es256k_sdjwt",
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256k_sdjwt",
@@ -2380,6 +2571,221 @@
           "presentation": {
             "format": [
               "jwt"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        },
+        "presentationDefinitions": [
+          {
+            "id": "32f54163-no-limit-disclosure-single-field",
+            "input_descriptors": [
+              {
+                "id": "degree",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type",
+                        "$.vc.credentialSubject.degree.type"
+                      ],
+                      "id": "degree_type_id",
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "32f54163-no-limit-disclosure-optional-fields",
+            "input_descriptors": [
+              {
+                "id": "lprCategory",
+                "name": "lprCategory",
+                "purpose": "Permanent Resident Card specification",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.lprCategory",
+                        "$.vc.credentialSubject.lprCategory"
+                      ],
+                      "id": "lpr_category_id",
+                      "purpose": "Specific LPR category.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C09"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.commuterClassification",
+                        "$.vc.credentialSubject.commuterClassification"
+                      ],
+                      "id": "commuter_classification",
+                      "purpose": "Specific commuter classification.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C1"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.registrationCity",
+                        "$.vc.credentialSubject.registrationCity"
+                      ],
+                      "id": "registration_city",
+                      "purpose": "Specific registration city.",
+                      "optional": true,
+                      "filter": {
+                        "type": "string",
+                        "const": "Albuquerque"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "3c8b1d9a-limit-disclosure-optional-fields",
+            "input_descriptors": [
+              {
+                "id": "uom",
+                "name": "uom",
+                "purpose": "Crude oil stream specification.",
+                "constraints": {
+                  "limit_disclosure": "required",
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.physicalSpecs.uom",
+                        "$.vc.credentialSubject.physicalSpecs.uom"
+                      ],
+                      "id": "unit_of_measure_barrel",
+                      "purpose": "We can only use barrel UoM.",
+                      "filter": {
+                        "type": "string",
+                        "const": "barrel"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.physicalSpecs.apiGravity",
+                        "$.vc.credentialSubject.physicalSpecs.apiGravity"
+                      ],
+                      "id": "api_gravity",
+                      "purpose": "Min API Gravity.",
+                      "filter": {
+                        "type": "integer",
+                        "minimum": 20
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.category",
+                        "$.vc.credentialSubject.category"
+                      ],
+                      "id": "category",
+                      "purpose": "Category.",
+                      "optional": true,
+                      "filter": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.supplierAddress",
+                        "$.vc.credentialSubject.supplierAddress"
+                      ],
+                      "id": "supplier_address",
+                      "purpose": "Supplier Address.",
+                      "optional": true,
+                      "filter": {
+                        "type": "object"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "lp403pb9-schema-match",
+            "input_descriptors": [
+              {
+                "id": "schema",
+                "name": "schema",
+                "purpose": "Match credentials using specific schema.",
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$[\"@context\"]"
+                      ],
+                      "id": "schema_id",
+                      "purpose": "Match credentials using specific schema.",
+                      "filter": {
+                        "type": "array",
+                        "contains": {
+                          "type": "string",
+                          "pattern": "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
+        "id": "awesome_cwt_verifier",
+        "version": "v1.0",
+        "name": "awesome_cwt_verifier",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "jwt",
+              "cwt"
+            ],
+            "proof": true,
+            "status": true,
+            "strict": true
+          },
+          "presentation": {
+            "format": [
+              "cwt"
             ],
             "vcSubject": true,
             "proof": true

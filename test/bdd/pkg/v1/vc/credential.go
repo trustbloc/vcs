@@ -148,7 +148,7 @@ func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat vcsv
 		}
 
 		return claims.MarshalUnsecuredJWT()
-	case vcsverifiable.LdpVC:
+	case vcsverifiable.LdpVC, vcsverifiable.CwtVcLD:
 		return vc, nil
 
 	default:

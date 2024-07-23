@@ -15,6 +15,7 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof/creator"
@@ -162,6 +163,8 @@ type Crypto struct {
 func (c *Crypto) SignCredential(
 	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	switch signerData.Format {
+	case vcsverifiable.Cwt:
+		return c.signCredentialCWT(signerData, vc, opts...)
 	case vcsverifiable.Jwt:
 		return c.signCredentialJWT(signerData, vc, opts...)
 	case vcsverifiable.Ldp:
@@ -252,11 +255,7 @@ func (c *Crypto) signCredentialLDP(
 	return vc, nil
 }
 
-// signCredentialJWT returns vc in JWT format including the signature section.
-func (c *Crypto) signCredentialJWT(
-	signerData *vc.Signer,
-	credential *verifiable.Credential,
-	opts ...SigningOpts) (*verifiable.Credential, error) {
+func (c *Crypto) prepareSigner(signerData *vc.Signer, opts ...SigningOpts) (vc.SignerAlgorithm, string, error) {
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
@@ -270,14 +269,14 @@ func (c *Crypto) signCredentialJWT(
 
 	s, _, err := c.GetSigner(signerData.KMSKeyID, signerData.KMS, signatureType)
 	if err != nil {
-		return nil, fmt.Errorf("getting signer for JWS: %w", err)
+		return nil, "", fmt.Errorf("getting signer for JWS: %w", err)
 	}
 
 	method := signerData.Creator
 
 	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get did doc from verification method %w", err)
+		return nil, "", fmt.Errorf("unable to get did doc from verification method %w", err)
 	}
 
 	proofPurpose := Authentication
@@ -287,7 +286,40 @@ func (c *Crypto) signCredentialJWT(
 
 	err = ValidateProofPurpose(proofPurpose, method, didDoc)
 	if err != nil {
-		return nil, fmt.Errorf("ValidateProofPurpose error: %w", err)
+		return nil, "", fmt.Errorf("ValidateProofPurpose error: %w", err)
+	}
+
+	return s, method, nil
+}
+
+// signCredentialJWT returns vc in JWT format including the signature section.
+func (c *Crypto) signCredentialCWT(
+	signerData *vc.Signer,
+	credential *verifiable.Credential,
+	opts ...SigningOpts,
+) (*verifiable.Credential, error) {
+	s, method, err := c.prepareSigner(signerData, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	cwtAlgo, err := verifiable.KeyTypeToCWSAlgo(signerData.KeyType)
+	if err != nil {
+		return nil, fmt.Errorf("getting JWS algo based on signature type: %w", err)
+	}
+
+	return c.getCWTSignedCredential(credential, s, cwtAlgo, method)
+}
+
+// signCredentialJWT returns vc in JWT format including the signature section.
+func (c *Crypto) signCredentialJWT(
+	signerData *vc.Signer,
+	credential *verifiable.Credential,
+	opts ...SigningOpts,
+) (*verifiable.Credential, error) {
+	s, method, err := c.prepareSigner(signerData, opts...)
+	if err != nil {
+		return nil, err
 	}
 
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(signerData.KeyType)
@@ -308,11 +340,28 @@ func (c *Crypto) signCredentialJWT(
 	return c.getJWTSignedCredential(credential, s, jwsAlgo, method)
 }
 
+func (c *Crypto) getCWTSignedCredential(
+	credential *verifiable.Credential,
+	signer vc.SignerAlgorithm,
+	cwsAlgo cose.Algorithm,
+	signingKeyID string,
+) (*verifiable.Credential, error) {
+	var err error
+
+	credential, err = credential.CreateSignedCOSEVC(cwsAlgo, newProofCreator(signer), signingKeyID)
+	if err != nil {
+		return nil, fmt.Errorf("MarshalJWS error: %w", err)
+	}
+
+	return credential, nil
+}
+
 func (c *Crypto) getJWTSignedCredential(
 	credential *verifiable.Credential,
 	signer vc.SignerAlgorithm,
 	jwsAlgo verifiable.JWSAlgorithm,
-	signingKeyID string) (*verifiable.Credential, error) {
+	signingKeyID string,
+) (*verifiable.Credential, error) {
 	var err error
 
 	credential, err = credential.CreateSignedJWTVC(false, jwsAlgo, newProofCreator(signer), signingKeyID)

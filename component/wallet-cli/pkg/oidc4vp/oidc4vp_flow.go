@@ -9,6 +9,7 @@ package oidc4vp
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/piprate/json-gold/ld"
@@ -32,7 +34,9 @@ import (
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/trustbloc/vc-go/vermethod"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
@@ -210,6 +214,8 @@ func (f *Flow) Run(ctx context.Context) error {
 			presentationSubmission.DescriptorMap[i].Format = "jwt_vp"
 		} else if vpFormats.LdpVP != nil {
 			presentationSubmission.DescriptorMap[i].Format = "ldp_vp"
+		} else if vpFormats.CwtVP != nil {
+			presentationSubmission.DescriptorMap[i].Format = "cwt_vp"
 		}
 	}
 
@@ -523,6 +529,15 @@ func (f *Flow) createVPToken(
 			); signErr != nil {
 				return nil, signErr
 			}
+		case vpFormats.CwtVP != nil:
+			if vpToken, signErr = f.signPresentationCWT(
+				presentation,
+				subjectDID,
+				requestObject.ClientID,
+				requestObject.Nonce,
+			); signErr != nil {
+				return nil, signErr
+			}
 		default:
 			return nil, fmt.Errorf("unsupported vp formats: %v", vpFormats)
 		}
@@ -531,6 +546,90 @@ func (f *Flow) createVPToken(
 	}
 
 	return vpTokens, nil
+}
+
+func (f *Flow) signPresentationCWT(
+	vp *verifiable.Presentation,
+	signerDID,
+	clientID,
+	nonce string,
+) (string, error) {
+	var (
+		kmsKeyID string
+		//kmsKeyType kms.KeyType
+		coseAlgo cose.Algorithm
+		err      error
+	)
+
+	for _, didInfo := range f.wallet.DIDs() {
+		if didInfo.ID == signerDID {
+			kmsKeyID = didInfo.KeyID
+
+			coseAlgo, err = verifiable.KeyTypeToCWSAlgo(didInfo.KeyType)
+			if err != nil {
+				return "", fmt.Errorf("convert key type to cose algorithm: %w", err)
+			}
+
+			break
+		}
+	}
+
+	signer, err := f.cryptoSuite.FixedKeyMultiSigner(kmsKeyID)
+	if err != nil {
+		return "", fmt.Errorf("create signer for key %s: %w", kmsKeyID, err)
+	}
+
+	kmsSigner := kmssigner.NewKMSSigner(signer, f.wallet.SignatureType(), nil)
+
+	claims := VPTokenClaims{
+		VP:    vp,
+		Nonce: nonce,
+		Exp:   time.Now().Unix() + tokenLifetimeSeconds,
+		Iss:   signerDID,
+		Aud:   clientID,
+		Nbf:   time.Now().Unix(),
+		Iat:   time.Now().Unix(),
+		Jti:   uuid.NewString(),
+	}
+
+	//
+	payload, err := cbor.Marshal(claims)
+	if err != nil {
+		return "", fmt.Errorf("marshal cbor claims: %w", err)
+	}
+
+	msg := &cose.Sign1Message{
+		Headers: cose.Headers{
+			Protected: cose.ProtectedHeader{
+				cose.HeaderLabelAlgorithm: coseAlgo,
+				cose.HeaderLabelKeyID:     []byte(kmsKeyID),
+			},
+			Unprotected: cose.UnprotectedHeader{
+				cose.HeaderLabelContentType: "application/vc+ld+json+cose",
+			},
+		},
+		Payload: payload,
+	}
+
+	//verifiable.KeyTypeToCWSAlgo(f.wallet.SignatureType()
+	signData, err := cwt2.GetProofValue(msg)
+	if err != nil {
+		return "", err
+	}
+
+	signed, err := kmsSigner.Sign(signData)
+	if err != nil {
+		return "", err
+	}
+
+	msg.Signature = signed
+
+	final, err := cbor.Marshal(msg)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(final), nil
 }
 
 func (f *Flow) signPresentationJWT(

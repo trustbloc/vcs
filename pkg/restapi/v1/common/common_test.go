@@ -150,6 +150,10 @@ func TestController_mapToVPFormat(t *testing.T) {
 		tpe, err = MapToVPFormat(vcsverifiable.Ldp)
 		require.NoError(t, err)
 		require.Equal(t, LdpVp, tpe)
+
+		tpe, err = MapToVPFormat(vcsverifiable.Cwt)
+		require.NoError(t, err)
+		require.Equal(t, CwtVp, tpe)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
@@ -192,6 +196,10 @@ func TestValidateVCFormat(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, vcsverifiable.Jwt, got)
 
+	got, err = ValidateVCFormat(CwtVcLd)
+	require.NoError(t, err)
+	require.Equal(t, vcsverifiable.Cwt, got)
+
 	_, err = ValidateVCFormat("invalid")
 	require.Error(t, err)
 }
@@ -204,6 +212,10 @@ func TestValidateVPFormat(t *testing.T) {
 	got, err = ValidateVPFormat(LdpVp)
 	require.NoError(t, err)
 	require.Equal(t, vcsverifiable.Ldp, got)
+
+	got, err = ValidateVPFormat(CwtVp)
+	require.NoError(t, err)
+	require.Equal(t, vcsverifiable.Cwt, got)
 
 	_, err = ValidateVPFormat("invalid")
 	require.Error(t, err)

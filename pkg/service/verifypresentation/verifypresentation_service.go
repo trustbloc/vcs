@@ -292,7 +292,7 @@ func (s *Service) validatePresentationProof(targetPresentation interface{}, opts
 		}
 		final = vp
 	}
-	if final.JWT == "" {
+	if final.JWT == "" && final.CWT == nil {
 		return s.validateProofData(final, opts)
 	}
 	return nil

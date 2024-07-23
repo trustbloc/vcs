@@ -809,26 +809,22 @@ func GetSupportedVPFormats(
 	supportedVPFormats,
 	supportedVCFormats []vcsverifiable.Format,
 ) *presexch.Format {
-	var jwtSignatureTypeNames []string // order here is important
-	var ldpSignatureTypeNames []string
+	supportedFormats := map[vcsverifiable.Format][]string{ // order here is important
+		vcsverifiable.Jwt: {},
+		vcsverifiable.Cwt: {},
+		vcsverifiable.Ldp: {},
+	}
 
-	for _, keyType := range kmsSupportedKeyTypes {
-		for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, vcsverifiable.Jwt) {
-			name := st.Name()
-			if lo.Contains(jwtSignatureTypeNames, name) {
-				continue
+	for _, format := range supportedVPFormats {
+		for _, keyType := range kmsSupportedKeyTypes {
+			for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, format) {
+				name := st.Name()
+				if lo.Contains(supportedFormats[format], name) {
+					continue
+				}
+
+				supportedFormats[format] = append(supportedFormats[format], name)
 			}
-
-			jwtSignatureTypeNames = append(jwtSignatureTypeNames, name)
-		}
-
-		for _, st := range vcsverifiable.GetSignatureTypesByKeyTypeFormat(keyType, vcsverifiable.Ldp) {
-			name := st.Name()
-			if lo.Contains(ldpSignatureTypeNames, name) {
-				continue
-			}
-
-			ldpSignatureTypeNames = append(ldpSignatureTypeNames, name)
 		}
 	}
 
@@ -837,18 +833,22 @@ func GetSupportedVPFormats(
 	for _, vpFormat := range supportedVPFormats {
 		switch vpFormat {
 		case vcsverifiable.Jwt:
-			formats.JwtVP = &presexch.JwtType{Alg: jwtSignatureTypeNames}
+			formats.JwtVP = &presexch.JwtType{Alg: supportedFormats[vcsverifiable.Jwt]}
 		case vcsverifiable.Ldp:
-			formats.LdpVP = &presexch.LdpType{ProofType: ldpSignatureTypeNames}
+			formats.LdpVP = &presexch.LdpType{ProofType: supportedFormats[vcsverifiable.Ldp]}
+		case vcsverifiable.Cwt:
+			formats.CwtVP = &presexch.CwtType{Alg: supportedFormats[vcsverifiable.Cwt]}
 		}
 	}
 
 	for _, vpFormat := range supportedVCFormats {
 		switch vpFormat {
 		case vcsverifiable.Jwt:
-			formats.JwtVC = &presexch.JwtType{Alg: jwtSignatureTypeNames}
+			formats.JwtVC = &presexch.JwtType{Alg: supportedFormats[vcsverifiable.Jwt]}
 		case vcsverifiable.Ldp:
-			formats.LdpVC = &presexch.LdpType{ProofType: ldpSignatureTypeNames}
+			formats.LdpVC = &presexch.LdpType{ProofType: supportedFormats[vcsverifiable.Ldp]}
+		case vcsverifiable.Cwt:
+			formats.LdpVC = &presexch.LdpType{ProofType: supportedFormats[vcsverifiable.Cwt]}
 		}
 	}
 

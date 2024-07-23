@@ -104,6 +104,7 @@ github.com/golang/mock v1.3.1/go.mod h1:sBzyDLLjw3U8JLTeZvSv8jJB+tU5PVekmnlKIyFU
 github.com/golang/mock v1.4.0/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/mock v1.4.1/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/mock v1.4.3/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
+github.com/golang/mock v1.4.4 h1:l75CXGRSwbaYNpl/Z2X1XIIAMSCquvXgpVZDhwEIJsc=
 github.com/golang/mock v1.4.4/go.mod h1:l3mdAwkq5BuhzHwde/uurv3sEJeZMXNpwsxVWU71h+4=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
@@ -231,10 +232,10 @@ github.com/trustbloc/kms-go v1.1.2 h1:nAlhDoHkSyX1eQFRz/sJsdgmJuNadyX7FJEy/9ROwy
 github.com/trustbloc/kms-go v1.1.2/go.mod h1:OKOtsLbE6W5s4mpjWkvk8XEqcmt9vTgVmDNkHELpWO0=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 h1:Mzg9wvEoUIWPoI/GHz3YlVbd4nKWeSPGc6+3l95eOZU=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42/go.mod h1:HRaXVV1caceumbDBwLO3ByiCcAc18KwrNvZ7JQBvDIQ=
-github.com/trustbloc/vc-go v1.1.3-0.20240708195929-6bd23178e69f h1:aFypiqu5HuVibB3eXe3kf2iEmYtpMCEOsa67SzoLp28=
-github.com/trustbloc/vc-go v1.1.3-0.20240708195929-6bd23178e69f/go.mod h1:FXDDzwuwOUJKTLjX9K+XbotQrW5b5cSgcwm+OAFsZ7c=
-github.com/veraison/go-cose v1.1.0 h1:AalPS4VGiKavpAzIlBjrn7bhqXiXi4jbMYY/2+UC+4o=
-github.com/veraison/go-cose v1.1.0/go.mod h1:7ziE85vSq4ScFTg6wyoMXjucIGOf4JkFEZi/an96Ct4=
+github.com/trustbloc/vc-go v1.1.3-0.20240723144917-8cb417a4df0f h1:v/Gf89EK2vCk2uj9bK+zmoTAQiJEXH9I2p3fYBiNLrg=
+github.com/trustbloc/vc-go v1.1.3-0.20240723144917-8cb417a4df0f/go.mod h1:7GkmcXtK5FNbfxypAZAVg8eM9PVnGJ/lmQo7gQgsjKk=
+github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd h1:QhdCHSW1/oosJbzBTEYLU6xcKxXbQzzqFnhCtW2UWbA=
+github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd/go.mod h1:D1wnviyjdmcF8AO5Y9kVGU6OGuvXUMGiE0Auo/fYRYo=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=

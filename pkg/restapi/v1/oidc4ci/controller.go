@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fxamacker/cbor/v2"
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
@@ -37,6 +38,7 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/veraison/go-cose"
@@ -63,7 +65,7 @@ const (
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 	discoverableClientIDScheme = "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client"
 	jwtProofTypHeader          = "openid4vci-proof+jwt"
-	cwtProofTypHeader          = "openid4vci-proof+cwt"
+	cwtProofTypHeader          = "application/openid4vci-proof+cwt"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
 	cNonceSize                 = 15
@@ -717,12 +719,12 @@ func (c *Controller) HandleProof(
 		}
 		proofHeaders.Type = typ
 
-		cosKeyBytes, ok := cwtParsed.Headers.Protected["COSE_Key"]
+		keyBytes, ok := cwtParsed.Headers.Protected[proof.COSEKeyHeader].(string)
 		if !ok {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
 		}
 
-		proofHeaders.KeyID = string(cosKeyBytes.([]byte))
+		proofHeaders.KeyID = keyBytes
 	case proofTypeLDPVP:
 		if credentialReq.Proof.LdpVp == nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))
@@ -1206,7 +1208,17 @@ func (c *Controller) validateProofClaims(
 		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid kid"))
 	}
 
-	return strings.Split(headers.KeyID, "#")[0], nil
+	targetDID := strings.Split(headers.KeyID, "#")[0]
+
+	if headers.ProofType == proofTypeCWT { // for CWT extract from claim per spec
+		targetDID = claims.Issuer
+	}
+
+	logger.Warn("proofType: " + headers.ProofType)
+	logger.Warn("targetDID: " + targetDID)
+	logger.Warn("claims: " + spew.Sdump(claims))
+
+	return targetDID, nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.

@@ -28,7 +28,7 @@ require (
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.1.3-0.20240708195929-6bd23178e69f
+	github.com/trustbloc/vc-go v1.1.3-0.20240723144917-8cb417a4df0f
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
@@ -67,6 +67,7 @@ require (
 	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
 	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
 	github.com/dave/jennifer v1.6.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.11.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
@@ -147,7 +148,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/veraison/go-cose v1.1.0 // indirect
+	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect

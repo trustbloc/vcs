@@ -388,6 +388,9 @@ func (s *Service) SelectProperOIDCFormat(
 	if format == verifiable.Ldp {
 		return verifiable.LdpVC
 	}
+	if format == verifiable.Cwt {
+		return verifiable.CwtVcLD
+	}
 
 	if template.Checks.Strict {
 		return verifiable.JwtVCJsonLD

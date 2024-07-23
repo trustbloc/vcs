@@ -17,6 +17,7 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.2.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/getkin/kin-openapi v0.94.0
@@ -43,9 +44,9 @@ require (
 	github.com/trustbloc/did-go v1.2.1
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vc-go v1.1.3-0.20240708195929-6bd23178e69f
+	github.com/trustbloc/vc-go v1.1.3-0.20240723144917-8cb417a4df0f
 	github.com/valyala/fastjson v1.6.3
-	github.com/veraison/go-cose v1.1.0
+	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.mongodb.org/mongo-driver v1.11.4
 	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.40.0
@@ -94,7 +95,6 @@ require (
 	github.com/creasty/defaults v1.7.0 // indirect
 	github.com/cristalhq/jwt/v4 v4.0.2 // indirect
 	github.com/dave/jennifer v1.6.1 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

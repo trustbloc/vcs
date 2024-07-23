@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
@@ -106,6 +107,8 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 	issuerProfileVersions := map[string]version.Collection{}
 
 	for _, v := range p.IssuersData {
+		v.Data.GroupID = uuid.NewString()
+
 		if v.CreateDID {
 			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
 				config, nil, v.Data.VCConfig)

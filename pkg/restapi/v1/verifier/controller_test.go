@@ -776,6 +776,69 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		require.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
 	})
 
+	t.Run("Success CWT", func(t *testing.T) {
+		customScopeClaims := map[string]oidc4vp.Claims{
+			"customScope": {
+				"key1": "value2",
+			},
+		}
+
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
+			&idTokenClaimsID1{
+				CustomScopeClaims: customScopeClaims,
+				VPToken: idTokenVPToken{
+					PresentationSubmission: map[string]interface{}{},
+				},
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+			},
+		)
+
+		vpToken := testutil.SignedClaimsCWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Signer,
+			&VPTokenClaims{
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+				Nonce: validNonce,
+				Aud:   validAud,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
+				Exp:   time.Now().Unix() + 1000,
+			})
+
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+
+		c := NewController(&Config{
+			OIDCVPService:  svc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
+			VDR:            signedClaimsJWTResult.VDR,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		responseParsed, err := c.verifyAuthorizationResponseTokens(context.Background(),
+			&rawAuthorizationResponse{
+				IDToken: signedClaimsJWTResult.JWT,
+				VPToken: []string{vpToken},
+				State:   "txid",
+			},
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
+		require.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+	})
+
 	t.Run("Presentation submission missed", func(t *testing.T) {
 		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
 			&IDTokenClaims{
@@ -2600,6 +2663,27 @@ func TestApplyFieldsFilter(t *testing.T) {
 		require.Nil(t, result)
 		require.Contains(t, err.Error(), "failed to compile regex")
 	})
+}
+
+func TestValidateVPTokenCWT(t *testing.T) {
+	c := NewController(&Config{})
+
+	_, err := c.validateVPTokenCWT(&verifiable.Presentation{})
+	assert.ErrorContains(t, err, "cwt presentation is missed")
+
+	_, err = c.validateVPTokenCWT(&verifiable.Presentation{
+		CWT: &verifiable.VpCWT{},
+	})
+	assert.ErrorContains(t, err, "cwt vp map is empty")
+
+	_, err = c.validateVPTokenCWT(&verifiable.Presentation{
+		CWT: &verifiable.VpCWT{
+			VPMap: map[string]interface{}{
+				"ab": "b",
+			},
+		},
+	})
+	assert.ErrorContains(t, err, "cwt message is missed")
 }
 
 type idTokenClaimsID1 struct {

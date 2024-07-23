@@ -292,7 +292,7 @@ func NewOIDC4VCICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.qrCodePath, "qr-code-path", "", "path to file with qr code")
 	cmd.Flags().StringVar(&flags.credentialOffer, "credential-offer", "", "openid credential offer")
 	cmd.Flags().StringVar(&flags.demoIssuerURL, "demo-issuer-url", "", "demo issuer url for downloading qr code automatically")
-	cmd.Flags().StringVar(&flags.oidcCredentialFormat, "credential-format", "", "comma-separated supported OIDC credential formats: ldp_vc,jwt_vc_json-ld")
+	cmd.Flags().StringVar(&flags.oidcCredentialFormat, "credential-format", "", "comma-separated supported OIDC credential formats: ldp_vc,jwt_vc_json-ld,cwt_vc-ld")
 	cmd.Flags().StringVar(&flags.credentialType, "credential-type", "", "comma-separated credential types")
 	cmd.Flags().StringVar(&flags.proofType, "proof-type", "", "proof-type. jwt or cwt. default jwt")
 	cmd.Flags().IntVar(&flags.walletDIDIndex, "wallet-did-index", -1, "index of wallet did, if not set the most recently created DID is used")

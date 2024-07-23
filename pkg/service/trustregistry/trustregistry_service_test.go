@@ -52,7 +52,7 @@ func TestService_ValidateIssuance(t *testing.T) {
 	httpClient := NewMockHTTPClient(gomock.NewController(t))
 
 	proofCreators, defaultProofChecker := testsupport.NewKMSSignersAndVerifier(t,
-		[]testsupport.SigningKey{
+		[]*testsupport.SigningKey{
 			{
 				Type:        kms.ECDSAP256TypeDER,
 				PublicKeyID: attestationKeyID,
@@ -343,7 +343,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 	httpClient := NewMockHTTPClient(gomock.NewController(t))
 
 	proofCreators, defaultProofChecker := testsupport.NewKMSSignersAndVerifier(t,
-		[]testsupport.SigningKey{
+		[]*testsupport.SigningKey{
 			{
 				Type:        kms.ECDSAP256TypeDER,
 				PublicKeyID: attestationKeyID,

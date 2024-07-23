@@ -99,6 +99,12 @@ func proveVC(
 			Purpose:                 purpose,
 		}, jsonld.WithDocumentLoader(loader))
 		require.NoError(t, err)
+	case vcsverifiable.Cwt:
+		cwtAlgo, cwtErr := verifiable.KeyTypeToCWSAlgo(kt)
+		require.NoError(t, cwtErr)
+
+		credential, err = credential.CreateSignedCOSEVC(cwtAlgo, proofCreator, didDoc.VerificationMethod[0].ID)
+		require.NoError(t, err)
 	case vcsverifiable.Jwt:
 		jwsAlgo, jwtErr := verifiable.KeyTypeToJWSAlgo(kt)
 		require.NoError(t, jwtErr)
