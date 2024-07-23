@@ -2665,6 +2665,27 @@ func TestApplyFieldsFilter(t *testing.T) {
 	})
 }
 
+func TestValidateVPTokenCWT(t *testing.T) {
+	c := NewController(&Config{})
+
+	_, err := c.validateVPTokenCWT(&verifiable.Presentation{})
+	assert.ErrorContains(t, err, "cwt presentation is missed")
+
+	_, err = c.validateVPTokenCWT(&verifiable.Presentation{
+		CWT: &verifiable.VpCWT{},
+	})
+	assert.ErrorContains(t, err, "cwt vp map is empty")
+
+	_, err = c.validateVPTokenCWT(&verifiable.Presentation{
+		CWT: &verifiable.VpCWT{
+			VPMap: map[string]interface{}{
+				"ab": "b",
+			},
+		},
+	})
+	assert.ErrorContains(t, err, "cwt message is missed")
+}
+
 type idTokenClaimsID1 struct {
 	CustomScopeClaims map[string]oidc4vp.Claims `json:"_scope,omitempty"`
 	VPToken           idTokenVPToken            `json:"_vp_token"`
