@@ -28,6 +28,7 @@ func SignedClaimsCWTWithExistingPrivateKey(
 	t.Helper()
 
 	coseAlgo, err := verifiable.KeyTypeToCWSAlgo(kms.ED25519Type)
+	assert.NoError(t, err)
 
 	payload, err := cbor.Marshal(claims)
 	assert.NoError(t, err)
