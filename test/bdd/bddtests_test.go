@@ -38,9 +38,9 @@ var logger = log.New("vcs-bdd")
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all but excluding those marked with @wip
-	os.Setenv("DISABLE_COMPOSITION", "true")
-	os.Setenv("TAGS", "@oidc4vc_rest_pre_auth_flow_cwt_TODO")
-	os.Setenv("WALLET_CLI_DEBUG", "true")
+	//os.Setenv("DISABLE_COMPOSITION", "true")
+	//os.Setenv("TAGS", "@oidc4vc_rest_pre_auth_flow_cwt_TODO")
+	//os.Setenv("WALLET_CLI_DEBUG", "true")
 
 	tags := "@all && ~@wip"
 
