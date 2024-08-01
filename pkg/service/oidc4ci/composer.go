@@ -28,11 +28,8 @@ func (c *CredentialComposer) Compose(
 	_ context.Context,
 	credential *verifiable.Credential,
 	req *PrepareCredentialsRequest,
-	// tx *Transaction,
-	// txCredentialConfiguration *TxCredentialConfiguration,
-	// prepRequest *PrepareCredentialRequest,
 ) (*verifiable.Credential, error) {
-	if req.CredentialConfiguration == nil || req.CredentialConfiguration.CredentialComposeConfiguration == nil {
+	if req == nil || req.CredentialConfiguration == nil || req.CredentialConfiguration.CredentialComposeConfiguration == nil {
 		return credential, nil
 	}
 

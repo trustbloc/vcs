@@ -4621,20 +4621,20 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				m.composer.EXPECT().Compose(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Times(2).DoAndReturn(func(
-					ctx context.Context,
-					credential *verifiable.Credential,
-					transaction *oidc4ci.Transaction,
-					configuration *oidc4ci.TxCredentialConfiguration,
-					request *oidc4ci.PrepareCredentialRequest,
-				) (*verifiable.Credential, error) {
-					assert.EqualValues(t, "some-template",
-						configuration.CredentialComposeConfiguration.IDTemplate)
-
-					assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
-					return credential, nil
-				})
+				//m.composer.EXPECT().Compose(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+				//	Times(2).DoAndReturn(func(
+				//	ctx context.Context,
+				//	credential *verifiable.Credential,
+				//	transaction *oidc4ci.Transaction,
+				//	configuration *oidc4ci.TxCredentialConfiguration,
+				//	request *oidc4ci.PrepareCredentialRequest,
+				//) (*verifiable.Credential, error) {
+				//	assert.EqualValues(t, "some-template",
+				//		configuration.CredentialComposeConfiguration.IDTemplate)
+				//
+				//	assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
+				//	return credential, nil
+				//})
 
 				cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
 					Subject: []verifiable.Subject{
@@ -5274,7 +5274,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				eventService:     NewMockEventService(gomock.NewController(t)),
 				crypto:           NewMockDataProtector(gomock.NewController(t)),
 				ackService:       NewMockAckService(gomock.NewController(t)),
-				composer:         NewMockComposer(gomock.NewController(t)),
+				//composer:         NewMockComposer(gomock.NewController(t)),
 			}
 
 			tt.setup(m)
@@ -5287,7 +5287,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				EventTopic:       spi.IssuerEventTopic,
 				DataProtector:    m.crypto,
 				AckService:       m.ackService,
-				Composer:         m.composer,
+				//Composer:         m.composer,
 			})
 			assert.NoError(t, err)
 

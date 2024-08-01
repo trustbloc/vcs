@@ -93,26 +93,29 @@ func (s *RefreshService) RefreshCredential(
 
 	lastType := allTypes[len(cred.Contents().Types)-1]
 
-	//var template *profile.CredentialTemplate
-	//for _, t := range issuer.CredentialTemplates {
-	//	if t.Type == lastType {
-	//		template = t
-	//		break
-	//	}
-	//}
-	//
-	//if template == nil {
-	//	return fmt.Errorf("no credential template found for credential type %v", lastType)
-	//}
+	var template *profile.CredentialTemplate
+	for _, t := range issuer.CredentialTemplates {
+		if t.Type == lastType {
+			template = t
+			break
+		}
+	}
+
+	if template == nil {
+		return fmt.Errorf("no credential template found for credential type %v", lastType)
+	}
 
 	var config *profile.CredentialsConfigurationSupported
-	for _, v := range issuer.CredentialMetaData.CredentialsConfigurationSupported {
+	var configID string
+
+	for k, v := range issuer.CredentialMetaData.CredentialsConfigurationSupported {
 		if v.CredentialDefinition == nil {
 			continue
 		}
 
 		if lo.Contains(v.CredentialDefinition.Type, lastType) {
 			config = v
+			configID = k
 			break
 		}
 	}
@@ -126,13 +129,39 @@ func (s *RefreshService) RefreshCredential(
 		return err
 	}
 
-	s.cfg.CredentialIssuer.PrepareCredential(ctx, tx, tx.CredentialConfiguration[0], &PrepareCredentialRequest{
-		CredentialTypes:  nil,
-		CredentialFormat: "",
-		DID:              "",
-		AudienceClaim:    "",
-		HashedToken:      "",
-	}) // todo tx.CredentialConfiguration[0]
+	tempClaimData, err := s.cfg.ClaimsStore.GetAndDelete(ctx, tx.CredentialConfiguration[0].ClaimDataID)
+	if err != nil {
+		return err
+	}
+
+	decryptedClaims, decryptErr := decryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
+	if decryptErr != nil {
+		return fmt.Errorf("decrypt claims: %w", decryptErr)
+	}
+
+	subj := cred.Contents().Subject
+	if len(subj) == 0 {
+		return errors.New("no subject in credential")
+	}
+
+	credConfig := tx.CredentialConfiguration[0]
+
+	credConfig.CredentialConfigurationID = configID
+	credConfig.OIDCCredentialFormat = config.Format
+	credConfig.CredentialTemplate = template
+
+	updatedCred, err := s.cfg.CredentialIssuer.PrepareCredential(ctx, &PrepareCredentialsRequest{
+		TxID:                    string(tx.ID),
+		ClaimData:               decryptedClaims,
+		IssuerDID:               tx.ProfileID,
+		SubjectDID:              subj[0].ID,
+		CredentialConfiguration: credConfig,
+	})
+	if err != nil {
+		return errors.Join(errors.New("failed to prepare credential"), err)
+	}
+
+	fmt.Println(updatedCred)
 
 	return nil
 }

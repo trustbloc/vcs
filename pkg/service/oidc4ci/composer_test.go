@@ -31,22 +31,18 @@ func TestComposer(t *testing.T) {
 		resp, err := srv.Compose(
 			context.TODO(),
 			cred,
-			&oidc4ci.Transaction{
-				ID: "some-awesome-id",
-				TransactionData: oidc4ci.TransactionData{
-					DID: "did:example:123",
+			&oidc4ci.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &oidc4ci.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+						IDTemplate:         "hardcoded:{{.TxID}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: &expectedExpiration,
 				},
-			},
-			&oidc4ci.TxCredentialConfiguration{
-				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:         "hardcoded:{{.TxID}}:suffix",
-					OverrideIssuer:     true,
-					OverrideSubjectDID: true,
-				},
-				CredentialExpiresAt: &expectedExpiration,
-			},
-			&oidc4ci.PrepareCredentialRequest{
-				DID: "some-awesome-did",
 			},
 		)
 
@@ -92,22 +88,18 @@ func TestComposer(t *testing.T) {
 		resp, err := srv.Compose(
 			context.TODO(),
 			cred,
-			&oidc4ci.Transaction{
-				ID: "some-awesome-id",
-				TransactionData: oidc4ci.TransactionData{
-					DID: "did:example:123",
+			&oidc4ci.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &oidc4ci.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+						IDTemplate:         "{{.CredentialID}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: lo.ToPtr(time.Now()),
 				},
-			},
-			&oidc4ci.TxCredentialConfiguration{
-				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:         "{{.CredentialID}}:suffix",
-					OverrideIssuer:     true,
-					OverrideSubjectDID: true,
-				},
-				CredentialExpiresAt: lo.ToPtr(time.Now()),
-			},
-			&oidc4ci.PrepareCredentialRequest{
-				DID: "some-awesome-did",
 			},
 		)
 
@@ -131,19 +123,19 @@ func TestComposer(t *testing.T) {
 		resp, err := srv.Compose(
 			context.TODO(),
 			cred,
-			&oidc4ci.Transaction{
-				ID: "some-awesome-id",
-				TransactionData: oidc4ci.TransactionData{
-					DID: "did:example:123",
+			&oidc4ci.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &oidc4ci.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+						IDTemplate:         "hardcoded:{{.NotExistingValue.$x}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: lo.ToPtr(time.Now()),
 				},
 			},
-			&oidc4ci.TxCredentialConfiguration{
-				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:     "hardcoded:{{.NotExistingValue.$x}}:suffix",
-					OverrideIssuer: true,
-				},
-			},
-			&oidc4ci.PrepareCredentialRequest{},
 		)
 
 		assert.ErrorContains(t, err, "bad character")
@@ -156,7 +148,7 @@ func TestComposer(t *testing.T) {
 		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{}, verifiable.CustomFields{})
 		assert.NoError(t, err)
 
-		resp, err := srv.Compose(context.TODO(), cred, nil, nil, nil)
+		resp, err := srv.Compose(context.TODO(), cred, nil)
 		assert.Equal(t, cred, resp)
 		assert.NoError(t, err)
 	})
