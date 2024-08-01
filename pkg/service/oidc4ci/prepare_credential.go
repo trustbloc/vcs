@@ -22,7 +22,7 @@ func NewPrepareCredentialService(
 	}
 }
 
-func (s *PrepareCredentialService) PrepareCredentials(
+func (s *PrepareCredentialService) PrepareCredential(
 	ctx context.Context,
 	req *PrepareCredentialsRequest,
 ) (*verifiable.Credential, error) {

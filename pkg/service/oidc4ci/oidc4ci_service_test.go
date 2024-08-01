@@ -4621,20 +4621,18 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				//m.composer.EXPECT().Compose(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-				//	Times(2).DoAndReturn(func(
-				//	ctx context.Context,
-				//	credential *verifiable.Credential,
-				//	transaction *oidc4ci.Transaction,
-				//	configuration *oidc4ci.TxCredentialConfiguration,
-				//	request *oidc4ci.PrepareCredentialRequest,
-				//) (*verifiable.Credential, error) {
-				//	assert.EqualValues(t, "some-template",
-				//		configuration.CredentialComposeConfiguration.IDTemplate)
-				//
-				//	assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
-				//	return credential, nil
-				//})
+				m.composer.EXPECT().Compose(gomock.Any(), gomock.Any(), gomock.Any()).
+					Times(2).DoAndReturn(func(
+					ctx context.Context,
+					credential *verifiable.Credential,
+					req *oidc4ci.PrepareCredentialsRequest,
+				) (*verifiable.Credential, error) {
+					assert.EqualValues(t, "some-template",
+						req.CredentialConfiguration.CredentialComposeConfiguration.IDTemplate)
+
+					assert.True(t, req.CredentialConfiguration.CredentialComposeConfiguration.OverrideIssuer)
+					return credential, nil
+				})
 
 				cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
 					Subject: []verifiable.Subject{
@@ -5274,20 +5272,20 @@ func TestService_PrepareCredential(t *testing.T) {
 				eventService:     NewMockEventService(gomock.NewController(t)),
 				crypto:           NewMockDataProtector(gomock.NewController(t)),
 				ackService:       NewMockAckService(gomock.NewController(t)),
-				//composer:         NewMockComposer(gomock.NewController(t)),
+				composer:         NewMockcomposer(gomock.NewController(t)),
 			}
 
 			tt.setup(m)
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
-				TransactionStore: m.transactionStore,
-				ClaimDataStore:   m.claimDataStore,
-				HTTPClient:       httpClient,
-				EventService:     m.eventService,
-				EventTopic:       spi.IssuerEventTopic,
-				DataProtector:    m.crypto,
-				AckService:       m.ackService,
-				//Composer:         m.composer,
+				TransactionStore:  m.transactionStore,
+				ClaimDataStore:    m.claimDataStore,
+				HTTPClient:        httpClient,
+				EventService:      m.eventService,
+				EventTopic:        spi.IssuerEventTopic,
+				DataProtector:     m.crypto,
+				AckService:        m.ackService,
+				PrepareCredential: oidc4ci.NewPrepareCredentialService(m.composer),
 			})
 			assert.NoError(t, err)
 

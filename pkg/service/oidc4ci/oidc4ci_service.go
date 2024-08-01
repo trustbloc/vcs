@@ -169,7 +169,7 @@ type Config struct {
 	AckService                    ackService
 	Composer                      composer
 	DocumentLoader                documentLoader
-	CredentialIssuer              credentialIssuer
+	PrepareCredential             credentialIssuer
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -216,7 +216,7 @@ func NewService(config *Config) (*Service, error) {
 		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
 		documentLoader:                config.DocumentLoader,
-		credentialIssuer:              config.CredentialIssuer, // todo
+		credentialIssuer:              config.PrepareCredential, // todo
 	}, nil
 }
 

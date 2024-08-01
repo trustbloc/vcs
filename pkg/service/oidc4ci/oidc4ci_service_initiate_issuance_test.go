@@ -54,6 +54,7 @@ type mocks struct {
 	jsonSchemaValidator *MockJSONSchemaValidator
 	ackService          *MockAckService
 	documentLoader      *jsonld.DefaultDocumentLoader
+	composer            *Mockcomposer
 }
 
 func TestService_InitiateIssuance(t *testing.T) {
