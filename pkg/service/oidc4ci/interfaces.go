@@ -9,6 +9,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
+//go:generate mockgen -destination interfaces_mocks_test.go -package oidc4ci_test -source=interfaces.go
 type presentationVerifier interface {
 	VerifyPresentation(
 		ctx context.Context,
@@ -23,8 +24,14 @@ type presentationVerifier interface {
 type credentialIssuer interface {
 	PrepareCredential(
 		ctx context.Context,
-		tx *Transaction,
-		txCredentialConfiguration *TxCredentialConfiguration,
-		prepareCredentialRequest *PrepareCredentialRequest,
-	)
+		req *PrepareCredentialsRequest,
+	) (*verifiable.Credential, error)
+}
+
+type composer interface {
+	Compose(
+		ctx context.Context,
+		cred *verifiable.Credential,
+		req *PrepareCredentialsRequest,
+	) (*verifiable.Credential, error)
 }

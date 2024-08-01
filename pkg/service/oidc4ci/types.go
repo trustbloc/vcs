@@ -33,3 +33,11 @@ type InteractService struct {
 type VerifiablePresentationRequest struct {
 	Query presexch.PresentationDefinition `json:"query"`
 }
+
+type PrepareCredentialsRequest struct {
+	TxID                    string
+	ClaimData               map[string]interface{}
+	IssuerDID               string
+	SubjectDID              string
+	CredentialConfiguration *TxCredentialConfiguration
+}

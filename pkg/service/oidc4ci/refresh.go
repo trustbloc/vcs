@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -92,34 +93,60 @@ func (s *RefreshService) RefreshCredential(
 
 	lastType := allTypes[len(cred.Contents().Types)-1]
 
-	var template *profile.CredentialTemplate
-	for _, t := range issuer.CredentialTemplates {
-		if t.Type == lastType {
-			template = t
+	//var template *profile.CredentialTemplate
+	//for _, t := range issuer.CredentialTemplates {
+	//	if t.Type == lastType {
+	//		template = t
+	//		break
+	//	}
+	//}
+	//
+	//if template == nil {
+	//	return fmt.Errorf("no credential template found for credential type %v", lastType)
+	//}
+
+	var config *profile.CredentialsConfigurationSupported
+	for _, v := range issuer.CredentialMetaData.CredentialsConfigurationSupported {
+		if v.CredentialDefinition == nil {
+			continue
+		}
+
+		if lo.Contains(v.CredentialDefinition.Type, lastType) {
+			config = v
 			break
 		}
 	}
 
-	if template == nil {
-		return fmt.Errorf("no credential template found for credential type %v", lastType)
+	if config == nil {
+		return fmt.Errorf("no credential configuration found for credential type %v", lastType)
 	}
 
-	//cred.Contents().Types
+	tx, err := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(cred.Contents().ID, issuer.ID))
+	if err != nil {
+		return err
+	}
+
+	s.cfg.CredentialIssuer.PrepareCredential(ctx, tx, tx.CredentialConfiguration[0], &PrepareCredentialRequest{
+		CredentialTypes:  nil,
+		CredentialFormat: "",
+		DID:              "",
+		AudienceClaim:    "",
+		HashedToken:      "",
+	}) // todo tx.CredentialConfiguration[0]
 
 	return nil
 }
 
 func (s *RefreshService) GetRefreshState(
 	ctx context.Context,
-	refreshID string,
+	credentialID string,
 	issuer profile.Issuer,
 ) (*GetRefreshStateResponse, error) {
-	tx, _ := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(refreshID, issuer.ID))
+	tx, _ := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(credentialID, issuer.ID))
 	if tx == nil {
 		return nil, nil
 	}
 
-	targetPath := s.getUrl(refreshID, issuer.ID)
 	purpose := "The verifier needs to see your existing credentials to verify your identity"
 
 	return &GetRefreshStateResponse{
@@ -139,13 +166,14 @@ func (s *RefreshService) GetRefreshState(
 							Fields: []*presexch.Field{
 								{
 									Path: []string{
-										"$.refreshService.url",
+										"$.vc.id",
+										"$.credentialSubject.id",
 									},
-									ID:      "refresh_id",
+									ID:      "cred_id",
 									Purpose: purpose,
 									Filter: &presexch.Filter{
 										Type:  lo.ToPtr("string"),
-										Const: targetPath,
+										Const: credentialID,
 									},
 									Optional: false,
 								},
@@ -202,7 +230,7 @@ func (s *RefreshService) CreateRefreshClaims(
 }
 
 func (s *RefreshService) getUrl(refreshID string, issuerID string) string {
-	return fmt.Sprintf("%s/refresh/%s/%s", s.cfg.VcsApiURL, issuerID, refreshID)
+	return fmt.Sprintf("%s/refresh/%s?id=%s", s.cfg.VcsApiURL, issuerID, url.QueryEscape(refreshID))
 }
 
 func (s *RefreshService) getOpState(refreshId string, issuerID string) string {

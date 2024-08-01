@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
-	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -144,16 +143,6 @@ type ackService interface {
 	) (*string, error)
 }
 
-type composer interface {
-	Compose(
-		ctx context.Context,
-		credential *verifiable.Credential,
-		tx *Transaction,
-		txCredentialConfiguration *TxCredentialConfiguration,
-		req *PrepareCredentialRequest,
-	) (*verifiable.Credential, error)
-}
-
 // DocumentLoader knows how to load remote documents.
 type documentLoader interface {
 	LoadDocument(u string) (*ld.RemoteDocument, error)
@@ -180,6 +169,7 @@ type Config struct {
 	AckService                    ackService
 	Composer                      composer
 	DocumentLoader                documentLoader
+	CredentialIssuer              credentialIssuer
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -201,8 +191,8 @@ type Service struct {
 	schemaValidator               jsonSchemaValidator
 	trustRegistry                 trustRegistry
 	ackService                    ackService
-	composer                      composer
 	documentLoader                documentLoader
+	credentialIssuer              credentialIssuer
 }
 
 // NewService returns a new Service instance.
@@ -225,8 +215,8 @@ func NewService(config *Config) (*Service, error) {
 		schemaValidator:               config.JSONSchemaValidator,
 		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
-		composer:                      config.Composer,
 		documentLoader:                config.DocumentLoader,
+		credentialIssuer:              config.CredentialIssuer, // todo
 	}, nil
 }
 
@@ -818,6 +808,44 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	return prepareCredentialResult, nil
 }
 
+func (s *Service) prepareCredential( //nolint:funlen
+	ctx context.Context,
+	tx *Transaction,
+	txCredentialConfiguration *TxCredentialConfiguration,
+	prepareCredentialRequest *PrepareCredentialRequest,
+) (*verifiable.Credential, *string, error) {
+	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get claims data: %w", err)
+	}
+
+	finalCred, err := s.credentialIssuer.PrepareCredential(ctx, &PrepareCredentialsRequest{
+		TxID:                    string(tx.ID),
+		ClaimData:               claimData,
+		IssuerDID:               tx.DID,
+		SubjectDID:              prepareCredentialRequest.DID,
+		CredentialConfiguration: txCredentialConfiguration,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepare credential: %w", err)
+	}
+
+	// Create credential-specific record.
+	ack, err := s.ackService.CreateAck(ctx, &Ack{
+		HashedToken:    prepareCredentialRequest.HashedToken,
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		TxID:           generateAckTxID(tx.ID),
+		WebHookURL:     tx.WebHookURL,
+		OrgID:          tx.OrgID,
+	})
+	if err != nil { // its not critical and should not break the flow
+		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
+	}
+
+	return finalCred, ack, nil
+}
+
 func (s *Service) findTxCredentialConfiguration( //nolint:funlen
 	requestedTxCredentialConfigurationIDs map[string]struct{},
 	txCredentialConfigurations []*TxCredentialConfiguration,
@@ -865,122 +893,6 @@ func (s *Service) validateRequestAudienceClaim( //nolint:funlen
 	}
 
 	return nil
-}
-
-func (s *Service) prepareCredentialFromClaims(
-	_ context.Context,
-	claimData map[string]interface{},
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	prepareCredentialRequest *PrepareCredentialRequest,
-) (*verifiable.Credential, error) {
-	contexts := txCredentialConfiguration.CredentialTemplate.Contexts
-	if len(contexts) == 0 {
-		contexts = []string{defaultCtx}
-	}
-
-	// prepare credential for signing
-	vcc := verifiable.CredentialContents{
-		Context: contexts,
-		ID:      uuid.New().URN(),
-		Types:   []string{"VerifiableCredential", txCredentialConfiguration.CredentialTemplate.Type},
-		Issuer:  &verifiable.Issuer{ID: tx.DID},
-		Issued:  util.NewTime(time.Now()),
-	}
-
-	customFields := map[string]interface{}{}
-
-	if txCredentialConfiguration.CredentialDescription != "" {
-		customFields["description"] = txCredentialConfiguration.CredentialDescription
-	}
-	if txCredentialConfiguration.CredentialName != "" {
-		customFields["name"] = txCredentialConfiguration.CredentialName
-	}
-
-	if txCredentialConfiguration.CredentialExpiresAt != nil {
-		vcc.Expired = util.NewTime(*txCredentialConfiguration.CredentialExpiresAt)
-	}
-
-	if claimData != nil {
-		vcc.Subject = []verifiable.Subject{{
-			ID:           prepareCredentialRequest.DID,
-			CustomFields: claimData,
-		}}
-	} else {
-		vcc.Subject = []verifiable.Subject{{ID: prepareCredentialRequest.DID}}
-	}
-
-	return verifiable.CreateCredential(vcc, customFields)
-}
-
-func (s *Service) prepareCredentialFromCompose(
-	ctx context.Context,
-	claimData map[string]interface{},
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	req *PrepareCredentialRequest,
-) (*verifiable.Credential, error) {
-	cred, err := verifiable.ParseCredentialJSON(claimData,
-		verifiable.WithCredDisableValidation(),
-		verifiable.WithDisabledProofCheck(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("parse credential json: %w", err)
-	}
-
-	return s.composer.Compose(ctx, cred, tx, txCredentialConfiguration, req)
-}
-
-func (s *Service) prepareCredential( //nolint:funlen
-	ctx context.Context,
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	prepareCredentialRequest *PrepareCredentialRequest,
-) (*verifiable.Credential, *string, error) {
-	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
-	if err != nil {
-		return nil, nil, fmt.Errorf("get claims data: %w", err)
-	}
-
-	var finalCred *verifiable.Credential
-
-	switch txCredentialConfiguration.ClaimDataType {
-	case ClaimDataTypeClaims:
-		finalCred, err = s.prepareCredentialFromClaims(
-			ctx,
-			claimData,
-			tx,
-			txCredentialConfiguration,
-			prepareCredentialRequest,
-		)
-	case ClaimDataTypeVC:
-		finalCred, err = s.prepareCredentialFromCompose(
-			ctx,
-			claimData,
-			tx,
-			txCredentialConfiguration,
-			prepareCredentialRequest,
-		)
-	}
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepare credential: %w", err)
-	}
-
-	// Create cpredential-specific record.
-	ack, err := s.ackService.CreateAck(ctx, &Ack{
-		HashedToken:    prepareCredentialRequest.HashedToken,
-		ProfileID:      tx.ProfileID,
-		ProfileVersion: tx.ProfileVersion,
-		TxID:           generateAckTxID(tx.ID),
-		WebHookURL:     tx.WebHookURL,
-		OrgID:          tx.OrgID,
-	})
-	if err != nil { // its not critical and should not break the flow
-		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
-	}
-
-	return finalCred, ack, nil
 }
 
 func (s *Service) getClaimsData(

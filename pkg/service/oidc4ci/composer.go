@@ -27,16 +27,17 @@ func NewCredentialComposer() *CredentialComposer {
 func (c *CredentialComposer) Compose(
 	_ context.Context,
 	credential *verifiable.Credential,
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	prepRequest *PrepareCredentialRequest,
+	req *PrepareCredentialsRequest,
+	// tx *Transaction,
+	// txCredentialConfiguration *TxCredentialConfiguration,
+	// prepRequest *PrepareCredentialRequest,
 ) (*verifiable.Credential, error) {
-	if txCredentialConfiguration == nil || txCredentialConfiguration.CredentialComposeConfiguration == nil {
+	if req.CredentialConfiguration == nil || req.CredentialConfiguration.CredentialComposeConfiguration == nil {
 		return credential, nil
 	}
 
-	if idTemplate := txCredentialConfiguration.CredentialComposeConfiguration.IDTemplate; idTemplate != "" {
-		params := c.baseParams(tx)
+	if idTemplate := req.CredentialConfiguration.CredentialComposeConfiguration.IDTemplate; idTemplate != "" {
+		params := c.baseParams(req)
 		params["CredentialID"] = credential.Contents().ID
 
 		id, err := c.renderRaw(idTemplate, params)
@@ -47,21 +48,21 @@ func (c *CredentialComposer) Compose(
 		credential = credential.WithModifiedID(id)
 	}
 
-	if txCredentialConfiguration.CredentialComposeConfiguration.OverrideIssuer {
+	if req.CredentialConfiguration.CredentialComposeConfiguration.OverrideIssuer {
 		issuer := credential.Contents().Issuer
 		if issuer == nil {
 			issuer = &verifiable.Issuer{}
 		}
 
-		issuer.ID = tx.DID
+		issuer.ID = req.IssuerDID
 
 		credential = credential.WithModifiedIssuer(issuer)
 	}
 
-	if txCredentialConfiguration.CredentialComposeConfiguration.OverrideSubjectDID {
+	if req.CredentialConfiguration.CredentialComposeConfiguration.OverrideSubjectDID {
 		var newSubjects []verifiable.Subject
 		for _, s := range credential.Contents().Subject {
-			s.ID = prepRequest.DID
+			s.ID = req.SubjectDID
 
 			newSubjects = append(newSubjects, s)
 		}
@@ -69,8 +70,8 @@ func (c *CredentialComposer) Compose(
 		credential = credential.WithModifiedSubject(newSubjects)
 	}
 
-	if credential.Contents().Expired == nil && txCredentialConfiguration.CredentialExpiresAt != nil {
-		credential = credential.WithModifiedExpired(util.NewTime(*txCredentialConfiguration.CredentialExpiresAt))
+	if credential.Contents().Expired == nil && req.CredentialConfiguration.CredentialExpiresAt != nil {
+		credential = credential.WithModifiedExpired(util.NewTime(*req.CredentialConfiguration.CredentialExpiresAt))
 	}
 
 	if credential.Contents().Issued == nil {
@@ -81,12 +82,12 @@ func (c *CredentialComposer) Compose(
 }
 
 func (c *CredentialComposer) baseParams(
-	tx *Transaction,
+	tx *PrepareCredentialsRequest,
 ) map[string]interface{} {
 	result := map[string]interface{}{
 		"RandomID":  uuid.NewString(),
-		"TxID":      tx.ID,
-		"IssuerDID": tx.DID,
+		"TxID":      tx.TxID,
+		"IssuerDID": tx.IssuerDID,
 	}
 
 	return result
