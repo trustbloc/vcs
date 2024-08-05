@@ -3,6 +3,7 @@ package oidc4ci
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,14 +12,19 @@ import (
 )
 
 type PrepareCredentialService struct {
-	composer composer
+	cfg *PrepareCredentialServiceConfig
+}
+
+type PrepareCredentialServiceConfig struct {
+	VcsAPIURL string
+	Composer  composer
 }
 
 func NewPrepareCredentialService(
-	composer composer,
+	cfg *PrepareCredentialServiceConfig,
 ) *PrepareCredentialService {
 	return &PrepareCredentialService{
-		composer: composer,
+		cfg: cfg,
 	}
 }
 
@@ -45,6 +51,16 @@ func (s *PrepareCredentialService) PrepareCredential(
 			req,
 		)
 	}
+
+	if err != nil {
+		return nil, fmt.Errorf("prepare credential: %w", err)
+	}
+
+	if finalCred == nil {
+		return nil, fmt.Errorf("prepare credential: final credential is nil")
+	}
+
+	finalCred = finalCred.WithModifiedRefreshService(s.CreateRefreshService(ctx, finalCred, req))
 
 	return finalCred, err
 }
@@ -104,5 +120,34 @@ func (s *PrepareCredentialService) prepareCredentialFromCompose(
 		return nil, fmt.Errorf("parse credential json: %w", err)
 	}
 
-	return s.composer.Compose(ctx, cred, req)
+	return s.cfg.Composer.Compose(ctx, cred, req)
+}
+
+func (s *PrepareCredentialService) CreateRefreshService(
+	_ context.Context,
+	cred *verifiable.Credential,
+	req *PrepareCredentialsRequest,
+) *verifiable.RefreshService {
+	return &verifiable.RefreshService{
+		TypedID: verifiable.TypedID{
+			Type: "VerifiableCredentialRefreshService2021",
+			CustomFields: verifiable.CustomFields{
+				"validFrom": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+		Url: s.getRefreshServiceURL(cred.Contents().ID, req.IssuerID, req.IssuerVersion),
+	}
+}
+
+func (s *PrepareCredentialService) getRefreshServiceURL(
+	credentialID string,
+	issuerID string,
+	issuerVersion string,
+) string {
+	return fmt.Sprintf("%s/refresh/%s/%s?credentialID=%s",
+		s.cfg.VcsAPIURL,
+		issuerID,
+		issuerVersion,
+		url.QueryEscape(credentialID),
+	)
 }

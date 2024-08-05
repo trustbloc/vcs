@@ -236,7 +236,7 @@ func (c *Controller) RequestRefreshStatus(
 			Interact: RefreshServiceInteract{
 				Service: []RefreshService{
 					{
-						ServiceEndpoint: resp.RefreshServiceType.ServiceEndpoint,
+						ServiceEndpoint: ctx.Request().RequestURI,
 						Type:            resp.RefreshServiceType.Type,
 					},
 				},

@@ -23,8 +23,7 @@ type GetRefreshStateResponse struct {
 }
 
 type RefreshServiceType struct {
-	Type            string `json:"type"`
-	ServiceEndpoint string `json:"serviceEndpoint"`
+	Type string `json:"type"`
 }
 
 type Interact struct {
@@ -46,4 +45,7 @@ type PrepareCredentialsRequest struct {
 	IssuerDID               string
 	SubjectDID              string
 	CredentialConfiguration *TxCredentialConfiguration
+
+	IssuerID      string
+	IssuerVersion string
 }

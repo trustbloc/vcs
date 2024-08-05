@@ -47,12 +47,8 @@ func (s *Steps) ensureNoCredentialRefreshAvailable() error {
 		refreshURL := c.Contents().RefreshService.Url
 
 		resp, err := bddutil.HTTPSDo(
-			http.MethodPost,
-			fmt.Sprintf(refreshURL,
-				vcsAPIGateway,
-				s.issuerProfile.ID,
-				s.issuerProfile.Version,
-			),
+			http.MethodGet,
+			refreshURL,
 			"application/json",
 			s.getToken(),
 			nil,
@@ -62,8 +58,13 @@ func (s *Steps) ensureNoCredentialRefreshAvailable() error {
 			return fmt.Errorf("failed to send request to refresh service (%s): %w", refreshURL, err)
 		}
 
+		var body []byte
+		if resp.Body != nil {
+			body, _ = io.ReadAll(resp.Body) // nolint
+		}
+
 		if resp.StatusCode != http.StatusNoContent {
-			return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+			return fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
 		}
 	}
 

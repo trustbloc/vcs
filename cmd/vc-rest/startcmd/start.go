@@ -702,7 +702,10 @@ func buildEchoHandler(
 		ProfileSvc: issuerProfileSvc,
 	})
 
-	prepareCredentialSvc := oidc4ci.NewPrepareCredentialService(oidc4ci.NewCredentialComposer())
+	prepareCredentialSvc := oidc4ci.NewPrepareCredentialService(&oidc4ci.PrepareCredentialServiceConfig{
+		VcsAPIURL: conf.StartupParameters.hostURLExternal,
+		Composer:  oidc4ci.NewCredentialComposer(),
+	})
 
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,

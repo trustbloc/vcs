@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
@@ -32,26 +30,6 @@ type RefreshService struct {
 func NewRefreshService(cfg *RefreshConfig) *RefreshService {
 	return &RefreshService{
 		cfg: cfg,
-	}
-}
-
-func (s *RefreshService) CreateRefreshService(
-	_ context.Context,
-	issuer profile.Issuer,
-	id *string,
-) *verifiable.RefreshService {
-	if lo.FromPtr(id) == "" {
-		id = lo.ToPtr(uuid.NewString())
-	}
-
-	return &verifiable.RefreshService{
-		TypedID: verifiable.TypedID{
-			Type: "VerifiableCredentialRefreshService2021",
-			CustomFields: verifiable.CustomFields{
-				"validFrom": time.Now().UTC().Format(time.RFC3339),
-			},
-		},
-		Url: s.getURL(*id, issuer.ID, issuer.Version),
 	}
 }
 
@@ -153,9 +131,11 @@ func (s *RefreshService) RefreshCredential(
 	updatedCred, err := s.cfg.CredentialIssuer.PrepareCredential(ctx, &PrepareCredentialsRequest{
 		TxID:                    string(tx.ID),
 		ClaimData:               decryptedClaims,
-		IssuerDID:               tx.ProfileID,
+		IssuerDID:               tx.DID,
 		SubjectDID:              subj[0].ID,
 		CredentialConfiguration: credConfig,
+		IssuerID:                issuer.ID,
+		IssuerVersion:           issuer.Version,
 	})
 	if err != nil {
 		return errors.Join(errors.New("failed to prepare credential"), err)
@@ -180,8 +160,7 @@ func (s *RefreshService) RequestRefreshStatus(
 
 	return &GetRefreshStateResponse{
 		RefreshServiceType: RefreshServiceType{
-			Type:            "VerifiableCredentialRefreshService2021",
-			ServiceEndpoint: s.getURL(credentialID, issuer.ID, issuer.Version),
+			Type: "VerifiableCredentialRefreshService2021",
 		},
 		VerifiablePresentationRequest: VerifiablePresentationRequest{
 			Query: presexch.PresentationDefinition{
@@ -262,15 +241,6 @@ func (s *RefreshService) CreateRefreshState(
 	}
 
 	return string(tx.ID), nil
-}
-
-func (s *RefreshService) getURL(credentialID string, issuerID string, issuerVersion string) string {
-	return fmt.Sprintf("%s/refresh/%s/%s?credentialID=%s",
-		s.cfg.VcsAPIURL,
-		issuerID,
-		issuerVersion,
-		url.QueryEscape(credentialID),
-	)
 }
 
 func (s *RefreshService) getOpState(refreshID string, issuerID string) string {

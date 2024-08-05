@@ -25,6 +25,7 @@ const (
 	checkAuthorizationResponse = "/verifier/interactions/authorization-response"
 	oidcAuthorize              = "/oidc/authorize"
 	oidcRedirect               = "/oidc/redirect"
+	refresh                    = "/refresh"
 	oidcPresent                = "/oidc/present"
 	oidcToken                  = "/oidc/token"
 	oidcAck                    = "/oidc/notification"
@@ -50,6 +51,10 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc { //nolint:gocognit
 			}
 
 			if strings.HasPrefix(currentPath, requestObjectPath) {
+				return next(c)
+			}
+
+			if strings.HasPrefix(currentPath, refresh) {
 				return next(c)
 			}
 
