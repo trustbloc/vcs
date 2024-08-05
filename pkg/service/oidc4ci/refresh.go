@@ -178,8 +178,7 @@ func (s *RefreshService) RequestRefreshStatus(
 							Fields: []*presexch.Field{
 								{
 									Path: []string{
-										"$.vc.id",
-										"$.credentialSubject.id",
+										"$.id",
 									},
 									ID:      "cred_id",
 									Purpose: purpose,

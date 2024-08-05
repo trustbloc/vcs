@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -66,6 +67,52 @@ func (s *Steps) ensureNoCredentialRefreshAvailable() error {
 		if resp.StatusCode != http.StatusNoContent {
 			return fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
 		}
+	}
+
+	return nil
+}
+
+func (s *Steps) walletRefreshesCredential() error {
+	for _, c := range s.issuedCredentials {
+		refreshURL := c.Contents().RefreshService.Url
+
+		resp, err := bddutil.HTTPSDo(
+			http.MethodGet,
+			refreshURL,
+			"application/json",
+			s.getToken(),
+			nil,
+			s.tlsConfig,
+		) //nolint: bodyclose
+		if err != nil {
+			return fmt.Errorf("failed to send request to refresh service (%s): %w", refreshURL, err)
+		}
+
+		var body []byte
+		if resp.Body != nil {
+			body, _ = io.ReadAll(resp.Body) // nolint
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
+		}
+
+		var parsed oidc4ci.CredentialRefreshAvailableResponse
+		if err = json.Unmarshal(body, &parsed); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		presDef, err := json.Marshal(parsed.VerifiablePresentationRequest.Query)
+		if err != nil {
+			return fmt.Errorf("failed to marshal presentation definition: %w", err)
+		}
+
+		queryRes, presSub, err := s.wallet.Query(presDef, false, false)
+		if err != nil {
+			return fmt.Errorf("failed to query wallet: %w", err)
+		}
+
+		fmt.Print(queryRes, presSub)
 	}
 
 	return nil

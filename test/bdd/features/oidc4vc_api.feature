@@ -193,6 +193,8 @@ Feature: OIDC4VC REST API
     Then ensure credential refresh service is set
 
     Then wallet ensures that no credential refresh available
+    Then issuer send requests to initiate credential refresh
+    Then wallet refreshes credentials
 #    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
 #    And Verifier with profile "<verifierProfile>" retrieves interactions claims
 #    Then we wait 2 seconds

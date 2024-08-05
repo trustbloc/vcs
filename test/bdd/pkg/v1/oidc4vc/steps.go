@@ -120,6 +120,8 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^proofType is "([^"]*)"$`, s.setProofType)
 	sc.Step("^ensure credential refresh service is set$", s.ensureCredentialServiceSet)
 	sc.Step("^wallet ensures that no credential refresh available$", s.ensureNoCredentialRefreshAvailable)
+	sc.Step("^issuer send requests to initiate credential refresh$", s.issuerSendRequestToInitiateCredentialRefresh)
+	sc.Step("^wallet refreshes credentials$", s.walletRefreshesCredential)
 
 	sc.Step(`^initiateIssuanceVersion is "([^"]*)"$`, s.setInitiateIssuanceVersion)
 	sc.Step(`^credentialCompose is active with "([^"]*)"$`, s.setCredentialCompose)
