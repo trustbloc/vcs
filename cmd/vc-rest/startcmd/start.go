@@ -824,6 +824,8 @@ func buildEchoHandler(
 		)
 	}
 
+	refreshService := oidc4ci.NewRefreshService()
+
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
@@ -843,6 +845,7 @@ func buildEchoHandler(
 		Vdr:                     conf.VDR,
 		ProofChecker:            proofChecker,
 		LDPProofParser:          oidc4civ1.NewDefaultLDPProofParser(),
+		RefreshService:          refreshService,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{

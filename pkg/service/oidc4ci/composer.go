@@ -29,7 +29,8 @@ func (c *CredentialComposer) Compose(
 	credential *verifiable.Credential,
 	req *PrepareCredentialsRequest,
 ) (*verifiable.Credential, error) {
-	if req == nil || req.CredentialConfiguration == nil || req.CredentialConfiguration.CredentialComposeConfiguration == nil {
+	if req == nil || req.CredentialConfiguration == nil ||
+		req.CredentialConfiguration.CredentialComposeConfiguration == nil {
 		return credential, nil
 	}
 

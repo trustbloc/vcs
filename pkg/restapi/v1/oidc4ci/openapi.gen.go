@@ -80,6 +80,11 @@ type BatchCredentialResponse struct {
 	CredentialResponses []interface{} `json:"credential_responses"`
 }
 
+// Model for Credential Update Response.
+type CredentialRefreshAvailableResponse struct {
+	VerifiablePresentationRequest VerifiablePresentationRequest `json:"verifiablePresentationRequest"`
+}
+
 // Model for OIDC Credential request.
 type CredentialRequest struct {
 	// Object containing the detailed description of the credential type.
@@ -161,6 +166,20 @@ type PushedAuthorizationResponse struct {
 
 	// The request URI corresponding to the authorization request posted. This URI is a single-use reference to the respective request data in the subsequent authorization request.
 	RequestUri string `json:"request_uri"`
+}
+
+// RefreshService defines model for RefreshService.
+type RefreshService struct {
+	// Service endpoint.
+	ServiceEndpoint string `json:"serviceEndpoint"`
+
+	// Service type.
+	Type string `json:"type"`
+}
+
+// RefreshServiceInteract defines model for RefreshServiceInteract.
+type RefreshServiceInteract struct {
+	Service []RefreshService `json:"service"`
 }
 
 // OAuth 2.0 client registration error response.
@@ -280,6 +299,19 @@ type RegisterOAuthClientResponse struct {
 	TosUri *string `json:"tos_uri,omitempty"`
 }
 
+// VerifiablePresentationRequest defines model for VerifiablePresentationRequest.
+type VerifiablePresentationRequest struct {
+	// Challenge value.
+	Challenge string `json:"challenge"`
+
+	// Domain value.
+	Domain   string                 `json:"domain"`
+	Interact RefreshServiceInteract `json:"interact"`
+
+	// Credential Presentation Query.
+	Query map[string]interface{} `json:"query"`
+}
+
 // OidcAuthorizeParams defines parameters for OidcAuthorize.
 type OidcAuthorizeParams struct {
 	// Value MUST be set to "code".
@@ -340,6 +372,12 @@ type OidcRedirectParams struct {
 // OidcRegisterClientJSONBody defines parameters for OidcRegisterClient.
 type OidcRegisterClientJSONBody = RegisterOAuthClientRequest
 
+// RequestRefreshStatusParams defines parameters for RequestRefreshStatus.
+type RequestRefreshStatusParams struct {
+	// Credential ID
+	CredentialID string `form:"credentialID" json:"credentialID"`
+}
+
 // OidcBatchCredentialJSONRequestBody defines body for OidcBatchCredential for application/json ContentType.
 type OidcBatchCredentialJSONRequestBody = OidcBatchCredentialJSONBody
 
@@ -378,6 +416,9 @@ type ServerInterface interface {
 	// OIDC Register OAuth Client
 	// (POST /oidc/{profileID}/{profileVersion}/register)
 	OidcRegisterClient(ctx echo.Context, profileID string, profileVersion string) error
+	// Get refresh status for credential.
+	// (GET /refresh/{profileID}/{profileVersion})
+	RequestRefreshStatus(ctx echo.Context, profileID string, profileVersion string, params RequestRefreshStatusParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -574,6 +615,39 @@ func (w *ServerInterfaceWrapper) OidcRegisterClient(ctx echo.Context) error {
 	return err
 }
 
+// RequestRefreshStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) RequestRefreshStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RequestRefreshStatusParams
+	// ------------- Required query parameter "credentialID" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "credentialID", ctx.QueryParams(), &params.CredentialID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter credentialID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.RequestRefreshStatus(ctx, profileID, profileVersion, params)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -610,5 +684,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)
 	router.POST(baseURL+"/oidc/token", wrapper.OidcToken)
 	router.POST(baseURL+"/oidc/:profileID/:profileVersion/register", wrapper.OidcRegisterClient)
+	router.GET(baseURL+"/refresh/:profileID/:profileVersion", wrapper.RequestRefreshStatus)
 
 }

@@ -195,6 +195,41 @@ paths:
                 type: object
       operationId: post-credentials-status
       description: Updates credential status.
+  /refresh/{profileID}/{profileVersion}:
+    get:
+      summary: Get refresh status for credential.
+      parameters:
+        - schema:
+            type: string
+          name: profileID
+          in: path
+          required: true
+          description: Issuer Profile ID
+        - schema:
+            type: string
+          name: profileVersion
+          in: path
+          required: true
+          description: Issuer Profile Version
+        - schema:
+            type: string
+          name: credentialID
+          in: query
+          required: true
+          description: Credential ID
+      tags:
+        - oidc4ci
+      responses:
+        '204':
+          description: No Updates
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialRefreshAvailableResponse'
+      operationId: request-refresh-status
+      description: Updates credential status.
   '/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc':
     parameters:
       - schema:
@@ -1653,6 +1688,57 @@ components:
           description: 'An array of objects that describes specifics of the Multiple Credential Issuance.'
       x-tags:
         - issuer
+    CredentialRefreshAvailableResponse:
+      title: CredentialUpdateResponse
+      type: object
+      description: Model for Credential Update Response.
+      properties:
+        verifiablePresentationRequest:
+          $ref: '#/components/schemas/VerifiablePresentationRequest'
+      required:
+        - verifiablePresentationRequest
+    VerifiablePresentationRequest:
+      title: VerifiablePresentationRequest
+      type: object
+      properties:
+        query:
+          type: object
+          description: Credential Presentation Query.
+        domain:
+          type: string
+          description: Domain value.
+        challenge:
+          type: string
+          description: Challenge value.
+        interact:
+          $ref: '#/components/schemas/RefreshServiceInteract'
+      required:
+        - query
+        - domain
+        - challenge
+        - interact
+    RefreshServiceInteract:
+      type: object
+      properties:
+        service:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefreshService'
+      required:
+        - service
+    RefreshService:
+      title: RefreshService
+      type: object
+      properties:
+        type:
+          type: string
+          description: Service type.
+        serviceEndpoint:
+          type: string
+          description: Service endpoint.
+      required:
+        - type
+        - serviceEndpoint
     InitiateOIDC4CIResponse:
       title: InitiateOIDC4CIResponse
       type: object

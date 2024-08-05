@@ -17,7 +17,7 @@ import (
 )
 
 type RefreshConfig struct {
-	VcsApiURL            string
+	VcsAPIURL            string
 	TxStore              transactionStore
 	ClaimsStore          claimDataStore
 	DataProtector        dataProtector
@@ -51,7 +51,7 @@ func (s *RefreshService) CreateRefreshService(
 				"validFrom": time.Now().UTC().Format(time.RFC3339),
 			},
 		},
-		Url: s.getUrl(*id, issuer.ID),
+		Url: s.getURL(*id, issuer.ID, issuer.Version),
 	}
 }
 
@@ -166,7 +166,7 @@ func (s *RefreshService) RefreshCredential(
 	return nil
 }
 
-func (s *RefreshService) GetRefreshState(
+func (s *RefreshService) RequestRefreshStatus(
 	ctx context.Context,
 	credentialID string,
 	issuer profile.Issuer,
@@ -179,6 +179,10 @@ func (s *RefreshService) GetRefreshState(
 	purpose := "The verifier needs to see your existing credentials to verify your identity"
 
 	return &GetRefreshStateResponse{
+		RefreshServiceType: RefreshServiceType{
+			Type:            "VerifiableCredentialRefreshService2021",
+			ServiceEndpoint: s.getURL(credentialID, issuer.ID, issuer.Version),
+		},
 		VerifiablePresentationRequest: VerifiablePresentationRequest{
 			Query: presexch.PresentationDefinition{
 				ID:                     "Query",
@@ -213,7 +217,7 @@ func (s *RefreshService) GetRefreshState(
 			},
 		},
 		Challenge: uuid.NewString(),
-		Domain:    s.cfg.VcsApiURL,
+		Domain:    s.cfg.VcsAPIURL,
 	}, nil
 }
 
@@ -244,13 +248,10 @@ func (s *RefreshService) CreateRefreshClaims(
 		WebHookURL:     req.Issuer.WebHook,
 		CredentialConfiguration: []*TxCredentialConfiguration{
 			{
-				CredentialTemplate:        nil,
-				OIDCCredentialFormat:      "",
-				ClaimDataType:             ClaimDataTypeClaims,
-				ClaimDataID:               claimData,
-				CredentialName:            req.CredentialName,
-				CredentialDescription:     req.CredentialDescription,
-				CredentialConfigurationID: "",
+				ClaimDataType:         ClaimDataTypeClaims,
+				ClaimDataID:           claimData,
+				CredentialName:        req.CredentialName,
+				CredentialDescription: req.CredentialDescription,
 			},
 		},
 	})
@@ -258,10 +259,15 @@ func (s *RefreshService) CreateRefreshClaims(
 	return err
 }
 
-func (s *RefreshService) getUrl(refreshID string, issuerID string) string {
-	return fmt.Sprintf("%s/refresh/%s?id=%s", s.cfg.VcsApiURL, issuerID, url.QueryEscape(refreshID))
+func (s *RefreshService) getURL(credentialID string, issuerID string, issuerVersion string) string {
+	return fmt.Sprintf("%s/refresh/%s/%s?credentialID=%s",
+		s.cfg.VcsAPIURL,
+		issuerID,
+		issuerVersion,
+		url.QueryEscape(credentialID),
+	)
 }
 
-func (s *RefreshService) getOpState(refreshId string, issuerID string) string {
-	return fmt.Sprintf("%s-%s", issuerID, refreshId)
+func (s *RefreshService) getOpState(refreshID string, issuerID string) string {
+	return fmt.Sprintf("%s-%s", issuerID, refreshID)
 }

@@ -19,6 +19,12 @@ type GetRefreshStateResponse struct {
 	VerifiablePresentationRequest VerifiablePresentationRequest `json:"verifiablePresentationRequest"`
 	Challenge                     string                        `json:"challenge"`
 	Domain                        string                        `json:"domain"`
+	RefreshServiceType            RefreshServiceType            `json:"refreshServiceType"`
+}
+
+type RefreshServiceType struct {
+	Type            string `json:"type"`
+	ServiceEndpoint string `json:"serviceEndpoint"`
 }
 
 type Interact struct {
