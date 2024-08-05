@@ -167,7 +167,6 @@ type Config struct {
 	JSONSchemaValidator           jsonSchemaValidator
 	TrustRegistry                 trustRegistry
 	AckService                    ackService
-	Composer                      composer
 	DocumentLoader                documentLoader
 	PrepareCredential             credentialIssuer
 }
@@ -216,7 +215,7 @@ func NewService(config *Config) (*Service, error) {
 		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
 		documentLoader:                config.DocumentLoader,
-		credentialIssuer:              config.PrepareCredential, // todo
+		credentialIssuer:              config.PrepareCredential,
 	}, nil
 }
 

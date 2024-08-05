@@ -489,6 +489,27 @@ type RequestedCredentialResponseEncryption struct {
 	Enc string `json:"enc"`
 }
 
+// SetCredentialRefreshStateRequest defines model for SetCredentialRefreshStateRequest.
+type SetCredentialRefreshStateRequest struct {
+	// New claims.
+	Claims map[string]interface{} `json:"claims"`
+
+	// Credential description.
+	CredentialDescription *string `json:"credential_description,omitempty"`
+
+	// Credential ID.
+	CredentialId string `json:"credential_id"`
+
+	// Credential name.
+	CredentialName *string `json:"credential_name,omitempty"`
+}
+
+// SetCredentialRefreshStateResult defines model for SetCredentialRefreshStateResult.
+type SetCredentialRefreshStateResult struct {
+	// Transaction ID.
+	TransactionId string `json:"transaction_id"`
+}
+
 // Model for storing auth code from issuer oauth
 type StoreAuthorizationCodeRequest struct {
 	Code                string                                `json:"code"`
@@ -648,6 +669,9 @@ type InitiateCredentialComposeIssuanceJSONBody = InitiateOIDC4CIRequest
 // InitiateCredentialIssuanceJSONBody defines parameters for InitiateCredentialIssuance.
 type InitiateCredentialIssuanceJSONBody = InitiateOIDC4CIRequest
 
+// SetCredentialRefreshStateJSONBody defines parameters for SetCredentialRefreshState.
+type SetCredentialRefreshStateJSONBody = SetCredentialRefreshStateRequest
+
 // PostCredentialsStatusJSONRequestBody defines body for PostCredentialsStatus for application/json ContentType.
 type PostCredentialsStatusJSONRequestBody = PostCredentialsStatusJSONBody
 
@@ -680,6 +704,9 @@ type InitiateCredentialComposeIssuanceJSONRequestBody = InitiateCredentialCompos
 
 // InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
 type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// SetCredentialRefreshStateJSONRequestBody defines body for SetCredentialRefreshState for application/json ContentType.
+type SetCredentialRefreshStateJSONRequestBody = SetCredentialRefreshStateJSONBody
 
 // Getter for additional properties for CredentialConfigurationsSupported_ProofTypesSupported. Returns the specified
 // element and whether it was found
@@ -920,6 +947,11 @@ type ClientInterface interface {
 	InitiateCredentialIssuanceWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	InitiateCredentialIssuance(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetCredentialRefreshState request with any body
+	SetCredentialRefreshStateWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetCredentialRefreshState(ctx context.Context, profileID string, profileVersion string, body SetCredentialRefreshStateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OpenidCredentialIssuerConfig request
 	OpenidCredentialIssuerConfig(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1206,6 +1238,30 @@ func (c *Client) InitiateCredentialIssuanceWithBody(ctx context.Context, profile
 
 func (c *Client) InitiateCredentialIssuance(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInitiateCredentialIssuanceRequest(c.Server, profileID, profileVersion, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetCredentialRefreshStateWithBody(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetCredentialRefreshStateRequestWithBody(c.Server, profileID, profileVersion, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetCredentialRefreshState(ctx context.Context, profileID string, profileVersion string, body SetCredentialRefreshStateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetCredentialRefreshStateRequest(c.Server, profileID, profileVersion, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1833,6 +1889,60 @@ func NewInitiateCredentialIssuanceRequestWithBody(server string, profileID strin
 	return req, nil
 }
 
+// NewSetCredentialRefreshStateRequest calls the generic SetCredentialRefreshState builder with application/json body
+func NewSetCredentialRefreshStateRequest(server string, profileID string, profileVersion string, body SetCredentialRefreshStateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetCredentialRefreshStateRequestWithBody(server, profileID, profileVersion, "application/json", bodyReader)
+}
+
+// NewSetCredentialRefreshStateRequestWithBody generates requests for SetCredentialRefreshState with any type of body
+func NewSetCredentialRefreshStateRequestWithBody(server string, profileID string, profileVersion string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, profileVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/%s/interactions/refresh", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewOpenidCredentialIssuerConfigRequest generates requests for OpenidCredentialIssuerConfig
 func NewOpenidCredentialIssuerConfigRequest(server string, profileID string, profileVersion string) (*http.Request, error) {
 	var err error
@@ -2018,6 +2128,11 @@ type ClientWithResponsesInterface interface {
 	InitiateCredentialIssuanceWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
 
 	InitiateCredentialIssuanceWithResponse(ctx context.Context, profileID string, profileVersion string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
+
+	// SetCredentialRefreshState request with any body
+	SetCredentialRefreshStateWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetCredentialRefreshStateResponse, error)
+
+	SetCredentialRefreshStateWithResponse(ctx context.Context, profileID string, profileVersion string, body SetCredentialRefreshStateJSONRequestBody, reqEditors ...RequestEditorFn) (*SetCredentialRefreshStateResponse, error)
 
 	// OpenidCredentialIssuerConfig request
 	OpenidCredentialIssuerConfigWithResponse(ctx context.Context, profileID string, profileVersion string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigResponse, error)
@@ -2311,6 +2426,28 @@ func (r InitiateCredentialIssuanceResponse) StatusCode() int {
 	return 0
 }
 
+type SetCredentialRefreshStateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SetCredentialRefreshStateResult
+}
+
+// Status returns HTTPResponse.Status
+func (r SetCredentialRefreshStateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetCredentialRefreshStateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type OpenidCredentialIssuerConfigResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2558,6 +2695,23 @@ func (c *ClientWithResponses) InitiateCredentialIssuanceWithResponse(ctx context
 		return nil, err
 	}
 	return ParseInitiateCredentialIssuanceResponse(rsp)
+}
+
+// SetCredentialRefreshStateWithBodyWithResponse request with arbitrary body returning *SetCredentialRefreshStateResponse
+func (c *ClientWithResponses) SetCredentialRefreshStateWithBodyWithResponse(ctx context.Context, profileID string, profileVersion string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetCredentialRefreshStateResponse, error) {
+	rsp, err := c.SetCredentialRefreshStateWithBody(ctx, profileID, profileVersion, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetCredentialRefreshStateResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetCredentialRefreshStateWithResponse(ctx context.Context, profileID string, profileVersion string, body SetCredentialRefreshStateJSONRequestBody, reqEditors ...RequestEditorFn) (*SetCredentialRefreshStateResponse, error) {
+	rsp, err := c.SetCredentialRefreshState(ctx, profileID, profileVersion, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetCredentialRefreshStateResponse(rsp)
 }
 
 // OpenidCredentialIssuerConfigWithResponse request returning *OpenidCredentialIssuerConfigResponse
@@ -2906,6 +3060,32 @@ func ParseInitiateCredentialIssuanceResponse(rsp *http.Response) (*InitiateCrede
 	return response, nil
 }
 
+// ParseSetCredentialRefreshStateResponse parses an HTTP response from a SetCredentialRefreshStateWithResponse call
+func ParseSetCredentialRefreshStateResponse(rsp *http.Response) (*SetCredentialRefreshStateResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetCredentialRefreshStateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SetCredentialRefreshStateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseOpenidCredentialIssuerConfigResponse parses an HTTP response from a OpenidCredentialIssuerConfigWithResponse call
 func ParseOpenidCredentialIssuerConfigResponse(rsp *http.Response) (*OpenidCredentialIssuerConfigResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2999,6 +3179,9 @@ type ServerInterface interface {
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc)
 	InitiateCredentialIssuance(ctx echo.Context, profileID string, profileVersion string) error
+	// Set Credential Refresh State
+	// (POST /issuer/profiles/{profileID}/{profileVersion}/interactions/refresh)
+	SetCredentialRefreshState(ctx echo.Context, profileID string, profileVersion string) error
 	// Request VCS IDP OIDC Configuration.
 	// (GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer)
 	OpenidCredentialIssuerConfig(ctx echo.Context, profileID string, profileVersion string) error
@@ -3212,6 +3395,30 @@ func (w *ServerInterfaceWrapper) InitiateCredentialIssuance(ctx echo.Context) er
 	return err
 }
 
+// SetCredentialRefreshState converts echo context to params.
+func (w *ServerInterfaceWrapper) SetCredentialRefreshState(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.SetCredentialRefreshState(ctx, profileID, profileVersion)
+	return err
+}
+
 // OpenidCredentialIssuerConfig converts echo context to params.
 func (w *ServerInterfaceWrapper) OpenidCredentialIssuerConfig(ctx echo.Context) error {
 	var err error
@@ -3301,6 +3508,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/compose-and-initiate-issuance", wrapper.InitiateCredentialComposeIssuance)
 	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
+	router.POST(baseURL+"/issuer/profiles/:profileID/:profileVersion/interactions/refresh", wrapper.SetCredentialRefreshState)
 	router.GET(baseURL+"/issuer/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
 	router.GET(baseURL+"/oidc/idp/:profileID/:profileVersion/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfigV2)
 

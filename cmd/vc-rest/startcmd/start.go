@@ -702,6 +702,8 @@ func buildEchoHandler(
 		ProfileSvc: issuerProfileSvc,
 	})
 
+	prepareCredentialSvc := oidc4ci.NewPrepareCredentialService(oidc4ci.NewCredentialComposer())
+
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
@@ -720,8 +722,8 @@ func buildEchoHandler(
 		JSONSchemaValidator:           jsonSchemaValidator,
 		TrustRegistry:                 trustRegistryService,
 		AckService:                    ackService,
-		Composer:                      oidc4ci.NewCredentialComposer(),
 		DocumentLoader:                documentLoader,
+		PrepareCredential:             prepareCredentialSvc,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -824,7 +826,26 @@ func buildEchoHandler(
 		)
 	}
 
-	refreshService := oidc4ci.NewRefreshService()
+	var verifyPresentationSvc verifypresentation.ServiceInterface
+
+	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
+		VcVerifier:     verifyCredentialSvc,
+		DocumentLoader: documentLoader,
+		VDR:            conf.VDR,
+	})
+
+	if conf.IsTraceEnabled {
+		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
+	}
+
+	refreshService := oidc4ci.NewRefreshService(&oidc4ci.RefreshConfig{
+		VcsAPIURL:            conf.StartupParameters.apiGatewayURL,
+		TxStore:              oidc4ciTransactionStore,
+		ClaimsStore:          oidc4ciClaimDataStore,
+		DataProtector:        claimsDataProtector,
+		PresentationVerifier: verifyPresentationSvc,
+		CredentialIssuer:     prepareCredentialSvc,
+	})
 
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
@@ -867,6 +888,7 @@ func buildEchoHandler(
 		Tracer:                         conf.Tracer,
 		OpenidIssuerConfigProvider:     openidCredentialIssuerConfigProviderSvc,
 		JSONSchemaValidator:            jsonSchemaValidator,
+		CredentialRefreshService:       refreshService,
 	}))
 
 	// Verifier Profile Management API
@@ -879,18 +901,6 @@ func buildEchoHandler(
 		})
 	if err != nil {
 		return nil, err
-	}
-
-	var verifyPresentationSvc verifypresentation.ServiceInterface
-
-	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
-		VcVerifier:     verifyCredentialSvc,
-		DocumentLoader: documentLoader,
-		VDR:            conf.VDR,
-	})
-
-	if conf.IsTraceEnabled {
-		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
 	}
 
 	oidc4vpTxStore, err := getOIDC4VPTxStore(

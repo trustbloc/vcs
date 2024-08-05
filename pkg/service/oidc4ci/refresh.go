@@ -221,13 +221,13 @@ func (s *RefreshService) RequestRefreshStatus(
 	}, nil
 }
 
-func (s *RefreshService) CreateRefreshClaims(
+func (s *RefreshService) CreateRefreshState(
 	ctx context.Context,
-	req *CreateRefreshClaimsRequest,
-) error {
+	req *CreateRefreshStateRequest,
+) (string, error) {
 	encrypted, err := encryptClaims(ctx, req.Claims, s.cfg.DataProtector)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	ttl := req.Issuer.DataConfig.OIDC4CITransactionDataTTL
@@ -236,27 +236,32 @@ func (s *RefreshService) CreateRefreshClaims(
 		EncryptedData: encrypted.EncryptedData,
 	})
 	if err != nil {
-		return errors.Join(errors.New("failed to create claim data"), err)
+		return "", errors.Join(errors.New("failed to create claim data"), err)
 	}
 
-	_, err = s.cfg.TxStore.Create(ctx, ttl, &TransactionData{
+	opState := s.getOpState(req.CredentialID, req.Issuer.ID)
+
+	tx, err := s.cfg.TxStore.Create(ctx, ttl, &TransactionData{
 		ProfileID:      req.Issuer.ID,
 		ProfileVersion: req.Issuer.Version,
 		IsPreAuthFlow:  true,
 		OrgID:          req.Issuer.OrganizationID,
-		OpState:        s.getOpState(req.RefreshID, req.Issuer.ID),
+		OpState:        opState,
 		WebHookURL:     req.Issuer.WebHook,
 		CredentialConfiguration: []*TxCredentialConfiguration{
 			{
 				ClaimDataType:         ClaimDataTypeClaims,
 				ClaimDataID:           claimData,
-				CredentialName:        req.CredentialName,
-				CredentialDescription: req.CredentialDescription,
+				CredentialName:        lo.FromPtr(req.CredentialName),
+				CredentialDescription: lo.FromPtr(req.CredentialDescription),
 			},
 		},
 	})
+	if err != nil {
+		return "", errors.Join(errors.New("failed to create transaction"), err)
+	}
 
-	return err
+	return string(tx.ID), nil
 }
 
 func (s *RefreshService) getURL(credentialID string, issuerID string, issuerVersion string) string {

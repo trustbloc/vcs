@@ -6,13 +6,13 @@ import (
 	"github.com/trustbloc/vcs/pkg/profile"
 )
 
-type CreateRefreshClaimsRequest struct {
-	RefreshID string
-	Issuer    profile.Issuer
-	Claims    map[string]interface{}
+type CreateRefreshStateRequest struct {
+	CredentialID string
+	Issuer       profile.Issuer
+	Claims       map[string]interface{}
 
-	CredentialName        string
-	CredentialDescription string
+	CredentialName        *string
+	CredentialDescription *string
 }
 
 type GetRefreshStateResponse struct {

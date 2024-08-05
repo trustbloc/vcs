@@ -181,6 +181,27 @@ Feature: OIDC4VC REST API
       | awesome_cwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID  | awesome_cwt_verifier/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | cwt       |
       | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | cwt       |
 
+  @oidc4vc_rest_pre_auth_flow_credential_refresh
+  Scenario Outline: OIDC credential issuance and verification Pre Auth flow
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    And proofType is "<proofType>"
+
+    When User interacts with Wallet to initiate credential issuance using pre authorization code flow
+    Then "1" credentials are issued
+    Then ensure credential refresh service is set
+
+    Then wallet ensures that no credential refresh available
+#    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+#    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+#    Then we wait 2 seconds
+#    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
+
+    Examples:
+      | issuerProfile                  | credentialType             | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       | proofType |
+      | bank_issuer/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | jwt       |
+
   @oidc4vc_rest_pre_auth_flow_compose
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"

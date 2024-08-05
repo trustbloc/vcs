@@ -78,15 +78,18 @@ func (s *Steps) authorizeIssuerProfileUser(profileVersionedID, username, passwor
 	return nil
 }
 
-func (s *Steps) initiateCredentialIssuanceInternal(endpointURL string, req any) (*initiateOIDC4VCIResponse, error) {
-	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.ID+"/"+s.issuerProfile.Version)]
+func (s *Steps) getToken() string {
+	return s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.ID+"/"+s.issuerProfile.Version)]
+}
 
+func (s *Steps) initiateCredentialIssuanceInternal(endpointURL string, req any) (*initiateOIDC4VCIResponse, error) {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal initiate oidc4vci req: %w", err)
 	}
 
-	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, bytes.NewReader(reqBody),
+	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", s.getToken(),
+		bytes.NewReader(reqBody),
 		s.bddContext.TLSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("https do: %w", err)
@@ -160,7 +163,7 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIResponseData initiateOIDC4VCIR
 		return fmt.Errorf("init pre-auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run pre-auth flow: %w", err)
 	}
 
@@ -412,7 +415,7 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		return fmt.Errorf("init pre-auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run pre-auth flow: %w", err)
 	}
 
@@ -483,7 +486,7 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err == nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -611,7 +614,7 @@ func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...o
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err == nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -647,7 +650,7 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -688,7 +691,7 @@ func (s *Steps) runOIDC4VCIAuthBatchByCredentialConfigurationID(credentialConfig
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -734,7 +737,7 @@ func (s *Steps) runOIDC4VCIAuthBatch() error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -774,7 +777,7 @@ func (s *Steps) runOIDC4VCIAuthBatchWithScopes(scopes string) error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -900,7 +903,7 @@ func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID(credentialConfigura
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -946,7 +949,7 @@ func (s *Steps) runOIDC4VCIAuthWithScopes(scopes string) error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 
@@ -973,7 +976,7 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 		return fmt.Errorf("init wallet-initiated auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run wallet-initiated auth flow: %w", err)
 	}
 
@@ -1019,7 +1022,7 @@ func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err == nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err == nil {
 		return fmt.Errorf("error expected, got nil")
 	}
 
@@ -1069,7 +1072,7 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 		return fmt.Errorf("init auth flow: %w", err)
 	}
 
-	if _, err = flow.Run(context.Background()); err != nil {
+	if s.issuedCredentials, err = flow.Run(context.Background()); err != nil {
 		return fmt.Errorf("run auth flow: %w", err)
 	}
 

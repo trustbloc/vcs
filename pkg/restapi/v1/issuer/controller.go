@@ -90,6 +90,13 @@ type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
+type CredentialRefreshService interface {
+	CreateRefreshState(
+		ctx context.Context,
+		req *oidc4ci.CreateRefreshStateRequest,
+	) (string, error)
+}
+
 type Config struct {
 	EventSvc                       eventService
 	EventTopic                     string
@@ -103,6 +110,7 @@ type Config struct {
 	ExternalHostURL                string
 	Tracer                         trace.Tracer
 	JSONSchemaValidator            jsonSchemaValidator
+	CredentialRefreshService       CredentialRefreshService
 }
 
 // Controller for Issuer Profile Management API.
@@ -120,6 +128,7 @@ type Controller struct {
 	eventSvc                       eventService
 	eventTopic                     string
 	marshal                        func(any) ([]byte, error)
+	credentialRefreshService       CredentialRefreshService
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -138,7 +147,38 @@ func NewController(config *Config) *Controller {
 		eventSvc:                       config.EventSvc,
 		eventTopic:                     config.EventTopic,
 		marshal:                        json.Marshal,
+		credentialRefreshService:       config.CredentialRefreshService,
 	}
+}
+
+// SetCredentialRefreshState sets claims for credential refresh.
+// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/refresh.
+func (c *Controller) SetCredentialRefreshState(ctx echo.Context, profileID string, profileVersion string) error {
+	var body SetCredentialRefreshStateRequest
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent,
+			"PrepareClaimDataAuthorizationRequest", err)
+	}
+
+	txID, err := c.credentialRefreshService.CreateRefreshState(ctx.Request().Context(), &oidc4ci.CreateRefreshStateRequest{
+		CredentialID:          body.CredentialId,
+		Issuer:                *profile,
+		Claims:                body.Claims,
+		CredentialName:        body.CredentialName,
+		CredentialDescription: body.CredentialDescription,
+	})
+	if err != nil {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "SetCredentialRefreshState", err)
+	}
+
+	return util.WriteOutput(ctx)(SetCredentialRefreshStateResult{
+		TransactionId: txID,
+	}, nil)
 }
 
 // PostIssueCredentials issues credentials.

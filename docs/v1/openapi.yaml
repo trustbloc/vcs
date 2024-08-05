@@ -230,6 +230,38 @@ paths:
                 $ref: '#/components/schemas/CredentialRefreshAvailableResponse'
       operationId: request-refresh-status
       description: Updates credential status.
+  '/issuer/profiles/{profileID}/{profileVersion}/interactions/refresh':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Issuer Profile ID.
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Issuer Profile Version.
+    post:
+      summary: 'Set Credential Refresh State'
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetCredentialRefreshStateResult'
+      operationId: set-credential-refresh-state
+      description: Used by issuer to refresh credential claims by credential id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCredentialRefreshStateRequest'
+      tags:
+        - issuer
   '/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc':
     parameters:
       - schema:
@@ -1574,6 +1606,38 @@ components:
           type: object
           description: Raw Complete credential for sign and customization
           nullable: false
+    SetCredentialRefreshStateRequest:
+      title: SetCredentialRefreshStateRequest
+      type: object
+      properties:
+        credential_id:
+          type: string
+          description: Credential ID.
+        claims:
+          type: object
+          description: New claims.
+        credential_name:
+          type: string
+          description: Credential name.
+        credential_description:
+          type: string
+          description: Credential description.
+      required:
+        - credential_id
+        - claims
+      x-tags:
+        - issuer
+    SetCredentialRefreshStateResult:
+      title: SetCredentialRefreshStateResult
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          description: Transaction ID.
+      required:
+        - transaction_id
+      x-tags:
+        - issuer
     InitiateOIDC4CIRequest:
       title: InitiateOIDC4CIRequest
       type: object
