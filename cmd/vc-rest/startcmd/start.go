@@ -842,12 +842,13 @@ func buildEchoHandler(
 	}
 
 	refreshService := oidc4ci.NewRefreshService(&oidc4ci.RefreshConfig{
-		VcsAPIURL:            conf.StartupParameters.apiGatewayURL,
-		TxStore:              oidc4ciTransactionStore,
-		ClaimsStore:          oidc4ciClaimDataStore,
-		DataProtector:        claimsDataProtector,
-		PresentationVerifier: verifyPresentationSvc,
-		CredentialIssuer:     prepareCredentialSvc,
+		VcsAPIURL:              conf.StartupParameters.apiGatewayURL,
+		TxStore:                oidc4ciTransactionStore,
+		ClaimsStore:            oidc4ciClaimDataStore,
+		DataProtector:          claimsDataProtector,
+		PresentationVerifier:   verifyPresentationSvc,
+		CredentialIssuer:       prepareCredentialSvc,
+		IssueCredentialService: issueCredentialSvc,
 	})
 
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{

@@ -12,15 +12,17 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 type RefreshConfig struct {
-	VcsAPIURL            string
-	TxStore              transactionStore
-	ClaimsStore          claimDataStore
-	DataProtector        dataProtector
-	PresentationVerifier presentationVerifier
-	CredentialIssuer     credentialIssuer
+	VcsAPIURL              string
+	TxStore                transactionStore
+	ClaimsStore            claimDataStore
+	DataProtector          dataProtector
+	PresentationVerifier   presentationVerifier
+	CredentialIssuer       credentialIssuer
+	IssueCredentialService issuecredential.ServiceInterface
 }
 
 type RefreshService struct {
@@ -33,11 +35,7 @@ func NewRefreshService(cfg *RefreshConfig) *RefreshService {
 	}
 }
 
-func (s *RefreshService) RefreshCredential(
-	ctx context.Context,
-	presentation *verifiable.Presentation,
-	issuer profile.Issuer,
-) error {
+func (s *RefreshService) GetRefreshedCredential(ctx context.Context, presentation *verifiable.Presentation, issuer profile.Issuer) (*verifiable.Credential, error) {
 	verifyResult, _, err := s.cfg.PresentationVerifier.VerifyPresentation(ctx, presentation, nil, &profile.Verifier{
 		Checks: &profile.VerificationChecks{
 			Presentation: &profile.PresentationChecks{
@@ -52,21 +50,21 @@ func (s *RefreshService) RefreshCredential(
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(verifyResult) > 0 {
-		return fmt.Errorf("presentation verification failed. %s", spew.Sdump(verifyResult))
+		return nil, fmt.Errorf("presentation verification failed. %s", spew.Sdump(verifyResult))
 	}
 
 	if len(presentation.Credentials()) == 0 {
-		return errors.New("no credentials in presentation")
+		return nil, errors.New("no credentials in presentation")
 	}
 	cred := presentation.Credentials()[0]
 
 	allTypes := cred.Contents().Types
 	if len(allTypes) == 0 {
-		return errors.New("no types in credential")
+		return nil, errors.New("no types in credential")
 	}
 
 	lastType := allTypes[len(cred.Contents().Types)-1]
@@ -80,7 +78,7 @@ func (s *RefreshService) RefreshCredential(
 	}
 
 	if template == nil {
-		return fmt.Errorf("no credential template found for credential type %v", lastType)
+		return nil, fmt.Errorf("no credential template found for credential type %v", lastType)
 	}
 
 	var config *profile.CredentialsConfigurationSupported
@@ -99,27 +97,27 @@ func (s *RefreshService) RefreshCredential(
 	}
 
 	if config == nil {
-		return fmt.Errorf("no credential configuration found for credential type %v", lastType)
+		return nil, fmt.Errorf("no credential configuration found for credential type %v", lastType)
 	}
 
 	tx, err := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(cred.Contents().ID, issuer.ID))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tempClaimData, err := s.cfg.ClaimsStore.GetAndDelete(ctx, tx.CredentialConfiguration[0].ClaimDataID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	decryptedClaims, decryptErr := decryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
 	if decryptErr != nil {
-		return fmt.Errorf("decrypt claims: %w", decryptErr)
+		return nil, fmt.Errorf("decrypt claims: %w", decryptErr)
 	}
 
 	subj := cred.Contents().Subject
 	if len(subj) == 0 {
-		return errors.New("no subject in credential")
+		return nil, errors.New("no subject in credential")
 	}
 
 	credConfig := tx.CredentialConfiguration[0]
@@ -138,12 +136,15 @@ func (s *RefreshService) RefreshCredential(
 		IssuerVersion:           issuer.Version,
 	})
 	if err != nil {
-		return errors.Join(errors.New("failed to prepare credential"), err)
+		return nil, errors.Join(errors.New("failed to prepare credential"), err)
 	}
 
-	fmt.Println(updatedCred)
+	updatedCred, err = s.cfg.IssueCredentialService.IssueCredential(ctx, updatedCred, &issuer,
+		issuecredential.WithTransactionID(string(tx.ID)),
+		issuecredential.WithSkipIDPrefix(),
+	)
 
-	return nil
+	return updatedCred, err
 }
 
 func (s *RefreshService) RequestRefreshStatus(

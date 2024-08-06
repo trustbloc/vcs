@@ -196,6 +196,43 @@ paths:
       operationId: post-credentials-status
       description: Updates credential status.
   /refresh/{profileID}/{profileVersion}:
+    post:
+      summary: Receive updated (refreshed) credentials.
+      operationId: get-refreshed-credential
+      description: Receive updated (refreshed) credentials.
+      parameters:
+        - schema:
+            type: string
+          name: profileID
+          in: path
+          required: true
+          description: Issuer Profile ID
+        - schema:
+            type: string
+          name: profileVersion
+          in: path
+          required: true
+          description: Issuer Profile Version
+        - schema:
+            type: string
+          name: credentialID
+          in: query
+          required: true
+          description: Credential ID
+      tags:
+        - oidc4ci
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetRefreshedCredentialReq'
+      responses:
+        '200':
+          description: OK
+          content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/GetRefreshedCredentialResp'
     get:
       summary: Get refresh status for credential.
       parameters:
@@ -1580,6 +1617,32 @@ components:
         - profileVersion
         - claimEndpoint
         - credentialTemplateID
+    GetRefreshedCredentialReq:
+      title: GetRefreshedCredentialReq
+      type: object
+      description: Model for getting refreshed credential.
+      properties:
+        verifiable_presentation:
+          type: string
+          description: Verifiable Presentation.
+          format: byte
+      required:
+        - verifiable_presentation
+      x-tags:
+          - oidc4ci
+    GetRefreshedCredentialResp:
+      title: GetRefreshedCredentialResp
+      type: object
+      description: Model for getting refreshed credential.
+      properties:
+        verifiable_credential:
+          type: string
+          anyOf:
+            - { }
+      x-tags:
+          - oidc4ci
+      required:
+        - verifiable_credential
     DeprecatedComposeOIDC4CICredential:
       title: DeprecatedComposeOIDC4CICredential
       type: object

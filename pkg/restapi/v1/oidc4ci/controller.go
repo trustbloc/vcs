@@ -149,6 +149,12 @@ type CredentialRefreshService interface {
 		credentialID string,
 		issuer profileapi.Issuer,
 	) (*oidc4ci.GetRefreshStateResponse, error)
+
+	GetRefreshedCredential(
+		ctx context.Context,
+		presentation *verifiable.Presentation,
+		issuer profileapi.Issuer,
+	) (*verifiable.Credential, error)
 }
 
 // JWEEncrypterCreator creates JWE encrypter for given JWK, alg and enc.
@@ -202,6 +208,68 @@ type Controller struct {
 	refreshService CredentialRefreshService
 }
 
+// NewController creates a new Controller instance.
+func NewController(config *Config) *Controller {
+	return &Controller{
+		oauth2Provider:          config.OAuth2Provider,
+		stateStore:              config.StateStore,
+		httpClient:              config.HTTPClient,
+		issuerInteractionClient: config.IssuerInteractionClient,
+		profileService:          config.ProfileService,
+		clientManager:           config.ClientManager,
+		clientIDSchemeService:   config.ClientIDSchemeService,
+		jwtVerifier:             config.JWTVerifier,
+		cwtVerifier:             config.CWTVerifier,
+		tracer:                  config.Tracer,
+		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
+		internalHostURL:         config.ExternalHostURL,
+		ackService:              config.AckService,
+		jweEncrypterCreator:     config.JWEEncrypterCreator,
+		documentLoader:          config.DocumentLoader,
+		vdr:                     config.Vdr,
+		proofCheker:             config.ProofChecker,
+		ldpProofParser:          config.LDPProofParser,
+		refreshService:          config.RefreshService,
+	}
+}
+
+// GetRefreshedCredential gets refreshed credentials (POST /refresh/{profileID}/{profileVersion}).
+func (c *Controller) GetRefreshedCredential(
+	ctx echo.Context,
+	profileID string,
+	profileVersion string,
+	_ GetRefreshedCredentialParams,
+) error {
+	var req GetRefreshedCredentialReq
+	if err := ctx.Bind(&req); err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "request", err)
+	}
+
+	pres, err := verifiable.ParsePresentation(req.VerifiablePresentation,
+		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
+		verifiable.WithPresProofChecker(c.proofCheker))
+	if err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "verifiable_presentation", err)
+	}
+
+	targetIssuer, err := c.profileService.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+	}
+
+	resp, err := c.refreshService.GetRefreshedCredential(ctx.Request().Context(), pres, *targetIssuer)
+	if err != nil {
+		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent,
+			"GetRefreshedCredential",
+			err)
+	}
+
+	return ctx.JSON(http.StatusOK, GetRefreshedCredentialResp{
+		VerifiableCredential: resp,
+	})
+}
+
+// RequestRefreshStatus gets refresh status (GET /refresh/{profileID}/{profileVersion}).
 func (c *Controller) RequestRefreshStatus(
 	ctx echo.Context,
 	issuerID string,
@@ -244,31 +312,6 @@ func (c *Controller) RequestRefreshStatus(
 			Query: query,
 		},
 	})
-}
-
-// NewController creates a new Controller instance.
-func NewController(config *Config) *Controller {
-	return &Controller{
-		oauth2Provider:          config.OAuth2Provider,
-		stateStore:              config.StateStore,
-		httpClient:              config.HTTPClient,
-		issuerInteractionClient: config.IssuerInteractionClient,
-		profileService:          config.ProfileService,
-		clientManager:           config.ClientManager,
-		clientIDSchemeService:   config.ClientIDSchemeService,
-		jwtVerifier:             config.JWTVerifier,
-		cwtVerifier:             config.CWTVerifier,
-		tracer:                  config.Tracer,
-		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
-		internalHostURL:         config.ExternalHostURL,
-		ackService:              config.AckService,
-		jweEncrypterCreator:     config.JWEEncrypterCreator,
-		documentLoader:          config.DocumentLoader,
-		vdr:                     config.Vdr,
-		proofCheker:             config.ProofChecker,
-		ldpProofParser:          config.LDPProofParser,
-		refreshService:          config.RefreshService,
-	}
 }
 
 // OidcPushedAuthorizationRequest handles OIDC pushed authorization request (POST /oidc/par).

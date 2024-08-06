@@ -459,7 +459,7 @@ func (f *Flow) sendAuthorizationResponse(
 
 	v.Add("id_token", idToken)
 
-	vpTokens, err := f.createVPToken(presentations, requestObject)
+	vpTokens, err := f.CreateVPToken(presentations, requestObject)
 	if err != nil {
 		return fmt.Errorf("create vp token: %w", err)
 	}
@@ -488,7 +488,7 @@ func (f *Flow) sendAuthorizationResponse(
 	return f.postAuthorizationResponse(ctx, requestObject.ResponseURI, []byte(v.Encode()))
 }
 
-func (f *Flow) createVPToken(
+func (f *Flow) CreateVPToken(
 	presentations []*verifiable.Presentation,
 	requestObject *RequestObject,
 ) ([]string, error) {

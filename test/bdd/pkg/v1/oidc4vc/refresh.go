@@ -14,7 +14,9 @@ import (
 	"net/http"
 
 	"github.com/samber/lo"
+	"github.com/trustbloc/vc-go/presexch"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -80,7 +82,7 @@ func (s *Steps) walletRefreshesCredential() error {
 			http.MethodGet,
 			refreshURL,
 			"application/json",
-			s.getToken(),
+			"",
 			nil,
 			s.tlsConfig,
 		) //nolint: bodyclose
@@ -107,12 +109,65 @@ func (s *Steps) walletRefreshesCredential() error {
 			return fmt.Errorf("failed to marshal presentation definition: %w", err)
 		}
 
-		queryRes, presSub, err := s.wallet.Query(presDef, false, false)
+		queryRes, _, err := s.wallet.Query(presDef, false, false)
 		if err != nil {
 			return fmt.Errorf("failed to query wallet: %w", err)
 		}
 
-		fmt.Print(queryRes, presSub)
+		if len(queryRes) != 1 {
+			return fmt.Errorf("expected 1 presentation, got %d", len(queryRes))
+		}
+
+		flow, err := oidc4vp.NewFlow(s.oidc4vpProvider)
+		if err != nil {
+			return fmt.Errorf("init flow: %w", err)
+		}
+
+		signedPres, err := flow.CreateVPToken(queryRes, &oidc4vp.RequestObject{
+			ClientID: "unk",
+			Nonce:    parsed.VerifiablePresentationRequest.Challenge,
+			ClientMetadata: &oidc4vp.ClientMetadata{
+				VPFormats: &presexch.Format{
+					JwtVP: &presexch.JwtType{},
+				},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to sign presentation: %w", err)
+		}
+
+		if len(signedPres) != 1 {
+			return fmt.Errorf("expected 1 signed presentation, got %d", len(signedPres))
+		}
+
+		reqBody, err := json.Marshal(oidc4ci.GetRefreshedCredentialReq{
+			VerifiablePresentation: []byte(signedPres[0]),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to marshal request body: %w", err)
+		}
+
+		resp, err = bddutil.HTTPSDo(
+			http.MethodPost,
+			refreshURL,
+			"application/json",
+			"",
+			bytes.NewBuffer(reqBody),
+			s.tlsConfig,
+		) //nolint: bodyclose
+		if err != nil {
+			return fmt.Errorf("failed to send request to refresh service (%s): %w", refreshURL, err)
+		}
+
+		if resp.Body != nil {
+			body, _ = io.ReadAll(resp.Body) // nolint
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
+		}
+
+		fmt.Println("ok")
 	}
 
 	return nil
