@@ -218,6 +218,7 @@ func (s *Service) checkCredentialStrict(
 		if err = validator.ValidateJSONLDMap(credMap,
 			validator.WithDocumentLoader(s.documentLoader),
 			validator.WithStrictValidation(true),
+			validator.WithJSONLDIncludeDetailedStructureDiffOnError(),
 		); err != nil {
 			return claimKeysDict, err
 		}

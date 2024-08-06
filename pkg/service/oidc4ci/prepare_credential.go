@@ -127,15 +127,10 @@ func (s *PrepareCredentialService) CreateRefreshService(
 	_ context.Context,
 	cred *verifiable.Credential,
 	req *PrepareCredentialsRequest,
-) *verifiable.RefreshService {
-	return &verifiable.RefreshService{
-		TypedID: verifiable.TypedID{
-			Type: "VerifiableCredentialRefreshService2021",
-			CustomFields: verifiable.CustomFields{
-				"validFrom": time.Now().UTC().Format(time.RFC3339),
-			},
-		},
-		Url: s.getRefreshServiceURL(cred.Contents().ID, req.IssuerID, req.IssuerVersion),
+) *verifiable.TypedID {
+	return &verifiable.TypedID{
+		Type: "VerifiableCredentialRefreshService2021",
+		ID:   s.getRefreshServiceURL(cred.Contents().ID, req.IssuerID, req.IssuerVersion),
 	}
 }
 

@@ -13,8 +13,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/samber/lo"
 	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -37,7 +37,7 @@ func (s *Steps) ensureCredentialServiceSet() error {
 			return fmt.Errorf("unexpected refresh service type: %s", srv.Type)
 		}
 
-		if srv.Url == "" {
+		if srv.ID == "" {
 			return fmt.Errorf("refresh service endpoint is not set")
 		}
 	}
@@ -47,7 +47,7 @@ func (s *Steps) ensureCredentialServiceSet() error {
 
 func (s *Steps) ensureNoCredentialRefreshAvailable() error {
 	for _, c := range s.issuedCredentials {
-		refreshURL := c.Contents().RefreshService.Url
+		refreshURL := c.Contents().RefreshService.ID
 
 		resp, err := bddutil.HTTPSDo(
 			http.MethodGet,
@@ -76,7 +76,7 @@ func (s *Steps) ensureNoCredentialRefreshAvailable() error {
 
 func (s *Steps) walletRefreshesCredential() error {
 	for _, c := range s.issuedCredentials {
-		refreshURL := c.Contents().RefreshService.Url
+		refreshURL := c.Contents().RefreshService.ID
 
 		resp, err := bddutil.HTTPSDo(
 			http.MethodGet,
@@ -167,6 +167,45 @@ func (s *Steps) walletRefreshesCredential() error {
 			return fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
 		}
 
+		var refreshedCredResp oidc4ci.GetRefreshedCredentialResp
+		if err = json.Unmarshal(body, &refreshedCredResp); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		var rawUpdatedCred []byte
+
+		switch v := refreshedCredResp.VerifiableCredential.(type) {
+		case []byte:
+			rawUpdatedCred = v
+		case string:
+			//v, _ = strconv.Unquote(v)
+			rawUpdatedCred = []byte(v)
+		default:
+			rawUpdatedCred, err = json.Marshal(v)
+			if err != nil {
+				return fmt.Errorf("failed to marshal updated credential: %w", err)
+			}
+		}
+
+		parsedCred, err := verifiable.ParseCredential(rawUpdatedCred, verifiable.WithDisabledProofCheck())
+		if err != nil {
+			return fmt.Errorf("failed to parse updated credential: %w", err)
+		}
+
+		if parsedCred.Contents().ID == c.Contents().ID {
+			return fmt.Errorf("refreshed credential has the same ID as the original one")
+		}
+
+		types := parsedCred.Contents().Types
+		key := fmt.Sprintf("%s_0", types[len(types)-1])
+		if err = s.wallet.Delete(key); err != nil {
+			return fmt.Errorf("failed to delete old credential: %w", err)
+		}
+
+		if err = s.wallet.Add(rawUpdatedCred, key); err != nil {
+			return fmt.Errorf("failed to add updated credential: %w", err)
+		}
+
 		fmt.Println("ok")
 	}
 
@@ -180,10 +219,8 @@ func (s *Steps) issuerSendRequestToInitiateCredentialRefresh() error {
 	}
 
 	body, err := json.Marshal(issuer.SetCredentialRefreshStateRequest{
-		Claims:                claims,
-		CredentialDescription: lo.ToPtr("some-description"),
-		CredentialId:          s.issuedCredentials[0].Contents().ID,
-		CredentialName:        lo.ToPtr("some-name"),
+		Claims:       claims,
+		CredentialId: s.issuedCredentials[0].Contents().ID,
 	})
 	if err != nil {
 		return fmt.Errorf("marshal request payload: %w", err)

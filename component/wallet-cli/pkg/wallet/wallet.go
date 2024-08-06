@@ -317,6 +317,17 @@ func (w *Wallet) Add(vc json.RawMessage, key string) error {
 	return nil
 }
 
+func (w *Wallet) Delete(key string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if err := w.store.Delete(key); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type contentID struct {
 	ID string `json:"id"`
 }
