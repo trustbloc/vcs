@@ -304,8 +304,9 @@ func (c *Controller) RequestRefreshStatus(
 			Interact: RefreshServiceInteract{
 				Service: []RefreshService{
 					{
-						ServiceEndpoint: ctx.Request().RequestURI,
-						Type:            resp.RefreshServiceType.Type,
+						ServiceEndpoint: fmt.Sprintf("%s%s", c.issuerVCSPublicHost,
+							ctx.Request().URL.String()),
+						Type: resp.RefreshServiceType.Type,
 					},
 				},
 			},

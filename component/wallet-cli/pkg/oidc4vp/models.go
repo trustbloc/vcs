@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/trustbloc/vc-go/presexch"
-	"github.com/trustbloc/vc-go/verifiable"
 )
 
 type RequestObject struct {
@@ -50,17 +49,6 @@ type IDTokenClaims struct {
 	Iat                   int64             `json:"iat"`
 	Jti                   string            `json:"jti"`
 	Attachments           map[string]string `json:"_attachments"`
-}
-
-type VPTokenClaims struct {
-	VP    *verifiable.Presentation `json:"vp"`
-	Nonce string                   `json:"nonce"`
-	Exp   int64                    `json:"exp"`
-	Iss   string                   `json:"iss"`
-	Aud   string                   `json:"aud"`
-	Nbf   int64                    `json:"nbf"`
-	Iat   int64                    `json:"iat"`
-	Jti   string                   `json:"jti"`
 }
 
 type PerfInfo struct {
