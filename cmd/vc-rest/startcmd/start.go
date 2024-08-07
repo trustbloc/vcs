@@ -81,6 +81,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/refresh"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
@@ -870,7 +871,14 @@ func buildEchoHandler(
 		Vdr:                     conf.VDR,
 		ProofChecker:            proofChecker,
 		LDPProofParser:          oidc4civ1.NewDefaultLDPProofParser(),
-		RefreshService:          refreshService,
+	}))
+
+	refresh.RegisterHandlers(e, refresh.NewController(&refresh.Config{
+		RefreshService:      refreshService,
+		ProfileService:      issuerProfileSvc,
+		ProofChecker:        proofChecker,
+		DocumentLoader:      documentLoader,
+		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{

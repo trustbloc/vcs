@@ -46,7 +46,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/internal/utils"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -143,20 +142,6 @@ type LDPProofParser interface {
 	) (*verifiable.Presentation, error)
 }
 
-type CredentialRefreshService interface {
-	RequestRefreshStatus(
-		ctx context.Context,
-		credentialID string,
-		issuer profileapi.Issuer,
-	) (*oidc4ci.GetRefreshStateResponse, error)
-
-	GetRefreshedCredential(
-		ctx context.Context,
-		presentation *verifiable.Presentation,
-		issuer profileapi.Issuer,
-	) (*verifiable.Credential, error)
-}
-
 // JWEEncrypterCreator creates JWE encrypter for given JWK, alg and enc.
 type JWEEncrypterCreator func(jwk gojose.JSONWebKey, alg gojose.KeyAlgorithm, enc gojose.ContentEncryption) (gojose.Encrypter, error) //nolint:lll
 
@@ -181,7 +166,6 @@ type Config struct {
 	Vdr            vdrapi.Registry
 	ProofChecker   *checker.ProofChecker
 	LDPProofParser LDPProofParser
-	RefreshService CredentialRefreshService
 }
 
 // Controller for OIDC credential issuance API.
@@ -205,7 +189,6 @@ type Controller struct {
 	vdr            vdrapi.Registry
 	proofCheker    *checker.ProofChecker
 	ldpProofParser LDPProofParser
-	refreshService CredentialRefreshService
 }
 
 // NewController creates a new Controller instance.
@@ -229,90 +212,7 @@ func NewController(config *Config) *Controller {
 		vdr:                     config.Vdr,
 		proofCheker:             config.ProofChecker,
 		ldpProofParser:          config.LDPProofParser,
-		refreshService:          config.RefreshService,
 	}
-}
-
-// GetRefreshedCredential gets refreshed credentials (POST /refresh/{profileID}/{profileVersion}).
-func (c *Controller) GetRefreshedCredential(
-	ctx echo.Context,
-	profileID string,
-	profileVersion string,
-	_ GetRefreshedCredentialParams,
-) error {
-	var req GetRefreshedCredentialReq
-	if err := ctx.Bind(&req); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "request", err)
-	}
-
-	pres, err := verifiable.ParsePresentation(req.VerifiablePresentation,
-		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-		verifiable.WithPresProofChecker(c.proofCheker))
-	if err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "verifiable_presentation", err)
-	}
-
-	targetIssuer, err := c.profileService.GetProfile(profileID, profileVersion)
-	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
-	}
-
-	resp, err := c.refreshService.GetRefreshedCredential(ctx.Request().Context(), pres, *targetIssuer)
-	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent,
-			"GetRefreshedCredential",
-			err)
-	}
-
-	return ctx.JSON(http.StatusOK, GetRefreshedCredentialResp{
-		VerifiableCredential: resp,
-	})
-}
-
-// RequestRefreshStatus gets refresh status (GET /refresh/{profileID}/{profileVersion}).
-func (c *Controller) RequestRefreshStatus(
-	ctx echo.Context,
-	issuerID string,
-	profileVersion string,
-	params RequestRefreshStatusParams,
-) error {
-	targetIssuer, err := c.profileService.GetProfile(issuerID, profileVersion)
-	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
-	}
-
-	resp, err := c.refreshService.RequestRefreshStatus(ctx.Request().Context(), params.CredentialID, *targetIssuer)
-	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent, "RequestRefreshStatus",
-			err)
-	}
-
-	if resp == nil {
-		return ctx.NoContent(http.StatusNoContent)
-	}
-
-	query, err := utils.StructureToMap(resp.VerifiablePresentationRequest.Query)
-	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent, "RequestRefreshStatus",
-			err)
-	}
-
-	return ctx.JSON(http.StatusOK, &CredentialRefreshAvailableResponse{
-		VerifiablePresentationRequest: VerifiablePresentationRequest{
-			Challenge: resp.Challenge,
-			Domain:    resp.Domain,
-			Interact: RefreshServiceInteract{
-				Service: []RefreshService{
-					{
-						ServiceEndpoint: fmt.Sprintf("%s%s", c.issuerVCSPublicHost,
-							ctx.Request().URL.String()),
-						Type: resp.RefreshServiceType.Type,
-					},
-				},
-			},
-			Query: query,
-		},
-	})
 }
 
 // OidcPushedAuthorizationRequest handles OIDC pushed authorization request (POST /oidc/par).

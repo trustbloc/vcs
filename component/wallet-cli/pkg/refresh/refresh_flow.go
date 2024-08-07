@@ -28,7 +28,7 @@ import (
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/refresh"
 )
 
 type Flow struct {
@@ -224,7 +224,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		return nil, nil, fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
 	}
 
-	var parsed oidc4ci.CredentialRefreshAvailableResponse
+	var parsed refresh.CredentialRefreshAvailableResponse
 	if err = json.Unmarshal(body, &parsed); err != nil {
 		return nil, nil, fmt.Errorf("parse response: %w", err)
 	}
@@ -265,7 +265,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		return nil, nil, errors.Join(errors.New("failed to sign presentation"), err)
 	}
 
-	reqBody, err := json.Marshal(oidc4ci.GetRefreshedCredentialReq{
+	reqBody, err := json.Marshal(refresh.GetRefreshedCredentialReq{
 		VerifiablePresentation: []byte(signedPres[0]),
 	})
 	if err != nil {
@@ -298,7 +298,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		return nil, nil, fmt.Errorf("unexpected status code %d and body: %s", resp.StatusCode, body)
 	}
 
-	var refreshedCredResp oidc4ci.GetRefreshedCredentialResp
+	var refreshedCredResp refresh.GetRefreshedCredentialResp
 	if err = json.Unmarshal(body, &refreshedCredResp); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse response: %w", err)
 	}
