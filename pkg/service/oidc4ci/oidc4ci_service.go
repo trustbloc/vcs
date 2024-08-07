@@ -32,13 +32,13 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 const (
 	defaultGrantType        = "authorization_code"
 	defaultResponseType     = "token"
-	defaultCtx              = "https://www.w3.org/2018/credentials/v1"
 	attestJWTClientAuthType = "attest_jwt_client_auth"
 )
 
@@ -75,8 +75,8 @@ type transactionStore interface {
 }
 
 type claimDataStore interface {
-	Create(ctx context.Context, profileTTLSec int32, data *ClaimData) (string, error)
-	GetAndDelete(ctx context.Context, id string) (*ClaimData, error)
+	Create(ctx context.Context, profileTTLSec int32, data *issuecredential.ClaimData) (string, error)
+	GetAndDelete(ctx context.Context, id string) (*issuecredential.ClaimData, error)
 }
 
 type wellKnownService interface {
@@ -222,7 +222,7 @@ func NewService(config *Config) (*Service, error) {
 func (s *Service) PushAuthorizationDetails(
 	ctx context.Context,
 	opState string,
-	ad []*AuthorizationDetails,
+	ad []*issuecredential.AuthorizationDetails,
 ) error {
 	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
@@ -247,7 +247,7 @@ func (s *Service) PushAuthorizationDetails(
 		return err
 	}
 
-	var validTxCredentialConfiguration []*TxCredentialConfiguration
+	var validTxCredentialConfiguration []*issuecredential.TxCredentialConfiguration
 	// Delete unused entities from tx.CredentialConfiguration
 	for _, txCredentialConfiguration := range tx.CredentialConfiguration {
 		if _, ok := requestedTxCredentialConfigurationsIDs[txCredentialConfiguration.ID]; ok {
@@ -273,7 +273,7 @@ func (s *Service) checkScopes(
 	profile *profileapi.Issuer,
 	reqScopes []string,
 	txScope []string,
-	txCredentialConfigurations []*TxCredentialConfiguration,
+	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
 	requestedTxCredentialConfigurationIDsViaAuthDetails map[string]struct{},
 ) ([]string, error) {
 	var credentialsConfigurationSupported map[string]*profileapi.CredentialsConfigurationSupported
@@ -413,7 +413,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	tx.Scope = validScopes
 
-	var validTxCredentialConfiguration []*TxCredentialConfiguration
+	var validTxCredentialConfiguration []*issuecredential.TxCredentialConfiguration
 	// Delete unused entities from tx.CredentialConfiguration
 	for _, txCredentialConfiguration := range tx.CredentialConfiguration {
 		if _, ok := requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID]; ok {
@@ -513,8 +513,8 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 //nolint:gocognit,nolintlint
 func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 	profile *profileapi.Issuer,
-	txCredentialConfigurations []*TxCredentialConfiguration,
-	authorizationDetails []*AuthorizationDetails,
+	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
+	authorizationDetails []*issuecredential.AuthorizationDetails,
 ) (map[string]struct{}, error) {
 	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
@@ -754,7 +754,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			return nil, err
 		}
 
-		var txCredentialConfiguration *TxCredentialConfiguration
+		var txCredentialConfiguration *issuecredential.TxCredentialConfiguration
 		txCredentialConfiguration, err = s.findTxCredentialConfiguration(
 			requestedTxCredentialConfigurationIDs,
 			tx.CredentialConfiguration,
@@ -810,7 +810,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 func (s *Service) prepareCredential( //nolint:funlen
 	ctx context.Context,
 	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 	prepareCredentialRequest *PrepareCredentialRequest,
 ) (*verifiable.Credential, *string, error) {
 	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
@@ -818,7 +818,7 @@ func (s *Service) prepareCredential( //nolint:funlen
 		return nil, nil, fmt.Errorf("get claims data: %w", err)
 	}
 
-	finalCred, err := s.credentialIssuer.PrepareCredential(ctx, &PrepareCredentialsRequest{
+	finalCred, err := s.credentialIssuer.PrepareCredential(ctx, &issuecredential.PrepareCredentialsRequest{
 		TxID:                    string(tx.ID),
 		ClaimData:               claimData,
 		IssuerDID:               tx.DID,
@@ -849,11 +849,11 @@ func (s *Service) prepareCredential( //nolint:funlen
 
 func (s *Service) findTxCredentialConfiguration( //nolint:funlen
 	requestedTxCredentialConfigurationIDs map[string]struct{},
-	txCredentialConfigurations []*TxCredentialConfiguration,
+	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
 	credentialFormat vcsverifiable.OIDCFormat,
 	credentialTypes []string,
-) (*TxCredentialConfiguration, error) {
-	var txCredentialConfiguration *TxCredentialConfiguration
+) (*issuecredential.TxCredentialConfiguration, error) {
+	var txCredentialConfiguration *issuecredential.TxCredentialConfiguration
 	for _, credentialConfiguration := range txCredentialConfigurations {
 		if _, ok := requestedTxCredentialConfigurationIDs[credentialConfiguration.ID]; ok {
 			continue
@@ -899,7 +899,7 @@ func (s *Service) validateRequestAudienceClaim( //nolint:funlen
 func (s *Service) getClaimsData(
 	ctx context.Context,
 	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	if !tx.IsPreAuthFlow {
 		claims, err := s.requestClaims(ctx, tx, txCredentialConfiguration)
@@ -926,7 +926,7 @@ func (s *Service) getClaimsData(
 func (s *Service) requestClaims(
 	ctx context.Context,
 	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, txCredentialConfiguration.ClaimEndpoint, http.NoBody)
 	if err != nil {

@@ -1,4 +1,10 @@
-package oidc4ci
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package issuecredential
 
 import (
 	"context"
@@ -9,6 +15,10 @@ import (
 	"github.com/google/uuid"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
+)
+
+const (
+	defaultCtx = "https://www.w3.org/2018/credentials/v1"
 )
 
 type PrepareCredentialService struct {

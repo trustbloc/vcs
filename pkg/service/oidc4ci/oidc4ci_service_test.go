@@ -27,6 +27,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
@@ -5285,7 +5286,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				EventTopic:        spi.IssuerEventTopic,
 				DataProtector:     m.crypto,
 				AckService:        m.ackService,
-				PrepareCredential: oidc4ci.NewPrepareCredentialService(m.composer),
+				PrepareCredential: issuecredential.NewPrepareCredentialService(m.composer),
 			})
 			assert.NoError(t, err)
 

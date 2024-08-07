@@ -672,7 +672,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	var (
-		ad  []*oidc4ci.AuthorizationDetails
+		ad  []*issuecredential.AuthorizationDetails
 		err error
 	)
 

@@ -1,4 +1,10 @@
-package oidc4ci
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package refresh
 
 import (
 	"context"
@@ -13,11 +19,12 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
-type RefreshConfig struct {
+type Config struct {
 	VcsAPIURL              string
-	TxStore                transactionStore
+	TxStore                oidc4ci.transactionStore
 	ClaimsStore            claimDataStore
 	DataProtector          dataProtector
 	PresentationVerifier   presentationVerifier
@@ -26,10 +33,10 @@ type RefreshConfig struct {
 }
 
 type RefreshService struct {
-	cfg *RefreshConfig
+	cfg *Config
 }
 
-func NewRefreshService(cfg *RefreshConfig) *RefreshService {
+func NewRefreshService(cfg *Config) *RefreshService {
 	return &RefreshService{
 		cfg: cfg,
 	}
@@ -110,7 +117,7 @@ func (s *RefreshService) GetRefreshedCredential(ctx context.Context, presentatio
 		return nil, err
 	}
 
-	decryptedClaims, decryptErr := decryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
+	decryptedClaims, decryptErr := oidc4ci.decryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
 	if decryptErr != nil {
 		return nil, fmt.Errorf("decrypt claims: %w", decryptErr)
 	}
@@ -126,7 +133,7 @@ func (s *RefreshService) GetRefreshedCredential(ctx context.Context, presentatio
 	credConfig.OIDCCredentialFormat = config.Format
 	credConfig.CredentialTemplate = template
 
-	updatedCred, err := s.cfg.CredentialIssuer.PrepareCredential(ctx, &PrepareCredentialsRequest{
+	updatedCred, err := s.cfg.CredentialIssuer.PrepareCredential(ctx, &issuecredential.PrepareCredentialsRequest{
 		TxID:                    string(tx.ID),
 		ClaimData:               decryptedClaims,
 		IssuerDID:               tx.DID,
@@ -151,7 +158,7 @@ func (s *RefreshService) RequestRefreshStatus(
 	ctx context.Context,
 	credentialID string,
 	issuer profile.Issuer,
-) (*GetRefreshStateResponse, error) {
+) (*oidc4ci.GetRefreshStateResponse, error) {
 	tx, _ := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(credentialID, issuer.ID))
 	if tx == nil {
 		return nil, nil
@@ -159,11 +166,11 @@ func (s *RefreshService) RequestRefreshStatus(
 
 	purpose := "The verifier needs to see your existing credentials to verify your identity"
 
-	return &GetRefreshStateResponse{
-		RefreshServiceType: RefreshServiceType{
+	return &oidc4ci.GetRefreshStateResponse{
+		RefreshServiceType: oidc4ci.RefreshServiceType{
 			Type: "VerifiableCredentialRefreshService2021",
 		},
-		VerifiablePresentationRequest: VerifiablePresentationRequest{
+		VerifiablePresentationRequest: oidc4ci.VerifiablePresentationRequest{
 			Query: presexch.PresentationDefinition{
 				ID:                     "Query",
 				Name:                   "We need to see your existing credentials",
@@ -202,16 +209,16 @@ func (s *RefreshService) RequestRefreshStatus(
 
 func (s *RefreshService) CreateRefreshState(
 	ctx context.Context,
-	req *CreateRefreshStateRequest,
+	req *oidc4ci.CreateRefreshStateRequest,
 ) (string, error) {
-	encrypted, err := encryptClaims(ctx, req.Claims, s.cfg.DataProtector)
+	encrypted, err := oidc4ci.encryptClaims(ctx, req.Claims, s.cfg.DataProtector)
 	if err != nil {
 		return "", err
 	}
 
 	ttl := req.Issuer.DataConfig.OIDC4CITransactionDataTTL
 
-	claimData, err := s.cfg.ClaimsStore.Create(ctx, ttl, &ClaimData{
+	claimData, err := s.cfg.ClaimsStore.Create(ctx, ttl, &issuecredential.ClaimData{
 		EncryptedData: encrypted.EncryptedData,
 	})
 	if err != nil {
@@ -220,16 +227,16 @@ func (s *RefreshService) CreateRefreshState(
 
 	opState := s.getOpState(req.CredentialID, req.Issuer.ID)
 
-	tx, err := s.cfg.TxStore.Create(ctx, ttl, &TransactionData{
+	tx, err := s.cfg.TxStore.Create(ctx, ttl, &oidc4ci.TransactionData{
 		ProfileID:      req.Issuer.ID,
 		ProfileVersion: req.Issuer.Version,
 		IsPreAuthFlow:  true,
 		OrgID:          req.Issuer.OrganizationID,
 		OpState:        opState,
 		WebHookURL:     req.Issuer.WebHook,
-		CredentialConfiguration: []*TxCredentialConfiguration{
+		CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 			{
-				ClaimDataType:         ClaimDataTypeClaims,
+				ClaimDataType:         issuecredential.ClaimDataTypeClaims,
 				ClaimDataID:           claimData,
 				CredentialName:        lo.FromPtr(req.CredentialName),
 				CredentialDescription: lo.FromPtr(req.CredentialDescription),

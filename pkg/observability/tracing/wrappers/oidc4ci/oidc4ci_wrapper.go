@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/internal/utils"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -66,7 +67,7 @@ func (w *Wrapper) InitiateIssuance(
 	return resp, nil
 }
 
-func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad []*oidc4ci.AuthorizationDetails) error {
+func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad []*issuecredential.AuthorizationDetails) error {
 	return w.svc.PushAuthorizationDetails(ctx, opState, ad)
 }
 

@@ -91,6 +91,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
+	refresh2 "github.com/trustbloc/vcs/pkg/service/refresh"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -703,7 +704,7 @@ func buildEchoHandler(
 		ProfileSvc: issuerProfileSvc,
 	})
 
-	prepareCredentialSvc := oidc4ci.NewPrepareCredentialService(&oidc4ci.PrepareCredentialServiceConfig{
+	prepareCredentialSvc := issuecredential.NewPrepareCredentialService(&issuecredential.PrepareCredentialServiceConfig{
 		VcsAPIURL: conf.StartupParameters.hostURLExternal,
 		Composer:  oidc4ci.NewCredentialComposer(),
 	})
@@ -842,7 +843,7 @@ func buildEchoHandler(
 		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
 	}
 
-	refreshService := oidc4ci.NewRefreshService(&oidc4ci.RefreshConfig{
+	refreshService := refresh2.NewRefreshService(&refresh2.Config{
 		VcsAPIURL:              conf.StartupParameters.apiGatewayURL,
 		TxStore:                oidc4ciTransactionStore,
 		ClaimsStore:            oidc4ciClaimDataStore,

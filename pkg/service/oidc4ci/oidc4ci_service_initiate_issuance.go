@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 const (
@@ -64,7 +65,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
 
-	issuedCredentialConfiguration := make([]*TxCredentialConfiguration, 0, len(req.CredentialConfiguration))
+	issuedCredentialConfiguration := make([]*issuecredential.TxCredentialConfiguration, 0, len(req.CredentialConfiguration))
 
 	for _, credentialConfiguration := range req.CredentialConfiguration {
 		txCredentialConf, err := s.newTxCredentialConf(
@@ -173,7 +174,7 @@ func (s *Service) newTxCredentialConf(
 	credentialConfiguration InitiateIssuanceCredentialConfiguration,
 	isPreAuthFlow bool,
 	profile *profileapi.Issuer,
-) (*TxCredentialConfiguration, error) {
+) (*issuecredential.TxCredentialConfiguration, error) {
 	err := s.validateFlowSpecificRequestParams(
 		isPreAuthFlow,
 		credentialConfiguration,
@@ -212,7 +213,7 @@ func (s *Service) newTxCredentialConf(
 
 	metaCredentialConfiguration := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
 
-	txCredentialConfiguration := &TxCredentialConfiguration{
+	txCredentialConfiguration := &issuecredential.TxCredentialConfiguration{
 		ID:                    uuid.NewString(),
 		CredentialTemplate:    targetCredentialTemplate,
 		OIDCCredentialFormat:  metaCredentialConfiguration.Format,
@@ -301,7 +302,7 @@ func (s *Service) applyPreAuthFlowModifications(
 	profileClaimDataTTLSec int32,
 	req InitiateIssuanceCredentialConfiguration,
 	credentialTemplate *profileapi.CredentialTemplate,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) error {
 	var targetClaims map[string]interface{}
 	if req.ClaimData != nil {
@@ -320,13 +321,13 @@ func (s *Service) applyPreAuthFlowModifications(
 		}
 
 		targetClaims = req.ClaimData
-		txCredentialConfiguration.ClaimDataType = ClaimDataTypeClaims
+		txCredentialConfiguration.ClaimDataType = issuecredential.ClaimDataTypeClaims
 	} else if req.ComposeCredential != nil {
 		targetClaims = lo.FromPtr(req.ComposeCredential.Credential)
 
-		txCredentialConfiguration.ClaimDataType = ClaimDataTypeVC
+		txCredentialConfiguration.ClaimDataType = issuecredential.ClaimDataTypeVC
 
-		txCredentialConfiguration.CredentialComposeConfiguration = &CredentialComposeConfiguration{
+		txCredentialConfiguration.CredentialComposeConfiguration = &issuecredential.CredentialComposeConfiguration{
 			IDTemplate:         req.ComposeCredential.IDTemplate,
 			OverrideIssuer:     req.ComposeCredential.OverrideIssuer,
 			OverrideSubjectDID: req.ComposeCredential.OverrideSubjectDID,
@@ -502,7 +503,7 @@ func (s *Service) prepareCredentialOffer(
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
 	credentialConfigurationIDs := lo.Map(tx.CredentialConfiguration,
-		func(item *TxCredentialConfiguration, index int) string {
+		func(item *issuecredential.TxCredentialConfiguration, index int) string {
 			return item.CredentialConfigurationID
 		})
 

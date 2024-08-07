@@ -14,6 +14,14 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
+type composer interface {
+	Compose(
+		ctx context.Context,
+		cred *verifiable.Credential,
+		req *PrepareCredentialsRequest,
+	) (*verifiable.Credential, error)
+}
+
 type ServiceInterface interface {
 	IssueCredential(
 		ctx context.Context,
