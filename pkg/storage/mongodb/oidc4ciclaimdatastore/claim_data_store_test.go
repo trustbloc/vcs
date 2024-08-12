@@ -26,7 +26,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -51,7 +51,7 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, createErr)
 
 	t.Run("test create and get", func(t *testing.T) {
-		claims := &oidc4ci.ClaimData{
+		claims := &issuecredential.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1},
 				EncryptedNonce: []byte{0x2},
@@ -84,7 +84,7 @@ func TestStore(t *testing.T) {
 		storeExpired, err := New(context.Background(), client, 0)
 		assert.NoError(t, err)
 
-		claims := &oidc4ci.ClaimData{
+		claims := &issuecredential.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1},
 				EncryptedNonce: []byte{0x2},
@@ -103,7 +103,7 @@ func TestStore(t *testing.T) {
 		storeExpired, err := New(context.Background(), client, 1000)
 		assert.NoError(t, err)
 
-		claims := &oidc4ci.ClaimData{
+		claims := &issuecredential.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1},
 				EncryptedNonce: []byte{0x2},

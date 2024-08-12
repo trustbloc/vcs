@@ -91,9 +91,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 						assert.Equal(t, "test_issuer", data.ProfileID)
 						assert.Equal(t, "1.1", data.ProfileVersion)
 						assert.Equal(t, false, data.IsPreAuthFlow)
@@ -110,7 +110,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, []string{"openid", "profile"}, data.Scope)
 						assert.Empty(t, data.IssuerAuthCode)
 						assert.Empty(t, data.IssuerToken)
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 						assert.Empty(t, data.WebHookURL)
 						assert.Equal(t, "123456789", data.UserPin)
 						assert.Equal(t, "did:123", data.DID)
@@ -142,9 +142,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Empty(t, prcCredConf.PreAuthCodeExpiresAt)
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -258,9 +258,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 						assert.Equal(t, "test_issuer", data.ProfileID)
 						assert.Equal(t, "1.1", data.ProfileVersion)
 						assert.Equal(t, true, data.IsPreAuthFlow)
@@ -277,7 +277,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, []string{"openid", "profile"}, data.Scope)
 						assert.Empty(t, data.IssuerAuthCode)
 						assert.Empty(t, data.IssuerToken)
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 						assert.Empty(t, data.WebHookURL)
 						assert.Equal(t, "123456789", data.UserPin)
 						assert.Equal(t, "did:123", data.DID)
@@ -321,9 +321,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.NotEmpty(t, prcCredConf.PreAuthCodeExpiresAt)
 						assert.Empty(t, prcCredConf.AuthorizationDetails)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -468,13 +468,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								State: data.State,
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
@@ -524,7 +524,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, resp.Tx.State)
+				assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, resp.Tx.State)
 				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
 			},
 		},
@@ -554,19 +554,19 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.True(t, len(data.UserPin) > 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.NotEmpty(t, data.CredentialConfiguration[0].ClaimDataID)
 						assert.Equal(t, "PermanentResidentCardIdentifier", data.CredentialConfiguration[0].CredentialConfigurationID)
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
@@ -646,8 +646,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
@@ -655,9 +655,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.NotEmpty(t, data.CredentialConfiguration[0].ClaimDataID)
 						assert.Equal(t, "PermanentResidentCardIdentifier", data.CredentialConfiguration[0].CredentialConfigurationID)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
@@ -741,8 +741,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
@@ -758,9 +758,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 						assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
@@ -864,8 +864,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
@@ -881,9 +881,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 						assert.True(t, configuration.CredentialComposeConfiguration.OverrideIssuer)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
@@ -1045,11 +1045,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						return &oidc4ci.Transaction{
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
@@ -1346,17 +1346,17 @@ func TestService_InitiateIssuance(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.NotEmpty(t, data.CredentialConfiguration[0].ClaimDataID)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1543,8 +1543,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Client initiate issuance URL takes precedence over client well-known parameter",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
-					Return(&oidc4ci.Transaction{
-						TransactionData: oidc4ci.TransactionData{
+					Return(&issuecredential.Transaction{
+						TransactionData: issuecredential.TransactionData{
 							CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 								{
 									OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -1590,8 +1590,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Custom initiate issuance URL when fail to do well-known request",
 			setup: func(mocks *mocks) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return(
-					&oidc4ci.Transaction{
-						TransactionData: oidc4ci.TransactionData{
+					&issuecredential.Transaction{
+						TransactionData: issuecredential.TransactionData{
 							CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 								{
 									OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -1959,13 +1959,13 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -2031,13 +2031,13 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -2091,13 +2091,13 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -2204,13 +2204,13 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
@@ -2262,13 +2262,13 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					DoAndReturn(func(
 						ctx context.Context,
 						profileTransactionDataTTL int32,
-						data *oidc4ci.TransactionData,
-					) (*oidc4ci.Transaction, error) {
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+						data *issuecredential.TransactionData,
+					) (*issuecredential.Transaction, error) {
+						assert.Equal(t, issuecredential.TransactionStateIssuanceInitiated, data.State)
 
-						return &oidc4ci.Transaction{
+						return &issuecredential.Transaction{
 							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
+							TransactionData: issuecredential.TransactionData{
 								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,

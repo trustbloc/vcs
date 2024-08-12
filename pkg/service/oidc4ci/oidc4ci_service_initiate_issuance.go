@@ -65,7 +65,11 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
 
-	issuedCredentialConfiguration := make([]*issuecredential.TxCredentialConfiguration, 0, len(req.CredentialConfiguration))
+	issuedCredentialConfiguration := make(
+		[]*issuecredential.TxCredentialConfiguration,
+		0,
+		len(req.CredentialConfiguration),
+	)
 
 	for _, credentialConfiguration := range req.CredentialConfiguration {
 		txCredentialConf, err := s.newTxCredentialConf(

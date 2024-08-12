@@ -61,21 +61,21 @@ func TestExchangeCode(t *testing.T) {
 		},
 	)
 
-	baseTx := &oidc4ci.Transaction{
-		ID: oidc4ci.TxID("id"),
-		TransactionData: oidc4ci.TransactionData{
+	baseTx := &issuecredential.Transaction{
+		ID: issuecredential.TxID("id"),
+		TransactionData: issuecredential.TransactionData{
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
-			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+			State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 		},
 	}
 
 	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
 	store.EXPECT().Update(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+		DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
 			assert.Equal(t, baseTx, tx)
 			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
-			assert.Equal(t, oidc4ci.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
+			assert.Equal(t, issuecredential.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
 
 			return nil
 		})
@@ -117,9 +117,9 @@ func TestExchangeCodeProfileGetError(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
-		TransactionData: oidc4ci.TransactionData{
-			State:         oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&issuecredential.Transaction{
+		TransactionData: issuecredential.TransactionData{
+			State:         issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
@@ -154,9 +154,9 @@ func TestExchangeCodeCheckPolicyError(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
-		TransactionData: oidc4ci.TransactionData{
-			State:         oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&issuecredential.Transaction{
+		TransactionData: issuecredential.TransactionData{
+			State:         issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
@@ -210,9 +210,9 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
-		TransactionData: oidc4ci.TransactionData{
-			State:         oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&issuecredential.Transaction{
+		TransactionData: issuecredential.TransactionData{
+			State:         issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
@@ -266,10 +266,10 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	opState := uuid.NewString()
 	authCode := uuid.NewString()
 
-	baseTx := &oidc4ci.Transaction{
-		ID: oidc4ci.TxID("id"),
-		TransactionData: oidc4ci.TransactionData{
-			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+	baseTx := &issuecredential.Transaction{
+		ID: issuecredential.TxID("id"),
+		TransactionData: issuecredential.TransactionData{
+			State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
 		},
@@ -310,9 +310,9 @@ func TestExchangeCodeInvalidState(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
-		TransactionData: oidc4ci.TransactionData{
-			State:         oidc4ci.TransactionStateCredentialsIssued,
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&issuecredential.Transaction{
+		TransactionData: issuecredential.TransactionData{
+			State:         issuecredential.TransactionStateCredentialsIssued,
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
@@ -366,21 +366,21 @@ func TestExchangeCodePublishError(t *testing.T) {
 			return errors.New("publish error")
 		})
 
-	baseTx := &oidc4ci.Transaction{
-		ID: oidc4ci.TxID("id"),
-		TransactionData: oidc4ci.TransactionData{
+	baseTx := &issuecredential.Transaction{
+		ID: issuecredential.TxID("id"),
+		TransactionData: issuecredential.TransactionData{
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
-			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+			State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 		},
 	}
 
 	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
 	store.EXPECT().Update(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+		DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
 			assert.Equal(t, baseTx, tx)
 			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
-			assert.Equal(t, oidc4ci.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
+			assert.Equal(t, issuecredential.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
 
 			return nil
 		})
@@ -448,12 +448,12 @@ func TestExchangeCode_Success(t *testing.T) {
 		Format: "",
 	}
 
-	baseTx := &oidc4ci.Transaction{
-		ID: oidc4ci.TxID("id"),
-		TransactionData: oidc4ci.TransactionData{
+	baseTx := &issuecredential.Transaction{
+		ID: issuecredential.TxID("id"),
+		TransactionData: issuecredential.TransactionData{
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
-			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+			State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 			CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 				{
 					CredentialConfigurationID: "ConfigurationID",
@@ -465,10 +465,10 @@ func TestExchangeCode_Success(t *testing.T) {
 
 	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
 	store.EXPECT().Update(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+		DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
 			assert.Equal(t, baseTx, tx)
 			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
-			assert.Equal(t, oidc4ci.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
+			assert.Equal(t, issuecredential.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
 
 			return nil
 		})

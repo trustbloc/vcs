@@ -21,7 +21,11 @@ type dataProtector interface {
 	Decrypt(ctx context.Context, encryptedData *dataprotect.EncryptedData) ([]byte, error)
 }
 
-func EncryptClaims(ctx context.Context, data map[string]interface{}, protector dataProtector) (*issuecredential.ClaimData, error) {
+func EncryptClaims(
+	ctx context.Context,
+	data map[string]interface{},
+	protector dataProtector,
+) (*issuecredential.ClaimData, error) {
 	bytesData, err := json.Marshal(data)
 	if err != nil {
 		return nil, err

@@ -38,6 +38,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -1564,7 +1565,8 @@ func TestController_StoreAuthZCode(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
-		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code, nil).Return(oidc4ci.TxID("1234"), nil)
+		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code, nil).Return(
+			"1234", nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1584,7 +1586,7 @@ func TestController_StoreAuthZCode(t *testing.T) {
 				ProfileId:      "123",
 				ProfileVersion: "xxx",
 			}).
-			Return(oidc4ci.TxID("1234"), nil)
+			Return("1234", nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1610,7 +1612,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
 			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
 				TxID: "TxID",
-				AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+				AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 					getTestAuthorizationDetails(t, true),
 				},
 			}, nil)
@@ -1644,7 +1646,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState, "", "", "").
 			Return(&oidc4ci.ExchangeAuthorizationCodeResult{
 				TxID: "TxID",
-				AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+				AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 					getTestAuthorizationDetails(t, false),
 				},
 			}, nil)
@@ -1732,12 +1734,12 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	t.Run("success with pin and authorizationDetails", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432", "123", "", "").
-			Return(&oidc4ci.Transaction{
+			Return(&issuecredential.Transaction{
 				ID: "txID",
-				TransactionData: oidc4ci.TransactionData{
+				TransactionData: issuecredential.TransactionData{
 					OpState: "random_op_state",
 					Scope:   []string{"a", "b"},
-					CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							AuthorizationDetails:      getTestAuthorizationDetails(t, true),
 							CredentialConfigurationID: "CredentialConfigurationID",
@@ -1772,9 +1774,9 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	t.Run("success without pin and without authorizationDetails", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "", "123", "", "").
-			Return(&oidc4ci.Transaction{
+			Return(&issuecredential.Transaction{
 				ID: "txID",
-				TransactionData: oidc4ci.TransactionData{
+				TransactionData: issuecredential.TransactionData{
 					OpState: "random_op_state",
 					Scope:   []string{"a", "b"},
 					//AuthorizationDetails: nil,
@@ -1858,7 +1860,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 				assert.Len(t, req.CredentialRequests, 1)
 				assert.Equal(t, []string{"UniversityDegreeCredential"}, req.CredentialRequests[0].CredentialTypes)
 				assert.Equal(t, vcsverifiable.OIDCFormat("ldp_vc"), req.CredentialRequests[0].CredentialFormat)
@@ -1930,7 +1932,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -1990,7 +1992,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2031,7 +2033,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2077,7 +2079,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2175,7 +2177,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2246,7 +2248,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2313,7 +2315,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2380,7 +2382,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2460,7 +2462,7 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 				assert.Len(t, req.CredentialRequests, 2)
 				assert.Equal(t, []string{"UniversityDegreeCredential"}, req.CredentialRequests[0].CredentialTypes)
 				assert.Equal(t, vcsverifiable.OIDCFormat("ldp_vc"), req.CredentialRequests[0].CredentialFormat)
@@ -2547,7 +2549,7 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2588,7 +2590,7 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -2634,7 +2636,7 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4ci.PrepareCredential,
 			) (*oidc4ci.PrepareCredentialResult, error) {
-				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
@@ -3029,10 +3031,10 @@ func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual err
 	require.Error(t, actualErr.Err)
 }
 
-func getTestAuthorizationDetails(t *testing.T, includeCredentialDefinition bool) *oidc4ci.AuthorizationDetails {
+func getTestAuthorizationDetails(t *testing.T, includeCredentialDefinition bool) *issuecredential.AuthorizationDetails {
 	t.Helper()
 
-	res := &oidc4ci.AuthorizationDetails{
+	res := &issuecredential.AuthorizationDetails{
 		CredentialConfigurationID: "CredentialConfigurationID",
 		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
 		Type:                      "openid_credential",
@@ -3042,7 +3044,7 @@ func getTestAuthorizationDetails(t *testing.T, includeCredentialDefinition bool)
 	}
 
 	if includeCredentialDefinition {
-		res.CredentialDefinition = &oidc4ci.CredentialDefinition{
+		res.CredentialDefinition = &issuecredential.CredentialDefinition{
 			Context:           []string{"https://example.com/context/1", "https://example.com/context/2"},
 			CredentialSubject: map[string]interface{}{"key": "value"},
 			Type:              []string{"VerifiableCredential", "UniversityDegreeCredential"},

@@ -66,7 +66,11 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) Create(ctx context.Context, profileClaimDataTTL int32, data *issuecredential.ClaimData) (string, error) {
+func (s *Store) Create(
+	ctx context.Context,
+	profileClaimDataTTL int32,
+	data *issuecredential.ClaimData,
+) (string, error) {
 	claimDataTTL := s.defaultTTL
 	if profileClaimDataTTL > 0 {
 		claimDataTTL = profileClaimDataTTL

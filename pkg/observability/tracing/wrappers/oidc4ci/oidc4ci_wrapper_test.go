@@ -13,9 +13,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 func TestWrapper_InitiateIssuance(t *testing.T) {
@@ -48,11 +50,14 @@ func TestWrapper_PushAuthorizationDetails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", []*oidc4ci.AuthorizationDetails{{}}).Times(1)
+	svc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", []*issuecredential.AuthorizationDetails{{}}).
+		Times(1)
 
 	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
-	err := w.PushAuthorizationDetails(context.Background(), "opState", []*oidc4ci.AuthorizationDetails{{}})
+	err := w.PushAuthorizationDetails(context.Background(), "opState",
+		[]*issuecredential.AuthorizationDetails{{}},
+	)
 	require.NoError(t, err)
 }
 
@@ -96,7 +101,8 @@ func TestWrapper_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin", "clientID", "", "").Return(&oidc4ci.Transaction{ID: "id"}, nil)
+	svc.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "code", "pin", "clientID", "",
+		"").Return(&issuecredential.Transaction{ID: "id"}, nil)
 
 	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 

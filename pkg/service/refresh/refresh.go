@@ -43,7 +43,11 @@ func NewRefreshService(cfg *Config) *Service {
 	}
 }
 
-func (s *Service) GetRefreshedCredential(ctx context.Context, presentation *verifiable.Presentation, issuer profile.Issuer) (*verifiable.Credential, error) {
+func (s *Service) GetRefreshedCredential(
+	ctx context.Context,
+	presentation *verifiable.Presentation,
+	issuer profile.Issuer,
+) (*verifiable.Credential, error) {
 	verifyResult, _, err := s.cfg.PresentationVerifier.VerifyPresentation(ctx, presentation, nil, &profile.Verifier{
 		Checks: &profile.VerificationChecks{
 			Presentation: &profile.PresentationChecks{
@@ -89,21 +93,7 @@ func (s *Service) GetRefreshedCredential(ctx context.Context, presentation *veri
 		return nil, fmt.Errorf("no credential template found for credential type %v", lastType)
 	}
 
-	var config *profile.CredentialsConfigurationSupported
-	var configID string
-
-	for k, v := range issuer.CredentialMetaData.CredentialsConfigurationSupported {
-		if v.CredentialDefinition == nil {
-			continue
-		}
-
-		if lo.Contains(v.CredentialDefinition.Type, lastType) {
-			config = v
-			configID = k
-			break
-		}
-	}
-
+	config, configID := s.findCredConfigSupported(issuer, lastType)
 	if config == nil {
 		return nil, fmt.Errorf("no credential configuration found for credential type %v", lastType)
 	}
@@ -153,6 +143,28 @@ func (s *Service) GetRefreshedCredential(ctx context.Context, presentation *veri
 	)
 
 	return updatedCred, err
+}
+
+func (s *Service) findCredConfigSupported(
+	issuer profile.Issuer,
+	lastType string,
+) (*profile.CredentialsConfigurationSupported, string) {
+	var config *profile.CredentialsConfigurationSupported
+	var configID string
+
+	for k, v := range issuer.CredentialMetaData.CredentialsConfigurationSupported {
+		if v.CredentialDefinition == nil {
+			continue
+		}
+
+		if lo.Contains(v.CredentialDefinition.Type, lastType) {
+			config = v
+			configID = k
+			break
+		}
+	}
+
+	return config, configID
 }
 
 func (s *Service) RequestRefreshStatus(
