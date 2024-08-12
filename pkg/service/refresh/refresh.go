@@ -20,7 +20,6 @@ import (
 	"github.com/trustbloc/vcs/internal/claims"
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 type Config struct {
@@ -171,7 +170,7 @@ func (s *Service) RequestRefreshStatus(
 	ctx context.Context,
 	credentialID string,
 	issuer profile.Issuer,
-) (*oidc4ci.GetRefreshStateResponse, error) {
+) (*GetRefreshStateResponse, error) {
 	tx, _ := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(credentialID, issuer.ID))
 	if tx == nil {
 		return nil, nil //nolint: nilnil
@@ -179,11 +178,11 @@ func (s *Service) RequestRefreshStatus(
 
 	purpose := "The verifier needs to see your existing credentials to verify your identity"
 
-	return &oidc4ci.GetRefreshStateResponse{
-		RefreshServiceType: oidc4ci.RefreshServiceType{
+	return &GetRefreshStateResponse{
+		RefreshServiceType: ServiceType{
 			Type: "VerifiableCredentialRefreshService2021",
 		},
-		VerifiablePresentationRequest: oidc4ci.VerifiablePresentationRequest{
+		VerifiablePresentationRequest: VerifiablePresentationRequest{
 			Query: presexch.PresentationDefinition{
 				ID:                     "Query",
 				Name:                   "We need to see your existing credentials",
@@ -222,7 +221,7 @@ func (s *Service) RequestRefreshStatus(
 
 func (s *Service) CreateRefreshState(
 	ctx context.Context,
-	req *oidc4ci.CreateRefreshStateRequest,
+	req *CreateRefreshStateRequest,
 ) (string, error) {
 	encrypted, err := claims.EncryptClaims(ctx, req.Claims, s.cfg.DataProtector)
 	if err != nil {

@@ -43,6 +43,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/refresh"
 )
 
 var logger = log.New("restapi-issuer")
@@ -93,7 +94,7 @@ type jsonSchemaValidator interface {
 type CredentialRefreshService interface {
 	CreateRefreshState(
 		ctx context.Context,
-		req *oidc4ci.CreateRefreshStateRequest,
+		req *refresh.CreateRefreshStateRequest,
 	) (string, error)
 }
 
@@ -165,7 +166,7 @@ func (c *Controller) SetCredentialRefreshState(ctx echo.Context, profileID strin
 			"PrepareClaimDataAuthorizationRequest", err)
 	}
 
-	txID, err := c.credentialRefreshService.CreateRefreshState(ctx.Request().Context(), &oidc4ci.CreateRefreshStateRequest{
+	txID, err := c.credentialRefreshService.CreateRefreshState(ctx.Request().Context(), &refresh.CreateRefreshStateRequest{
 		CredentialID:          body.CredentialId,
 		Issuer:                *profile,
 		Claims:                body.Claims,
@@ -1179,6 +1180,7 @@ func (c *Controller) validateJSONLD(
 	return validator.ValidateJSONLDMap(data,
 		validator.WithDocumentLoader(c.documentLoader),
 		validator.WithStrictValidation(true),
+		validator.WithJSONLDIncludeDetailedStructureDiffOnError(),
 	)
 }
 

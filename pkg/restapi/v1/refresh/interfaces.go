@@ -12,7 +12,7 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/refresh"
 )
 
 // ProfileService defines issuer profile service interface.
@@ -26,7 +26,7 @@ type CredentialRefreshService interface {
 		ctx context.Context,
 		credentialID string,
 		issuer profileapi.Issuer,
-	) (*oidc4ci.GetRefreshStateResponse, error)
+	) (*refresh.GetRefreshStateResponse, error)
 
 	GetRefreshedCredential(
 		ctx context.Context,

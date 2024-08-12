@@ -17,6 +17,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
+//go:generate mockgen -destination interfaces_mocks_test.go -package refresh_test -source=interfaces.go
+
 type credentialIssuer interface {
 	PrepareCredential(
 		ctx context.Context,

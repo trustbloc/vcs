@@ -1,4 +1,4 @@
-package oidc4ci
+package refresh
 
 import (
 	"github.com/trustbloc/vc-go/presexch"
@@ -19,10 +19,10 @@ type GetRefreshStateResponse struct {
 	VerifiablePresentationRequest VerifiablePresentationRequest `json:"verifiablePresentationRequest"`
 	Challenge                     string                        `json:"challenge"`
 	Domain                        string                        `json:"domain"`
-	RefreshServiceType            RefreshServiceType            `json:"refreshServiceType"`
+	RefreshServiceType            ServiceType                   `json:"refreshServiceType"`
 }
 
-type RefreshServiceType struct {
+type ServiceType struct {
 	Type string `json:"type"`
 	URL  string `json:"url"`
 }
