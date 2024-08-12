@@ -484,12 +484,13 @@ func (f *Flow) CreateVPToken(
 	requestObject *RequestObject,
 ) ([]string, error) {
 	return presentation.CreateVPToken(presentations, &presentation.CreateVpTokenRequest{
-		ClientID:    requestObject.ClientID,
-		Nonce:       requestObject.Nonce,
-		VPFormats:   requestObject.ClientMetadata.VPFormats,
-		Wallet:      f.wallet,
-		CryptoSuite: f.cryptoSuite,
-		VdrRegistry: f.vdrRegistry,
+		ClientID:       requestObject.ClientID,
+		Nonce:          requestObject.Nonce,
+		VPFormats:      requestObject.ClientMetadata.VPFormats,
+		Wallet:         f.wallet,
+		CryptoSuite:    f.cryptoSuite,
+		VdrRegistry:    f.vdrRegistry,
+		DocumentLoader: f.documentLoader,
 	})
 }
 

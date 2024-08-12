@@ -41,3 +41,17 @@ func TestExtract(t *testing.T) {
 		"$.claim.value.yy.zz",
 	}, keys)
 }
+
+func TestStructureToMap(t *testing.T) {
+	type testStruct struct {
+		Field1 string `json:"field1"`
+		Field2 int    `json:"field2"`
+	}
+
+	m, err := utils.StructureToMap(testStruct{Field1: "value1", Field2: 100})
+	assert.NoError(t, err)
+	assert.EqualValues(t, map[string]interface{}{
+		"field1": "value1",
+		"field2": float64(100),
+	}, m)
+}

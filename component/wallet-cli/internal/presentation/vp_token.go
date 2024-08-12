@@ -44,7 +44,7 @@ type CreateVpTokenRequest struct {
 	Wallet         *wallet.Wallet
 	CryptoSuite    api.Suite
 	VdrRegistry    vdrapi.Registry
-	documentLoader ld.DocumentLoader
+	DocumentLoader ld.DocumentLoader
 }
 
 type VPTokenClaims struct {
@@ -264,7 +264,7 @@ func signPresentationLDP(
 	signerDID string,
 	req *CreateVpTokenRequest,
 ) (string, error) {
-	cryptoSigner := vccrypto.New(req.VdrRegistry, req.documentLoader)
+	cryptoSigner := vccrypto.New(req.VdrRegistry, req.DocumentLoader)
 
 	vp.Context = append(vp.Context, "https://w3id.org/security/suites/jws-2020/v1")
 

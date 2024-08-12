@@ -257,9 +257,10 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		VPFormats: &presexch.Format{
 			JwtVP: &presexch.JwtType{},
 		},
-		Wallet:      f.wallet,
-		CryptoSuite: f.cryptoSuite,
-		VdrRegistry: f.vdrRegistry,
+		Wallet:         f.wallet,
+		CryptoSuite:    f.cryptoSuite,
+		VdrRegistry:    f.vdrRegistry,
+		DocumentLoader: f.documentLoader,
 	})
 	if err != nil {
 		return nil, nil, errors.Join(errors.New("failed to sign presentation"), err)
