@@ -64,7 +64,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: '${{ env.GO_VERSION }}'
-      - run: apt-get update && sudo apt install docker-compose -y
+      - run: sudo apt-get update && sudo apt install docker-compose -y
       - name: Run BDD tests
         run: |
           echo '127.0.0.1 file-server.trustbloc.local' | sudo tee -a /etc/hosts
