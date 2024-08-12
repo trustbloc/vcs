@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -47,14 +48,14 @@ func TestStoreAuthCode(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
 
-		tx := oidc4ci.Transaction{
-			ID: oidc4ci.TxID(uuid.NewString()),
+		tx := issuecredential.Transaction{
+			ID: issuecredential.TxID(uuid.NewString()),
 		}
 
 		store.EXPECT().FindByOpState(gomock.Any(), opState).
 			Return(&tx, nil)
 		store.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, req *oidc4ci.Transaction) error {
+			func(ctx context.Context, req *issuecredential.Transaction) error {
 				assert.Equal(t, tx.ID, req.ID)
 				assert.Equal(t, code, req.IssuerAuthCode)
 
@@ -78,14 +79,14 @@ func TestStoreAuthCode(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
 
-		tx := oidc4ci.Transaction{
-			ID: oidc4ci.TxID(uuid.NewString()),
+		tx := issuecredential.Transaction{
+			ID: issuecredential.TxID(uuid.NewString()),
 		}
 
 		store.EXPECT().FindByOpState(gomock.Any(), opState).
 			Return(&tx, nil)
 		store.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, req *oidc4ci.Transaction) error {
+			func(ctx context.Context, req *issuecredential.Transaction) error {
 				assert.Equal(t, tx.ID, req.ID)
 				assert.Equal(t, code, req.IssuerAuthCode)
 
@@ -109,14 +110,14 @@ func TestStoreAuthCode(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
 
-		tx := oidc4ci.Transaction{
-			ID: oidc4ci.TxID(uuid.NewString()),
+		tx := issuecredential.Transaction{
+			ID: issuecredential.TxID(uuid.NewString()),
 		}
 
 		store.EXPECT().FindByOpState(gomock.Any(), opState).
 			Return(&tx, nil)
 		store.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, req *oidc4ci.Transaction) error {
+			func(ctx context.Context, req *issuecredential.Transaction) error {
 				assert.Equal(t, tx.ID, req.ID)
 				assert.Equal(t, code, req.IssuerAuthCode)
 
@@ -217,7 +218,7 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 			}, nil)
 
 		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&oidc4ci.Transaction{}, nil)
+			Return(&issuecredential.Transaction{}, nil)
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).
 			Return(&oidc4ci.IssuerIDPOIDCConfiguration{}, nil)
 		eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -297,10 +298,10 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 			DoAndReturn(func(
 				ctx context.Context,
 				profileTransactionDataTTL int32,
-				data *oidc4ci.TransactionData,
-			) (*oidc4ci.Transaction, error) {
+				data *issuecredential.TransactionData,
+			) (*issuecredential.Transaction, error) {
 				assert.Equal(t, "v1.latest", data.ProfileVersion)
-				return &oidc4ci.Transaction{}, nil
+				return &issuecredential.Transaction{}, nil
 			})
 
 		wellKnown.EXPECT().GetOIDCConfiguration(gomock.Any(), gomock.Any()).

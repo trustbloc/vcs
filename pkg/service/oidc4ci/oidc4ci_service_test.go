@@ -49,9 +49,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			setup: func() {
 				prcUUID, udUUID := uuid.NewString(), uuid.NewString()
 
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -77,9 +77,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					},
 				}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -125,9 +125,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			setup: func() {
 				prcUUID, udUUID := uuid.NewString(), uuid.NewString()
 
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -177,9 +177,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -227,8 +227,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: get profile not found",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -264,8 +264,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: get profile common error",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -301,9 +301,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: empty CredentialMetaData",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -342,9 +342,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
 				"CredentialMetaData for different VC type",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -393,9 +393,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: invalid OIDC format",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -444,9 +444,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: Credential type not supported",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -495,9 +495,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error AuthorizationDetails contains Format field: Credential format not supported",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -542,9 +542,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Fail to update transaction",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -592,9 +592,9 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 		{
 			name: "Error neither credentialFormat nor credentialConfigurationID supplied",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -668,14 +668,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Success AuthorizationDetails contains duplicated Format field - same credential with different type",
 			setup: func(mocks *mocks) {
 				prcUUID, udUUID := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
@@ -699,14 +699,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect only single CredentialConfiguration.
 								ID:                   udUUID,
@@ -726,8 +726,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -774,14 +774,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Success AuthorizationDetails contains duplicated Format field - same credential with same type",
 			setup: func(mocks *mocks) {
 				udUUID1, udUUID2 := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID1,
@@ -805,14 +805,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect 2 CredentialConfigurations.
 								ID:                   udUUID1,
@@ -847,8 +847,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -890,14 +890,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				"CredentialConfigurationID field - different credentials",
 			setup: func(mocks *mocks) {
 				prcUUID, udUUID := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
@@ -921,14 +921,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect UniversityDegreeCredentialIdentifier CredentialConfiguration.
 								ID:                   udUUID,
@@ -960,8 +960,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1016,14 +1016,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				"Same credentials: case 1 of order of AuthorizationDetails in reqeust",
 			setup: func(mocks *mocks) {
 				udUUID, prcUUID := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
@@ -1047,14 +1047,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect only PermanentResidentCardIdentifier CredentialConfiguration.
 								ID:                   prcUUID,
@@ -1071,8 +1071,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1127,14 +1127,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				"Same credentials: case 2 of order of AuthorizationDetails in reqeust",
 			setup: func(mocks *mocks) {
 				udUUID, prcUUID := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
@@ -1158,14 +1158,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect only PermanentResidentCardIdentifier CredentialConfiguration.
 								ID:                   prcUUID,
@@ -1185,8 +1185,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1241,12 +1241,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				"single credential",
 			setup: func(mocks *mocks) {
 				prcUUID, udUUID := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile", "address"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1299,12 +1299,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1323,8 +1323,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1356,12 +1356,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				"multiple credentials with same type",
 			setup: func(mocks *mocks) {
 				udUUID1, udUUID2 := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile", "address"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1406,12 +1406,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1442,8 +1442,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1471,9 +1471,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Success Scope based (AuthorizationDetails not supplied) with duplicated and unknown request scopes",
 			setup: func(mocks *mocks) {
 				udUUID1, udUUID2, udUUID3 := uuid.NewString(), uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"openid",
@@ -1484,7 +1484,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 							"UniversityDegreeCredential_004",
 							"UniversityDegreeCredential_005",
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1563,15 +1563,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"UniversityDegreeCredential_001", // expect only valid scopes.
 							"UniversityDegreeCredential_002",
 						},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{ // expect 2 CredentialConfigurations.
@@ -1596,8 +1596,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1626,16 +1626,16 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Success Scope based (AuthorizationDetails not supplied) with format mismatch",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"openid",
 							"profile",
 							"UniversityDegreeCredential_001",
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1676,21 +1676,21 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"UniversityDegreeCredential_001", // expect only valid scopes.
 						},
-						State:                   oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:                   issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:               "bank_issuer1",
 						ProfileVersion:          "v1.0",
 						CredentialConfiguration: nil,
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1715,16 +1715,16 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Success Scope based (AuthorizationDetails not supplied) with type mismatch",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"openid",
 							"profile",
 							"UniversityDegreeCredential_001",
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1765,21 +1765,21 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"UniversityDegreeCredential_001", // expect only valid scopes.
 						},
-						State:                   oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:                   issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:               "bank_issuer1",
 						ProfileVersion:          "v1.0",
 						CredentialConfiguration: nil,
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1805,16 +1805,16 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Success Scope and AuthorizationDetails based - different credentials",
 			setup: func(mocks *mocks) {
 				udUUID, prcUUID := uuid.NewString(), uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"openid",
 							"profile",
 							"UniversityDegreeCredential_001",
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1872,14 +1872,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"UniversityDegreeCredential_001", // expect only valid scopes.
 						},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1907,8 +1907,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -1936,16 +1936,16 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Success Scope and AuthorizationDetails based - same credentials",
 			setup: func(mocks *mocks) {
 				udUUID := uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"openid",
 							"profile",
 							"UniversityDegreeCredential_001",
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -1986,14 +1986,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"UniversityDegreeCredential_001", // expect only valid scopes.
 						},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -2012,8 +2012,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -2056,10 +2056,10 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "invalid tx state",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
-						State: oidc4ci.TransactionStateCredentialsIssued,
+					TransactionData: issuecredential.TransactionData{
+						State: issuecredential.TransactionStateCredentialsIssued,
 					},
 				}, nil)
 
@@ -2084,10 +2084,10 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Response type mismatch",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
-						State:        oidc4ci.TransactionStateIssuanceInitiated,
+					TransactionData: issuecredential.TransactionData{
+						State:        issuecredential.TransactionStateIssuanceInitiated,
 						ResponseType: "code",
 						Scope:        []string{"openid"},
 					},
@@ -2106,14 +2106,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Error invalid scope: AuthorizationDetails supplied: request scope is unexpected",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID: uuid.NewString(),
@@ -2152,11 +2152,11 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "get profile: not found",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 					},
@@ -2184,11 +2184,11 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "get profile: system error",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 					},
@@ -2218,14 +2218,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
 				"empty profile.CredentialMetaData: resterr.ErrInvalidCredentialConfigurationID",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 					},
 				}, nil)
 
@@ -2266,14 +2266,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
 				"format mismatch: resterr.ErrCredentialFormatNotSupported",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2336,14 +2336,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
 				"empty meta credential definition: resterr.ErrCredentialTypeNotSupported",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2402,14 +2402,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains CredentialConfigurationID field: " +
 				"CredentialDefinition.Type mismatch: resterr.ErrCredentialTypeNotSupported",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2471,12 +2471,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains duplicated CredentialConfigurationID field: " +
 				"txCredentialConfiguration is not fund with given CredentialConfigurationID",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile", "address"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -2540,14 +2540,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains Format field: no txCredentialConfigurations: " +
 				"requested credential format is not valid",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:               "bank_issuer1",
 						ProfileVersion:          "v1.0",
 						ResponseType:            "code",
 						Scope:                   []string{"openid", "profile"},
-						State:                   oidc4ci.TransactionStateIssuanceInitiated,
+						State:                   issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{},
 					},
 				}, nil)
@@ -2592,14 +2592,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains Format field: CredentialTemplate.Type mismatch: " +
 				"requested credential format is not valid",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2654,14 +2654,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error AuthorizationDetails contains Format field: txCredentialConfig.OIDCCredentialFormat mismatch: " +
 				"requested credential format is not valid",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2715,14 +2715,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Error invalid Authorization Details: neither credentialFormat nor credentialConfigurationID supplied",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile", "address"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2771,15 +2771,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Error Scope based: scope is not in tx",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType: "code",
 						Scope: []string{
 							"openid",
 							"profile",
 						},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -2830,12 +2830,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			name: "Error tx store update",
 			setup: func(mocks *mocks) {
 				udUUID := uuid.NewString()
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile", "address"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -2871,12 +2871,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					}, nil)
 
-				mocks.transactionStore.EXPECT().Update(gomock.Any(), &oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().Update(gomock.Any(), &issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+						State:          issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -2895,8 +2895,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 					},
 				}).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 
 						return errors.New("some error")
 					}).Times(1)
@@ -2934,14 +2934,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 		{
 			name: "Error sending event",
 			setup: func(mocks *mocks) {
-				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+				mocks.transactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
-						State:          oidc4ci.TransactionStateIssuanceInitiated,
+						State:          issuecredential.TransactionStateIssuanceInitiated,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -2957,8 +2957,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}, nil)
 
 				mocks.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
 						return nil
 					}).Times(1)
 
@@ -3395,9 +3395,9 @@ func TestValidatePreAuthCode(t *testing.T) {
 			}, nil)
 
 		pinGenerator.EXPECT().Validate("567", "567").Return(true)
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				PreAuthCode: "1234",
 				UserPin:     "567",
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -3446,11 +3446,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3510,11 +3510,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3557,11 +3557,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 				return errors.New("unexpected error")
 			})
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(20 * time.Second)),
@@ -3593,11 +3593,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		pinGenerator.EXPECT().Validate("567", "111").Return(false)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "567",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3638,11 +3638,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "567",
-				State:       oidc4ci.TransactionStateCredentialsIssued,
+				State:       issuecredential.TransactionStateCredentialsIssued,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3667,10 +3667,10 @@ func TestValidatePreAuthCode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3695,11 +3695,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "123",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3724,11 +3724,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "123",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3756,11 +3756,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "123",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3797,11 +3797,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "12345",
 				UserPin:     "123",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3828,11 +3828,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "123",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(-10 * time.Second)),
@@ -3859,11 +3859,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profileapi.Issuer{}, nil)
 
-		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-			TransactionData: oidc4ci.TransactionData{
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+			TransactionData: issuecredential.TransactionData{
 				PreAuthCode: "1234",
 				UserPin:     "",
-				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				State:       issuecredential.TransactionStateIssuanceInitiated,
 				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3907,11 +3907,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-				TransactionData: oidc4ci.TransactionData{
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+				TransactionData: issuecredential.TransactionData{
 					PreAuthCode: "1234",
 					UserPin:     "",
-					State:       oidc4ci.TransactionStateIssuanceInitiated,
+					State:       issuecredential.TransactionStateIssuanceInitiated,
 					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -3955,11 +3955,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-				TransactionData: oidc4ci.TransactionData{
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+				TransactionData: issuecredential.TransactionData{
 					PreAuthCode: "1234",
 					UserPin:     "",
-					State:       oidc4ci.TransactionStateIssuanceInitiated,
+					State:       issuecredential.TransactionStateIssuanceInitiated,
 					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -4004,11 +4004,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-				TransactionData: oidc4ci.TransactionData{
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+				TransactionData: issuecredential.TransactionData{
 					PreAuthCode: "1234",
 					UserPin:     "",
-					State:       oidc4ci.TransactionStateIssuanceInitiated,
+					State:       issuecredential.TransactionStateIssuanceInitiated,
 					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -4054,11 +4054,11 @@ func TestValidatePreAuthCode(t *testing.T) {
 			trustRegistry.EXPECT().ValidateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(errors.New("validate issuance error"))
 
-			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
-				TransactionData: oidc4ci.TransactionData{
+			storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&issuecredential.Transaction{
+				TransactionData: issuecredential.TransactionData{
 					PreAuthCode: "1234",
 					UserPin:     "",
-					State:       oidc4ci.TransactionStateIssuanceInitiated,
+					State:       issuecredential.TransactionStateIssuanceInitiated,
 					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
@@ -4093,9 +4093,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Success multiple credentials different type",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
@@ -4139,8 +4139,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4194,9 +4194,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Success multiple credentials same type",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
@@ -4240,8 +4240,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4295,9 +4295,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Success LDP",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
@@ -4333,8 +4333,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4368,9 +4368,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Success LDP with name and description",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
@@ -4408,8 +4408,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4448,9 +4448,9 @@ func TestService_PrepareCredential(t *testing.T) {
 			name: "Success pre-authorized flow - multiple credentials different type",
 			setup: func(m *mocks) {
 				claimID := uuid.NewString()
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IsPreAuthFlow: true,
 						OrgID:         "asdasd",
 						WebHookURL:    "aaaaa",
@@ -4496,8 +4496,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4559,9 +4559,9 @@ func TestService_PrepareCredential(t *testing.T) {
 			name: "Success pre-authorized flow - multiple credentials same type with compose",
 			setup: func(m *mocks) {
 				claimID := uuid.NewString()
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IsPreAuthFlow: true,
 						OrgID:         "asdasd",
 						WebHookURL:    "aaaaa",
@@ -4617,8 +4617,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4715,9 +4715,9 @@ func TestService_PrepareCredential(t *testing.T) {
 			name: "Can not create ack",
 			setup: func(m *mocks) {
 				claimID := uuid.NewString()
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
 						OrgID:         "asdasd",
@@ -4749,8 +4749,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 
@@ -4789,9 +4789,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Failed to get claims for pre-authorized flow",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -4840,9 +4840,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Failed to send event for pre-authorized flow",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -4864,8 +4864,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					Return(lo.ToPtr("123"), nil)
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
 				clData := &issuecredential.ClaimData{
@@ -4908,9 +4908,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Failed to update tx state",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
@@ -4934,8 +4934,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
 						return errors.New("store err")
 					})
 
@@ -4979,7 +4979,7 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Fail to find transaction by op state",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(
 					nil, errors.New("get error"))
 
 				req = &oidc4ci.PrepareCredential{
@@ -4994,8 +4994,8 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Fail to make request to claim endpoint",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -5045,8 +5045,8 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Claim endpoint returned other than 200 OK status code",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -5099,8 +5099,8 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Fail to read response body from claim endpoint when status is not 200 OK",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -5154,8 +5154,8 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Fail to decode claim data",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -5208,9 +5208,9 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Invalid audience claim",
 			setup: func(m *mocks) {
-				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
+					TransactionData: issuecredential.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{

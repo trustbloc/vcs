@@ -174,7 +174,7 @@ func (s *Service) RequestRefreshStatus(
 ) (*oidc4ci.GetRefreshStateResponse, error) {
 	tx, _ := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(credentialID, issuer.ID))
 	if tx == nil {
-		return nil, nil
+		return nil, nil //nolint: nilnil
 	}
 
 	purpose := "The verifier needs to see your existing credentials to verify your identity"
