@@ -849,7 +849,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID: oidc4ci.TxID(body.TxId),
+			TxID: issuecredential.TxID(body.TxId),
 			CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
 				{
 					CredentialTypes:  body.Types,
@@ -1029,7 +1029,7 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID:               oidc4ci.TxID(body.TxId),
+			TxID:               issuecredential.TxID(body.TxId),
 			CredentialRequests: credentialRequests,
 		},
 	)

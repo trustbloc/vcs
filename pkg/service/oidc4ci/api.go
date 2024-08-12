@@ -21,29 +21,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
-// TxID defines type for transaction ID.
-type TxID string
-
-// Transaction is the credential issuance transaction. Issuer creates a transaction to convey the intention of issuing a
-// credential with the given parameters. The transaction is stored in the transaction store and its status is updated as
-// the credential issuance progresses.
-type Transaction struct {
-	ID TxID
-	TransactionData
-}
-
-type TransactionState int16
-
 type InitiateIssuanceResponseContentType = string
-
-const (
-	TransactionStateUnknown                         = TransactionState(0)
-	TransactionStateIssuanceInitiated               = TransactionState(1)
-	TransactionStatePreAuthCodeValidated            = TransactionState(2) // pre-auth only
-	TransactionStateAwaitingIssuerOIDCAuthorization = TransactionState(3) // auth only
-	TransactionStateIssuerOIDCAuthorizationDone     = TransactionState(4)
-	TransactionStateCredentialsIssued               = TransactionState(5)
-)
 
 const (
 	ContentTypeApplicationJSON InitiateIssuanceResponseContentType = echo.MIMEApplicationJSONCharsetUTF8
@@ -54,31 +32,6 @@ const (
 type ClaimDataStore claimDataStore
 
 type TransactionStore transactionStore
-
-// TransactionData is the transaction data stored in the underlying storage.
-type TransactionData struct {
-	ProfileID                          profileapi.ID
-	ProfileVersion                     profileapi.Version
-	IsPreAuthFlow                      bool
-	PreAuthCode                        string
-	OrgID                              string
-	AuthorizationEndpoint              string
-	PushedAuthorizationRequestEndpoint string
-	TokenEndpoint                      string
-	OpState                            string
-	RedirectURI                        string
-	GrantType                          string
-	ResponseType                       string
-	Scope                              []string
-	IssuerAuthCode                     string
-	IssuerToken                        string
-	State                              TransactionState
-	WebHookURL                         string
-	UserPin                            string
-	DID                                string
-	WalletInitiatedIssuance            bool
-	CredentialConfiguration            []*issuecredential.TxCredentialConfiguration
-}
 
 // IssuerIDPOIDCConfiguration represents an Issuer's IDP OIDC configuration
 // from well-know endpoint (usually: /.well-known/openid-configuration).
@@ -127,9 +80,9 @@ type InitiateIssuanceComposeCredential struct {
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.
 type InitiateIssuanceResponse struct {
 	InitiateIssuanceURL string
-	TxID                TxID
+	TxID                issuecredential.TxID
 	UserPin             string
-	Tx                  *Transaction                        `json:"-"`
+	Tx                  *issuecredential.Transaction        `json:"-"`
 	ContentType         InitiateIssuanceResponseContentType `json:"-"`
 }
 
@@ -145,7 +98,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 	WalletInitiatedFlow                *common.WalletInitiatedFlowData
 	ProfileID                          profileapi.ID
 	ProfileVersion                     profileapi.Version
-	TxID                               TxID
+	TxID                               issuecredential.TxID
 	ResponseType                       string
 	Scope                              []string
 	AuthorizationEndpoint              string
@@ -153,7 +106,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 }
 
 type PrepareCredential struct {
-	TxID               TxID
+	TxID               issuecredential.TxID
 	CredentialRequests []*PrepareCredentialRequest
 }
 
@@ -256,7 +209,7 @@ type ServiceInterface interface {
 		opState string,
 		code string,
 		flowData *common.WalletInitiatedFlowData,
-	) (TxID, error)
+	) (issuecredential.TxID, error)
 	ExchangeAuthorizationCode(
 		ctx context.Context,
 		opState,
@@ -271,7 +224,7 @@ type ServiceInterface interface {
 		clientID,
 		clientAssertionType,
 		clientAssertion string,
-	) (*Transaction, error)
+	) (*issuecredential.Transaction, error)
 	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
 }
 
@@ -293,7 +246,7 @@ type AckRemote struct {
 }
 
 type ExchangeAuthorizationCodeResult struct {
-	TxID TxID
+	TxID issuecredential.TxID
 	// AuthorizationDetails REQUIRED when authorization_details parameter is used to request issuance
 	// of a certain Credential type in Authorization Request. It MUST NOT be used otherwise.
 	AuthorizationDetails []*issuecredential.AuthorizationDetails

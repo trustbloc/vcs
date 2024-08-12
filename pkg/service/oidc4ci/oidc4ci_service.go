@@ -55,22 +55,22 @@ type transactionStore interface {
 	Create(
 		ctx context.Context,
 		profileTransactionDataTTL int32,
-		data *TransactionData,
-	) (*Transaction, error)
+		data *issuecredential.TransactionData,
+	) (*issuecredential.Transaction, error)
 
 	Get(
 		ctx context.Context,
-		txID TxID,
-	) (*Transaction, error)
+		txID issuecredential.TxID,
+	) (*issuecredential.Transaction, error)
 
 	FindByOpState(
 		ctx context.Context,
 		opState string,
-	) (*Transaction, error)
+	) (*issuecredential.Transaction, error)
 
 	Update(
 		ctx context.Context,
-		tx *Transaction,
+		tx *issuecredential.Transaction,
 	) error
 }
 
@@ -366,7 +366,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		return nil, err
 	}
 
-	newState := TransactionStateAwaitingIssuerOIDCAuthorization
+	newState := issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err
@@ -603,7 +603,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	clientID,
 	clientAssertionType,
 	clientAssertion string,
-) (*Transaction, error) {
+) (*issuecredential.Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
 		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("find tx by op state: %w", err))
@@ -636,7 +636,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		}
 	}
 
-	newState := TransactionStatePreAuthCodeValidated
+	newState := issuecredential.TransactionStatePreAuthCodeValidated
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		return nil, err
 	}
@@ -674,7 +674,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 func (s *Service) checkPolicy(
 	ctx context.Context,
 	profile *profileapi.Issuer,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	clientAssertionType,
 	clientAssertion string,
 ) error {
@@ -791,7 +791,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		prepareCredentialResult.Credentials = append(prepareCredentialResult.Credentials, prepareCredentialResultData)
 	}
 
-	tx.State = TransactionStateCredentialsIssued
+	tx.State = issuecredential.TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
 		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
 
@@ -809,7 +809,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 func (s *Service) prepareCredential( //nolint:funlen
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 	prepareCredentialRequest *PrepareCredentialRequest,
 ) (*verifiable.Credential, *string, error) {
@@ -898,7 +898,7 @@ func (s *Service) validateRequestAudienceClaim( //nolint:funlen
 
 func (s *Service) getClaimsData(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	if !tx.IsPreAuthFlow {
@@ -925,7 +925,7 @@ func (s *Service) getClaimsData(
 
 func (s *Service) requestClaims(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, txCredentialConfiguration.ClaimEndpoint, http.NoBody)
@@ -967,7 +967,7 @@ func (s *Service) requestClaims(
 
 func createEvent(
 	eventType spi.EventType,
-	transactionID TxID,
+	transactionID issuecredential.TxID,
 	ep *EventPayload,
 ) (*spi.Event, error) {
 	payload, err := json.Marshal(ep)
@@ -984,7 +984,7 @@ func createEvent(
 func (s *Service) sendEvent(
 	ctx context.Context,
 	eventType spi.EventType,
-	transactionID TxID,
+	transactionID issuecredential.TxID,
 	ep *EventPayload) error {
 	event, err := createEvent(eventType, transactionID, ep)
 	if err != nil {
@@ -996,7 +996,7 @@ func (s *Service) sendEvent(
 
 func (s *Service) sendTransactionEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	eventType spi.EventType,
 ) error {
 	return s.sendEvent(ctx, eventType, tx.ID, createTxEventPayload(tx))
@@ -1004,7 +1004,7 @@ func (s *Service) sendTransactionEvent(
 
 func (s *Service) sendFailedTransactionEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	e error,
 ) {
 	ep := &EventPayload{
@@ -1021,7 +1021,7 @@ func (s *Service) sendFailedTransactionEvent(
 	}
 }
 
-func createTxEventPayload(tx *Transaction) *EventPayload {
+func createTxEventPayload(tx *issuecredential.Transaction) *EventPayload {
 	var (
 		credentialTemplateID string
 		credentialFormat     vcsverifiable.OIDCFormat
@@ -1061,7 +1061,7 @@ func createTxEventPayload(tx *Transaction) *EventPayload {
 
 func (s *Service) sendInitiateIssuanceEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	initiateURL string,
 ) error {
 	payload := createTxEventPayload(tx)
@@ -1072,7 +1072,7 @@ func (s *Service) sendInitiateIssuanceEvent(
 
 func (s *Service) sendIssuanceAuthRequestPreparedTxEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 ) error {
 	payload := createTxEventPayload(tx)
 	payload.AuthorizationEndpoint = tx.AuthorizationEndpoint

@@ -16,6 +16,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 // StoreAuthorizationCode stores authorization code from issuer provider.
@@ -24,8 +25,8 @@ func (s *Service) StoreAuthorizationCode(
 	opState string,
 	code string,
 	flowData *common.WalletInitiatedFlowData,
-) (TxID, error) {
-	var tx *Transaction
+) (issuecredential.TxID, error) {
+	var tx *issuecredential.Transaction
 	var err error
 	if flowData != nil { // it's wallet initiated issuance, first we need to initiate issuance
 		tx, err = s.initiateIssuanceWithWalletFlow(ctx, flowData)
@@ -53,7 +54,7 @@ func (s *Service) StoreAuthorizationCode(
 func (s *Service) initiateIssuanceWithWalletFlow(
 	ctx context.Context,
 	flowData *common.WalletInitiatedFlowData,
-) (*Transaction, error) {
+) (*issuecredential.Transaction, error) {
 	profile, err := s.profileService.GetProfile(flowData.ProfileId, flowData.ProfileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {

@@ -10,13 +10,13 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 type redisDocument struct {
 	ID              string
 	ExpireAt        time.Time
-	TransactionData *oidc4ci.TransactionData
+	TransactionData *issuecredential.TransactionData
 }
 
 func (d *redisDocument) MarshalBinary() ([]byte, error) {

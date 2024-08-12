@@ -23,7 +23,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -48,7 +48,7 @@ func TestStore(t *testing.T) {
 	t.Run("try insert duplicate op_state", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4ci.TransactionData{
+		toInsert := &issuecredential.TransactionData{
 			OpState: id,
 		}
 
@@ -64,7 +64,7 @@ func TestStore(t *testing.T) {
 	t.Run("test default expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4ci.TransactionData{
+		toInsert := &issuecredential.TransactionData{
 			OpState: id,
 		}
 
@@ -82,7 +82,7 @@ func TestStore(t *testing.T) {
 	t.Run("test profile expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4ci.TransactionData{
+		toInsert := &issuecredential.TransactionData{
 			OpState: id,
 		}
 
@@ -102,7 +102,7 @@ func TestStore(t *testing.T) {
 	t.Run("test insert and find", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4ci.TransactionData{
+		toInsert := &issuecredential.TransactionData{
 			ProfileID:                          "profileID",
 			AuthorizationEndpoint:              "authEndpoint",
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
@@ -118,7 +118,7 @@ func TestStore(t *testing.T) {
 			PreAuthCode:                        uuid.NewString(),
 			WebHookURL:                         "http://remote-url",
 			DID:                                "did:123",
-			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+			CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 				{
 					ID: uuid.NewString(),
 					CredentialTemplate: &profileapi.CredentialTemplate{
@@ -132,17 +132,17 @@ func TestStore(t *testing.T) {
 					ClaimDataID:           uuid.NewString(),
 					CredentialName:        uuid.NewString(),
 					CredentialDescription: uuid.NewString(),
-					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: &issuecredential.AuthorizationDetails{
 						Type:                      "321",
 						CredentialConfigurationID: "CredentialConfigurationID",
-						CredentialDefinition: &oidc4ci.CredentialDefinition{
+						CredentialDefinition: &issuecredential.CredentialDefinition{
 							Type: []string{"fdsfsd"},
 						},
 						Format:    "vxcxzcz",
 						Locations: []string{"loc1", "loc2"},
 					},
 					CredentialConfigurationID: "CredentialConfigurationID",
-					CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+					CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
 						IDTemplate:     uuid.NewString(),
 						OverrideIssuer: true,
 					},
@@ -150,7 +150,7 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		var resp *oidc4ci.Transaction
+		var resp *issuecredential.Transaction
 
 		resp, err = store.Create(context.Background(), 0, toInsert)
 		assert.NoError(t, err)
@@ -172,15 +172,15 @@ func TestStore(t *testing.T) {
 	t.Run("test update", func(t *testing.T) {
 		id := uuid.NewString()
 
-		toInsert := &oidc4ci.TransactionData{
+		toInsert := &issuecredential.TransactionData{
 			GrantType:    "342",
 			ResponseType: "123",
 			Scope:        []string{"213", "321"},
 			OpState:      id,
-			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+			CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 				{
 					ClaimEndpoint:             "432",
-					AuthorizationDetails:      &oidc4ci.AuthorizationDetails{Type: "321"},
+					AuthorizationDetails:      &issuecredential.AuthorizationDetails{Type: "321"},
 					CredentialConfigurationID: "CredentialConfigurationID",
 				},
 			},
@@ -200,10 +200,10 @@ func TestStore(t *testing.T) {
 			CredentialSubject: json.RawMessage(`{"sub_1":"abcd"}`),
 		}
 
-		ad := &oidc4ci.AuthorizationDetails{
+		ad := &issuecredential.AuthorizationDetails{
 			Type:                      "321",
 			CredentialConfigurationID: "CredentialConfigurationID",
-			CredentialDefinition: &oidc4ci.CredentialDefinition{
+			CredentialDefinition: &issuecredential.CredentialDefinition{
 				Type: []string{"fdsfsd"},
 			},
 			Format:    "vxcxzcz",
@@ -249,7 +249,7 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		resp, err := store.Create(ctx, 0, &oidc4ci.TransactionData{})
+		resp, err := store.Create(ctx, 0, &issuecredential.TransactionData{})
 
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")

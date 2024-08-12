@@ -36,7 +36,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		profileSvc           = NewMockProfileService(gomock.NewController(t))
-		ad                   *oidc4ci.AuthorizationDetails
+		ad                   *issuecredential.AuthorizationDetails
 	)
 
 	tests := []struct {
@@ -54,7 +54,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -82,7 +82,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // only single CredentialConfiguration expected.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -90,8 +90,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 									ID:   "UniversityDegreeCredentialID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-									CredentialDefinition: &oidc4ci.CredentialDefinition{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{
+									CredentialDefinition: &issuecredential.CredentialDefinition{
 										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
@@ -109,8 +109,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+				ad = &issuecredential.AuthorizationDetails{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					},
 					Format: vcsverifiable.JwtVCJsonLD,
@@ -130,7 +130,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -182,7 +182,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // only single CredentialConfiguration expected.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -190,7 +190,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 									ID:   "UniversityDegreeCredentialID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{
 									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
@@ -199,7 +199,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					},
 				}).Return(nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 				}
 			},
@@ -213,8 +213,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
 					nil, errors.New("find tx error"))
 
-				ad = &oidc4ci.AuthorizationDetails{
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+				ad = &issuecredential.AuthorizationDetails{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Type: []string{"VerifiableCredential", "universitydegreecredential"},
 					},
 					Format: vcsverifiable.JwtVCJsonLD,
@@ -231,7 +231,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -246,7 +246,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
 					nil, errors.New("not found"))
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredential",
 				}
 			},
@@ -268,7 +268,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -283,7 +283,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				profileSvc.EXPECT().GetProfile("bank_issuer1", "v1.0").Return(
 					nil, errors.New("some error"))
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredential",
 				}
 			},
@@ -306,7 +306,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -323,7 +323,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						CredentialMetaData: nil,
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredential",
 				}
 			},
@@ -347,7 +347,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -375,7 +375,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredential",
 				}
 			},
@@ -398,7 +398,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -426,7 +426,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 				}
 			},
@@ -449,7 +449,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -477,7 +477,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
+				ad = &issuecredential.AuthorizationDetails{
 					CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 				}
 			},
@@ -500,7 +500,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -528,8 +528,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+				ad = &issuecredential.AuthorizationDetails{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					},
 					Format: vcsverifiable.JwtVCJsonLD,
@@ -547,7 +547,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -578,8 +578,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+				ad = &issuecredential.AuthorizationDetails{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					},
 					Format: vcsverifiable.JwtVCJsonLD,
@@ -597,7 +597,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -625,8 +625,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 						},
 					}, nil)
 
-				ad = &oidc4ci.AuthorizationDetails{
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+				ad = &issuecredential.AuthorizationDetails{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 					},
 				}
@@ -646,7 +646,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 			})
 			assert.NoError(t, err)
 
-			err = svc.PushAuthorizationDetails(context.Background(), "opState", []*oidc4ci.AuthorizationDetails{ad})
+			err = svc.PushAuthorizationDetails(context.Background(), "opState", []*issuecredential.AuthorizationDetails{ad})
 			tt.check(t, err)
 		})
 	}
@@ -676,7 +676,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -707,7 +707,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect only single CredentialConfiguration.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -716,8 +716,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									Type: "UniversityDegreeCredential",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
-									CredentialDefinition: &oidc4ci.CredentialDefinition{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialDefinition: &issuecredential.CredentialDefinition{
 										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
@@ -748,15 +748,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
 						},
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -782,7 +782,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID1,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -813,7 +813,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect 2 CredentialConfigurations.
 								ID:                   udUUID1,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -822,8 +822,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									Type: "UniversityDegreeCredential",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
-									CredentialDefinition: &oidc4ci.CredentialDefinition{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialDefinition: &issuecredential.CredentialDefinition{
 										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
@@ -837,8 +837,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									Type: "UniversityDegreeCredential",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
-									CredentialDefinition: &oidc4ci.CredentialDefinition{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialDefinition: &issuecredential.CredentialDefinition{
 										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
@@ -869,9 +869,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -898,7 +898,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -929,7 +929,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect UniversityDegreeCredentialIdentifier CredentialConfiguration.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -937,8 +937,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "credetnialTempalteID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
-									CredentialDefinition: &oidc4ci.CredentialDefinition{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field.
+									CredentialDefinition: &issuecredential.CredentialDefinition{
 										Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 									},
 									Format: vcsverifiable.JwtVCJsonLD,
@@ -952,7 +952,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "credetnialTempalteID",
 									Type: "PermanentResidentCard",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field.
 									CredentialConfigurationID: "PermanentResidentCardIdentifier",
 								},
 								CredentialConfigurationID: "PermanentResidentCardIdentifier",
@@ -992,9 +992,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -1024,7 +1024,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1055,7 +1055,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect only PermanentResidentCardIdentifier CredentialConfiguration.
 								ID:                   prcUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1063,7 +1063,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "credetnialTempalteID",
 									Type: "PermanentResidentCard",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field.
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field.
 									CredentialConfigurationID: "PermanentResidentCardIdentifier",
 								},
 								CredentialConfigurationID: "PermanentResidentCardIdentifier",
@@ -1103,9 +1103,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "PermanentResidentCard"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -1135,7 +1135,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1166,7 +1166,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect only PermanentResidentCardIdentifier CredentialConfiguration.
 								ID:                   prcUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1174,9 +1174,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "credetnialTempalteID",
 									Type: "PermanentResidentCard",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{
 									Format: vcsverifiable.JwtVCJsonLD,
-									CredentialDefinition: &oidc4ci.CredentialDefinition{
+									CredentialDefinition: &issuecredential.CredentialDefinition{
 										Type: []string{"VerifiableCredential", "PermanentResidentCard"},
 									},
 								},
@@ -1217,12 +1217,12 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "PermanentResidentCardIdentifier",
 						},
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "PermanentResidentCard"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -1249,7 +1249,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1307,7 +1307,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect single CredentialConfiguration.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1315,7 +1315,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "templateID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field
 									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
@@ -1335,7 +1335,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -1364,7 +1364,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID1,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1414,7 +1414,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect 2 CredentialConfigurations.
 								ID:                   udUUID1,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1422,7 +1422,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "templateID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field
 									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
@@ -1434,7 +1434,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "templateID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field
 									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
@@ -1454,7 +1454,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -1487,7 +1487,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID1,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1574,7 +1574,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{ // expect 2 CredentialConfigurations.
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{ // expect 2 CredentialConfigurations.
 							{ // do not expect AuthorizationDetails.
 								ID:                   udUUID1,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1638,7 +1638,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.LdpVC, // Error cause.
@@ -1727,7 +1727,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1817,7 +1817,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1882,7 +1882,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Do not expect AuthorizationDetails.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1899,7 +1899,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "TemplateID2",
 									Type: "PermanentResidentCard",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{
 									CredentialConfigurationID: "PermanentResidentCardIdentifier_2",
 								},
 								CredentialConfigurationID: "PermanentResidentCardIdentifier_2",
@@ -1919,7 +1919,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"UniversityDegreeCredential_001"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "PermanentResidentCardIdentifier_2",
 						},
@@ -1948,7 +1948,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -1996,7 +1996,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Do not expect AuthorizationDetails.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2004,7 +2004,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "TemplateID1",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{
 									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier_1",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier_1",
@@ -2024,7 +2024,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"UniversityDegreeCredential_001"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier_1",
 						},
@@ -2114,7 +2114,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ProfileVersion: "v1.0",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID: uuid.NewString(),
 								CredentialTemplate: &profileapi.CredentialTemplate{
@@ -2250,7 +2250,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -2274,7 +2274,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.LdpVC, // error cause.
@@ -2320,7 +2320,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -2344,7 +2344,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2386,7 +2386,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -2410,7 +2410,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2454,7 +2454,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -2479,7 +2479,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2524,7 +2524,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "PermanentResidentCardIdentifier",
 						},
@@ -2548,7 +2548,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:            "code",
 						Scope:                   []string{"openid", "profile"},
 						State:                   oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{},
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{},
 					},
 				}, nil)
 
@@ -2573,9 +2573,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -2600,7 +2600,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2635,9 +2635,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -2662,7 +2662,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.LdpVC, // cause of mismatch.
@@ -2697,9 +2697,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -2723,7 +2723,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile", "address"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.LdpVC,
@@ -2759,7 +2759,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:              "opState",
 					ResponseType:         "code",
 					Scope:                []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{{}},
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{{}},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
@@ -2782,7 +2782,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2838,7 +2838,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2879,7 +2879,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 						ProfileID:      "bank_issuer1",
 						ProfileVersion: "v1.0",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{ // Expect single CredentialConfiguration.
 								ID:                   udUUID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2887,7 +2887,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 									ID:   "templateID",
 									Type: "UniversityDegreeCredential",
 								},
-								AuthorizationDetails: &oidc4ci.AuthorizationDetails{ // Expect AuthorizationDetails field
+								AuthorizationDetails: &issuecredential.AuthorizationDetails{ // Expect AuthorizationDetails field
 									CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 								},
 								CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
@@ -2913,7 +2913,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
 							CredentialConfigurationID: "UniversityDegreeCredentialIdentifier",
 						},
@@ -2942,7 +2942,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						ResponseType:   "code",
 						Scope:          []string{"openid", "profile"},
 						State:          oidc4ci.TransactionStateIssuanceInitiated,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -2983,9 +2983,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					OpState:      "opState",
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
-					AuthorizationDetails: []*oidc4ci.AuthorizationDetails{
+					AuthorizationDetails: []*issuecredential.AuthorizationDetails{
 						{
-							CredentialDefinition: &oidc4ci.CredentialDefinition{
+							CredentialDefinition: &issuecredential.CredentialDefinition{
 								Type: []string{"VerifiableCredential", "UniversityDegreeCredential"},
 							},
 							Format: vcsverifiable.JwtVCJsonLD,
@@ -3400,7 +3400,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
 				PreAuthCode: "1234",
 				UserPin:     "567",
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3451,7 +3451,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3515,7 +3515,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialTemplate: &profileapi.CredentialTemplate{
@@ -3562,7 +3562,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(20 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3598,7 +3598,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "567",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3643,7 +3643,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "567",
 				State:       oidc4ci.TransactionStateCredentialsIssued,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3671,7 +3671,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode: "1234",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3700,7 +3700,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "123",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3729,7 +3729,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "123",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3761,7 +3761,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "123",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3802,7 +3802,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "12345",
 				UserPin:     "123",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3833,7 +3833,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "123",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(-10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3864,7 +3864,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 				PreAuthCode: "1234",
 				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
-				CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+				CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 					{
 						PreAuthCodeExpiresAt:      lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 						CredentialConfigurationID: "ConfigurationID",
@@ -3912,7 +3912,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 					PreAuthCode: "1234",
 					UserPin:     "",
 					State:       oidc4ci.TransactionStateIssuanceInitiated,
-					CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 							CredentialTemplate: &profileapi.CredentialTemplate{
@@ -3960,7 +3960,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 					PreAuthCode: "1234",
 					UserPin:     "",
 					State:       oidc4ci.TransactionStateIssuanceInitiated,
-					CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 							CredentialTemplate: &profileapi.CredentialTemplate{
@@ -4009,7 +4009,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 					PreAuthCode: "1234",
 					UserPin:     "",
 					State:       oidc4ci.TransactionStateIssuanceInitiated,
-					CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 							CredentialTemplate: &profileapi.CredentialTemplate{
@@ -4059,7 +4059,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 					PreAuthCode: "1234",
 					UserPin:     "",
 					State:       oidc4ci.TransactionStateIssuanceInitiated,
-					CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							PreAuthCodeExpiresAt: lo.ToPtr(time.Now().UTC().Add(10 * time.Second)),
 							CredentialTemplate: &profileapi.CredentialTemplate{
@@ -4097,7 +4097,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -4198,7 +4198,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -4299,7 +4299,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.LdpVC,
@@ -4372,7 +4372,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.LdpVC,
@@ -4454,7 +4454,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						IsPreAuthFlow: true,
 						OrgID:         "asdasd",
 						WebHookURL:    "aaaaa",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								ClaimDataID:          claimID,
@@ -4501,7 +4501,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				clData := &oidc4ci.ClaimData{
+				clData := &issuecredential.ClaimData{
 					EncryptedData: &dataprotect.EncryptedData{
 						Encrypted:      []byte{0x1, 0x2, 0x3},
 						EncryptedNonce: []byte{0x0, 0x2},
@@ -4565,17 +4565,17 @@ func TestService_PrepareCredential(t *testing.T) {
 						IsPreAuthFlow: true,
 						OrgID:         "asdasd",
 						WebHookURL:    "aaaaa",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								ClaimDataID:          claimID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
-								ClaimDataType:        oidc4ci.ClaimDataTypeVC,
+								ClaimDataType:        issuecredential.ClaimDataTypeVC,
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID:   "VerifiedEmployee",
 									Type: "VerifiedEmployee",
 								},
-								CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+								CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
 									IDTemplate:     "some-template",
 									OverrideIssuer: true,
 								},
@@ -4585,12 +4585,12 @@ func TestService_PrepareCredential(t *testing.T) {
 								ID:                   uuid.NewString(),
 								ClaimDataID:          claimID,
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
-								ClaimDataType:        oidc4ci.ClaimDataTypeVC,
+								ClaimDataType:        issuecredential.ClaimDataTypeVC,
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID:   "VerifiedEmployee",
 									Type: "VerifiedEmployee",
 								},
-								CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
+								CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
 									IDTemplate:     "some-template",
 									OverrideIssuer: true,
 								},
@@ -4626,7 +4626,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					Times(2).DoAndReturn(func(
 					ctx context.Context,
 					credential *verifiable.Credential,
-					req *oidc4ci.PrepareCredentialsRequest,
+					req *issuecredential.PrepareCredentialsRequest,
 				) (*verifiable.Credential, error) {
 					assert.EqualValues(t, "some-template",
 						req.CredentialConfiguration.CredentialComposeConfiguration.IDTemplate)
@@ -4655,7 +4655,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, verifiable.CustomFields{})
 				assert.NoError(t, err)
 
-				clData := &oidc4ci.ClaimData{
+				clData := &issuecredential.ClaimData{
 					EncryptedData: &dataprotect.EncryptedData{
 						Encrypted:      []byte{0x1, 0x2, 0x3},
 						EncryptedNonce: []byte{0x0, 0x2},
@@ -4722,7 +4722,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						IsPreAuthFlow: true,
 						OrgID:         "asdasd",
 						WebHookURL:    "aaaaa",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								ClaimDataID:          claimID,
@@ -4754,7 +4754,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				clData := &oidc4ci.ClaimData{
+				clData := &issuecredential.ClaimData{
 					EncryptedData: &dataprotect.EncryptedData{
 						Encrypted:      []byte{0x1, 0x2, 0x3},
 						EncryptedNonce: []byte{0x0, 0x2},
@@ -4794,7 +4794,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								ClaimDataID:          uuid.NewString(),
@@ -4845,7 +4845,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								ClaimDataID:          uuid.NewString(),
@@ -4868,7 +4868,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
-				clData := &oidc4ci.ClaimData{
+				clData := &issuecredential.ClaimData{
 					EncryptedData: &dataprotect.EncryptedData{
 						Encrypted:      []byte{0x1, 0x2, 0x3},
 						EncryptedNonce: []byte{0x0, 0x2},
@@ -4913,7 +4913,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken:   "issuer-access-token",
 						IsPreAuthFlow: true,
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								ClaimDataID:          uuid.NewString(),
@@ -4939,7 +4939,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						return errors.New("store err")
 					})
 
-				clData := &oidc4ci.ClaimData{
+				clData := &issuecredential.ClaimData{
 					EncryptedData: &dataprotect.EncryptedData{
 						Encrypted:      []byte{0x1, 0x2, 0x3},
 						EncryptedNonce: []byte{0x0, 0x2},
@@ -4996,7 +4996,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			setup: func(m *mocks) {
 				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
 					TransactionData: oidc4ci.TransactionData{
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -5047,7 +5047,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			setup: func(m *mocks) {
 				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
 					TransactionData: oidc4ci.TransactionData{
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -5101,7 +5101,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			setup: func(m *mocks) {
 				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
 					TransactionData: oidc4ci.TransactionData{
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -5156,7 +5156,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			setup: func(m *mocks) {
 				m.transactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
 					TransactionData: oidc4ci.TransactionData{
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -5212,7 +5212,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
-						CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
 								OIDCCredentialFormat: vcsverifiable.JwtVCJsonLD,
@@ -5279,14 +5279,17 @@ func TestService_PrepareCredential(t *testing.T) {
 			tt.setup(m)
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
-				TransactionStore:  m.transactionStore,
-				ClaimDataStore:    m.claimDataStore,
-				HTTPClient:        httpClient,
-				EventService:      m.eventService,
-				EventTopic:        spi.IssuerEventTopic,
-				DataProtector:     m.crypto,
-				AckService:        m.ackService,
-				PrepareCredential: issuecredential.NewPrepareCredentialService(m.composer),
+				TransactionStore: m.transactionStore,
+				ClaimDataStore:   m.claimDataStore,
+				HTTPClient:       httpClient,
+				EventService:     m.eventService,
+				EventTopic:       spi.IssuerEventTopic,
+				DataProtector:    m.crypto,
+				AckService:       m.ackService,
+				PrepareCredential: issuecredential.NewPrepareCredentialService(
+					&issuecredential.PrepareCredentialServiceConfig{
+						Composer: m.composer,
+					}),
 			})
 			assert.NoError(t, err)
 

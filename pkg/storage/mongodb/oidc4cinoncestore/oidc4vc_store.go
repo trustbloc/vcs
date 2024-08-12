@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -44,12 +44,12 @@ type mongoDocument struct {
 	IssuerToken                        string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
-	Status                             oidc4ci.TransactionState
+	Status                             issuecredential.TransactionState
 	WebHookURL                         string
 	DID                                string
 	UserPin                            string
 	WalletInitiatedIssuance            bool
-	CredentialConfiguration            []*oidc4ci.TxCredentialConfiguration
+	CredentialConfiguration            []*issuecredential.TxCredentialConfiguration
 }
 
 // Store stores oidc transactions in mongo.
@@ -97,8 +97,8 @@ func (s *Store) migrate(ctx context.Context) error {
 func (s *Store) Create(
 	ctx context.Context,
 	profileTransactionDataTTL int32,
-	data *oidc4ci.TransactionData,
-) (*oidc4ci.Transaction, error) {
+	data *issuecredential.TransactionData,
+) (*issuecredential.Transaction, error) {
 	obj := s.mapTransactionDataToMongoDocument(data)
 
 	if profileTransactionDataTTL != 0 {
@@ -119,16 +119,16 @@ func (s *Store) Create(
 
 	insertedID := result.InsertedID.(primitive.ObjectID) //nolint: errcheck
 
-	return &oidc4ci.Transaction{
-		ID:              oidc4ci.TxID(insertedID.Hex()),
+	return &issuecredential.Transaction{
+		ID:              issuecredential.TxID(insertedID.Hex()),
 		TransactionData: *data,
 	}, nil
 }
 
 func (s *Store) Get(
 	ctx context.Context,
-	txID oidc4ci.TxID,
-) (*oidc4ci.Transaction, error) {
+	txID issuecredential.TxID,
+) (*issuecredential.Transaction, error) {
 	id, err := primitive.ObjectIDFromHex(string(txID))
 	if err != nil {
 		return nil, err
@@ -137,11 +137,11 @@ func (s *Store) Get(
 	return s.findOne(ctx, bson.M{"_id": id})
 }
 
-func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4ci.Transaction, error) {
+func (s *Store) FindByOpState(ctx context.Context, opState string) (*issuecredential.Transaction, error) {
 	return s.findOne(ctx, bson.M{"opState": opState})
 }
 
-func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4ci.Transaction, error) {
+func (s *Store) findOne(ctx context.Context, filter interface{}) (*issuecredential.Transaction, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
@@ -162,7 +162,7 @@ func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4ci.Trans
 	return mapDocumentToTransaction(&doc), nil
 }
 
-func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
+func (s *Store) Update(ctx context.Context, tx *issuecredential.Transaction) error {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	id, err := primitive.ObjectIDFromHex(string(tx.ID))
@@ -180,7 +180,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
 	return err
 }
 
-func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData) *mongoDocument {
+func (s *Store) mapTransactionDataToMongoDocument(data *issuecredential.TransactionData) *mongoDocument {
 	return &mongoDocument{
 		ID:                                 primitive.ObjectID{},
 		ExpireAt:                           time.Now().UTC().Add(s.defaultTTL),
@@ -208,10 +208,10 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 	}
 }
 
-func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
-	return &oidc4ci.Transaction{
-		ID: oidc4ci.TxID(doc.ID.Hex()),
-		TransactionData: oidc4ci.TransactionData{
+func mapDocumentToTransaction(doc *mongoDocument) *issuecredential.Transaction {
+	return &issuecredential.Transaction{
+		ID: issuecredential.TxID(doc.ID.Hex()),
+		TransactionData: issuecredential.TransactionData{
 			ProfileID:                          doc.ProfileID,
 			ProfileVersion:                     doc.ProfileVersion,
 			OrgID:                              doc.OrgID,

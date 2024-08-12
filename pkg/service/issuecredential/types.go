@@ -104,3 +104,50 @@ type CredentialDefinition struct {
 type ClaimData struct {
 	EncryptedData *dataprotect.EncryptedData `json:"encrypted_data"`
 }
+
+// TxID defines type for transaction ID.
+type TxID string
+
+// Transaction is the credential issuance transaction. Issuer creates a transaction to convey the intention of issuing a
+// credential with the given parameters. The transaction is stored in the transaction store and its status is updated as
+// the credential issuance progresses.
+type Transaction struct {
+	ID TxID
+	TransactionData
+}
+
+// TransactionData is the transaction data stored in the underlying storage.
+type TransactionData struct {
+	ProfileID                          profileapi.ID
+	ProfileVersion                     profileapi.Version
+	IsPreAuthFlow                      bool
+	PreAuthCode                        string
+	OrgID                              string
+	AuthorizationEndpoint              string
+	PushedAuthorizationRequestEndpoint string
+	TokenEndpoint                      string
+	OpState                            string
+	RedirectURI                        string
+	GrantType                          string
+	ResponseType                       string
+	Scope                              []string
+	IssuerAuthCode                     string
+	IssuerToken                        string
+	State                              TransactionState
+	WebHookURL                         string
+	UserPin                            string
+	DID                                string
+	WalletInitiatedIssuance            bool
+	CredentialConfiguration            []*TxCredentialConfiguration
+}
+
+type TransactionState int16
+
+const (
+	TransactionStateUnknown                         = TransactionState(0)
+	TransactionStateIssuanceInitiated               = TransactionState(1)
+	TransactionStatePreAuthCodeValidated            = TransactionState(2) // pre-auth only
+	TransactionStateAwaitingIssuerOIDCAuthorization = TransactionState(3) // auth only
+	TransactionStateIssuerOIDCAuthorizationDone     = TransactionState(4)
+	TransactionStateCredentialsIssued               = TransactionState(5)
+)

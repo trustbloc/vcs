@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4ci
+package issuecredential
 
 import (
 	"bytes"
@@ -15,8 +15,6 @@ import (
 	"github.com/google/uuid"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
-
-	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 type CredentialComposer struct {
@@ -29,7 +27,7 @@ func NewCredentialComposer() *CredentialComposer {
 func (c *CredentialComposer) Compose(
 	_ context.Context,
 	credential *verifiable.Credential,
-	req *issuecredential.PrepareCredentialsRequest,
+	req *PrepareCredentialsRequest,
 ) (*verifiable.Credential, error) {
 	if req == nil || req.CredentialConfiguration == nil ||
 		req.CredentialConfiguration.CredentialComposeConfiguration == nil {
@@ -82,7 +80,7 @@ func (c *CredentialComposer) Compose(
 }
 
 func (c *CredentialComposer) baseParams(
-	tx *issuecredential.PrepareCredentialsRequest,
+	tx *PrepareCredentialsRequest,
 ) map[string]interface{} {
 	result := map[string]interface{}{
 		"RandomID":  uuid.NewString(),

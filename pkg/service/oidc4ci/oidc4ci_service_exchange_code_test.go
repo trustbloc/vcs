@@ -20,6 +20,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -433,11 +434,11 @@ func TestExchangeCode_Success(t *testing.T) {
 			return nil
 		})
 
-	authorizationDetails := &oidc4ci.AuthorizationDetails{
+	authorizationDetails := &issuecredential.AuthorizationDetails{
 		CredentialConfigurationID: "",
 		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
 		Type:                      "openid_credential",
-		CredentialDefinition: &oidc4ci.CredentialDefinition{
+		CredentialDefinition: &issuecredential.CredentialDefinition{
 			Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
 			CredentialSubject: map[string]interface{}{
 				"key": "value",
@@ -453,7 +454,7 @@ func TestExchangeCode_Success(t *testing.T) {
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
 			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
-			CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+			CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 				{
 					CredentialConfigurationID: "ConfigurationID",
 					AuthorizationDetails:      authorizationDetails,
@@ -484,7 +485,7 @@ func TestExchangeCode_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &oidc4ci.ExchangeAuthorizationCodeResult{
 		TxID:                 "id",
-		AuthorizationDetails: []*oidc4ci.AuthorizationDetails{authorizationDetails},
+		AuthorizationDetails: []*issuecredential.AuthorizationDetails{authorizationDetails},
 	}, resp)
 }
 

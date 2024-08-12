@@ -16,3 +16,11 @@ type credentialIssuer interface {
 		req *issuecredential.PrepareCredentialsRequest,
 	) (*verifiable.Credential, error)
 }
+
+type composer interface { // nolint:unused
+	Compose(
+		ctx context.Context,
+		cred *verifiable.Credential,
+		req *issuecredential.PrepareCredentialsRequest,
+	) (*verifiable.Credential, error)
+}

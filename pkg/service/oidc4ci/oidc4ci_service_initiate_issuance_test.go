@@ -29,6 +29,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -144,7 +145,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -323,7 +324,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -362,7 +363,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					Return(chunks, nil)
 
 				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Times(3).DoAndReturn(
-					func(ctx context.Context, profileTTL int32, data *oidc4ci.ClaimData) (string, error) {
+					func(ctx context.Context, profileTTL int32, data *issuecredential.ClaimData) (string, error) {
 						assert.Equal(t, chunks, data.EncryptedData)
 
 						return "claimDataID", nil
@@ -475,7 +476,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
 								State: data.State,
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -572,7 +573,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 								UserPin:       "123456789",
 								GrantType:     "authorization_code",
 								Scope:         []string{"openid", "profile"},
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -586,7 +587,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mocks.claimDataStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, profileTTL int32, data *oidc4ci.ClaimData) (string, error) {
+					func(ctx context.Context, profileTTL int32, data *issuecredential.ClaimData) (string, error) {
 						assert.Equal(t, chunks, data.EncryptedData)
 
 						return "claimDataID", nil
@@ -660,7 +661,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -750,7 +751,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						configuration := data.CredentialConfiguration[0]
 
 						assert.NotEmpty(t, configuration.ClaimDataID)
-						assert.EqualValues(t, oidc4ci.ClaimDataTypeVC, configuration.ClaimDataType)
+						assert.EqualValues(t, issuecredential.ClaimDataTypeVC, configuration.ClaimDataType)
 
 						assert.EqualValues(t, "some-template",
 							configuration.CredentialComposeConfiguration.IDTemplate)
@@ -763,7 +764,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -873,7 +874,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						configuration := data.CredentialConfiguration[0]
 
 						assert.NotEmpty(t, configuration.ClaimDataID)
-						assert.EqualValues(t, oidc4ci.ClaimDataTypeVC, configuration.ClaimDataType)
+						assert.EqualValues(t, issuecredential.ClaimDataTypeVC, configuration.ClaimDataType)
 
 						assert.EqualValues(t, "some-template",
 							configuration.CredentialComposeConfiguration.IDTemplate)
@@ -886,7 +887,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -1052,7 +1053,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 								ProfileID:     profile.ID,
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -1358,7 +1359,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 							TransactionData: oidc4ci.TransactionData{
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										CredentialTemplate: &profileapi.CredentialTemplate{
 											ID: "templateID",
@@ -1544,7 +1545,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).
 					Return(&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
-							CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+							CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 								{
 									OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 								},
@@ -1591,7 +1592,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mocks.transactionStore.EXPECT().Create(gomock.Any(), int32(0), gomock.Any()).Return(
 					&oidc4ci.Transaction{
 						TransactionData: oidc4ci.TransactionData{
-							CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+							CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 								{
 									OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 								},
@@ -1965,7 +1966,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -2037,7 +2038,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -2097,7 +2098,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -2210,7 +2211,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{
@@ -2268,7 +2269,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
-								CredentialConfiguration: []*oidc4ci.TxCredentialConfiguration{
+								CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 									{
 										OIDCCredentialFormat: verifiable.JwtVCJsonLD,
 										CredentialTemplate: &profileapi.CredentialTemplate{

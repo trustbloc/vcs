@@ -44,3 +44,16 @@ type dataProtector interface {
 	Encrypt(ctx context.Context, msg []byte) (*dataprotect.EncryptedData, error)
 	Decrypt(ctx context.Context, encryptedData *dataprotect.EncryptedData) ([]byte, error)
 }
+
+type transactionStore1 interface {
+	Create(
+		ctx context.Context,
+		profileTransactionDataTTL int32,
+		data *issuecredential.TransactionData,
+	) (*issuecredential.Transaction, error)
+
+	FindByOpState(
+		ctx context.Context,
+		opState string,
+	) (*issuecredential.Transaction, error)
+}

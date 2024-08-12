@@ -17,6 +17,7 @@ import (
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
+	"github.com/trustbloc/vcs/internal/claims"
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -24,7 +25,7 @@ import (
 
 type Config struct {
 	VcsAPIURL              string
-	TxStore                oidc4ci.transactionStore
+	TxStore                transactionStore1
 	ClaimsStore            claimDataStore
 	DataProtector          dataProtector
 	PresentationVerifier   presentationVerifier
@@ -32,17 +33,17 @@ type Config struct {
 	IssueCredentialService issuecredential.ServiceInterface
 }
 
-type RefreshService struct {
+type Service struct {
 	cfg *Config
 }
 
-func NewRefreshService(cfg *Config) *RefreshService {
-	return &RefreshService{
+func NewRefreshService(cfg *Config) *Service {
+	return &Service{
 		cfg: cfg,
 	}
 }
 
-func (s *RefreshService) GetRefreshedCredential(ctx context.Context, presentation *verifiable.Presentation, issuer profile.Issuer) (*verifiable.Credential, error) {
+func (s *Service) GetRefreshedCredential(ctx context.Context, presentation *verifiable.Presentation, issuer profile.Issuer) (*verifiable.Credential, error) {
 	verifyResult, _, err := s.cfg.PresentationVerifier.VerifyPresentation(ctx, presentation, nil, &profile.Verifier{
 		Checks: &profile.VerificationChecks{
 			Presentation: &profile.PresentationChecks{
@@ -117,7 +118,7 @@ func (s *RefreshService) GetRefreshedCredential(ctx context.Context, presentatio
 		return nil, err
 	}
 
-	decryptedClaims, decryptErr := oidc4ci.decryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
+	decryptedClaims, decryptErr := claims.DecryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
 	if decryptErr != nil {
 		return nil, fmt.Errorf("decrypt claims: %w", decryptErr)
 	}
@@ -154,7 +155,7 @@ func (s *RefreshService) GetRefreshedCredential(ctx context.Context, presentatio
 	return updatedCred, err
 }
 
-func (s *RefreshService) RequestRefreshStatus(
+func (s *Service) RequestRefreshStatus(
 	ctx context.Context,
 	credentialID string,
 	issuer profile.Issuer,
@@ -207,11 +208,11 @@ func (s *RefreshService) RequestRefreshStatus(
 	}, nil
 }
 
-func (s *RefreshService) CreateRefreshState(
+func (s *Service) CreateRefreshState(
 	ctx context.Context,
 	req *oidc4ci.CreateRefreshStateRequest,
 ) (string, error) {
-	encrypted, err := oidc4ci.encryptClaims(ctx, req.Claims, s.cfg.DataProtector)
+	encrypted, err := claims.EncryptClaims(ctx, req.Claims, s.cfg.DataProtector)
 	if err != nil {
 		return "", err
 	}
@@ -227,7 +228,7 @@ func (s *RefreshService) CreateRefreshState(
 
 	opState := s.getOpState(req.CredentialID, req.Issuer.ID)
 
-	tx, err := s.cfg.TxStore.Create(ctx, ttl, &oidc4ci.TransactionData{
+	tx, err := s.cfg.TxStore.Create(ctx, ttl, &issuecredential.TransactionData{
 		ProfileID:      req.Issuer.ID,
 		ProfileVersion: req.Issuer.Version,
 		IsPreAuthFlow:  true,
@@ -250,6 +251,6 @@ func (s *RefreshService) CreateRefreshState(
 	return string(tx.ID), nil
 }
 
-func (s *RefreshService) getOpState(refreshID string, issuerID string) string {
+func (s *Service) getOpState(refreshID string, issuerID string) string {
 	return fmt.Sprintf("%s-%s", issuerID, refreshID)
 }

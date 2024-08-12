@@ -10,34 +10,35 @@ import (
 	"fmt"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func (s *Service) validateStateTransition(
-	oldState TransactionState,
-	newState TransactionState,
+	oldState issuecredential.TransactionState,
+	newState issuecredential.TransactionState,
 ) error {
-	if oldState == TransactionStateIssuanceInitiated &&
-		newState == TransactionStatePreAuthCodeValidated {
+	if oldState == issuecredential.TransactionStateIssuanceInitiated &&
+		newState == issuecredential.TransactionStatePreAuthCodeValidated {
 		return nil // pre-auth 1
 	}
 
-	if oldState == TransactionStateIssuanceInitiated &&
-		newState == TransactionStateAwaitingIssuerOIDCAuthorization {
+	if oldState == issuecredential.TransactionStateIssuanceInitiated &&
+		newState == issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization {
 		return nil // auth 1
 	}
 
-	if oldState == TransactionStateAwaitingIssuerOIDCAuthorization &&
-		newState == TransactionStateIssuerOIDCAuthorizationDone {
+	if oldState == issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization &&
+		newState == issuecredential.TransactionStateIssuerOIDCAuthorizationDone {
 		return nil
 	}
 
-	if oldState == TransactionStatePreAuthCodeValidated &&
-		newState == TransactionStateCredentialsIssued {
+	if oldState == issuecredential.TransactionStatePreAuthCodeValidated &&
+		newState == issuecredential.TransactionStateCredentialsIssued {
 		return nil
 	}
 
-	if oldState == TransactionStateIssuerOIDCAuthorizationDone &&
-		newState == TransactionStateCredentialsIssued {
+	if oldState == issuecredential.TransactionStateIssuerOIDCAuthorizationDone &&
+		newState == issuecredential.TransactionStateCredentialsIssued {
 		return nil
 	}
 

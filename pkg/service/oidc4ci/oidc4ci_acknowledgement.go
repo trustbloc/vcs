@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 type AckService struct {
@@ -148,7 +149,7 @@ func (s *AckService) Ack(
 func (s *AckService) sendEvent(
 	ctx context.Context,
 	eventType spi.EventType,
-	transactionID TxID,
+	transactionID issuecredential.TxID,
 	ep *EventPayload,
 ) error {
 	event, err := createEvent(eventType, transactionID, ep)
@@ -170,10 +171,10 @@ func (s *AckService) AckEventMap(status string) spi.EventType {
 	return spi.IssuerOIDCInteractionAckRejected
 }
 
-func extractTransactionID(ackTxID string) TxID {
-	return TxID(strings.Split(ackTxID, "_")[0])
+func extractTransactionID(ackTxID string) issuecredential.TxID {
+	return issuecredential.TxID(strings.Split(ackTxID, "_")[0])
 }
 
-func generateAckTxID(transactionID TxID) string {
+func generateAckTxID(transactionID issuecredential.TxID) string {
 	return fmt.Sprintf("%s_%s", transactionID, strings.Split(uuid.NewString(), "-")[0])
 }
