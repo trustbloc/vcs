@@ -59,3 +59,12 @@ type transactionStore1 interface {
 		opState string,
 	) (*issuecredential.Transaction, error)
 }
+
+type IssueCredService interface {
+	IssueCredential(
+		ctx context.Context,
+		credential *verifiable.Credential,
+		profile *profileapi.Issuer,
+		opts ...issuecredential.Opts,
+	) (*verifiable.Credential, error)
+}

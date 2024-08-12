@@ -29,7 +29,7 @@ type Config struct {
 	DataProtector          dataProtector
 	PresentationVerifier   presentationVerifier
 	CredentialIssuer       credentialIssuer
-	IssueCredentialService issuecredential.ServiceInterface
+	IssueCredentialService IssueCredService
 }
 
 type Service struct {
