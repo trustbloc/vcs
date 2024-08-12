@@ -40,6 +40,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/refresh"
 )
 
 const (
@@ -2896,6 +2897,152 @@ func TestCredentialIssuanceHistory(t *testing.T) {
 
 		err := c.CredentialIssuanceHistory(echoCtx, profileID, CredentialIssuanceHistoryParams{})
 		assert.Error(t, err)
+	})
+}
+
+func TestSetCredentialRefreshState(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		profileRepo := NewMockProfileService(gomock.NewController(t))
+		credRefreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+
+		c := &Controller{
+			profileSvc:               profileRepo,
+			credentialRefreshService: credRefreshSvc,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		reqBody := &SetCredentialRefreshStateRequest{
+			Claims: map[string]interface{}{
+				"claim1": "value1",
+			},
+			CredentialDescription: lo.ToPtr("some-cred-desc"),
+			CredentialId:          "some-cred-id",
+			CredentialName:        lo.ToPtr("some-cred-name"),
+		}
+		data, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(data),
+		)
+
+		issuer := profileapi.Issuer{
+			ID: "abc",
+		}
+		profileRepo.EXPECT().GetProfile(profileID, profileVersion).
+			Return(&issuer, nil)
+
+		credRefreshSvc.EXPECT().CreateRefreshState(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, request *refresh.CreateRefreshStateRequest) (string, error) {
+				assert.EqualValues(t, reqBody.CredentialId, request.CredentialID)
+				assert.EqualValues(t, reqBody.CredentialName, request.CredentialName)
+				assert.EqualValues(t, reqBody.CredentialDescription, request.CredentialDescription)
+				assert.EqualValues(t, reqBody.Claims, request.Claims)
+				assert.EqualValues(t, issuer, request.Issuer)
+
+				return "some-value", nil
+			})
+
+		err = c.SetCredentialRefreshState(echoCtx, profileID, profileVersion)
+		assert.NoError(t, err)
+	})
+
+	t.Run("invalid body", func(t *testing.T) {
+		profileRepo := NewMockProfileService(gomock.NewController(t))
+		credRefreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+
+		c := &Controller{
+			profileSvc:               profileRepo,
+			credentialRefreshService: credRefreshSvc,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody([]byte("{")),
+		)
+
+		err := c.SetCredentialRefreshState(echoCtx, profileID, profileVersion)
+		assert.Error(t, err)
+	})
+
+	t.Run("profile not found", func(t *testing.T) {
+		profileRepo := NewMockProfileService(gomock.NewController(t))
+		credRefreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+
+		c := &Controller{
+			profileSvc:               profileRepo,
+			credentialRefreshService: credRefreshSvc,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		reqBody := &SetCredentialRefreshStateRequest{
+			Claims: map[string]interface{}{
+				"claim1": "value1",
+			},
+			CredentialDescription: lo.ToPtr("some-cred-desc"),
+			CredentialId:          "some-cred-id",
+			CredentialName:        lo.ToPtr("some-cred-name"),
+		}
+		data, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(data),
+		)
+
+		profileRepo.EXPECT().GetProfile(profileID, profileVersion).
+			Return(nil, errors.New("profile not found"))
+
+		err = c.SetCredentialRefreshState(echoCtx, profileID, profileVersion)
+		assert.ErrorContains(t, err, "profile not found")
+	})
+
+	t.Run("service err", func(t *testing.T) {
+		profileRepo := NewMockProfileService(gomock.NewController(t))
+		credRefreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+
+		c := &Controller{
+			profileSvc:               profileRepo,
+			credentialRefreshService: credRefreshSvc,
+		}
+
+		recorder := httptest.NewRecorder()
+
+		reqBody := &SetCredentialRefreshStateRequest{
+			Claims: map[string]interface{}{
+				"claim1": "value1",
+			},
+			CredentialDescription: lo.ToPtr("some-cred-desc"),
+			CredentialId:          "some-cred-id",
+			CredentialName:        lo.ToPtr("some-cred-name"),
+		}
+		data, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(data),
+		)
+
+		issuer := profileapi.Issuer{
+			ID: "abc",
+		}
+		profileRepo.EXPECT().GetProfile(profileID, profileVersion).
+			Return(&issuer, nil)
+
+		credRefreshSvc.EXPECT().CreateRefreshState(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, request *refresh.CreateRefreshStateRequest) (string, error) {
+				return "", errors.New("invalid request")
+			})
+
+		err = c.SetCredentialRefreshState(echoCtx, profileID, profileVersion)
+		assert.ErrorContains(t, err, "invalid request")
 	})
 }
 
