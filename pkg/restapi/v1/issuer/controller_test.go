@@ -1566,7 +1566,7 @@ func TestController_StoreAuthZCode(t *testing.T) {
 		code := uuid.NewString()
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code, nil).Return(
-			"1234", nil)
+			issuecredential.TxID("1234"), nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1586,7 +1586,7 @@ func TestController_StoreAuthZCode(t *testing.T) {
 				ProfileId:      "123",
 				ProfileVersion: "xxx",
 			}).
-			Return("1234", nil)
+			Return(issuecredential.TxID("1234"), nil)
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,

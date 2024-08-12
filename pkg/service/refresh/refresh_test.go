@@ -55,7 +55,11 @@ func TestCreateRefreshState(t *testing.T) {
 		}
 
 		txStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, _ int32, data *issuecredential.TransactionData) (*issuecredential.Transaction, error) {
+			DoAndReturn(func(
+				ctx context.Context,
+				_ int32,
+				data *issuecredential.TransactionData,
+			) (*issuecredential.Transaction, error) {
 				assert.EqualValues(t, issuer.ID, data.ProfileID)
 				assert.EqualValues(t, issuer.Version, data.ProfileVersion)
 				assert.True(t, data.IsPreAuthFlow)
@@ -87,6 +91,42 @@ func TestCreateRefreshState(t *testing.T) {
 }
 
 func TestRequestRefreshState(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		txStore := NewMocktransactionStore1(gomock.NewController(t))
+
+		srv := refresh.NewRefreshService(&refresh.Config{
+			TxStore:   txStore,
+			VcsAPIURL: "https://localhost/api",
+		})
+
+		txStore.EXPECT().FindByOpState(gomock.Any(), "some_issuer-some_cred_id").
+			Return(&issuecredential.Transaction{}, nil)
+
+		resp, err := srv.RequestRefreshStatus(context.TODO(), "some_cred_id", profileapi.Issuer{
+			ID: "some_issuer",
+		})
+		assert.NoError(t, err)
+
+		assert.EqualValues(t, "VerifiableCredentialRefreshService2021", resp.RefreshServiceType.Type)
+		assert.EqualValues(t, "We need to see your existing credentials",
+			resp.VerifiablePresentationRequest.Query.Name)
+
+		assert.Len(t, resp.VerifiablePresentationRequest.Query.InputDescriptors, 1)
+		assert.Len(t, resp.VerifiablePresentationRequest.Query.InputDescriptors[0].Constraints.Fields, 1)
+
+		field := resp.VerifiablePresentationRequest.Query.InputDescriptors[0].Constraints.Fields[0]
+
+		assert.EqualValues(t, []string{
+			"$.id",
+		}, field.Path)
+
+		assert.EqualValues(t, "string", *field.Filter.Type)
+		assert.EqualValues(t, "some_cred_id", field.Filter.Const)
+
+		assert.EqualValues(t, "https://localhost/api", resp.Domain)
+		assert.NotEmpty(t, resp.Challenge)
+	})
+
 	t.Run("no state", func(t *testing.T) {
 		txStore := NewMocktransactionStore1(gomock.NewController(t))
 
