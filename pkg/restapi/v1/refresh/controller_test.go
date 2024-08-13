@@ -149,9 +149,13 @@ func TestGetRefreshStatus(t *testing.T) {
 			IssuerVCSPublicHost: "https://public.local/api/vc",
 		})
 
-		assert.ErrorContains(t, ctr.RequestRefreshStatus(echoCtx, profileID, profileVersion, refresh.RequestRefreshStatusParams{
-			CredentialID: "some-cred-id",
-		}), "refresh err")
+		assert.ErrorContains(t,
+			ctr.RequestRefreshStatus(echoCtx,
+				profileID,
+				profileVersion,
+				refresh.RequestRefreshStatusParams{
+					CredentialID: "some-cred-id",
+				}), "refresh err")
 	})
 
 	t.Run("profile err", func(t *testing.T) {
@@ -175,9 +179,13 @@ func TestGetRefreshStatus(t *testing.T) {
 			IssuerVCSPublicHost: "https://public.local/api/vc",
 		})
 
-		assert.ErrorContains(t, ctr.RequestRefreshStatus(echoCtx, profileID, profileVersion, refresh.RequestRefreshStatusParams{
-			CredentialID: "some-cred-id",
-		}), "profile err")
+		assert.ErrorContains(t, ctr.RequestRefreshStatus(
+			echoCtx,
+			profileID,
+			profileVersion,
+			refresh.RequestRefreshStatusParams{
+				CredentialID: "some-cred-id",
+			}), "profile err")
 	})
 }
 

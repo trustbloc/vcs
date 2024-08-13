@@ -61,6 +61,27 @@ func TestStore(t *testing.T) {
 		assert.Empty(t, resp2)
 	})
 
+	t.Run("try insert duplicate op_state [force]", func(t *testing.T) {
+		id := uuid.New().String()
+
+		toInsert := &issuecredential.TransactionData{
+			OpState: id,
+		}
+
+		resp1, err1 := store.Create(context.Background(), 0, toInsert)
+		assert.NoError(t, err1)
+		assert.NotEmpty(t, resp1)
+
+		toInsert.DID = "xxx"
+		resp2, err2 := store.ForceCreate(context.Background(), 0, toInsert)
+		assert.NoError(t, err2)
+		assert.NotEmpty(t, resp2)
+
+		fRes, fErr := store.FindByOpState(context.Background(), id)
+		assert.NoError(t, fErr)
+		assert.Equal(t, toInsert.DID, fRes.DID)
+	})
+
 	t.Run("test default expiration", func(t *testing.T) {
 		id := uuid.New().String()
 

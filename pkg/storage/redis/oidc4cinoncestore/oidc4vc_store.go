@@ -40,20 +40,39 @@ func New(redisClient *redis.Client, ttlSec int32) *Store {
 	}
 }
 
+func (s *Store) ForceCreate(
+	ctx context.Context,
+	profileTransactionDataTTL int32,
+	transactionData *issuecredential.TransactionData,
+) (*issuecredential.Transaction, error) {
+	return s.createInternal(ctx, profileTransactionDataTTL, transactionData, true)
+}
+
 func (s *Store) Create(
 	ctx context.Context,
 	profileTransactionDataTTL int32,
 	transactionData *issuecredential.TransactionData,
 ) (*issuecredential.Transaction, error) {
+	return s.createInternal(ctx, profileTransactionDataTTL, transactionData, false)
+}
+
+func (s *Store) createInternal(
+	ctx context.Context,
+	profileTransactionDataTTL int32,
+	transactionData *issuecredential.TransactionData,
+	force bool,
+) (*issuecredential.Transaction, error) {
 	// Check opStatueBasedKey key existence.
 	opStatueBasedKey := resolveRedisKey(keyPrefix, transactionData.OpState)
-	b, err := s.redisClient.API().Exists(ctx, opStatueBasedKey).Result()
-	if err != nil {
-		return nil, fmt.Errorf("exist: %w", err)
-	}
+	if !force {
+		b, err := s.redisClient.API().Exists(ctx, opStatueBasedKey).Result()
+		if err != nil {
+			return nil, fmt.Errorf("exist: %w", err)
+		}
 
-	if b > 0 {
-		return nil, resterr.ErrDataNotFound
+		if b > 0 {
+			return nil, resterr.ErrDataNotFound
+		}
 	}
 
 	ttl := s.defaultTTL
@@ -80,7 +99,7 @@ func (s *Store) Create(
 	// Set intermediateKey that points to redisDocument
 	pipeline.Set(ctx, intermediateKey, doc, ttl)
 
-	if _, err = pipeline.Exec(ctx); err != nil {
+	if _, err := pipeline.Exec(ctx); err != nil {
 		return nil, fmt.Errorf("transactionData create: %w", err)
 	}
 

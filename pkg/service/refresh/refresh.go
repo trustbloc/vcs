@@ -261,7 +261,7 @@ func (s *Service) CreateRefreshState(
 		refreshServiceEnabled = req.Issuer.VCConfig.RefreshServiceEnabled
 	}
 
-	tx, err := s.cfg.TxStore.Create(ctx, ttl, &issuecredential.TransactionData{
+	tx, err := s.cfg.TxStore.ForceCreate(ctx, ttl, &issuecredential.TransactionData{
 		ProfileID:             req.Issuer.ID,
 		ProfileVersion:        req.Issuer.Version,
 		IsPreAuthFlow:         true,

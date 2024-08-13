@@ -95,10 +95,27 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
+func (s *Store) ForceCreate(
+	ctx context.Context,
+	profileTransactionDataTTL int32,
+	data *issuecredential.TransactionData,
+) (*issuecredential.Transaction, error) {
+	return s.createInternal(ctx, profileTransactionDataTTL, data, true)
+}
+
 func (s *Store) Create(
 	ctx context.Context,
 	profileTransactionDataTTL int32,
 	data *issuecredential.TransactionData,
+) (*issuecredential.Transaction, error) {
+	return s.createInternal(ctx, profileTransactionDataTTL, data, false)
+}
+
+func (s *Store) createInternal(
+	ctx context.Context,
+	profileTransactionDataTTL int32,
+	data *issuecredential.TransactionData,
+	_ bool,
 ) (*issuecredential.Transaction, error) {
 	obj := s.mapTransactionDataToMongoDocument(data)
 
@@ -109,10 +126,6 @@ func (s *Store) Create(
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	result, err := collection.InsertOne(ctx, obj)
-
-	if err != nil && mongo.IsDuplicateKeyError(err) {
-		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
-	}
 
 	if err != nil {
 		return nil, err

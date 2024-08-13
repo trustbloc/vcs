@@ -55,6 +55,10 @@ const (
 	IssuerOIDCInteractionAckExpired                   EventType = "issuer.oidc-interaction-ack-expired.v1"
 
 	CredentialStatusStatusUpdated EventType = "issuer.credential-status-updated.v1" //nolint:gosec
+
+	CredentialRefreshInitiated  EventType = "issuer.credential-refresh-initiated.v1"
+	CredentialRefreshSuccessful EventType = "issuer.credential-refresh-successful.v1"
+	CredentialRefreshFailed     EventType = "issuer.credential-refresh-failed.v1"
 )
 
 // Payload defines payload.

@@ -64,7 +64,7 @@ func TestCreateRefreshState(t *testing.T) {
 			WebHook:        "webhook",
 		}
 
-		txStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+		txStore.EXPECT().ForceCreate(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
 				ctx context.Context,
 				_ int32,

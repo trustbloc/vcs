@@ -52,6 +52,12 @@ type pinGenerator interface {
 }
 
 type transactionStore interface {
+	ForceCreate(
+		ctx context.Context,
+		profileTransactionDataTTL int32,
+		data *issuecredential.TransactionData,
+	) (*issuecredential.Transaction, error)
+
 	Create(
 		ctx context.Context,
 		profileTransactionDataTTL int32,

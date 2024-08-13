@@ -48,7 +48,7 @@ type dataProtector interface {
 }
 
 type transactionStore1 interface {
-	Create(
+	ForceCreate(
 		ctx context.Context,
 		profileTransactionDataTTL int32,
 		data *issuecredential.TransactionData,
