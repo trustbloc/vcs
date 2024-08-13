@@ -31,8 +31,9 @@ type PrepareCredentialsRequest struct {
 	SubjectDID              string
 	CredentialConfiguration *TxCredentialConfiguration
 
-	IssuerID      string
-	IssuerVersion string
+	IssuerID              string
+	IssuerVersion         string
+	RefreshServiceEnabled bool
 }
 
 type TxCredentialConfiguration struct {
@@ -139,6 +140,7 @@ type TransactionData struct {
 	DID                                string
 	WalletInitiatedIssuance            bool
 	CredentialConfiguration            []*TxCredentialConfiguration
+	RefreshServiceEnabled              bool
 }
 
 type TransactionState int16

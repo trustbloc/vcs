@@ -70,7 +70,9 @@ func (s *PrepareCredentialService) PrepareCredential(
 		return nil, fmt.Errorf("prepare credential: final credential is nil")
 	}
 
-	finalCred = finalCred.WithModifiedRefreshService(s.CreateRefreshService(ctx, finalCred, req))
+	if req.RefreshServiceEnabled {
+		finalCred = finalCred.WithModifiedRefreshService(s.CreateRefreshService(ctx, finalCred, req))
+	}
 
 	return finalCred, err
 }

@@ -123,6 +123,11 @@ func (s *Service) GetRefreshedCredential(
 	credConfig.OIDCCredentialFormat = config.Format
 	credConfig.CredentialTemplate = template
 
+	refreshServiceEnabled := false
+	if issuer.VCConfig != nil {
+		refreshServiceEnabled = true
+	}
+
 	updatedCred, err := s.cfg.CredentialIssuer.PrepareCredential(ctx, &issuecredential.PrepareCredentialsRequest{
 		TxID:                    string(tx.ID),
 		ClaimData:               decryptedClaims,
@@ -131,6 +136,7 @@ func (s *Service) GetRefreshedCredential(
 		CredentialConfiguration: credConfig,
 		IssuerID:                issuer.ID,
 		IssuerVersion:           issuer.Version,
+		RefreshServiceEnabled:   refreshServiceEnabled,
 	})
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to prepare credential"), err)
@@ -240,12 +246,13 @@ func (s *Service) CreateRefreshState(
 	opState := s.getOpState(req.CredentialID, req.Issuer.ID)
 
 	tx, err := s.cfg.TxStore.Create(ctx, ttl, &issuecredential.TransactionData{
-		ProfileID:      req.Issuer.ID,
-		ProfileVersion: req.Issuer.Version,
-		IsPreAuthFlow:  true,
-		OrgID:          req.Issuer.OrganizationID,
-		OpState:        opState,
-		WebHookURL:     req.Issuer.WebHook,
+		ProfileID:             req.Issuer.ID,
+		ProfileVersion:        req.Issuer.Version,
+		IsPreAuthFlow:         true,
+		OrgID:                 req.Issuer.OrganizationID,
+		OpState:               opState,
+		WebHookURL:            req.Issuer.WebHook,
+		RefreshServiceEnabled: req.Issuer.VCConfig.RefreshServiceEnabled,
 		CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 			{
 				ClaimDataType:         issuecredential.ClaimDataTypeClaims,

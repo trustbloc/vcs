@@ -101,6 +101,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		ResponseType:            req.ResponseType,
 		State:                   txState,
 		WebHookURL:              profile.WebHook,
+		RefreshServiceEnabled:   profile.VCConfig.RefreshServiceEnabled,
 		DID:                     profile.SigningDID.DID,
 		WalletInitiatedIssuance: req.WalletInitiatedIssuance,
 		IsPreAuthFlow:           isPreAuthFlow,

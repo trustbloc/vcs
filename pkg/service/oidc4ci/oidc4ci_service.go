@@ -826,6 +826,7 @@ func (s *Service) prepareCredential( //nolint:funlen
 		CredentialConfiguration: txCredentialConfiguration,
 		IssuerID:                tx.ProfileID,
 		IssuerVersion:           tx.ProfileVersion,
+		RefreshServiceEnabled:   tx.RefreshServiceEnabled,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare credential: %w", err)

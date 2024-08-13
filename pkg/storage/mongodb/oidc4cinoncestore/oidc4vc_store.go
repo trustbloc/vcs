@@ -50,6 +50,7 @@ type mongoDocument struct {
 	UserPin                            string
 	WalletInitiatedIssuance            bool
 	CredentialConfiguration            []*issuecredential.TxCredentialConfiguration
+	RefreshServiceEnabled              bool
 }
 
 // Store stores oidc transactions in mongo.
@@ -205,6 +206,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *issuecredential.Transact
 		DID:                                data.DID,
 		WalletInitiatedIssuance:            data.WalletInitiatedIssuance,
 		CredentialConfiguration:            data.CredentialConfiguration,
+		RefreshServiceEnabled:              data.RefreshServiceEnabled,
 	}
 }
 
@@ -230,6 +232,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *issuecredential.Transaction {
 			PreAuthCode:                        doc.PreAuthCode,
 			State:                              doc.Status,
 			WebHookURL:                         doc.WebHookURL,
+			RefreshServiceEnabled:              doc.RefreshServiceEnabled,
 			DID:                                doc.DID,
 			WalletInitiatedIssuance:            doc.WalletInitiatedIssuance,
 			CredentialConfiguration:            doc.CredentialConfiguration,
