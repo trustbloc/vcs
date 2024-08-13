@@ -10,12 +10,12 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 type redisDocument struct {
-	ClaimData oidc4ci.ClaimData `json:"claimData"`
-	ExpireAt  time.Time         `json:"expireAt,omitempty"`
+	ClaimData issuecredential.ClaimData `json:"claimData"`
+	ExpireAt  time.Time                 `json:"expireAt,omitempty"`
 }
 
 func (d *redisDocument) MarshalBinary() ([]byte, error) {

@@ -25,6 +25,18 @@
       ]
     },
     {
+      "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/interactions/refresh",
+      "method": "POST",
+      "protected": true,
+      "roles_to_validate": [
+        "issuer"
+      ],
+      "input_headers": [
+        "X-Tenant-ID",
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc",
       "method": "POST",
       "protected": true,
@@ -46,6 +58,20 @@
       "input_headers": [
         "X-Tenant-ID",
         "Content-Type"
+      ]
+    },
+    {
+      "endpoint": "/refresh/{profileID}/{profileVersion}",
+      "method": "GET",
+      "input_query_strings": [
+        "credentialID"
+      ]
+    },
+    {
+      "endpoint": "/refresh/{profileID}/{profileVersion}",
+      "method": "POST",
+      "input_query_strings": [
+        "credentialID"
       ]
     },
     {

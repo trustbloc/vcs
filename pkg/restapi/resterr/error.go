@@ -64,10 +64,11 @@ type Component = string
 
 //nolint:gosec
 const (
-	IssuerSvcComponent          Component = "issuer.service"
-	IssuerProfileSvcComponent   Component = "issuer.profile-service"
-	IssueCredentialSvcComponent Component = "issuer.issue-credential-service"
-	IssuerOIDC4ciSvcComponent   Component = "issuer.oidc4ci-service"
+	IssuerSvcComponent                  Component = "issuer.service"
+	IssuerProfileSvcComponent           Component = "issuer.profile-service"
+	IssuerCredentialRefreshSvcComponent Component = "issuer.credential-refresh-service"
+	IssueCredentialSvcComponent         Component = "issuer.issue-credential-service"
+	IssuerOIDC4ciSvcComponent           Component = "issuer.oidc4ci-service"
 
 	VerifierVerifyCredentialSvcComponent  Component = "verifier.verify-credential-service"
 	VerifierOIDC4vpSvcComponent           Component = "verifier.oidc4vp-service"

@@ -23,7 +23,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func TestService_Register(t *testing.T) {
@@ -107,8 +107,8 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},
@@ -178,8 +178,8 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},
@@ -235,8 +235,8 @@ func TestService_Register(t *testing.T) {
 				profileService.EXPECT().GetProfile("profileID", "profileVersion").
 					Return(nil, errors.New("get profile error"))
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},
@@ -263,8 +263,8 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},
@@ -291,8 +291,8 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},
@@ -322,8 +322,8 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},
@@ -365,8 +365,8 @@ func TestService_Register(t *testing.T) {
 					},
 				}, nil)
 
-				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
+				store.EXPECT().FindByOpState(gomock.Any(), issuerState).Return(&issuecredential.Transaction{
+					TransactionData: issuecredential.TransactionData{
 						ProfileID:      "profileID",
 						ProfileVersion: "profileVersion",
 					},

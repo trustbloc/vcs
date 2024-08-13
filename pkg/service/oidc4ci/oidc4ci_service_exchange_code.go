@@ -15,6 +15,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func (s *Service) ExchangeAuthorizationCode(
@@ -29,7 +30,7 @@ func (s *Service) ExchangeAuthorizationCode(
 		return nil, fmt.Errorf("get transaction by opstate: %w", err)
 	}
 
-	newState := TransactionStateIssuerOIDCAuthorizationDone
+	newState := issuecredential.TransactionStateIssuerOIDCAuthorizationDone
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err

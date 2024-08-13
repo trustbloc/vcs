@@ -23,7 +23,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 const (
@@ -45,7 +45,7 @@ type profileService interface {
 }
 
 type transactionStore interface {
-	FindByOpState(ctx context.Context, opState string) (*oidc4ci.Transaction, error)
+	FindByOpState(ctx context.Context, opState string) (*issuecredential.Transaction, error)
 }
 
 // Config defines configuration for Service.

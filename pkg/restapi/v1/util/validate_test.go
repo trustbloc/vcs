@@ -16,7 +16,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func TestValidateAuthorizationDetails(t *testing.T) {
@@ -26,7 +26,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          args
-		want          []*oidc4ci.AuthorizationDetails
+		want          []*issuecredential.AuthorizationDetails
 		wantErr       bool
 		errorContains string
 	}{
@@ -50,7 +50,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			want: []*oidc4ci.AuthorizationDetails{
+			want: []*issuecredential.AuthorizationDetails{
 				{
 					Type:                      "openid_credential",
 					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
@@ -101,13 +101,13 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			want: []*oidc4ci.AuthorizationDetails{
+			want: []*issuecredential.AuthorizationDetails{
 				{
 					Type:                      "openid_credential",
 					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
 					CredentialConfigurationID: "",
 					Format:                    vcsverifiable.OIDCFormat("jwt_vc_json"),
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
 						CredentialSubject: map[string]interface{}{
 							"key": "value",
@@ -120,7 +120,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
 					CredentialConfigurationID: "",
 					Format:                    vcsverifiable.OIDCFormat("jwt_vc_json"),
-					CredentialDefinition: &oidc4ci.CredentialDefinition{
+					CredentialDefinition: &issuecredential.CredentialDefinition{
 						Context: []string{"https://example.com/context/1", "https://example.com/context/2"},
 						CredentialSubject: map[string]interface{}{
 							"key": "value",

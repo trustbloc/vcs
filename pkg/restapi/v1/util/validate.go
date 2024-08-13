@@ -14,12 +14,12 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func ValidateAuthorizationDetails(
-	authorizationDetails []common.AuthorizationDetails) ([]*oidc4ci.AuthorizationDetails, error) {
-	var authorizationDetailsDomain []*oidc4ci.AuthorizationDetails
+	authorizationDetails []common.AuthorizationDetails) ([]*issuecredential.AuthorizationDetails, error) {
+	var authorizationDetailsDomain []*issuecredential.AuthorizationDetails
 
 	for _, ad := range authorizationDetails {
 		if ad.Type != "openid_credential" {
@@ -30,7 +30,7 @@ func ValidateAuthorizationDetails(
 		oidcCredentialFormat := lo.FromPtr(ad.Format)
 		credentialConfigurationID := lo.FromPtr(ad.CredentialConfigurationId)
 
-		mapped := &oidc4ci.AuthorizationDetails{
+		mapped := &issuecredential.AuthorizationDetails{
 			Type:                      ad.Type,
 			Locations:                 lo.FromPtr(ad.Locations),
 			CredentialConfigurationID: "",
@@ -54,7 +54,7 @@ func ValidateAuthorizationDetails(
 					"authorization_details.credential_definition", errors.New("not supplied"))
 			}
 
-			mapped.CredentialDefinition = &oidc4ci.CredentialDefinition{
+			mapped.CredentialDefinition = &issuecredential.CredentialDefinition{
 				Context:           lo.FromPtr(ad.CredentialDefinition.Context),
 				CredentialSubject: lo.FromPtr(ad.CredentialDefinition.CredentialSubject),
 				Type:              ad.CredentialDefinition.Type,

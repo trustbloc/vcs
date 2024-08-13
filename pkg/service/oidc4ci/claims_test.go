@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -96,7 +97,7 @@ func TestDecrypt(t *testing.T) {
 			DataProtector: crypto,
 		})
 
-		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
+		data, err := srv.DecryptClaims(context.TODO(), &issuecredential.ClaimData{
 			EncryptedData: chunks,
 		})
 		assert.NoError(t, err)
@@ -116,7 +117,7 @@ func TestDecrypt(t *testing.T) {
 			DataProtector: crypto,
 		})
 
-		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
+		data, err := srv.DecryptClaims(context.TODO(), &issuecredential.ClaimData{
 			EncryptedData: chunks,
 		})
 		assert.ErrorContains(t, err, "looking for beginning of value")
@@ -137,7 +138,7 @@ func TestDecrypt(t *testing.T) {
 			DataProtector: crypto,
 		})
 
-		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
+		data, err := srv.DecryptClaims(context.TODO(), &issuecredential.ClaimData{
 			EncryptedData: chunks,
 		})
 		assert.ErrorContains(t, err, "can not decrypt")

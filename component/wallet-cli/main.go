@@ -28,6 +28,7 @@ func main() {
 	rootCmd.AddCommand(cmd.NewAttestWalletCommand())
 	rootCmd.AddCommand(cmd.NewOIDC4VCICommand())
 	rootCmd.AddCommand(cmd.NewOIDC4VPCommand())
+	rootCmd.AddCommand(cmd.NewRefreshCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error("failed to run wallet-cli", "err", err)

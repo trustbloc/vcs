@@ -17,7 +17,7 @@ import (
 	redisapi "github.com/redis/go-redis/v9"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -39,7 +39,7 @@ func New(redisClient *redis.Client, ttlSec int32) *Store {
 	}
 }
 
-func (s *Store) Create(ctx context.Context, profileTTLSec int32, data *oidc4ci.ClaimData) (string, error) {
+func (s *Store) Create(ctx context.Context, profileTTLSec int32, data *issuecredential.ClaimData) (string, error) {
 	expireAt := s.defaultTTL
 	if profileTTLSec > 0 {
 		expireAt = time.Duration(profileTTLSec) * time.Second
@@ -55,7 +55,7 @@ func (s *Store) Create(ctx context.Context, profileTTLSec int32, data *oidc4ci.C
 	return key, s.redisClient.API().Set(ctx, key, doc, expireAt).Err()
 }
 
-func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.ClaimData, error) {
+func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*issuecredential.ClaimData, error) {
 	clientAPI := s.redisClient.API()
 	b, err := clientAPI.Get(ctx, claimDataID).Bytes()
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 	redisapi "github.com/redis/go-redis/v9"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -40,20 +40,39 @@ func New(redisClient *redis.Client, ttlSec int32) *Store {
 	}
 }
 
+func (s *Store) ForceCreate(
+	ctx context.Context,
+	profileTransactionDataTTL int32,
+	transactionData *issuecredential.TransactionData,
+) (*issuecredential.Transaction, error) {
+	return s.createInternal(ctx, profileTransactionDataTTL, transactionData, true)
+}
+
 func (s *Store) Create(
 	ctx context.Context,
 	profileTransactionDataTTL int32,
-	transactionData *oidc4ci.TransactionData,
-) (*oidc4ci.Transaction, error) {
+	transactionData *issuecredential.TransactionData,
+) (*issuecredential.Transaction, error) {
+	return s.createInternal(ctx, profileTransactionDataTTL, transactionData, false)
+}
+
+func (s *Store) createInternal(
+	ctx context.Context,
+	profileTransactionDataTTL int32,
+	transactionData *issuecredential.TransactionData,
+	force bool,
+) (*issuecredential.Transaction, error) {
 	// Check opStatueBasedKey key existence.
 	opStatueBasedKey := resolveRedisKey(keyPrefix, transactionData.OpState)
-	b, err := s.redisClient.API().Exists(ctx, opStatueBasedKey).Result()
-	if err != nil {
-		return nil, fmt.Errorf("exist: %w", err)
-	}
+	if !force {
+		b, err := s.redisClient.API().Exists(ctx, opStatueBasedKey).Result()
+		if err != nil {
+			return nil, fmt.Errorf("exist: %w", err)
+		}
 
-	if b > 0 {
-		return nil, resterr.ErrDataNotFound
+		if b > 0 {
+			return nil, resterr.ErrDataNotFound
+		}
 	}
 
 	ttl := s.defaultTTL
@@ -80,20 +99,20 @@ func (s *Store) Create(
 	// Set intermediateKey that points to redisDocument
 	pipeline.Set(ctx, intermediateKey, doc, ttl)
 
-	if _, err = pipeline.Exec(ctx); err != nil {
+	if _, err := pipeline.Exec(ctx); err != nil {
 		return nil, fmt.Errorf("transactionData create: %w", err)
 	}
 
-	return &oidc4ci.Transaction{
-		ID:              oidc4ci.TxID(transactionID),
+	return &issuecredential.Transaction{
+		ID:              issuecredential.TxID(transactionID),
 		TransactionData: *transactionData,
 	}, nil
 }
 
 func (s *Store) Get(
 	ctx context.Context,
-	txID oidc4ci.TxID,
-) (*oidc4ci.Transaction, error) {
+	txID issuecredential.TxID,
+) (*issuecredential.Transaction, error) {
 	transactionIDBasedKey := resolveRedisKey(keyPrefix, string(txID))
 
 	intermediateKey, err := s.redisClient.API().Get(ctx, transactionIDBasedKey).Result()
@@ -108,11 +127,11 @@ func (s *Store) Get(
 	return s.findOne(ctx, intermediateKey)
 }
 
-func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4ci.Transaction, error) {
-	return s.Get(ctx, oidc4ci.TxID(opState))
+func (s *Store) FindByOpState(ctx context.Context, opState string) (*issuecredential.Transaction, error) {
+	return s.Get(ctx, issuecredential.TxID(opState))
 }
 
-func (s *Store) findOne(ctx context.Context, intermediateKey string) (*oidc4ci.Transaction, error) {
+func (s *Store) findOne(ctx context.Context, intermediateKey string) (*issuecredential.Transaction, error) {
 	clientAPI := s.redisClient.API()
 	b, err := clientAPI.Get(ctx, intermediateKey).Bytes()
 	if err != nil {
@@ -132,13 +151,13 @@ func (s *Store) findOne(ctx context.Context, intermediateKey string) (*oidc4ci.T
 		return nil, resterr.ErrDataNotFound
 	}
 
-	return &oidc4ci.Transaction{
-		ID:              oidc4ci.TxID(doc.ID),
+	return &issuecredential.Transaction{
+		ID:              issuecredential.TxID(doc.ID),
 		TransactionData: *doc.TransactionData,
 	}, nil
 }
 
-func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
+func (s *Store) Update(ctx context.Context, tx *issuecredential.Transaction) error {
 	transactionIDBasedKey := resolveRedisKey(keyPrefix, string(tx.ID))
 	opStatueBasedKey := resolveRedisKey(keyPrefix, tx.OpState)
 

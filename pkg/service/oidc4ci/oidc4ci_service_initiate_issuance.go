@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 const (
@@ -64,7 +65,11 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, resterr.ErrAuthorizedCodeFlowNotSupported
 	}
 
-	issuedCredentialConfiguration := make([]*TxCredentialConfiguration, 0, len(req.CredentialConfiguration))
+	issuedCredentialConfiguration := make(
+		[]*issuecredential.TxCredentialConfiguration,
+		0,
+		len(req.CredentialConfiguration),
+	)
 
 	for _, credentialConfiguration := range req.CredentialConfiguration {
 		txCredentialConf, err := s.newTxCredentialConf(
@@ -76,9 +81,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		issuedCredentialConfiguration = append(issuedCredentialConfiguration, txCredentialConf)
 	}
 
-	txState := TransactionStateIssuanceInitiated
+	txState := issuecredential.TransactionStateIssuanceInitiated
 	if req.WalletInitiatedIssuance {
-		txState = TransactionStateAwaitingIssuerOIDCAuthorization
+		txState = issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization
 	}
 
 	opState := req.OpState
@@ -89,13 +94,14 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		opState = preAuthCode // set opState as it will be empty for pre-auth
 	}
 
-	txData := &TransactionData{
+	txData := &issuecredential.TransactionData{
 		ProfileID:               profile.ID,
 		ProfileVersion:          profile.Version,
 		OrgID:                   profile.OrganizationID,
 		ResponseType:            req.ResponseType,
 		State:                   txState,
 		WebHookURL:              profile.WebHook,
+		RefreshServiceEnabled:   profile.VCConfig.RefreshServiceEnabled,
 		DID:                     profile.SigningDID.DID,
 		WalletInitiatedIssuance: req.WalletInitiatedIssuance,
 		IsPreAuthFlow:           isPreAuthFlow,
@@ -173,7 +179,7 @@ func (s *Service) newTxCredentialConf(
 	credentialConfiguration InitiateIssuanceCredentialConfiguration,
 	isPreAuthFlow bool,
 	profile *profileapi.Issuer,
-) (*TxCredentialConfiguration, error) {
+) (*issuecredential.TxCredentialConfiguration, error) {
 	err := s.validateFlowSpecificRequestParams(
 		isPreAuthFlow,
 		credentialConfiguration,
@@ -212,7 +218,7 @@ func (s *Service) newTxCredentialConf(
 
 	metaCredentialConfiguration := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
 
-	txCredentialConfiguration := &TxCredentialConfiguration{
+	txCredentialConfiguration := &issuecredential.TxCredentialConfiguration{
 		ID:                    uuid.NewString(),
 		CredentialTemplate:    targetCredentialTemplate,
 		OIDCCredentialFormat:  metaCredentialConfiguration.Format,
@@ -301,7 +307,7 @@ func (s *Service) applyPreAuthFlowModifications(
 	profileClaimDataTTLSec int32,
 	req InitiateIssuanceCredentialConfiguration,
 	credentialTemplate *profileapi.CredentialTemplate,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) error {
 	var targetClaims map[string]interface{}
 	if req.ClaimData != nil {
@@ -320,13 +326,13 @@ func (s *Service) applyPreAuthFlowModifications(
 		}
 
 		targetClaims = req.ClaimData
-		txCredentialConfiguration.ClaimDataType = ClaimDataTypeClaims
+		txCredentialConfiguration.ClaimDataType = issuecredential.ClaimDataTypeClaims
 	} else if req.ComposeCredential != nil {
 		targetClaims = lo.FromPtr(req.ComposeCredential.Credential)
 
-		txCredentialConfiguration.ClaimDataType = ClaimDataTypeVC
+		txCredentialConfiguration.ClaimDataType = issuecredential.ClaimDataTypeVC
 
-		txCredentialConfiguration.CredentialComposeConfiguration = &CredentialComposeConfiguration{
+		txCredentialConfiguration.CredentialComposeConfiguration = &issuecredential.CredentialComposeConfiguration{
 			IDTemplate:         req.ComposeCredential.IDTemplate,
 			OverrideIssuer:     req.ComposeCredential.OverrideIssuer,
 			OverrideSubjectDID: req.ComposeCredential.OverrideSubjectDID,
@@ -352,7 +358,7 @@ func (s *Service) applyPreAuthFlowModifications(
 	return nil
 }
 
-func setScopes(data *TransactionData, scopesSupported []string, requestScopes []string) error {
+func setScopes(data *issuecredential.TransactionData, scopesSupported []string, requestScopes []string) error {
 	if len(requestScopes) == 0 {
 		data.Scope = scopesSupported
 		return nil
@@ -370,7 +376,7 @@ func setScopes(data *TransactionData, scopesSupported []string, requestScopes []
 	return nil
 }
 
-func setGrantType(data *TransactionData, grantTypesSupported []string, requestGrantType string) error {
+func setGrantType(data *issuecredential.TransactionData, grantTypesSupported []string, requestGrantType string) error {
 	if !lo.Contains(grantTypesSupported, requestGrantType) {
 		return resterr.NewValidationError(resterr.InvalidValue, "grant-type",
 			fmt.Errorf("unsupported grant type %s", requestGrantType))
@@ -417,7 +423,7 @@ func (s *Service) GetCredentialsExpirationTime(
 func (s *Service) extendTransactionWithOIDCConfig(
 	ctx context.Context,
 	profile *profileapi.Issuer,
-	data *TransactionData,
+	data *issuecredential.TransactionData,
 ) error {
 	if profile.OIDCConfig == nil || profile.OIDCConfig.IssuerWellKnownURL == "" {
 		return nil
@@ -497,12 +503,12 @@ func findCredentialConfigurationID(
 
 func (s *Service) prepareCredentialOffer(
 	req *InitiateIssuanceRequest,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 ) *CredentialOfferResponse {
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
 	credentialConfigurationIDs := lo.Map(tx.CredentialConfiguration,
-		func(item *TxCredentialConfiguration, index int) string {
+		func(item *issuecredential.TxCredentialConfiguration, index int) string {
 			return item.CredentialConfigurationID
 		})
 
@@ -612,7 +618,7 @@ func (s *Service) getSignedCredentialOfferJWT(
 func (s *Service) buildInitiateIssuanceURL(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	profile *profileapi.Issuer,
 ) (string, InitiateIssuanceResponseContentType, error) {
 	credentialOffer := s.prepareCredentialOffer(req, tx)

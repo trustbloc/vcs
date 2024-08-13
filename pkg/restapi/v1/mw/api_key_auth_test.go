@@ -180,4 +180,44 @@ func TestApiKeyAuth(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, handlerCalled)
 	})
+
+	t.Run("skip refresh endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
+
+	t.Run("skip status endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/credentials/status/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
 }

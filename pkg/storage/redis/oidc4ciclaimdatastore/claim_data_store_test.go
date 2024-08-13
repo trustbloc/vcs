@@ -22,7 +22,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
@@ -45,7 +45,7 @@ func TestStore(t *testing.T) {
 	store := New(client, defaultClaimsTTL)
 
 	t.Run("test create and get", func(t *testing.T) {
-		claims := &oidc4ci.ClaimData{
+		claims := &issuecredential.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1},
 				EncryptedNonce: []byte{0x2},
@@ -76,7 +76,7 @@ func TestStore(t *testing.T) {
 	t.Run("test default expiration", func(t *testing.T) {
 		storeExpired := New(client, 0)
 
-		claims := &oidc4ci.ClaimData{
+		claims := &issuecredential.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1},
 				EncryptedNonce: []byte{0x2},
@@ -94,7 +94,7 @@ func TestStore(t *testing.T) {
 	t.Run("test profile expiration", func(t *testing.T) {
 		storeExpired := New(client, 1000)
 
-		claims := &oidc4ci.ClaimData{
+		claims := &issuecredential.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1},
 				EncryptedNonce: []byte{0x2},

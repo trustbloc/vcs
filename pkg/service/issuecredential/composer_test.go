@@ -1,4 +1,4 @@
-package oidc4ci_test
+package issuecredential_test
 
 import (
 	"context"
@@ -10,12 +10,12 @@ import (
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func TestComposer(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		srv := oidc4ci.NewCredentialComposer()
+		srv := issuecredential.NewCredentialComposer()
 
 		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Types: []string{"VerifiableCredential"},
@@ -31,22 +31,18 @@ func TestComposer(t *testing.T) {
 		resp, err := srv.Compose(
 			context.TODO(),
 			cred,
-			&oidc4ci.Transaction{
-				ID: "some-awesome-id",
-				TransactionData: oidc4ci.TransactionData{
-					DID: "did:example:123",
+			&issuecredential.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &issuecredential.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
+						IDTemplate:         "hardcoded:{{.TxID}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: &expectedExpiration,
 				},
-			},
-			&oidc4ci.TxCredentialConfiguration{
-				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:         "hardcoded:{{.TxID}}:suffix",
-					OverrideIssuer:     true,
-					OverrideSubjectDID: true,
-				},
-				CredentialExpiresAt: &expectedExpiration,
-			},
-			&oidc4ci.PrepareCredentialRequest{
-				DID: "some-awesome-did",
 			},
 		)
 
@@ -73,7 +69,7 @@ func TestComposer(t *testing.T) {
 	})
 
 	t.Run("success with prev-id", func(t *testing.T) {
-		srv := oidc4ci.NewCredentialComposer()
+		srv := issuecredential.NewCredentialComposer()
 
 		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			ID:      "some-id",
@@ -92,22 +88,18 @@ func TestComposer(t *testing.T) {
 		resp, err := srv.Compose(
 			context.TODO(),
 			cred,
-			&oidc4ci.Transaction{
-				ID: "some-awesome-id",
-				TransactionData: oidc4ci.TransactionData{
-					DID: "did:example:123",
+			&issuecredential.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &issuecredential.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
+						IDTemplate:         "{{.CredentialID}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: lo.ToPtr(time.Now()),
 				},
-			},
-			&oidc4ci.TxCredentialConfiguration{
-				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:         "{{.CredentialID}}:suffix",
-					OverrideIssuer:     true,
-					OverrideSubjectDID: true,
-				},
-				CredentialExpiresAt: lo.ToPtr(time.Now()),
-			},
-			&oidc4ci.PrepareCredentialRequest{
-				DID: "some-awesome-did",
 			},
 		)
 
@@ -123,7 +115,7 @@ func TestComposer(t *testing.T) {
 	})
 
 	t.Run("invalid template", func(t *testing.T) {
-		srv := oidc4ci.NewCredentialComposer()
+		srv := issuecredential.NewCredentialComposer()
 
 		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{}, verifiable.CustomFields{})
 		assert.NoError(t, err)
@@ -131,19 +123,19 @@ func TestComposer(t *testing.T) {
 		resp, err := srv.Compose(
 			context.TODO(),
 			cred,
-			&oidc4ci.Transaction{
-				ID: "some-awesome-id",
-				TransactionData: oidc4ci.TransactionData{
-					DID: "did:example:123",
+			&issuecredential.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &issuecredential.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
+						IDTemplate:         "hardcoded:{{.NotExistingValue.$x}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: lo.ToPtr(time.Now()),
 				},
 			},
-			&oidc4ci.TxCredentialConfiguration{
-				CredentialComposeConfiguration: &oidc4ci.CredentialComposeConfiguration{
-					IDTemplate:     "hardcoded:{{.NotExistingValue.$x}}:suffix",
-					OverrideIssuer: true,
-				},
-			},
-			&oidc4ci.PrepareCredentialRequest{},
 		)
 
 		assert.ErrorContains(t, err, "bad character")
@@ -151,12 +143,12 @@ func TestComposer(t *testing.T) {
 	})
 
 	t.Run("missing compose", func(t *testing.T) {
-		srv := oidc4ci.NewCredentialComposer()
+		srv := issuecredential.NewCredentialComposer()
 
 		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{}, verifiable.CustomFields{})
 		assert.NoError(t, err)
 
-		resp, err := srv.Compose(context.TODO(), cred, nil, nil, nil)
+		resp, err := srv.Compose(context.TODO(), cred, nil)
 		assert.Equal(t, cred, resp)
 		assert.NoError(t, err)
 	})

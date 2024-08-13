@@ -12,8 +12,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.2.1
-	github.com/trustbloc/vc-go v1.1.3-0.20240723144917-8cb417a4df0f
+	github.com/trustbloc/did-go v1.2.2-0.20240812150654-c7d31e666f96
+	github.com/trustbloc/vc-go v1.1.3-0.20240813130343-c7c2ade0e1fc
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 

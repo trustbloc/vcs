@@ -18,7 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -27,9 +27,9 @@ const (
 )
 
 type mongoDocument struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"`
-	ExpireAt  time.Time          `bson:"expire_at"`
-	ClaimData oidc4ci.ClaimData  `bson:"claim_data"`
+	ID        primitive.ObjectID        `bson:"_id,omitempty"`
+	ExpireAt  time.Time                 `bson:"expire_at"`
+	ClaimData issuecredential.ClaimData `bson:"claim_data"`
 }
 
 // Store stores claim data with expiration.
@@ -66,7 +66,11 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) Create(ctx context.Context, profileClaimDataTTL int32, data *oidc4ci.ClaimData) (string, error) {
+func (s *Store) Create(
+	ctx context.Context,
+	profileClaimDataTTL int32,
+	data *issuecredential.ClaimData,
+) (string, error) {
 	claimDataTTL := s.defaultTTL
 	if profileClaimDataTTL > 0 {
 		claimDataTTL = profileClaimDataTTL
@@ -85,7 +89,7 @@ func (s *Store) Create(ctx context.Context, profileClaimDataTTL int32, data *oid
 	return result.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.ClaimData, error) {
+func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*issuecredential.ClaimData, error) {
 	id, err := primitive.ObjectIDFromHex(claimDataID)
 	if err != nil {
 		return nil, fmt.Errorf("parse id %s: %w", claimDataID, err)

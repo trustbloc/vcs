@@ -43,6 +43,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/service/refresh"
 )
 
 var logger = log.New("restapi-issuer")
@@ -90,6 +91,13 @@ type jsonSchemaValidator interface {
 	Validate(data interface{}, schemaID string, schema []byte) error
 }
 
+type CredentialRefreshService interface {
+	CreateRefreshState(
+		ctx context.Context,
+		req *refresh.CreateRefreshStateRequest,
+	) (string, error)
+}
+
 type Config struct {
 	EventSvc                       eventService
 	EventTopic                     string
@@ -103,6 +111,7 @@ type Config struct {
 	ExternalHostURL                string
 	Tracer                         trace.Tracer
 	JSONSchemaValidator            jsonSchemaValidator
+	CredentialRefreshService       CredentialRefreshService
 }
 
 // Controller for Issuer Profile Management API.
@@ -120,6 +129,7 @@ type Controller struct {
 	eventSvc                       eventService
 	eventTopic                     string
 	marshal                        func(any) ([]byte, error)
+	credentialRefreshService       CredentialRefreshService
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -138,7 +148,38 @@ func NewController(config *Config) *Controller {
 		eventSvc:                       config.EventSvc,
 		eventTopic:                     config.EventTopic,
 		marshal:                        json.Marshal,
+		credentialRefreshService:       config.CredentialRefreshService,
 	}
+}
+
+// SetCredentialRefreshState sets claims for credential refresh.
+// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/refresh.
+func (c *Controller) SetCredentialRefreshState(ctx echo.Context, profileID string, profileVersion string) error {
+	var body SetCredentialRefreshStateRequest
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
+	if err != nil {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent,
+			"PrepareClaimDataAuthorizationRequest", err)
+	}
+
+	txID, err := c.credentialRefreshService.CreateRefreshState(ctx.Request().Context(), &refresh.CreateRefreshStateRequest{
+		CredentialID:          body.CredentialId,
+		Issuer:                *profile,
+		Claims:                body.Claims,
+		CredentialName:        body.CredentialName,
+		CredentialDescription: body.CredentialDescription,
+	})
+	if err != nil {
+		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "SetCredentialRefreshState", err)
+	}
+
+	return util.WriteOutput(ctx)(SetCredentialRefreshStateResult{
+		TransactionId: txID,
+	}, nil)
 }
 
 // PostIssueCredentials issues credentials.
@@ -632,7 +673,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	var (
-		ad  []*oidc4ci.AuthorizationDetails
+		ad  []*issuecredential.AuthorizationDetails
 		err error
 	)
 
@@ -809,7 +850,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID: oidc4ci.TxID(body.TxId),
+			TxID: issuecredential.TxID(body.TxId),
 			CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
 				{
 					CredentialTypes:  body.Types,
@@ -989,7 +1030,7 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID:               oidc4ci.TxID(body.TxId),
+			TxID:               issuecredential.TxID(body.TxId),
 			CredentialRequests: credentialRequests,
 		},
 	)
@@ -1139,6 +1180,7 @@ func (c *Controller) validateJSONLD(
 	return validator.ValidateJSONLDMap(data,
 		validator.WithDocumentLoader(c.documentLoader),
 		validator.WithStrictValidation(true),
+		validator.WithJSONLDIncludeDetailedStructureDiffOnError(),
 	)
 }
 

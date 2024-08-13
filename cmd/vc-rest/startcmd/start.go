@@ -81,6 +81,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/refresh"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
@@ -90,6 +91,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
+	refresh2 "github.com/trustbloc/vcs/pkg/service/refresh"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -702,6 +704,11 @@ func buildEchoHandler(
 		ProfileSvc: issuerProfileSvc,
 	})
 
+	prepareCredentialSvc := issuecredential.NewPrepareCredentialService(&issuecredential.PrepareCredentialServiceConfig{
+		VcsAPIURL: conf.StartupParameters.hostURLExternal,
+		Composer:  issuecredential.NewCredentialComposer(),
+	})
+
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
@@ -720,8 +727,8 @@ func buildEchoHandler(
 		JSONSchemaValidator:           jsonSchemaValidator,
 		TrustRegistry:                 trustRegistryService,
 		AckService:                    ackService,
-		Composer:                      oidc4ci.NewCredentialComposer(),
 		DocumentLoader:                documentLoader,
+		PrepareCredential:             prepareCredentialSvc,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -824,6 +831,30 @@ func buildEchoHandler(
 		)
 	}
 
+	var verifyPresentationSvc verifypresentation.ServiceInterface
+
+	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
+		VcVerifier:     verifyCredentialSvc,
+		DocumentLoader: documentLoader,
+		VDR:            conf.VDR,
+	})
+
+	if conf.IsTraceEnabled {
+		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
+	}
+
+	refreshService := refresh2.NewRefreshService(&refresh2.Config{
+		VcsAPIURL:              conf.StartupParameters.apiGatewayURL,
+		TxStore:                oidc4ciTransactionStore,
+		ClaimsStore:            oidc4ciClaimDataStore,
+		DataProtector:          claimsDataProtector,
+		PresentationVerifier:   verifyPresentationSvc,
+		CredentialIssuer:       prepareCredentialSvc,
+		IssueCredentialService: issueCredentialSvc,
+		EventPublisher:         eventSvc,
+		EventTopic:             conf.StartupParameters.issuerEventTopic,
+	})
+
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
@@ -845,6 +876,14 @@ func buildEchoHandler(
 		LDPProofParser:          oidc4civ1.NewDefaultLDPProofParser(),
 	}))
 
+	refresh.RegisterHandlers(e, refresh.NewController(&refresh.Config{
+		RefreshService:      refreshService,
+		ProfileService:      issuerProfileSvc,
+		ProofChecker:        proofChecker,
+		DocumentLoader:      documentLoader,
+		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
+	}))
+
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
 		HTTPClient:      getHTTPClient(metricsProvider.ClientOIDC4PV1),
 		ExternalHostURL: conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
@@ -864,6 +903,7 @@ func buildEchoHandler(
 		Tracer:                         conf.Tracer,
 		OpenidIssuerConfigProvider:     openidCredentialIssuerConfigProviderSvc,
 		JSONSchemaValidator:            jsonSchemaValidator,
+		CredentialRefreshService:       refreshService,
 	}))
 
 	// Verifier Profile Management API
@@ -876,18 +916,6 @@ func buildEchoHandler(
 		})
 	if err != nil {
 		return nil, err
-	}
-
-	var verifyPresentationSvc verifypresentation.ServiceInterface
-
-	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
-		VcVerifier:     verifyCredentialSvc,
-		DocumentLoader: documentLoader,
-		VDR:            conf.VDR,
-	})
-
-	if conf.IsTraceEnabled {
-		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
 	}
 
 	oidc4vpTxStore, err := getOIDC4VPTxStore(

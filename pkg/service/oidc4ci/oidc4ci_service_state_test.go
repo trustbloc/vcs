@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func TestValidateTransition(t *testing.T) {
@@ -18,28 +20,28 @@ func TestValidateTransition(t *testing.T) {
 	assert.NoError(t, err)
 
 	testCases := []struct {
-		from TransactionState
-		to   TransactionState
+		from issuecredential.TransactionState
+		to   issuecredential.TransactionState
 	}{
 		{
-			from: TransactionStateIssuanceInitiated,
-			to:   TransactionStatePreAuthCodeValidated,
+			from: issuecredential.TransactionStateIssuanceInitiated,
+			to:   issuecredential.TransactionStatePreAuthCodeValidated,
 		},
 		{
-			from: TransactionStateIssuanceInitiated,
-			to:   TransactionStateAwaitingIssuerOIDCAuthorization,
+			from: issuecredential.TransactionStateIssuanceInitiated,
+			to:   issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
 		},
 		{
-			from: TransactionStateAwaitingIssuerOIDCAuthorization,
-			to:   TransactionStateIssuerOIDCAuthorizationDone,
+			from: issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization,
+			to:   issuecredential.TransactionStateIssuerOIDCAuthorizationDone,
 		},
 		{
-			from: TransactionStatePreAuthCodeValidated,
-			to:   TransactionStateCredentialsIssued,
+			from: issuecredential.TransactionStatePreAuthCodeValidated,
+			to:   issuecredential.TransactionStateCredentialsIssued,
 		},
 		{
-			from: TransactionStateIssuerOIDCAuthorizationDone,
-			to:   TransactionStateCredentialsIssued,
+			from: issuecredential.TransactionStateIssuerOIDCAuthorizationDone,
+			to:   issuecredential.TransactionStateCredentialsIssued,
 		},
 	}
 
@@ -54,6 +56,8 @@ func TestInvalidTransition(t *testing.T) {
 	s, err := NewService(&Config{})
 	assert.NoError(t, err)
 
-	assert.ErrorContains(t, s.validateStateTransition(TransactionStateUnknown, TransactionStateIssuanceInitiated),
-		"unexpected transition from 0 to 1")
+	assert.ErrorContains(t, s.validateStateTransition(
+		issuecredential.TransactionStateUnknown,
+		issuecredential.TransactionStateIssuanceInitiated,
+	), "unexpected transition from 0 to 1")
 }

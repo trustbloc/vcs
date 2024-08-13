@@ -52,6 +52,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -5042,11 +5043,11 @@ func (m *mockJWEEncrypter) Options() gojose.EncrypterOptions {
 func getTestOIDCTokenAuthorizationDetailsPayload(t *testing.T) string {
 	t.Helper()
 
-	res := &oidc4cisrv.AuthorizationDetails{
+	res := &issuecredential.AuthorizationDetails{
 		CredentialConfigurationID: "CredentialConfigurationID",
 		Locations:                 []string{"https://example.com/rs1", "https://example.com/rs2"},
 		Type:                      "openid_credential",
-		CredentialDefinition: &oidc4cisrv.CredentialDefinition{
+		CredentialDefinition: &issuecredential.CredentialDefinition{
 			Context:           []string{"https://example.com/context/1", "https://example.com/context/2"},
 			CredentialSubject: map[string]interface{}{"key": "value"},
 			Type:              []string{"VerifiableCredential", "UniversityDegreeCredential"},

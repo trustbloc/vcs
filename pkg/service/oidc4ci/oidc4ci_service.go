@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
-	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -33,13 +32,13 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
 )
 
 const (
 	defaultGrantType        = "authorization_code"
 	defaultResponseType     = "token"
-	defaultCtx              = "https://www.w3.org/2018/credentials/v1"
 	attestJWTClientAuthType = "attest_jwt_client_auth"
 )
 
@@ -53,31 +52,37 @@ type pinGenerator interface {
 }
 
 type transactionStore interface {
+	ForceCreate(
+		ctx context.Context,
+		profileTransactionDataTTL int32,
+		data *issuecredential.TransactionData,
+	) (*issuecredential.Transaction, error)
+
 	Create(
 		ctx context.Context,
 		profileTransactionDataTTL int32,
-		data *TransactionData,
-	) (*Transaction, error)
+		data *issuecredential.TransactionData,
+	) (*issuecredential.Transaction, error)
 
 	Get(
 		ctx context.Context,
-		txID TxID,
-	) (*Transaction, error)
+		txID issuecredential.TxID,
+	) (*issuecredential.Transaction, error)
 
 	FindByOpState(
 		ctx context.Context,
 		opState string,
-	) (*Transaction, error)
+	) (*issuecredential.Transaction, error)
 
 	Update(
 		ctx context.Context,
-		tx *Transaction,
+		tx *issuecredential.Transaction,
 	) error
 }
 
 type claimDataStore interface {
-	Create(ctx context.Context, profileTTLSec int32, data *ClaimData) (string, error)
-	GetAndDelete(ctx context.Context, id string) (*ClaimData, error)
+	Create(ctx context.Context, profileTTLSec int32, data *issuecredential.ClaimData) (string, error)
+	GetAndDelete(ctx context.Context, id string) (*issuecredential.ClaimData, error)
 }
 
 type wellKnownService interface {
@@ -144,16 +149,6 @@ type ackService interface {
 	) (*string, error)
 }
 
-type composer interface {
-	Compose(
-		ctx context.Context,
-		credential *verifiable.Credential,
-		tx *Transaction,
-		txCredentialConfiguration *TxCredentialConfiguration,
-		req *PrepareCredentialRequest,
-	) (*verifiable.Credential, error)
-}
-
 // DocumentLoader knows how to load remote documents.
 type documentLoader interface {
 	LoadDocument(u string) (*ld.RemoteDocument, error)
@@ -178,8 +173,8 @@ type Config struct {
 	JSONSchemaValidator           jsonSchemaValidator
 	TrustRegistry                 trustRegistry
 	AckService                    ackService
-	Composer                      composer
 	DocumentLoader                documentLoader
+	PrepareCredential             credentialIssuer
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -201,8 +196,8 @@ type Service struct {
 	schemaValidator               jsonSchemaValidator
 	trustRegistry                 trustRegistry
 	ackService                    ackService
-	composer                      composer
 	documentLoader                documentLoader
+	credentialIssuer              credentialIssuer
 }
 
 // NewService returns a new Service instance.
@@ -225,15 +220,15 @@ func NewService(config *Config) (*Service, error) {
 		schemaValidator:               config.JSONSchemaValidator,
 		trustRegistry:                 config.TrustRegistry,
 		ackService:                    config.AckService,
-		composer:                      config.Composer,
 		documentLoader:                config.DocumentLoader,
+		credentialIssuer:              config.PrepareCredential,
 	}, nil
 }
 
 func (s *Service) PushAuthorizationDetails(
 	ctx context.Context,
 	opState string,
-	ad []*AuthorizationDetails,
+	ad []*issuecredential.AuthorizationDetails,
 ) error {
 	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
@@ -258,7 +253,7 @@ func (s *Service) PushAuthorizationDetails(
 		return err
 	}
 
-	var validTxCredentialConfiguration []*TxCredentialConfiguration
+	var validTxCredentialConfiguration []*issuecredential.TxCredentialConfiguration
 	// Delete unused entities from tx.CredentialConfiguration
 	for _, txCredentialConfiguration := range tx.CredentialConfiguration {
 		if _, ok := requestedTxCredentialConfigurationsIDs[txCredentialConfiguration.ID]; ok {
@@ -284,7 +279,7 @@ func (s *Service) checkScopes(
 	profile *profileapi.Issuer,
 	reqScopes []string,
 	txScope []string,
-	txCredentialConfigurations []*TxCredentialConfiguration,
+	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
 	requestedTxCredentialConfigurationIDsViaAuthDetails map[string]struct{},
 ) ([]string, error) {
 	var credentialsConfigurationSupported map[string]*profileapi.CredentialsConfigurationSupported
@@ -377,7 +372,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		return nil, err
 	}
 
-	newState := TransactionStateAwaitingIssuerOIDCAuthorization
+	newState := issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		s.sendFailedTransactionEvent(ctx, tx, err)
 		return nil, err
@@ -424,7 +419,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	tx.Scope = validScopes
 
-	var validTxCredentialConfiguration []*TxCredentialConfiguration
+	var validTxCredentialConfiguration []*issuecredential.TxCredentialConfiguration
 	// Delete unused entities from tx.CredentialConfiguration
 	for _, txCredentialConfiguration := range tx.CredentialConfiguration {
 		if _, ok := requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID]; ok {
@@ -524,8 +519,8 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 //nolint:gocognit,nolintlint
 func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 	profile *profileapi.Issuer,
-	txCredentialConfigurations []*TxCredentialConfiguration,
-	authorizationDetails []*AuthorizationDetails,
+	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
+	authorizationDetails []*issuecredential.AuthorizationDetails,
 ) (map[string]struct{}, error) {
 	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
@@ -614,7 +609,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 	clientID,
 	clientAssertionType,
 	clientAssertion string,
-) (*Transaction, error) {
+) (*issuecredential.Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
 		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("find tx by op state: %w", err))
@@ -647,7 +642,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		}
 	}
 
-	newState := TransactionStatePreAuthCodeValidated
+	newState := issuecredential.TransactionStatePreAuthCodeValidated
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		return nil, err
 	}
@@ -685,7 +680,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 func (s *Service) checkPolicy(
 	ctx context.Context,
 	profile *profileapi.Issuer,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	clientAssertionType,
 	clientAssertion string,
 ) error {
@@ -765,7 +760,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			return nil, err
 		}
 
-		var txCredentialConfiguration *TxCredentialConfiguration
+		var txCredentialConfiguration *issuecredential.TxCredentialConfiguration
 		txCredentialConfiguration, err = s.findTxCredentialConfiguration(
 			requestedTxCredentialConfigurationIDs,
 			tx.CredentialConfiguration,
@@ -802,7 +797,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		prepareCredentialResult.Credentials = append(prepareCredentialResult.Credentials, prepareCredentialResultData)
 	}
 
-	tx.State = TransactionStateCredentialsIssued
+	tx.State = issuecredential.TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
 		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
 
@@ -818,13 +813,54 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	return prepareCredentialResult, nil
 }
 
+func (s *Service) prepareCredential( //nolint:funlen
+	ctx context.Context,
+	tx *issuecredential.Transaction,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
+	prepareCredentialRequest *PrepareCredentialRequest,
+) (*verifiable.Credential, *string, error) {
+	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get claims data: %w", err)
+	}
+
+	finalCred, err := s.credentialIssuer.PrepareCredential(ctx, &issuecredential.PrepareCredentialsRequest{
+		TxID:                    string(tx.ID),
+		ClaimData:               claimData,
+		IssuerDID:               tx.DID,
+		SubjectDID:              prepareCredentialRequest.DID,
+		CredentialConfiguration: txCredentialConfiguration,
+		IssuerID:                tx.ProfileID,
+		IssuerVersion:           tx.ProfileVersion,
+		RefreshServiceEnabled:   tx.RefreshServiceEnabled,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepare credential: %w", err)
+	}
+
+	// Create credential-specific record.
+	ack, err := s.ackService.CreateAck(ctx, &Ack{
+		HashedToken:    prepareCredentialRequest.HashedToken,
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		TxID:           generateAckTxID(tx.ID),
+		WebHookURL:     tx.WebHookURL,
+		OrgID:          tx.OrgID,
+	})
+	if err != nil { // its not critical and should not break the flow
+		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
+	}
+
+	return finalCred, ack, nil
+}
+
 func (s *Service) findTxCredentialConfiguration( //nolint:funlen
 	requestedTxCredentialConfigurationIDs map[string]struct{},
-	txCredentialConfigurations []*TxCredentialConfiguration,
+	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
 	credentialFormat vcsverifiable.OIDCFormat,
 	credentialTypes []string,
-) (*TxCredentialConfiguration, error) {
-	var txCredentialConfiguration *TxCredentialConfiguration
+) (*issuecredential.TxCredentialConfiguration, error) {
+	var txCredentialConfiguration *issuecredential.TxCredentialConfiguration
 	for _, credentialConfiguration := range txCredentialConfigurations {
 		if _, ok := requestedTxCredentialConfigurationIDs[credentialConfiguration.ID]; ok {
 			continue
@@ -867,126 +903,10 @@ func (s *Service) validateRequestAudienceClaim( //nolint:funlen
 	return nil
 }
 
-func (s *Service) prepareCredentialFromClaims(
-	_ context.Context,
-	claimData map[string]interface{},
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	prepareCredentialRequest *PrepareCredentialRequest,
-) (*verifiable.Credential, error) {
-	contexts := txCredentialConfiguration.CredentialTemplate.Contexts
-	if len(contexts) == 0 {
-		contexts = []string{defaultCtx}
-	}
-
-	// prepare credential for signing
-	vcc := verifiable.CredentialContents{
-		Context: contexts,
-		ID:      uuid.New().URN(),
-		Types:   []string{"VerifiableCredential", txCredentialConfiguration.CredentialTemplate.Type},
-		Issuer:  &verifiable.Issuer{ID: tx.DID},
-		Issued:  util.NewTime(time.Now()),
-	}
-
-	customFields := map[string]interface{}{}
-
-	if txCredentialConfiguration.CredentialDescription != "" {
-		customFields["description"] = txCredentialConfiguration.CredentialDescription
-	}
-	if txCredentialConfiguration.CredentialName != "" {
-		customFields["name"] = txCredentialConfiguration.CredentialName
-	}
-
-	if txCredentialConfiguration.CredentialExpiresAt != nil {
-		vcc.Expired = util.NewTime(*txCredentialConfiguration.CredentialExpiresAt)
-	}
-
-	if claimData != nil {
-		vcc.Subject = []verifiable.Subject{{
-			ID:           prepareCredentialRequest.DID,
-			CustomFields: claimData,
-		}}
-	} else {
-		vcc.Subject = []verifiable.Subject{{ID: prepareCredentialRequest.DID}}
-	}
-
-	return verifiable.CreateCredential(vcc, customFields)
-}
-
-func (s *Service) prepareCredentialFromCompose(
-	ctx context.Context,
-	claimData map[string]interface{},
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	req *PrepareCredentialRequest,
-) (*verifiable.Credential, error) {
-	cred, err := verifiable.ParseCredentialJSON(claimData,
-		verifiable.WithCredDisableValidation(),
-		verifiable.WithDisabledProofCheck(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("parse credential json: %w", err)
-	}
-
-	return s.composer.Compose(ctx, cred, tx, txCredentialConfiguration, req)
-}
-
-func (s *Service) prepareCredential( //nolint:funlen
-	ctx context.Context,
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
-	prepareCredentialRequest *PrepareCredentialRequest,
-) (*verifiable.Credential, *string, error) {
-	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
-	if err != nil {
-		return nil, nil, fmt.Errorf("get claims data: %w", err)
-	}
-
-	var finalCred *verifiable.Credential
-
-	switch txCredentialConfiguration.ClaimDataType {
-	case ClaimDataTypeClaims:
-		finalCred, err = s.prepareCredentialFromClaims(
-			ctx,
-			claimData,
-			tx,
-			txCredentialConfiguration,
-			prepareCredentialRequest,
-		)
-	case ClaimDataTypeVC:
-		finalCred, err = s.prepareCredentialFromCompose(
-			ctx,
-			claimData,
-			tx,
-			txCredentialConfiguration,
-			prepareCredentialRequest,
-		)
-	}
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepare credential: %w", err)
-	}
-
-	// Create cpredential-specific record.
-	ack, err := s.ackService.CreateAck(ctx, &Ack{
-		HashedToken:    prepareCredentialRequest.HashedToken,
-		ProfileID:      tx.ProfileID,
-		ProfileVersion: tx.ProfileVersion,
-		TxID:           generateAckTxID(tx.ID),
-		WebHookURL:     tx.WebHookURL,
-		OrgID:          tx.OrgID,
-	})
-	if err != nil { // its not critical and should not break the flow
-		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
-	}
-
-	return finalCred, ack, nil
-}
-
 func (s *Service) getClaimsData(
 	ctx context.Context,
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	tx *issuecredential.Transaction,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	if !tx.IsPreAuthFlow {
 		claims, err := s.requestClaims(ctx, tx, txCredentialConfiguration)
@@ -1012,8 +932,8 @@ func (s *Service) getClaimsData(
 
 func (s *Service) requestClaims(
 	ctx context.Context,
-	tx *Transaction,
-	txCredentialConfiguration *TxCredentialConfiguration,
+	tx *issuecredential.Transaction,
+	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 ) (map[string]interface{}, error) {
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, txCredentialConfiguration.ClaimEndpoint, http.NoBody)
 	if err != nil {
@@ -1054,7 +974,7 @@ func (s *Service) requestClaims(
 
 func createEvent(
 	eventType spi.EventType,
-	transactionID TxID,
+	transactionID issuecredential.TxID,
 	ep *EventPayload,
 ) (*spi.Event, error) {
 	payload, err := json.Marshal(ep)
@@ -1071,7 +991,7 @@ func createEvent(
 func (s *Service) sendEvent(
 	ctx context.Context,
 	eventType spi.EventType,
-	transactionID TxID,
+	transactionID issuecredential.TxID,
 	ep *EventPayload) error {
 	event, err := createEvent(eventType, transactionID, ep)
 	if err != nil {
@@ -1083,7 +1003,7 @@ func (s *Service) sendEvent(
 
 func (s *Service) sendTransactionEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	eventType spi.EventType,
 ) error {
 	return s.sendEvent(ctx, eventType, tx.ID, createTxEventPayload(tx))
@@ -1091,7 +1011,7 @@ func (s *Service) sendTransactionEvent(
 
 func (s *Service) sendFailedTransactionEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	e error,
 ) {
 	ep := &EventPayload{
@@ -1108,7 +1028,7 @@ func (s *Service) sendFailedTransactionEvent(
 	}
 }
 
-func createTxEventPayload(tx *Transaction) *EventPayload {
+func createTxEventPayload(tx *issuecredential.Transaction) *EventPayload {
 	var (
 		credentialTemplateID string
 		credentialFormat     vcsverifiable.OIDCFormat
@@ -1148,7 +1068,7 @@ func createTxEventPayload(tx *Transaction) *EventPayload {
 
 func (s *Service) sendInitiateIssuanceEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 	initiateURL string,
 ) error {
 	payload := createTxEventPayload(tx)
@@ -1159,7 +1079,7 @@ func (s *Service) sendInitiateIssuanceEvent(
 
 func (s *Service) sendIssuanceAuthRequestPreparedTxEvent(
 	ctx context.Context,
-	tx *Transaction,
+	tx *issuecredential.Transaction,
 ) error {
 	payload := createTxEventPayload(tx)
 	payload.AuthorizationEndpoint = tx.AuthorizationEndpoint

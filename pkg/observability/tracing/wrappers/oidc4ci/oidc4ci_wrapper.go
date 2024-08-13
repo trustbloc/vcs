@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/internal/utils"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -66,7 +67,7 @@ func (w *Wrapper) InitiateIssuance(
 	return resp, nil
 }
 
-func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad []*oidc4ci.AuthorizationDetails) error {
+func (w *Wrapper) PushAuthorizationDetails(ctx context.Context, opState string, ad []*issuecredential.AuthorizationDetails) error {
 	return w.svc.PushAuthorizationDetails(ctx, opState, ad)
 }
 
@@ -74,7 +75,12 @@ func (w *Wrapper) PrepareClaimDataAuthorizationRequest(ctx context.Context, req 
 	return w.svc.PrepareClaimDataAuthorizationRequest(ctx, req)
 }
 
-func (w *Wrapper) StoreAuthorizationCode(ctx context.Context, opState string, code string, flowData *common.WalletInitiatedFlowData) (oidc4ci.TxID, error) {
+func (w *Wrapper) StoreAuthorizationCode(
+	ctx context.Context,
+	opState string,
+	code string,
+	flowData *common.WalletInitiatedFlowData,
+) (issuecredential.TxID, error) {
 	return w.svc.StoreAuthorizationCode(ctx, opState, code, flowData)
 }
 
@@ -82,7 +88,14 @@ func (w *Wrapper) ExchangeAuthorizationCode(ctx context.Context, opState, client
 	return w.svc.ExchangeAuthorizationCode(ctx, opState, clientID, clientAttestationType, clientAttestation)
 }
 
-func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode, pin, clientID, clientAttestationType, clientAttestation string) (*oidc4ci.Transaction, error) {
+func (w *Wrapper) ValidatePreAuthorizedCodeRequest(
+	ctx context.Context,
+	preAuthorizedCode,
+	pin,
+	clientID,
+	clientAttestationType,
+	clientAttestation string,
+) (*issuecredential.Transaction, error) {
 	ctx, span := w.tracer.Start(ctx, "oidc4ci.ValidatePreAuthorizedCodeRequest")
 	defer span.End()
 
