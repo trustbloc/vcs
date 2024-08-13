@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/logutil-go v1.0.0
-	github.com/trustbloc/vc-go v1.1.3-0.20240812120453-d214be231fa3
+	github.com/trustbloc/vc-go v1.1.3-0.20240813130343-c7c2ade0e1fc
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/otel/trace v1.22.0
 )
@@ -110,7 +110,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/did-go v1.2.2-0.20240812120408-296eef43066c // indirect
+	github.com/trustbloc/did-go v1.2.2-0.20240812150654-c7d31e666f96 // indirect
 	github.com/trustbloc/kms-go v1.1.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
