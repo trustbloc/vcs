@@ -14,7 +14,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
-	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/utils"
@@ -26,7 +25,7 @@ var _ ServerInterface = (*Controller)(nil) // make sure Controller implements Se
 type Config struct {
 	RefreshService      CredentialRefreshService
 	ProfileService      ProfileService
-	ProofChecker        *checker.ProofChecker
+	ProofChecker        ProofChecker
 	DocumentLoader      ld.DocumentLoader
 	IssuerVCSPublicHost string
 }

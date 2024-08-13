@@ -8,6 +8,7 @@ package refresh_test
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"io"
@@ -19,6 +20,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/refresh"
 	refresh2 "github.com/trustbloc/vcs/pkg/service/refresh"
@@ -28,6 +31,11 @@ const (
 	orgID          = "orgID1"
 	profileID      = "testID"
 	profileVersion = "v1.0"
+)
+
+var (
+	//go:embed testdata/requested_credentials_vp.jsonld
+	requestedCredentialsVP []byte
 )
 
 func TestGetRefreshStatus(t *testing.T) {
@@ -129,8 +137,11 @@ func TestGetRefreshStatus(t *testing.T) {
 		profileSvc.EXPECT().GetProfile(profileID, profileVersion).
 			Return(issuer, nil)
 
-		refreshSvc.EXPECT().RequestRefreshStatus(gomock.Any(), "some-cred-id", *issuer).
-			Return(nil, errors.New("refresh err"))
+		refreshSvc.EXPECT().RequestRefreshStatus(
+			gomock.Any(),
+			"some-cred-id",
+			*issuer,
+		).Return(nil, errors.New("refresh err"))
 
 		ctr := refresh.NewController(&refresh.Config{
 			ProfileService:      profileSvc,
@@ -170,6 +181,193 @@ func TestGetRefreshStatus(t *testing.T) {
 	})
 }
 
+func TestGetRefreshedCredential(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		refreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+		proofChecker := NewMockProofChecker(gomock.NewController(t))
+
+		proofChecker.EXPECT().CheckJWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Jwt)
+
+		presBody, err := signedRequestedCredentialsVP.Presentation.MarshalJSON()
+		assert.NoError(t, err)
+
+		reqBody, err := json.Marshal(refresh.GetRefreshedCredentialReq{
+			VerifiablePresentation: presBody,
+		})
+		assert.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(reqBody),
+		)
+
+		issuer := &profileapi.Issuer{}
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).
+			Return(issuer, nil)
+
+		refreshSvc.EXPECT().GetRefreshedCredential(gomock.Any(), gomock.Any(), *issuer).
+			Return(signedRequestedCredentialsVP.Presentation.Credentials()[0], nil)
+
+		ctr := refresh.NewController(&refresh.Config{
+			ProfileService: profileSvc,
+			RefreshService: refreshSvc,
+			ProofChecker:   proofChecker,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		assert.NoError(t, ctr.GetRefreshedCredential(echoCtx, profileID, profileVersion,
+			refresh.GetRefreshedCredentialParams{}))
+	})
+
+	t.Run("svc error", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		refreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+		proofChecker := NewMockProofChecker(gomock.NewController(t))
+
+		proofChecker.EXPECT().CheckJWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Jwt)
+
+		presBody, err := signedRequestedCredentialsVP.Presentation.MarshalJSON()
+		assert.NoError(t, err)
+
+		reqBody, err := json.Marshal(refresh.GetRefreshedCredentialReq{
+			VerifiablePresentation: presBody,
+		})
+		assert.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(reqBody),
+		)
+
+		issuer := &profileapi.Issuer{}
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).
+			Return(issuer, nil)
+
+		refreshSvc.EXPECT().GetRefreshedCredential(gomock.Any(), gomock.Any(), *issuer).
+			Return(nil, errors.New("svc error"))
+
+		ctr := refresh.NewController(&refresh.Config{
+			ProfileService: profileSvc,
+			RefreshService: refreshSvc,
+			ProofChecker:   proofChecker,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		assert.ErrorContains(t, ctr.GetRefreshedCredential(echoCtx, profileID, profileVersion,
+			refresh.GetRefreshedCredentialParams{}), "svc error")
+	})
+
+	t.Run("svc error", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		refreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+		proofChecker := NewMockProofChecker(gomock.NewController(t))
+
+		proofChecker.EXPECT().CheckJWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Jwt)
+
+		presBody, err := signedRequestedCredentialsVP.Presentation.MarshalJSON()
+		assert.NoError(t, err)
+
+		reqBody, err := json.Marshal(refresh.GetRefreshedCredentialReq{
+			VerifiablePresentation: presBody,
+		})
+		assert.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(reqBody),
+		)
+
+		issuer := &profileapi.Issuer{}
+		profileSvc.EXPECT().GetProfile(profileID, profileVersion).
+			Return(issuer, errors.New("no profile found"))
+
+		ctr := refresh.NewController(&refresh.Config{
+			ProfileService: profileSvc,
+			RefreshService: refreshSvc,
+			ProofChecker:   proofChecker,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		assert.ErrorContains(t, ctr.GetRefreshedCredential(echoCtx, profileID, profileVersion,
+			refresh.GetRefreshedCredentialParams{}), "no profile found")
+	})
+
+	t.Run("invalid body", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		refreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+		proofChecker := NewMockProofChecker(gomock.NewController(t))
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody([]byte{0x1}),
+		)
+
+		ctr := refresh.NewController(&refresh.Config{
+			ProfileService: profileSvc,
+			RefreshService: refreshSvc,
+			ProofChecker:   proofChecker,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		assert.ErrorContains(t, ctr.GetRefreshedCredential(echoCtx, profileID, profileVersion,
+			refresh.GetRefreshedCredentialParams{}), "invalid character")
+	})
+
+	t.Run("invalid proof", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		refreshSvc := NewMockCredentialRefreshService(gomock.NewController(t))
+		proofChecker := NewMockProofChecker(gomock.NewController(t))
+
+		proofChecker.EXPECT().CheckJWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New("invalid proof"))
+
+		signedRequestedCredentialsVP := testutil.SignedVP(t, requestedCredentialsVP, vcs.Jwt)
+
+		presBody, err := signedRequestedCredentialsVP.Presentation.MarshalJSON()
+		assert.NoError(t, err)
+
+		reqBody, err := json.Marshal(refresh.GetRefreshedCredentialReq{
+			VerifiablePresentation: presBody,
+		})
+		assert.NoError(t, err)
+
+		echoCtx := echoContext(
+			withRecorder(recorder),
+			withRequestBody(reqBody),
+		)
+
+		ctr := refresh.NewController(&refresh.Config{
+			ProfileService: profileSvc,
+			RefreshService: refreshSvc,
+			ProofChecker:   proofChecker,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		assert.ErrorContains(t, ctr.GetRefreshedCredential(echoCtx, profileID, profileVersion,
+			refresh.GetRefreshedCredentialParams{}), "invalid proof")
+	})
+}
+
 type options struct {
 	tenantID       string
 	requestBody    []byte
@@ -177,12 +375,6 @@ type options struct {
 }
 
 type contextOpt func(*options)
-
-func withTenantID(tenantID string) contextOpt {
-	return func(o *options) {
-		o.tenantID = tenantID
-	}
-}
 
 func withRequestBody(body []byte) contextOpt {
 	return func(o *options) {

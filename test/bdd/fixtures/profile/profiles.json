@@ -1330,7 +1330,7 @@
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
-          "refreshServiceEnabled": false,
+          "refreshServiceEnabled": true,
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1DER",
