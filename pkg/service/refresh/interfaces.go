@@ -12,6 +12,7 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
@@ -67,4 +68,8 @@ type IssueCredService interface {
 		profile *profileapi.Issuer,
 		opts ...issuecredential.Opts,
 	) (*verifiable.Credential, error)
+}
+
+type EventPublisher interface {
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }

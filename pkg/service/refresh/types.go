@@ -22,6 +22,17 @@ type GetRefreshStateResponse struct {
 	RefreshServiceType            ServiceType                   `json:"refreshServiceType"`
 }
 
+type Event struct {
+	WebHook        string `json:"webHook,omitempty"`
+	ProfileID      string `json:"profileID,omitempty"`
+	ProfileVersion string `json:"profileVersion,omitempty"`
+	OrgID          string `json:"orgID,omitempty"`
+
+	Error          string `json:"error,omitempty"`
+	ErrorCode      string `json:"errorCode,omitempty"`
+	ErrorComponent string `json:"errorComponent,omitempty"`
+}
+
 type ServiceType struct {
 	Type string `json:"type"`
 	URL  string `json:"url"`

@@ -126,6 +126,9 @@ func (s *Store) createInternal(
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	result, err := collection.InsertOne(ctx, obj)
+	if err != nil && mongo.IsDuplicateKeyError(err) {
+		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+	}
 
 	if err != nil {
 		return nil, err

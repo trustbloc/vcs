@@ -8,18 +8,28 @@ package refresh
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/claims"
+	"github.com/trustbloc/vcs/internal/logfields"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
+)
+
+var logger = log.New("refresh-service")
+
+const (
+	ServiceComponent = "RefreshService"
 )
 
 type Config struct {
@@ -30,6 +40,8 @@ type Config struct {
 	PresentationVerifier   presentationVerifier
 	CredentialIssuer       credentialIssuer
 	IssueCredentialService IssueCredService
+	EventPublisher         EventPublisher
+	EventTopic             string
 }
 
 type Service struct {
@@ -42,11 +54,69 @@ func NewRefreshService(cfg *Config) *Service {
 	}
 }
 
+func (s *Service) getEvent(
+	eventType spi.EventType,
+	payloadData *Event,
+	txID string,
+) (*spi.Event, error) {
+	payload, err := json.Marshal(payloadData)
+	if err != nil {
+		return nil, err
+	}
+
+	event := spi.NewEventWithPayload(uuid.NewString(), "RefreshService", eventType, payload)
+	event.TransactionID = txID
+
+	return event, nil
+}
+
+func (s *Service) publishEvent(
+	ctx context.Context,
+	eventType spi.EventType,
+	payloadData *Event,
+	txID string,
+) error {
+	event, err := s.getEvent(eventType, payloadData, txID)
+	if err != nil {
+		return err
+	}
+
+	return s.cfg.EventPublisher.Publish(ctx, s.cfg.EventTopic, event)
+}
+
+func (s *Service) tryPublish(
+	ctx context.Context,
+	eventType spi.EventType,
+	payloadData *Event,
+	txID string,
+	errSource error,
+) {
+	if errSource != nil {
+		payloadData.Error = errSource.Error()
+		payloadData.ErrorComponent = ServiceComponent
+	}
+
+	if err := s.publishEvent(ctx, eventType, payloadData, txID); err != nil {
+		logger.Errorc(ctx, fmt.Sprintf("failed to publish event: %s", err),
+			logfields.WithProfileID(payloadData.ProfileID),
+			logfields.WithTransactionID(txID),
+		)
+	}
+}
+
+//nolint:funlen
 func (s *Service) GetRefreshedCredential(
 	ctx context.Context,
 	presentation *verifiable.Presentation,
 	issuer profile.Issuer,
 ) (*verifiable.Credential, error) {
+	resultEvent := &Event{
+		WebHook:        issuer.WebHook,
+		ProfileID:      issuer.ID,
+		ProfileVersion: issuer.Version,
+		OrgID:          issuer.OrganizationID,
+	}
+
 	verifyResult, _, err := s.cfg.PresentationVerifier.VerifyPresentation(ctx, presentation, nil, &profile.Verifier{
 		Checks: &profile.VerificationChecks{
 			Presentation: &profile.PresentationChecks{
@@ -61,46 +131,69 @@ func (s *Service) GetRefreshedCredential(
 		},
 	})
 	if err != nil {
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
 		return nil, err
 	}
 
 	if len(verifyResult) > 0 {
-		return nil, fmt.Errorf("presentation verification failed. %s", spew.Sdump(verifyResult))
+		err = fmt.Errorf("presentation verification failed. %s", spew.Sdump(verifyResult))
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
+		return nil, err
 	}
 
 	if len(presentation.Credentials()) == 0 {
-		return nil, errors.New("no credentials in presentation")
+		err = errors.New("no credentials in presentation")
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
+		return nil, err
 	}
 	cred := presentation.Credentials()[0]
 
 	template, err := s.findCredentialTemplate(cred.Contents().Types, issuer)
 	if err != nil {
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
 		return nil, err
 	}
 
 	config, configID := s.findCredConfigSupported(issuer, template.Type)
 	if config == nil {
-		return nil, fmt.Errorf("no credential configuration found for credential type %v", template.Type)
+		err = fmt.Errorf("no credential configuration found for credential type %v", template.Type)
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
+		return nil, err
 	}
 
 	tx, err := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(cred.Contents().ID, issuer.ID))
 	if err != nil {
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
 		return nil, err
 	}
 
 	tempClaimData, err := s.cfg.ClaimsStore.GetAndDelete(ctx, tx.CredentialConfiguration[0].ClaimDataID)
 	if err != nil {
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
 		return nil, err
 	}
 
 	decryptedClaims, decryptErr := claims.DecryptClaims(ctx, tempClaimData, s.cfg.DataProtector)
 	if decryptErr != nil {
-		return nil, fmt.Errorf("decrypt claims: %w", decryptErr)
+		decryptErr = fmt.Errorf("decrypt claims: %w", decryptErr)
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", decryptErr)
+
+		return nil, decryptErr
 	}
 
 	subj := cred.Contents().Subject
 	if len(subj) == 0 {
-		return nil, errors.New("no subject in credential")
+		err = errors.New("no subject in credential")
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
+		return nil, err
 	}
 
 	credConfig := tx.CredentialConfiguration[0]
@@ -125,13 +218,22 @@ func (s *Service) GetRefreshedCredential(
 		RefreshServiceEnabled:   refreshServiceEnabled,
 	})
 	if err != nil {
-		return nil, errors.Join(errors.New("failed to prepare credential"), err)
+		err = errors.Join(errors.New("failed to prepare credential"), err)
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
+
+		return nil, err
 	}
 
 	updatedCred, err = s.cfg.IssueCredentialService.IssueCredential(ctx, updatedCred, &issuer,
 		issuecredential.WithTransactionID(string(tx.ID)),
 		issuecredential.WithSkipIDPrefix(),
 	)
+
+	if err != nil {
+		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, string(tx.ID), err)
+	} else {
+		s.tryPublish(ctx, spi.CredentialRefreshSuccessful, resultEvent, string(tx.ID), nil)
+	}
 
 	return updatedCred, err
 }
@@ -194,6 +296,13 @@ func (s *Service) RequestRefreshStatus(
 	}
 
 	purpose := "The verifier needs to see your existing credentials to verify your identity"
+
+	s.tryPublish(ctx, spi.CredentialRefreshInitiated, &Event{
+		WebHook:        issuer.WebHook,
+		ProfileID:      issuer.ID,
+		ProfileVersion: issuer.Version,
+		OrgID:          issuer.OrganizationID,
+	}, string(tx.ID), nil)
 
 	return &GetRefreshStateResponse{
 		RefreshServiceType: ServiceType{

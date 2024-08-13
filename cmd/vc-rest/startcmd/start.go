@@ -851,6 +851,8 @@ func buildEchoHandler(
 		PresentationVerifier:   verifyPresentationSvc,
 		CredentialIssuer:       prepareCredentialSvc,
 		IssueCredentialService: issueCredentialSvc,
+		EventPublisher:         eventSvc,
+		EventTopic:             conf.StartupParameters.issuerEventTopic,
 	})
 
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
