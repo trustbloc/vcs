@@ -15,6 +15,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/refresh"
 )
 
+//go:generate mockgen -destination interfaces_mocks_test.go -package refresh_test -source=interfaces.go
+
 // ProfileService defines issuer profile service interface.
 type ProfileService interface {
 	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)

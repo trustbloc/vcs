@@ -73,28 +73,14 @@ func (s *Service) GetRefreshedCredential(
 	}
 	cred := presentation.Credentials()[0]
 
-	allTypes := cred.Contents().Types
-	if len(allTypes) == 0 {
-		return nil, errors.New("no types in credential")
+	template, err := s.findCredentialTemplate(cred.Contents().Types, issuer)
+	if err != nil {
+		return nil, err
 	}
 
-	lastType := allTypes[len(cred.Contents().Types)-1]
-
-	var template *profile.CredentialTemplate
-	for _, t := range issuer.CredentialTemplates {
-		if t.Type == lastType {
-			template = t
-			break
-		}
-	}
-
-	if template == nil {
-		return nil, fmt.Errorf("no credential template found for credential type %v", lastType)
-	}
-
-	config, configID := s.findCredConfigSupported(issuer, lastType)
+	config, configID := s.findCredConfigSupported(issuer, template.Type)
 	if config == nil {
-		return nil, fmt.Errorf("no credential configuration found for credential type %v", lastType)
+		return nil, fmt.Errorf("no credential configuration found for credential type %v", template.Type)
 	}
 
 	tx, err := s.cfg.TxStore.FindByOpState(ctx, s.getOpState(cred.Contents().ID, issuer.ID))
@@ -148,6 +134,31 @@ func (s *Service) GetRefreshedCredential(
 	)
 
 	return updatedCred, err
+}
+
+func (s *Service) findCredentialTemplate(
+	allTypes []string,
+	issuer profile.Issuer,
+) (*profile.CredentialTemplate, error) {
+	if len(allTypes) == 0 {
+		return nil, errors.New("no types in credential")
+	}
+
+	lastType := allTypes[len(allTypes)-1]
+
+	var template *profile.CredentialTemplate
+	for _, t := range issuer.CredentialTemplates {
+		if t.Type == lastType {
+			template = t
+			break
+		}
+	}
+
+	if template == nil {
+		return nil, fmt.Errorf("no credential template found for credential type %v", lastType)
+	}
+
+	return template, nil
 }
 
 func (s *Service) findCredConfigSupported(
@@ -245,6 +256,11 @@ func (s *Service) CreateRefreshState(
 
 	opState := s.getOpState(req.CredentialID, req.Issuer.ID)
 
+	refreshServiceEnabled := false
+	if req.Issuer.VCConfig != nil {
+		refreshServiceEnabled = req.Issuer.VCConfig.RefreshServiceEnabled
+	}
+
 	tx, err := s.cfg.TxStore.Create(ctx, ttl, &issuecredential.TransactionData{
 		ProfileID:             req.Issuer.ID,
 		ProfileVersion:        req.Issuer.Version,
@@ -252,7 +268,7 @@ func (s *Service) CreateRefreshState(
 		OrgID:                 req.Issuer.OrganizationID,
 		OpState:               opState,
 		WebHookURL:            req.Issuer.WebHook,
-		RefreshServiceEnabled: req.Issuer.VCConfig.RefreshServiceEnabled,
+		RefreshServiceEnabled: refreshServiceEnabled,
 		CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 			{
 				ClaimDataType:         issuecredential.ClaimDataTypeClaims,
