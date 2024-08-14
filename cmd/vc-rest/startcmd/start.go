@@ -881,7 +881,7 @@ func buildEchoHandler(
 		ProfileService:      issuerProfileSvc,
 		ProofChecker:        proofChecker,
 		DocumentLoader:      documentLoader,
-		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
+		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
