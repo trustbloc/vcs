@@ -705,7 +705,7 @@ func buildEchoHandler(
 	})
 
 	prepareCredentialSvc := issuecredential.NewPrepareCredentialService(&issuecredential.PrepareCredentialServiceConfig{
-		VcsAPIURL: conf.StartupParameters.hostURLExternal,
+		VcsAPIURL: conf.StartupParameters.apiGatewayURL,
 		Composer:  issuecredential.NewCredentialComposer(),
 	})
 
