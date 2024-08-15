@@ -64,6 +64,8 @@ type rawAuthorizationResponse struct {
 	IDToken                string
 	VPToken                []string
 	PresentationSubmission string
+	Error                  string
+	ErrorDescription       string
 	State                  string
 }
 
@@ -453,9 +455,19 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 			log.WithDuration(time.Since(startTime)))
 	}()
 
-	rawAuthResp, err := validateAuthorizationResponse(e)
+	rawAuthResp, err := decodeAuthorizationResponse(e)
 	if err != nil {
 		return err
+	}
+
+	if rawAuthResp.Error != "" {
+		// Error authorization response
+		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-6.4
+		return c.oidc4VPService.HandleWalletNotification(ctx, &oidc4vp.WalletNotification{
+			TxID:             oidc4vp.TxID(rawAuthResp.State),
+			Error:            rawAuthResp.Error,
+			ErrorDescription: rawAuthResp.ErrorDescription,
+		})
 	}
 
 	responseParsed, err := c.verifyAuthorizationResponseTokens(ctx, rawAuthResp)
@@ -820,11 +832,11 @@ func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
 	}, nil
 }
 
-func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, error) {
+func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, error) {
 	startTime := time.Now().UTC()
 
 	defer func() {
-		logger.Debugc(ctx.Request().Context(), "validateAuthorizationResponse", log.WithDuration(time.Since(startTime)))
+		logger.Debugc(ctx.Request().Context(), "decodeAuthorizationResponse", log.WithDuration(time.Since(startTime)))
 	}()
 
 	req := ctx.Request()
@@ -841,6 +853,25 @@ func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse,
 	}
 
 	res := &rawAuthorizationResponse{}
+
+	err = decodeFormValue(&res.State, "state", req.PostForm)
+	if err != nil {
+		return nil, err
+	}
+
+	err = decodeFormValue(&res.Error, "error", req.PostForm)
+	if err == nil {
+		// Error authorization response
+		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-6.4
+		err = decodeFormValue(&res.ErrorDescription, "error_description", req.PostForm)
+		if err != nil {
+			return nil, err
+		}
+
+		return res, nil
+	}
+
+	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse state decoded", log.WithState(res.State))
 
 	err = decodeFormValue(&res.IDToken, "id_token", req.PostForm)
 	if err != nil {
@@ -870,13 +901,6 @@ func validateAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse,
 
 	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse presentation_submission decoded",
 		log.WithState(res.State))
-
-	err = decodeFormValue(&res.State, "state", req.PostForm)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse state decoded", log.WithState(res.State))
 
 	return res, nil
 }

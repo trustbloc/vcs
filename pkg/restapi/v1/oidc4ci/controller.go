@@ -129,10 +129,7 @@ type CwtProofChecker interface {
 }
 
 type AckService interface {
-	Ack(
-		ctx context.Context,
-		req oidc4ci.AckRemote,
-	) error
+	Ack(ctx context.Context, req oidc4ci.AckRemote) error
 }
 
 type LDPProofParser interface {
@@ -623,7 +620,7 @@ func mustGenerateNonce() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-// OidcAcknowledgement handles OIDC acknowledgement request (POST /oidc/notification).
+// OidcAcknowledgement handles OIDC4CI acknowledgement request (POST /oidc/notification).
 func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	req := e.Request()
 

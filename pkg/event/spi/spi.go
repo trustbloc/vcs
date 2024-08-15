@@ -39,6 +39,10 @@ const (
 	VerifierOIDCInteractionFailed          EventType = "verifier.oidc-interaction-failed.v1"
 	VerifierOIDCInteractionClaimsRetrieved EventType = "verifier.oidc-interaction-claims-retrieved.v1"
 
+	VerifierOIDCInteractionNoConsent    EventType = "verifier.oidc-interaction-no-consent.v1"
+	VerifierOIDCInteractionNoMatchFound EventType = "verifier.oidc-interaction-no-match-found.v1"
+	VerifierOIDCInteractionExpired      EventType = "verifier.oidc-interaction-expired.v1"
+
 	// IssuerOIDCInteractionInitiated Issuer oidc event.
 	IssuerOIDCInteractionInitiated EventType = "issuer.oidc-interaction-initiated.v1"
 	// IssuerOIDCInteractionQRScanned Issuer oidc event.

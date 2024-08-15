@@ -17,9 +17,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
+	"github.com/stretchr/testify/assert"
 	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 )
 
 func TestController_OidcPresent(t *testing.T) {
@@ -41,8 +42,8 @@ func TestController_OidcPresent(t *testing.T) {
 				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, rec.Code)
+				assert.NoError(t, err)
+				assert.Equal(t, http.StatusOK, rec.Code)
 			},
 		},
 		{
@@ -54,7 +55,7 @@ func TestController_OidcPresent(t *testing.T) {
 				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "failed to send request")
+				assert.ErrorContains(t, err, "failed to send request")
 			},
 		},
 		{
@@ -68,7 +69,7 @@ func TestController_OidcPresent(t *testing.T) {
 				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "failed to read response body")
+				assert.ErrorContains(t, err, "failed to read response body")
 			},
 		},
 		{
@@ -82,7 +83,7 @@ func TestController_OidcPresent(t *testing.T) {
 				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "error check id token")
+				assert.ErrorContains(t, err, "error check id token")
 			},
 		},
 	}

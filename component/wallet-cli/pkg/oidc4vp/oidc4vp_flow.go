@@ -195,6 +195,19 @@ func (f *Flow) Run(ctx context.Context) error {
 
 	vps, presentationSubmission, err := f.queryWallet(&pd, requestObject.ClientMetadata.VPFormats)
 	if err != nil {
+		if strings.Contains(err.Error(), "no matching credentials found") {
+			// Send wallet notification no_match_found.
+			v := url.Values{}
+
+			v.Add("error", "access_denied")
+			v.Add("error_description", "no_match_found")
+			v.Add("state", requestObject.State)
+
+			if e := f.postAuthorizationResponse(ctx, requestObject.ResponseURI, []byte(v.Encode())); e != nil {
+				slog.Error("failed to send wallet notification", "err", e)
+			}
+		}
+
 		return fmt.Errorf("query wallet: %w", err)
 	}
 

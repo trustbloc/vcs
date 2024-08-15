@@ -11,6 +11,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/presexch"
@@ -75,4 +77,21 @@ func TestWrapper_DeleteClaims(t *testing.T) {
 	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_ = w.DeleteClaims(context.Background(), "claimsID")
+}
+
+func TestWrapper_HandleWalletNotification(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	ack := &oidc4vp.WalletNotification{
+		TxID:             oidc4vp.TxID(uuid.NewString()),
+		Error:            uuid.NewString(),
+		ErrorDescription: uuid.NewString(),
+	}
+
+	svc := NewMockService(ctrl)
+	svc.EXPECT().HandleWalletNotification(gomock.Any(), ack).Times(1)
+
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
+
+	_ = w.HandleWalletNotification(context.Background(), ack)
 }
