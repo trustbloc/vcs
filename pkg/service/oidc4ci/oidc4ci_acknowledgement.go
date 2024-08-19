@@ -128,11 +128,10 @@ func (s *AckService) Ack(
 		ProfileID:      ack.ProfileID,
 		ProfileVersion: ack.ProfileVersion,
 		OrgID:          ack.OrgID,
+		ErrorComponent: "wallet",
+		Error:          req.EventDescription,
+		ErrorCode:      req.Event,
 	}
-
-	eventPayload.ErrorComponent = "wallet"
-	eventPayload.Error = req.EventDescription
-	eventPayload.ErrorCode = req.Event
 
 	err = s.sendEvent(ctx, s.AckEventMap(req.Event), extractTransactionID(ack.TxID), eventPayload)
 	if err != nil {

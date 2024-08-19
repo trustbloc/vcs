@@ -230,9 +230,9 @@ paths:
         '200':
           description: OK
           content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/GetRefreshedCredentialResp'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetRefreshedCredentialResp'
     get:
       summary: Get refresh status for credential.
       parameters:
@@ -601,10 +601,20 @@ paths:
               properties:
                 id_token:
                   type: string
+                  nullable: true
                   description: ID Token serves as an authentication receipt and includes metadata about the VP Token.
                 vp_token:
                   type: string
+                  nullable: true
                   description: VP Token includes one or more Verifiable Presentations.
+                error:
+                  type: string
+                  nullable: true
+                  description: Authorization response error code
+                error_description:
+                  type: string
+                  nullable: true
+                  description: Authorization response error description
                 state:
                   type: string
                   description: State from authorization request for correlation
@@ -915,10 +925,20 @@ paths:
               properties:
                 id_token:
                   type: string
+                  nullable: true
                   description: ID Token serves as an authentication receipt and includes metadata about the VP Token.
                 vp_token:
                   type: string
+                  nullable: true
                   description: VP Token includes one or more Verifiable Presentations.
+                error:
+                  type: string
+                  nullable: true
+                  description: Authorization response error code
+                error_description:
+                  type: string
+                  nullable: true
+                  description: Authorization response error description
                 state:
                   type: string
                   description: State from authorization request for correlation
@@ -1629,7 +1649,7 @@ components:
       required:
         - verifiable_presentation
       x-tags:
-          - refresh
+        - refresh
     GetRefreshedCredentialResp:
       title: GetRefreshedCredentialResp
       type: object
@@ -1640,7 +1660,7 @@ components:
           anyOf:
             - { }
       x-tags:
-          - refresh
+        - refresh
       required:
         - verifiable_credential
     DeprecatedComposeOIDC4CICredential:

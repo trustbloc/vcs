@@ -59,6 +59,12 @@ type CredentialMetadata struct {
 	Attachments []*Attachment `json:"attachments"`
 }
 
+type WalletNotification struct {
+	TxID             TxID
+	Error            string
+	ErrorDescription string
+}
+
 type ServiceInterface interface {
 	InitiateOidcInteraction(
 		ctx context.Context,
@@ -72,6 +78,7 @@ type ServiceInterface interface {
 	GetTx(ctx context.Context, id TxID) (*Transaction, error)
 	RetrieveClaims(ctx context.Context, tx *Transaction, profile *profileapi.Verifier) map[string]CredentialMetadata
 	DeleteClaims(ctx context.Context, receivedClaimsID string) error
+	HandleWalletNotification(ctx context.Context, req *WalletNotification) error
 }
 
 type EventPayload struct {

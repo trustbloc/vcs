@@ -97,3 +97,13 @@ func (w *Wrapper) DeleteClaims(ctx context.Context, claimsID string) error {
 
 	return w.svc.DeleteClaims(ctx, claimsID)
 }
+
+func (w *Wrapper) HandleWalletNotification(ctx context.Context, req *oidc4vp.WalletNotification) error {
+	ctx, span := w.tracer.Start(ctx, "oidc4vp.HandleWalletNotification")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("tx_id", string(req.TxID)))
+	span.SetAttributes(attribute.String("event", req.Error))
+
+	return w.svc.HandleWalletNotification(ctx, req)
+}

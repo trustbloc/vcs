@@ -884,12 +884,6 @@ func buildEchoHandler(
 		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
 	}))
 
-	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
-		HTTPClient:      getHTTPClient(metricsProvider.ClientOIDC4PV1),
-		ExternalHostURL: conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
-		Tracer:          conf.Tracer,
-	}))
-
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:                       eventSvc,
 		EventTopic:                     conf.StartupParameters.issuerEventTopic,
@@ -1007,6 +1001,12 @@ func buildEchoHandler(
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)
+
+	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
+		HTTPClient:      getHTTPClient(metricsProvider.ClientOIDC4PV1),
+		ExternalHostURL: conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
+		Tracer:          conf.Tracer,
+	}))
 
 	didConfigSvc := didconfiguration.New(&didconfiguration.Config{
 		VerifierProfileService: verifierProfileSvc,

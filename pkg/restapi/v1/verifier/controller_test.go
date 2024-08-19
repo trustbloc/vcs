@@ -470,62 +470,6 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	svc.EXPECT().VerifyOIDCVerifiablePresentation(gomock.Any(), oidc4vp.TxID("txid"), gomock.Any()).
 		AnyTimes().Return(nil)
 
-	t.Run("Success Controller JWT", func(t *testing.T) {
-		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
-			&IDTokenClaims{
-				Nonce: validNonce,
-				Aud:   validAud,
-				Exp:   time.Now().Unix() + 1000,
-			},
-		)
-
-		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
-			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Signer,
-			&VPTokenClaims{
-				Nonce: validNonce,
-				Aud:   validAud,
-				Iss:   signedClaimsJWTResult.VerMethodDID,
-				Exp:   time.Now().Unix() + 1000,
-				VP: &verifiable.Presentation{
-					Context: []string{
-						"https://www.w3.org/2018/credentials/v1",
-						"https://identity.foundation/presentation-exchange/submission/v1",
-					},
-					Type: []string{
-						"VerifiablePresentation",
-						"PresentationSubmission",
-					},
-				},
-			},
-		)
-
-		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
-
-		body := "vp_token=" + vpToken +
-			"&id_token=" + signedClaimsJWTResult.JWT +
-			"&presentation_submission=" + string(presentationSubmission) +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
-
-		c := NewController(&Config{
-			VDR:            signedClaimsJWTResult.VDR,
-			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
-			EventTopic:     spi.VerifierEventTopic,
-			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
-		})
-
-		err = c.CheckAuthorizationResponse(ctx)
-		require.NoError(t, err)
-	})
-
 	t.Run("Success JWT", func(t *testing.T) {
 		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
 			&IDTokenClaims{
@@ -837,6 +781,50 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
 		require.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+	})
+
+	t.Run("Success error AR response", func(t *testing.T) {
+		body := "error=invalid_request" +
+			"&error_description=unsupported%20client_id_scheme" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		svc.EXPECT().HandleWalletNotification(gomock.Any(), &oidc4vp.WalletNotification{
+			TxID:             oidc4vp.TxID("txid"),
+			Error:            "invalid_request",
+			ErrorDescription: "unsupported client_id_scheme",
+		}).Return(nil)
+
+		c := NewController(&Config{
+			OIDCVPService: svc,
+			Tracer:        nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		require.NoError(t, err)
+	})
+
+	t.Run("Error: failed to HandleWalletNotification", func(t *testing.T) {
+		body := "error=invalid_request" +
+			"&error_description=unsupported%20client_id_scheme" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		svc.EXPECT().HandleWalletNotification(gomock.Any(), &oidc4vp.WalletNotification{
+			TxID:             oidc4vp.TxID("txid"),
+			Error:            "invalid_request",
+			ErrorDescription: "unsupported client_id_scheme",
+		}).Return(errors.New("handle wallet notification error"))
+
+		c := NewController(&Config{
+			OIDCVPService: svc,
+			Tracer:        nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		require.ErrorContains(t, err, "handle wallet notification error")
 	})
 
 	t.Run("Presentation submission missed", func(t *testing.T) {
@@ -1758,7 +1746,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 	})
 }
 
-func TestController_validateAuthorizationResponse(t *testing.T) {
+func TestController_decodeAuthorizationResponse(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		body := "vp_token=toke1&" +
 			"&id_token=toke2" +
@@ -1766,9 +1754,25 @@ func TestController_validateAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
-		ar, err := validateAuthorizationResponse(ctx)
+		ar, err := decodeAuthorizationResponse(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, ar)
+	})
+
+	t.Run("Success: authorization error response", func(t *testing.T) {
+		body := "error=invalid_request" +
+			"&error_description=unsupported%20client_id_scheme" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		ar, err := decodeAuthorizationResponse(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, ar)
+
+		require.Equal(t, ar.State, "txid")
+		require.Equal(t, ar.Error, "invalid_request")
+		require.Equal(t, ar.ErrorDescription, "unsupported client_id_scheme")
 	})
 
 	t.Run("Success - vp token is an array", func(t *testing.T) {
@@ -1778,51 +1782,9 @@ func TestController_validateAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
-		ar, err := validateAuthorizationResponse(ctx)
+		ar, err := decodeAuthorizationResponse(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, ar)
-	})
-
-	t.Run("Missed id_token", func(t *testing.T) {
-		body := "vp_token=v1&" +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		_, err := validateAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "id_token", err)
-	})
-
-	t.Run("Duplicated id_token", func(t *testing.T) {
-		body := "vp_token=v1&" +
-			"id_token=1&id_token=2" +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		_, err := validateAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "id_token", err)
-	})
-
-	t.Run("Missed vp_token", func(t *testing.T) {
-		body := "id_token=v1&" +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		_, err := validateAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
-	})
-
-	t.Run("Duplicated vp_token", func(t *testing.T) {
-		body := "id_token=v1&" +
-			"vp_token=1&vp_token=2" +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		_, err := validateAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
 	})
 
 	t.Run("Missed state", func(t *testing.T) {
@@ -1831,7 +1793,7 @@ func TestController_validateAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
-		_, err := validateAuthorizationResponse(ctx)
+		_, err := decodeAuthorizationResponse(ctx)
 		requireValidationError(t, resterr.InvalidValue, "state", err)
 	})
 
@@ -1842,8 +1804,72 @@ func TestController_validateAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
-		_, err := validateAuthorizationResponse(ctx)
+		_, err := decodeAuthorizationResponse(ctx)
 		requireValidationError(t, resterr.InvalidValue, "state", err)
+	})
+
+	t.Run("Error: authorization error response: missed error_description", func(t *testing.T) {
+		body := "error=invalid_request" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "error_description", err)
+	})
+
+	t.Run("Error: authorization error response: duplicated error_description", func(t *testing.T) {
+		body := "error=invalid_request" +
+			"&error_description=unsupported%20client_id_scheme" +
+			"&error_description=unsupported%20client_id_scheme" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "error_description", err)
+	})
+
+	t.Run("Missed id_token", func(t *testing.T) {
+		body := "vp_token=v1&" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+	})
+
+	t.Run("Duplicated id_token", func(t *testing.T) {
+		body := "vp_token=v1&" +
+			"id_token=1&id_token=2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+	})
+
+	t.Run("Missed vp_token", func(t *testing.T) {
+		body := "id_token=v1&" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
+	})
+
+	t.Run("Duplicated vp_token", func(t *testing.T) {
+		body := "id_token=v1&" +
+			"vp_token=1&vp_token=2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
 	})
 }
 

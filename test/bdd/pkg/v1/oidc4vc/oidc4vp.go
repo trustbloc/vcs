@@ -105,7 +105,7 @@ func (s *Steps) initiateOIDC4VPInteraction(req *initiateOIDC4VPRequest) (*initia
 }
 
 func (s *Steps) retrieveInteractionsClaim(profile string) error {
-	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
+	if err := s.waitForOIDCEvent("verifier.oidc-interaction-succeeded.v1"); err != nil {
 		return err
 	}
 
@@ -118,7 +118,7 @@ func (s *Steps) retrieveInteractionsClaim(profile string) error {
 }
 
 func (s *Steps) retrieveInteractionsClaimWithCustomScopes(profile, customScopes string) error {
-	if err := s.waitForOIDCInteractionSucceededEvent(profile); err != nil {
+	if err := s.waitForOIDCEvent("verifier.oidc-interaction-succeeded.v1"); err != nil {
 		return err
 	}
 
@@ -345,8 +345,8 @@ func (s *Steps) setHardcodedVPTokenFormat(vpTokenFormat string) error {
 	return nil
 }
 
-func (s *Steps) waitForOIDCInteractionSucceededEvent(profile string) error {
-	txID, err := s.waitForEvent("verifier.oidc-interaction-succeeded.v1")
+func (s *Steps) waitForOIDCEvent(eventType string) error {
+	txID, err := s.waitForEvent(eventType)
 	if err != nil {
 		return err
 	}
