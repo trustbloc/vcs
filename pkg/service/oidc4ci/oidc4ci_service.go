@@ -670,7 +670,12 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		return nil, err
 	}
 
-	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
+	if errSendEvent := s.sendTransactionEvent(
+		ctx,
+		tx,
+		spi.IssuerOIDCInteractionQRScanned,
+		nil,
+	); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -752,6 +757,8 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
+	var credentialIDs []string
+
 	for _, requestedCredential := range req.CredentialRequests {
 		if err = s.validateRequestAudienceClaim(
 			tx.ProfileID, tx.ProfileVersion, requestedCredential.AudienceClaim); err != nil {
@@ -794,6 +801,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			NotificationID:          ackID,
 		}
 
+		credentialIDs = append(credentialIDs, cred.Contents().ID)
 		prepareCredentialResult.Credentials = append(prepareCredentialResult.Credentials, prepareCredentialResultData)
 	}
 
@@ -806,7 +814,12 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		return nil, e
 	}
 
-	if errSendEvent := s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+	if errSendEvent := s.sendTransactionEvent(
+		ctx,
+		tx,
+		spi.IssuerOIDCInteractionSucceeded,
+		credentialIDs,
+	); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -1005,8 +1018,9 @@ func (s *Service) sendTransactionEvent(
 	ctx context.Context,
 	tx *issuecredential.Transaction,
 	eventType spi.EventType,
+	credentialIDs []string,
 ) error {
-	return s.sendEvent(ctx, eventType, tx.ID, createTxEventPayload(tx))
+	return s.sendEvent(ctx, eventType, tx.ID, createTxEventPayload(tx, credentialIDs))
 }
 
 func (s *Service) sendFailedTransactionEvent(
@@ -1028,7 +1042,10 @@ func (s *Service) sendFailedTransactionEvent(
 	}
 }
 
-func createTxEventPayload(tx *issuecredential.Transaction) *EventPayload {
+func createTxEventPayload(
+	tx *issuecredential.Transaction,
+	credentialIDs []string,
+) *EventPayload {
 	var (
 		credentialTemplateID string
 		credentialFormat     vcsverifiable.OIDCFormat
@@ -1063,6 +1080,7 @@ func createTxEventPayload(tx *issuecredential.Transaction) *EventPayload {
 		PinRequired:          tx.UserPin != "",
 		PreAuthFlow:          tx.IsPreAuthFlow,
 		Credentials:          credentialsData,
+		CredentialIDs:        credentialIDs,
 	}
 }
 
@@ -1071,7 +1089,7 @@ func (s *Service) sendInitiateIssuanceEvent(
 	tx *issuecredential.Transaction,
 	initiateURL string,
 ) error {
-	payload := createTxEventPayload(tx)
+	payload := createTxEventPayload(tx, nil)
 	payload.InitiateIssuanceURL = initiateURL
 
 	return s.sendEvent(ctx, spi.IssuerOIDCInteractionInitiated, tx.ID, payload)
@@ -1081,7 +1099,7 @@ func (s *Service) sendIssuanceAuthRequestPreparedTxEvent(
 	ctx context.Context,
 	tx *issuecredential.Transaction,
 ) error {
-	payload := createTxEventPayload(tx)
+	payload := createTxEventPayload(tx, nil)
 	payload.AuthorizationEndpoint = tx.AuthorizationEndpoint
 
 	return s.sendEvent(ctx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared, tx.ID, payload)

@@ -84,7 +84,12 @@ func (s *Service) ExchangeAuthorizationCode(
 		return nil, err
 	}
 
-	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
+	if err = s.sendTransactionEvent(
+		ctx,
+		tx,
+		spi.IssuerOIDCInteractionAuthorizationCodeExchanged,
+		nil,
+	); err != nil {
 		return nil, err
 	}
 

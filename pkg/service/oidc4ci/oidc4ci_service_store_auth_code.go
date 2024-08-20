@@ -44,7 +44,12 @@ func (s *Service) StoreAuthorizationCode(
 		return "", err
 	}
 
-	if err = s.sendTransactionEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeStored); err != nil {
+	if err = s.sendTransactionEvent(
+		ctx,
+		tx,
+		spi.IssuerOIDCInteractionAuthorizationCodeStored,
+		nil,
+	); err != nil {
 		return "", err
 	}
 
