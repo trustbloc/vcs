@@ -158,8 +158,9 @@ type EventPayload struct {
 	// Deprecated: use Credentials instead.
 	CredentialTemplateID string `json:"credentialTemplateID,omitempty"`
 	// Deprecated: use Credentials instead.
-	Format      vcsverifiable.OIDCFormat            `json:"format,omitempty"`
-	Credentials map[string]vcsverifiable.OIDCFormat `json:"credentials"`
+	Format        vcsverifiable.OIDCFormat            `json:"format,omitempty"`
+	Credentials   map[string]vcsverifiable.OIDCFormat `json:"credentials"`
+	CredentialIDs []string                            `json:"credentialIDs"`
 }
 
 type AuthorizationCodeGrant struct {
