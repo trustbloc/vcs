@@ -1301,13 +1301,15 @@ func (s *Steps) checkIssuedCredentialHistoryStep() error {
 }
 
 func (s *Steps) checkVC(vc *verifiable.Credential) error {
-	expectedStatusType := s.issuerProfile.VCConfig.Status.Type
-	err := checkCredentialStatusType(vc, string(expectedStatusType))
-	if err != nil {
-		return err
+	vcStatusConfig := s.issuerProfile.VCConfig.Status
+	if !vcStatusConfig.Disable {
+		err := checkCredentialStatusType(vc, string(vcStatusConfig.Type))
+		if err != nil {
+			return err
+		}
 	}
 
-	err = checkIssuer(vc, s.issuerProfile.Name)
+	err := checkIssuer(vc, s.issuerProfile.Name)
 	if err != nil {
 		return err
 	}

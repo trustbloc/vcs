@@ -51,7 +51,7 @@ Feature: Using VC REST API
     And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
     And issued credential history is updated
     And Profile "<wrongVerifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
-    And   V1 verifiable credential with wrong format is unable to be verified under "<wrongVerifierProfile>" profile
+    And   V1 verifiable credential is unable to be verified under "<wrongVerifierProfile>" profile error: "invalid format"
 
     Examples:
       | issuerProfile                    | wrongVerifierProfile | credential                      |
