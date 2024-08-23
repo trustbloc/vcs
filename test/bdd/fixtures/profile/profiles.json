@@ -591,6 +591,150 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_es256k_jwt_no_csl",
+        "version": "v1.0",
+        "groupID": "group_i_myprofile_ud_es256k_jwt_no_csl",
+        "name": "i_myprofile_ud_es256k_jwt_no_csl",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "ion",
+          "status": {
+            "disable": true
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://w3id.org/citizenship/v1"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "PermanentResidentCardIdentifier": {
+              "format": "jwt_vc_json",
+              "display": [
+                {
+                  "name": "Permanent Resident Card",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                },
+                "type": [
+                  "VerifiableCredential",
+                  "PermanentResidentCard"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es256k_jwt",
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256k_jwt",

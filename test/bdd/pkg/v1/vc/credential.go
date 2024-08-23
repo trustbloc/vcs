@@ -194,16 +194,20 @@ func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 	return nil
 }
 
-func (e *Steps) verifyVCInvalidFormat(verifierProfileVersionedID string) error {
+func (e *Steps) verifyVCWithExpectedError(verifierProfileVersionedID, errorMsg string) error {
 	chunks := strings.Split(verifierProfileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
 	if result != nil {
-		return fmt.Errorf("verification result is not nil")
+		return fmt.Errorf("verification result should be nil")
 	}
 
-	if err == nil || !strings.Contains(err.Error(), "invalid format, should be") {
-		return fmt.Errorf("error expectd, but got nil")
+	if err == nil {
+		return fmt.Errorf("error expected, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), errorMsg) {
+		return fmt.Errorf("unexpected error %s should contain %s", err.Error(), errorMsg)
 	}
 
 	return nil
@@ -281,7 +285,8 @@ func (e *Steps) revokeVC(profileVersionedID string) error {
 func (e *Steps) getVerificationResult(
 	verifyCredentialURL,
 	profileID,
-	profileVersion string) (*model.VerifyCredentialResponse, error) {
+	profileVersion string,
+) (*model.VerifyCredentialResponse, error) {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return nil, err
@@ -340,10 +345,13 @@ func (e *Steps) checkVC(vcBytes []byte, profileVersionedID string, checkProof bo
 		return err
 	}
 
-	expectedStatusType := e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type
-	err = checkCredentialStatusType(vcMap, string(expectedStatusType))
-	if err != nil {
-		return err
+	vcStatusConf := e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status
+	if !vcStatusConf.Disable {
+		expectedStatusType := vcStatusConf.Type
+		err = checkCredentialStatusType(vcMap, string(expectedStatusType))
+		if err != nil {
+			return err
+		}
 	}
 
 	err = checkIssuer(vcMap, strings.Split(profileVersionedID, "/")[0])
