@@ -11,7 +11,7 @@ toolchain go1.22.4
 require (
 	github.com/aws/aws-sdk-go-v2 v1.30.5
 	github.com/aws/aws-sdk-go-v2/config v1.27.33
-	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.26.1
+	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.43.4
 	github.com/cucumber/godog v0.12.5
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
