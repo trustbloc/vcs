@@ -40,7 +40,7 @@ func (rw *JSONResultWriter) Write(result *health.CheckerResult, status int, w ht
 
 	if result.Details != nil {
 		r.Components = map[string]checkResult{}
-		for name, cr := range *result.Details {
+		for name, cr := range result.Details {
 			if t, ok := rw.responseTimes[name]; ok {
 				r.Components[name] = checkResult{
 					CheckResult:         cr,
