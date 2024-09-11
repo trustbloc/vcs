@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -174,20 +173,14 @@ func pingMongoDB(connectionString string) error {
 	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
 	clientOpts := options.Client().SetRegistry(reg).ApplyURI(connectionString)
 
-	mongoClient, err := mongo.NewClient(clientOpts)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	mongoClient, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return err
 	}
 
-	err = mongoClient.Connect(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to connect to MongoDB: %w", err)
-	}
-
 	db := mongoClient.Database("test")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
 }

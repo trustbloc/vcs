@@ -48,15 +48,10 @@ func New(connString string, databaseName string, opts ...ClientOpt) (*Client, er
 		mongoOpts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(op.traceProvider))
 	}
 
-	client, err := mongo.NewClient(mongoOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new MongoDB client: %w", err)
-	}
-
 	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), op.timeout)
 	defer cancel()
 
-	err = client.Connect(ctxWithTimeout)
+	client, err := mongo.Connect(ctxWithTimeout, mongoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}

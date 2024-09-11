@@ -60,20 +60,15 @@ func pingMongoDB() error {
 	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
 	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
 
-	mongoClient, err := mongo.NewClient(clientOpts)
-	if err != nil {
-		return err
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	err = mongoClient.Connect(context.Background())
+	mongoClient, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
 	db := mongoClient.Database("test")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
 }
