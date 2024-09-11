@@ -8,7 +8,6 @@ package clientmanager_test
 
 import (
 	"context"
-	"reflect"
 	"testing"
 	"time"
 
@@ -19,8 +18,6 @@ import (
 	"github.com/ory/fosite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -165,9 +162,7 @@ func waitForMongoDBToBeUp() error {
 func pingMongoDB() error {
 	var err error
 
-	tM := reflect.TypeOf(bson.M{})
-	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
+	clientOpts := options.Client().ApplyURI(mongoDBConnString)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

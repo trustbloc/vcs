@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"reflect"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	"github.com/trustbloc/did-go/doc/ld/context/embed"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -169,9 +167,7 @@ func waitForMongoDBToBeUp(connectionString string) error {
 func pingMongoDB(connectionString string) error {
 	var err error
 
-	tM := reflect.TypeOf(bson.M{})
-	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(connectionString)
+	clientOpts := options.Client().ApplyURI(connectionString)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
