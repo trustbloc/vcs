@@ -97,7 +97,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 		}, nil)
 
 		require.Nil(t, km)
-		require.Contains(t, err.Error(), "failed to create a new MongoDB client")
+		require.Contains(t, err.Error(), "failed to connect to MongoDB: error parsing uri: scheme must be")
 	})
 
 	t.Run("Incorrect SecretLockKeyPath", func(t *testing.T) {

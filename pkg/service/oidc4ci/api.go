@@ -24,7 +24,7 @@ import (
 type InitiateIssuanceResponseContentType = string
 
 const (
-	ContentTypeApplicationJSON InitiateIssuanceResponseContentType = echo.MIMEApplicationJSONCharsetUTF8
+	ContentTypeApplicationJSON InitiateIssuanceResponseContentType = echo.MIMEApplicationJSON
 	ContentTypeApplicationJWT  InitiateIssuanceResponseContentType = "application/jwt"
 	issuerIdentifierParts                                          = 2
 )

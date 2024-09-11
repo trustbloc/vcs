@@ -183,7 +183,7 @@ func pingMongoDB() error {
 	var err error
 
 	clientOpts := options.Client().ApplyURI(mongoDBConnString)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	mongoClient, err := mongo.Connect(ctx, clientOpts)
