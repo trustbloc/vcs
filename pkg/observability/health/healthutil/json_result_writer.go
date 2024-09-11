@@ -60,7 +60,7 @@ func (rw *JSONResultWriter) Write(result *health.CheckerResult, status int, w ht
 		return fmt.Errorf("cannot marshal response: %w", err)
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 
 	_, err = w.Write(b)

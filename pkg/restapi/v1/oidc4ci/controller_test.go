@@ -2933,7 +2933,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, rec.Code)
-				require.Equal(t, "application/json; charset=UTF-8", rec.Header().Get("Content-Type"))
+				require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 				var response oidc4ci.BatchCredentialResponse
 				err = json.NewDecoder(rec.Body).Decode(&response)
