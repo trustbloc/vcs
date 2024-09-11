@@ -41,7 +41,12 @@ func New(connString string, databaseName string, opts ...ClientOpt) (*Client, er
 
 	mongoOpts := mongooptions.Client()
 	mongoOpts.ApplyURI(connString)
-	mongoOpts.SetWriteConcern(writeconcern.New(writeconcern.WMajority(), writeconcern.WTimeout(op.timeout)))
+
+	cons := writeconcern.Majority()
+	cons.WTimeout = op.timeout
+
+	mongoOpts.SetWriteConcern(cons)
+
 	mongoOpts.ReadPreference = op.readPref
 
 	if op.traceProvider != nil {

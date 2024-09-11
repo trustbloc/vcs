@@ -82,7 +82,7 @@ func (p *Store) Get(
 		{Key: credentialIDFieldName, Value: credentialID},
 		{Key: profileIDMongoDBFieldName, Value: profileID},
 		{Key: profileVersionMongoDBFieldName, Value: profileVersion},
-	}).DecodeBytes()
+	}).Raw()
 	if err != nil {
 		return nil, fmt.Errorf("find and decode MongoDB: %w", err)
 	}
