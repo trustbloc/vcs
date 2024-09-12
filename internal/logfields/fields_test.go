@@ -52,6 +52,8 @@ func TestStandardFields(t *testing.T) {
 		credentialTemplateID := "someCredentialTemplateID"
 		jsonSchemaID := "someSchemaID"
 		jsonSchema := "someSchema"
+		issuer1 := "issuer_1"
+		issuer2 := "issuer_2"
 
 		logger.Info(
 			"Some message",
@@ -77,6 +79,8 @@ func TestStandardFields(t *testing.T) {
 			WithCredentialTemplateID(credentialTemplateID),
 			WithJSONSchemaID(jsonSchemaID),
 			WithJSONSchema(jsonSchema),
+			WithIssuerID(issuer1),
+			WithStatusListIssuerID(issuer2),
 		)
 
 		l := unmarshalLogData(t, stdOut.Bytes())
@@ -102,6 +106,8 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, credentialTemplateID, l.CredentialTemplateID)
 		require.Equal(t, jsonSchemaID, l.JSONSchemaID)
 		require.Equal(t, jsonSchema, l.JSONSchema)
+		require.Equal(t, issuer1, l.Issuer)
+		require.Equal(t, issuer2, l.StatusListIssuerID)
 	})
 }
 
@@ -140,6 +146,8 @@ type logData struct {
 	CredentialTemplateID string      `json:"credentialTemplateID"`
 	JSONSchemaID         string      `json:"JSONSchemaID"`
 	JSONSchema           string      `json:"JSONSchema"`
+	Issuer               string      `json:"issuerID"`
+	StatusListIssuerID   string      `json:"statusListIssuerID"`
 }
 
 func unmarshalLogData(t *testing.T, b []byte) *logData {

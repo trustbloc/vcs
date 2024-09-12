@@ -251,8 +251,11 @@ func (s *Service) newTxCredentialConf(
 
 func (s *Service) validateComposeCredential(credential map[string]interface{}) error {
 	requiredFields := map[string]string{
-		"issuer":       "did:orb:anything",
-		"issuanceDate": "2021-01-01T00:00:00Z",
+		"issuer": "did:orb:anything",
+	}
+
+	if verifiable2.HasBaseContext(credential, verifiable2.V1ContextURI) {
+		requiredFields["issuanceDate"] = "2021-01-01T00:00:00Z"
 	}
 
 	var missingFieldsAdded []string

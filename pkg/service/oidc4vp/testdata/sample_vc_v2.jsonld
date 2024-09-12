@@ -1,0 +1,33 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://w3id.org/citizenship/v2"
+  ],
+  "validFrom": "2019-12-03T12:19:52Z",
+  "validUntil": "2029-12-03T12:19:52Z",
+  "credentialSubject": {
+    "image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
+    "lprNumber": "999-999-999",
+    "gender": "Male",
+    "residentSince": "2015-01-01",
+    "givenName": "JOHN",
+    "familyName": "SMITH",
+    "birthCountry": "Bahamas",
+    "id": "did:example:b34ca6cd37bbf23",
+    "commuterClassification": "C1",
+    "type": [
+      "PermanentResident",
+      "Person"
+    ],
+    "birthDate": "1958-07-17",
+    "lprCategory": "C09"
+  },
+  "name": "Permanent Resident Card",
+  "description": "Permanent Resident Card",
+  "id": "http://example.gov/credentials/ff98f978",
+  "type": [
+    "VerifiableCredential",
+    "PermanentResidentCard"
+  ],
+  "issuer": "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN"
+}

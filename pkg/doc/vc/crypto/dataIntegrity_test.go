@@ -1,3 +1,9 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package crypto
 
 import (
@@ -47,7 +53,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 
 	unsignedVc, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   []string{verifiable.VCType},
 		Subject: []verifiable.Subject{{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",

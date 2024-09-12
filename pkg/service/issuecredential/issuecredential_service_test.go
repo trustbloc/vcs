@@ -432,7 +432,7 @@ func createCredential(t *testing.T) *verifiable.Credential {
 
 	vcCreated, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   []string{verifiable.VCType},
 		Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 		Issued: &util.TimeWrapper{

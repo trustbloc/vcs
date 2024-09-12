@@ -39,6 +39,9 @@ const (
 	FieldCredentialTemplateID = "credentialTemplateID" //nolint:gosec
 	FieldJSONSchemaID         = "jsonSchemaID"
 	FieldJSONSchema           = "jsonSchema"
+	FieldContext              = "context"
+	FieldIssuerID             = "issuerID"
+	FieldStatusListIssuerID   = "statusListIssuerID"
 )
 
 // WithAdditionalMessage sets the AdditionalMessage field.
@@ -175,4 +178,19 @@ func WithJSONSchemaID(value string) zap.Field {
 // WithJSONSchema sets the jsonSchema field.
 func WithJSONSchema(value string) zap.Field {
 	return zap.String(FieldJSONSchema, value)
+}
+
+// WithContext sets the context field.
+func WithContext(ctx []string) zap.Field {
+	return zap.Strings(FieldContext, ctx)
+}
+
+// WithIssuerID sets the issuerID field.
+func WithIssuerID(value string) zap.Field {
+	return zap.String(FieldIssuerID, value)
+}
+
+// WithStatusListIssuerID sets the statusListIssuerID field.
+func WithStatusListIssuerID(value string) zap.Field {
+	return zap.String(FieldStatusListIssuerID, value)
 }

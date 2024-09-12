@@ -15,20 +15,23 @@ import (
 	"net/http"
 
 	"github.com/piprate/json-gold/ld"
-	"github.com/trustbloc/vc-go/proof/defaults"
-	"github.com/trustbloc/vc-go/vermethod"
-
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
+
+var logger = log.New("verify-credential-service")
 
 const (
 	revokedMsg = "revoked"
@@ -243,6 +246,9 @@ func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 	// TODO: check this on review. Previously we compared only issuer ids. So in case if both have empty issuers
 	// it still consider this as valid situation. Should we keep same behavior?
 	if statusListVCC.Issuer != nil && issuer != nil && statusListVCC.Issuer.ID != issuer.ID {
+		logger.Infoc(ctx, "issuer of the credential do not match status list vc issuer",
+			logfields.WithIssuerID(issuer.ID), logfields.WithStatusListIssuerID(statusListVCC.Issuer.ID))
+
 		return fmt.Errorf("issuer of the credential do not match status list vc issuer")
 	}
 

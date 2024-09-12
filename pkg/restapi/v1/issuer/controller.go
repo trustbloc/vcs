@@ -334,7 +334,6 @@ func (c *Controller) parseCredential(
 	enforceStrictValidation bool,
 	issuerProfileVCFormat vcsverifiable.Format,
 ) (*verifiable.Credential, error) {
-	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 	credential, err := vc.ValidateCredential(
 		ctx,
 		cred,
@@ -343,7 +342,13 @@ func (c *Controller) parseCredential(
 		enforceStrictValidation,
 		c.documentLoader,
 		verifiable.WithDisabledProofCheck(),
-		verifiable.WithSchema(vcSchema),
+		verifiable.WithDefaultSchemaLoader(func(vcc *verifiable.CredentialContents) string {
+			if verifiable.IsBaseContext(vcc.Context, verifiable.V2ContextURI) {
+				return verifiable.JSONSchemaLoaderV2()
+			}
+
+			return verifiable.JSONSchemaLoaderV1(verifiable.WithDisableRequiredField("issuanceDate"))
+		}),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
@@ -719,7 +724,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 func (c *Controller) accessProfile(profileID, profileVersion string) (*profileapi.Issuer, error) {
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, resterr.ErrProfileNotFound) {
 			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 				fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 		}
@@ -728,6 +733,9 @@ func (c *Controller) accessProfile(profileID, profileVersion string) (*profileap
 	}
 
 	if profile == nil {
+		logger.Debug("Received null profile from profile service", log.WithError(err),
+			logfields.WithProfileID(profileID), logfields.WithProfileVersion(profileVersion))
+
 		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 	}
@@ -743,6 +751,9 @@ func (c *Controller) accessOIDCProfile(profileID, profileVersion, tenantID strin
 
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != tenantID {
+		logger.Debug("Profile's owning org does not match the current tenant ID",
+			logfields.WithProfileID(profileID), logfields.WithProfileVersion(profileVersion))
+
 		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
 			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 	}
@@ -961,6 +972,7 @@ func (c *Controller) issueSingleCredential(
 	index int,
 ) (*PrepareCredentialResult, error) {
 	if err := c.validateClaims(
+		ctx,
 		credentialData.Credential,
 		credentialData.CredentialTemplate,
 		credentialData.EnforceStrictValidation,
@@ -1111,25 +1123,33 @@ func (c *Controller) parseTime(t *utiltime.TimeWrapper) *string {
 }
 
 func (c *Controller) validateClaims( //nolint:gocognit
+	ctx context.Context,
 	cred *verifiable.Credential,
 	credentialTemplate *profileapi.CredentialTemplate,
 	validateJSONLD bool,
 ) error {
 	subjects, err := getCredentialSubjects(cred.Contents().Subject)
 	if err != nil {
-		return err
+		return fmt.Errorf("get credential subjects: %w", err)
 	}
 
 	for _, sub := range subjects {
 		if validateJSONLD {
 			if err := c.validateJSONLD(cred, sub); err != nil {
-				return err
+				logger.Infoc(ctx, "Credential failed validation against JSONLD schema", log.WithError(err),
+					logfields.WithCredentialID(cred.Contents().ID), logfields.WithContext(cred.Contents().Context))
+
+				return fmt.Errorf("validate JSONLD: %w", err)
 			}
 		}
 
 		if credentialTemplate != nil && credentialTemplate.JSONSchemaID != "" {
 			if err := c.validateJSONSchema(cred, credentialTemplate, sub); err != nil {
-				return err
+				logger.Infoc(ctx, "Credential failed validation against JSON schema", log.WithError(err),
+					logfields.WithCredentialID(cred.Contents().ID),
+					logfields.WithJSONSchemaID(credentialTemplate.JSONSchemaID))
+
+				return fmt.Errorf("validate JSON schema: %w", err)
 			}
 		}
 	}

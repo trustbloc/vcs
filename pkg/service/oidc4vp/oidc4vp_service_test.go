@@ -54,6 +54,8 @@ var (
 	sampleVCJsonLD string
 	//go:embed testdata/university_degree.jwt
 	sampleVCJWT string
+	//go:embed testdata/sample_vc_v2.jsonld
+	sampleV2VCJsonLD string
 )
 
 const (
@@ -1176,6 +1178,34 @@ func TestService_RetrieveClaims(t *testing.T) {
 			claims["_scope"],
 		)
 	})
+
+	t.Run("Success V2 JsonLD", func(t *testing.T) {
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
+			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionClaimsRetrieved, nil),
+		)
+
+		ldvc, err := verifiable.ParseCredential([]byte(sampleV2VCJsonLD),
+			verifiable.WithJSONLDDocumentLoader(loader),
+			verifiable.WithDisabledProofCheck())
+		require.NoError(t, err)
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{EventSvc: mockEventSvc, EventTopic: spi.VerifierEventTopic})
+
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: []*verifiable.Credential{
+				ldvc,
+			}}}, &profileapi.Verifier{})
+		require.NotNil(t, claims)
+
+		subjects, ok := claims["http://example.gov/credentials/ff98f978"].SubjectData.([]map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "did:example:b34ca6cd37bbf23", subjects[0]["id"])
+		require.NotEmpty(t, claims["http://example.gov/credentials/ff98f978"].Issuer)
+		require.NotEmpty(t, claims["http://example.gov/credentials/ff98f978"].ValidFrom)
+		require.NotEmpty(t, claims["http://example.gov/credentials/ff98f978"].ValidUntil)
+		require.Empty(t, claims["_scope"])
+	})
 }
 
 func createCryptoSuite(t *testing.T) api.Suite {
@@ -1261,7 +1291,7 @@ func newVP(t *testing.T, submission *presexch.PresentationSubmission,
 
 func newVC(issuer string, ctx []string, customTypes []string) verifiable.CredentialContents {
 	cred := verifiable.CredentialContents{
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   append([]string{verifiable.VCType}, customTypes...),
 		ID:      "http://test.credential.com/123",
 		Issuer:  &verifiable.Issuer{ID: issuer},
@@ -1285,7 +1315,7 @@ func newVC(issuer string, ctx []string, customTypes []string) verifiable.Credent
 
 func newDegreeVC(issuer string, degreeType string, ctx []string, customTypes []string) verifiable.CredentialContents {
 	cred := verifiable.CredentialContents{
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   append([]string{verifiable.VCType}, customTypes...),
 		ID:      uuid.New().String(),
 		Issuer:  &verifiable.Issuer{ID: issuer},

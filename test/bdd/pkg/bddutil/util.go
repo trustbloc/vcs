@@ -270,7 +270,9 @@ var (
 	//go:embed contexts/citizenship-v1.jsonld
 	citizenshipVocab []byte
 	//go:embed contexts/examples-v1.jsonld
-	examplesVocab []byte
+	examplesVocabV1 []byte
+	//go:embed contexts/examples-v2.jsonld
+	examplesVocabV2 []byte
 	//go:embed contexts/examples-ext-v1.jsonld
 	examplesExtVocab []byte
 	//go:embed contexts/examples-crude-product-v1.jsonld
@@ -295,7 +297,11 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	},
 	{
 		URL:     "https://www.w3.org/2018/credentials/examples/v1",
-		Content: examplesVocab,
+		Content: examplesVocabV1,
+	},
+	{
+		URL:     "https://www.w3.org/ns/credentials/examples/v2",
+		Content: examplesVocabV2,
 	},
 	{
 		URL:     "https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld",
