@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -25,12 +24,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/trustbloc/vcs/cmd/common"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/trustbloc/vcs/cmd/common"
 )
 
 const (
@@ -707,24 +705,17 @@ func waitForMongoDBToBeUp() error {
 func pingMongoDB() error {
 	var err error
 
-	tM := reflect.TypeOf(bson.M{})
-	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
+	clientOpts := options.Client().ApplyURI(mongoDBConnString)
 
-	mongoClient, err := mongo.NewClient(clientOpts)
-	if err != nil {
-		return err
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	err = mongoClient.Connect(context.Background())
+	mongoClient, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
 	db := mongoClient.Database("test")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
 }

@@ -31,14 +31,14 @@ func TestResultWriter_Write(t *testing.T) {
 
 	err := writer.Write(&health.CheckerResult{
 		Status: health.StatusUp,
-		Details: &map[string]health.CheckResult{
+		Details: map[string]health.CheckResult{
 			"up": {
 				Status:    health.StatusUp,
-				Timestamp: &now,
+				Timestamp: now,
 			},
 			"down": {
 				Status:    health.StatusDown,
-				Timestamp: &now,
+				Timestamp: now,
 			},
 		},
 	}, http.StatusOK, rw, nil)

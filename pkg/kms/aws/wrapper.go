@@ -17,7 +17,8 @@ import (
 func NewSuite(awsConfig *aws.Config,
 	metrics metricsProvider,
 	healthCheckKeyID string,
-	opts ...Opts) api.Suite {
+	opts ...Opts,
+) api.Suite {
 	svc := New(awsConfig, metrics, healthCheckKeyID, opts...)
 
 	return &suiteImpl{

@@ -41,22 +41,22 @@ func New(connString string, databaseName string, opts ...ClientOpt) (*Client, er
 
 	mongoOpts := mongooptions.Client()
 	mongoOpts.ApplyURI(connString)
-	mongoOpts.SetWriteConcern(writeconcern.New(writeconcern.WMajority(), writeconcern.WTimeout(op.timeout)))
+
+	cons := writeconcern.Majority()
+	cons.WTimeout = op.timeout
+
+	mongoOpts.SetWriteConcern(cons)
+
 	mongoOpts.ReadPreference = op.readPref
 
 	if op.traceProvider != nil {
 		mongoOpts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(op.traceProvider))
 	}
 
-	client, err := mongo.NewClient(mongoOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new MongoDB client: %w", err)
-	}
-
 	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), op.timeout)
 	defer cancel()
 
-	err = client.Connect(ctxWithTimeout)
+	client, err := mongo.Connect(ctxWithTimeout, mongoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}

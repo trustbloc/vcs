@@ -10,8 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -25,7 +23,6 @@ import (
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	"github.com/trustbloc/did-go/doc/ld/context/embed"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -170,24 +167,16 @@ func waitForMongoDBToBeUp(connectionString string) error {
 func pingMongoDB(connectionString string) error {
 	var err error
 
-	tM := reflect.TypeOf(bson.M{})
-	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(connectionString)
+	clientOpts := options.Client().ApplyURI(connectionString)
 
-	mongoClient, err := mongo.NewClient(clientOpts)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	mongoClient, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return err
 	}
 
-	err = mongoClient.Connect(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to connect to MongoDB: %w", err)
-	}
-
 	db := mongoClient.Database("test")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
 }

@@ -42,12 +42,9 @@ func bootstrapOAuthProvider(
 	config.AccessTokenLifespan = 30 * time.Minute
 	config.SendDebugMessagesToClients = true // TODO: Disable before moving to production.
 
-	var hmacStrategy = &fositeoauth2.HMACSHAStrategy{
-		Enigma: &hmac.HMACStrategy{
-			Config: config,
-		},
+	var hmacStrategy = fositeoauth2.NewHMACSHAStrategy(&hmac.HMACStrategy{
 		Config: config,
-	}
+	}, config)
 
 	var store interface{}
 

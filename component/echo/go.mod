@@ -1,6 +1,8 @@
 module github.com/trustbloc/vcs/component/echo
 
-go 1.20
+go 1.21
+
+toolchain go1.22.4
 
 require (
 	github.com/labstack/echo/v4 v4.10.2

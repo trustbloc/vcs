@@ -112,7 +112,12 @@ func New(
 
 	client := options.awsClient
 	if client == nil {
-		client = kms.NewFromConfig(*awsConfig)
+		var awsOptions []func(*kms.Options)
+		if options.endpointResolver != nil {
+			awsOptions = append(awsOptions, kms.WithEndpointResolverV2(options.endpointResolver))
+		}
+
+		client = kms.NewFromConfig(*awsConfig, awsOptions...)
 	}
 
 	algo := types.EncryptionAlgorithmSpecSymmetricDefault

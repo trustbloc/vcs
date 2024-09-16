@@ -1628,7 +1628,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
 
-		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 		var exchangeResult ExchangeAuthorizationCodeResponse
 
@@ -1662,7 +1662,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
 
-		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 		var exchangeResult ExchangeAuthorizationCodeResponse
 
@@ -1695,7 +1695,7 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 		ctx := echoContext(withRecorder(recorder), withRequestBody([]byte(req)))
 		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
 
-		assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 		var exchangeResult ExchangeAuthorizationCodeResponse
 
@@ -2758,7 +2758,7 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, `{"signed_metadata":"aa.bb.cc"}`, string(bodyBytes))
-			assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 		}
 	})
 
@@ -2795,7 +2795,7 @@ func TestOpenIdCredentialIssuerConfiguration(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Contains(t, string(bodyBytes), "\"credential_issuer\":\"https://example.com\"")
-			assert.Equal(t, "application/json; charset=UTF-8", recorder.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 		}
 	})
 

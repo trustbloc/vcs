@@ -8,8 +8,6 @@ package arieskmsstore
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -18,11 +16,10 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 	arieskms "github.com/trustbloc/kms-go/kms"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
 const (
@@ -100,24 +97,16 @@ func waitForMongoDBToBeUp() error {
 func pingMongoDB() error {
 	var err error
 
-	tM := reflect.TypeOf(bson.M{})
-	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
+	clientOpts := options.Client().ApplyURI(mongoDBConnString)
 
-	mongoClient, err := mongo.NewClient(clientOpts)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	mongoClient, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return err
 	}
 
-	err = mongoClient.Connect(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to connect to MongoDB: %w", err)
-	}
-
 	db := mongoClient.Database("test")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
 }

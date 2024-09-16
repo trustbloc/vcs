@@ -24,12 +24,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/spi/storage"
-	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/test"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/test"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/storage/mongodb"
 )
@@ -102,8 +102,7 @@ func TestProvider_Ping_Failure(t *testing.T) {
 	require.NoError(t, err)
 
 	err = provider.Ping()
-	require.Contains(t, err.Error(), "server selection error: context deadline exceeded, current topology: "+
-		"{ Type: Unknown, Servers: [{ Addr: badurl:27017, Type: Unknown, Last error: dial tcp: lookup badurl:")
+	require.Contains(t, err.Error(), "server selection error: context deadline exceeded, current topology:")
 }
 
 func TestStore_Put_Failure(t *testing.T) {
@@ -2264,24 +2263,16 @@ func waitForMongoDBToBeUp() error {
 func pingMongoDB() error {
 	var err error
 
-	tM := reflect.TypeOf(bson.M{})
-	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
+	clientOpts := options.Client().ApplyURI(mongoDBConnString)
 
-	mongoClient, err := mongo.NewClient(clientOpts)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	mongoClient, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return err
 	}
 
-	err = mongoClient.Connect(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "error connecting to mongo")
-	}
-
 	db := mongoClient.Database("test")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
 }

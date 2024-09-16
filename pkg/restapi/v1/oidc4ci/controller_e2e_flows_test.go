@@ -119,18 +119,13 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 
 	config := new(fosite.Config)
 	config.EnforcePKCE = true
+	config.GlobalSecret = []byte("secret-for-signing-and-verifying-signatures")
+	config.AuthorizeCodeLifespan = time.Minute
+	config.AccessTokenLifespan = time.Hour
 
-	var hmacStrategy = &fositeoauth.HMACSHAStrategy{
-		Enigma: &hmac.HMACStrategy{
-			Config: &fosite.Config{
-				GlobalSecret: []byte("secret-for-signing-and-verifying-signatures"),
-			},
-		},
-		Config: &fosite.Config{
-			AuthorizeCodeLifespan: time.Minute,
-			AccessTokenLifespan:   time.Hour,
-		},
-	}
+	var hmacStrategy = fositeoauth.NewHMACSHAStrategy(&hmac.HMACStrategy{
+		Config: config,
+	}, config)
 
 	oauth2Provider := compose.Compose(config, fositeStore, hmacStrategy,
 		compose.OAuth2AuthorizeExplicitFactory,
@@ -343,18 +338,13 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 
 	config := new(fosite.Config)
 	config.EnforcePKCE = true
+	config.GlobalSecret = []byte("secret-for-signing-and-verifying-signatures")
+	config.AuthorizeCodeLifespan = time.Minute
+	config.AccessTokenLifespan = time.Hour
 
-	var hmacStrategy = &fositeoauth.HMACSHAStrategy{
-		Enigma: &hmac.HMACStrategy{
-			Config: &fosite.Config{
-				GlobalSecret: []byte("secret-for-signing-and-verifying-signatures"),
-			},
-		},
-		Config: &fosite.Config{
-			AuthorizeCodeLifespan: time.Minute,
-			AccessTokenLifespan:   time.Hour,
-		},
-	}
+	var hmacStrategy = fositeoauth.NewHMACSHAStrategy(&hmac.HMACStrategy{
+		Config: config,
+	}, config)
 
 	oauth2Provider := compose.Compose(config, fositeStore, hmacStrategy,
 		compose.OAuth2AuthorizeExplicitFactory,
