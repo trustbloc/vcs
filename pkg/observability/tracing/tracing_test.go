@@ -22,7 +22,7 @@ func TestInitialize(t *testing.T) {
 	})
 
 	t.Run("Provider JAEGER", func(t *testing.T) {
-		t.Setenv("OTEL_EXPORTER_JAEGER_ENDPOINT", "localhost")
+		t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost")
 
 		shutdown, tracer, err := Initialize("JAEGER", "service1")
 		require.NoError(t, err)
