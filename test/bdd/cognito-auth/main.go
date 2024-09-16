@@ -52,19 +52,6 @@ type GetTokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOptionsFunc {
-	return func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if endpoint != "" && service == cip.ServiceID && region == reg {
-			return aws.Endpoint{
-				URL:           endpoint,
-				SigningRegion: reg,
-			}, nil
-		}
-
-		return aws.Endpoint{SigningRegion: reg}, &aws.EndpointNotFoundError{}
-	}
-}
-
 func (s *Service) token(w http.ResponseWriter, req *http.Request) {
 
 	username, password, ok := req.BasicAuth()
@@ -170,7 +157,7 @@ func main() {
 	}
 
 	awsRegion := os.Getenv("AWS_REGION")
-	if cognitoEndpoint == "" {
+	if awsRegion == "" {
 		panic("awsRegion to be passed as 'AWS_REGION' ENV variable")
 	}
 
@@ -179,8 +166,7 @@ func main() {
 		panic("hostURL to be passed as 'HOST_URL' ENV variable")
 	}
 
-	config, err := awsconfig.LoadDefaultConfig(context.Background(),
-		awsconfig.WithEndpointResolverWithOptions(prepareResolver(cognitoEndpoint, awsRegion)))
+	config, err := awsconfig.LoadDefaultConfig(context.Background())
 	if err != nil {
 		panic("error while preparing cognito aws config")
 	}
@@ -189,7 +175,9 @@ func main() {
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		CognitoEndpoint: cognitoEndpoint,
-		cognitoClient:   cip.NewFromConfig(config),
+		cognitoClient: cip.NewFromConfig(config, cip.WithEndpointResolverV2(&EndpointResolver{
+			Endpoint: cognitoEndpoint,
+		})),
 	}
 
 	router := mux.NewRouter().StrictSlash(true)

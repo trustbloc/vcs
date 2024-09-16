@@ -12,9 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/trustbloc/did-go/legacy/mem"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	arieskms "github.com/trustbloc/kms-go/kms"
@@ -24,6 +22,7 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
 	"github.com/trustbloc/kms-go/wrapper/websuite"
+
 	awssvc "github.com/trustbloc/vcs/pkg/kms/aws"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/arieskmsstore"
@@ -98,13 +97,22 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 	case AWS:
 		awsConfig, err := config.LoadDefaultConfig(
 			context.Background(),
-			config.WithEndpointResolverWithOptions(prepareResolver(cfg.Endpoint, cfg.Region)),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		awsSuite := awssvc.NewSuite(&awsConfig, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
+		opts := []awssvc.Opts{
+			awssvc.WithKeyAliasPrefix(cfg.AliasPrefix),
+		}
+
+		if cfg.Endpoint != "" {
+			opts = append(opts, awssvc.WithAWSEndpointResolverV2(&EndpointResolver{
+				Endpoint: cfg.Endpoint,
+			}))
+		}
+
+		awsSuite := awssvc.NewSuite(&awsConfig, nil, "", opts...)
 
 		return &KeyManager{
 			kmsType: cfg.KMSType,
@@ -114,18 +122,6 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 	}
 
 	return nil, fmt.Errorf("unsupported kms type: %s", cfg.KMSType)
-}
-
-func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOptionsFunc {
-	return func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if endpoint != "" && service == kms.ServiceID && region == reg {
-			return aws.Endpoint{
-				URL:           endpoint,
-				SigningRegion: reg,
-			}, nil
-		}
-		return aws.Endpoint{SigningRegion: reg}, &aws.EndpointNotFoundError{}
-	}
 }
 
 func createLocalKMS(cfg *Config) (api.Suite, error) {

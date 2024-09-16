@@ -9,6 +9,7 @@ package aws
 import (
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 )
 
@@ -16,6 +17,7 @@ type opts struct {
 	keyAliasPrefix      string
 	awsClient           awsClient
 	encryptionAlgorithm string
+	endpointResolver    kms.EndpointResolverV2
 }
 
 // NewOpts create new opts populated with environment variable.
@@ -48,4 +50,8 @@ func WithEncryptionAlgorithm(algo string) Opts {
 // WithAWSClient sets custom AWS client.
 func WithAWSClient(client awsClient) Opts {
 	return func(opts *opts) { opts.awsClient = client }
+}
+
+func WithAWSEndpointResolverV2(resolver kms.EndpointResolverV2) Opts {
+	return func(opts *opts) { opts.endpointResolver = resolver }
 }
