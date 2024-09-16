@@ -10,7 +10,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/aws/aws-sdk-go-v2/service/kms"
+	cip "github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	transport "github.com/aws/smithy-go/endpoints"
 )
 
@@ -22,7 +22,7 @@ type EndpointResolver struct {
 // ResolveEndpoint resolves the endpoint.
 func (e *EndpointResolver) ResolveEndpoint(
 	_ context.Context,
-	_ kms.EndpointParameters,
+	_ cip.EndpointParameters,
 ) (transport.Endpoint, error) {
 	targetURL, err := url.Parse(e.Endpoint)
 	if err != nil {
