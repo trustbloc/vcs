@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package kms_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -20,7 +21,7 @@ func TestResolver(t *testing.T) {
 		Endpoint: "http://localhost",
 	}
 
-	resp, err := ep.ResolveEndpoint(nil, kms.EndpointParameters{})
+	resp, err := ep.ResolveEndpoint(context.TODO(), kms.EndpointParameters{})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 
