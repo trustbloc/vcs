@@ -149,7 +149,7 @@ mock-attestation-docker:
 sample-cognito-auth:
 	@echo "Building sample cognito auth server"
 	@mkdir -p ./build/bin
-	@GOPROXY=$(GOPROXY) go build -C test/bdd/cognito-auth -modfile ../../../test/bdd/go.mod -o ./build/bin/cognito-auth-server
+	@GOPROXY=$(GOPROXY) go build -C test/bdd/cognito-auth -modfile ../../../test/bdd/go.mod -o ./../../../build/bin/cognito-auth-server
 
 .PHONY: sample-cognito-auth-docker
 sample-cognito-auth-docker:

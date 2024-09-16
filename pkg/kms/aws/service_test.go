@@ -464,6 +464,23 @@ func TestGet(t *testing.T) {
 	})
 }
 
+func TestResolver(t *testing.T) {
+	awsConfig := aws.Config{
+		Region: "ca",
+	}
+	metric := NewMockmetricsProvider(gomock.NewController(t))
+
+	t.Run("success", func(t *testing.T) {
+		svc := New(&awsConfig, metric, "", []Opts{
+			WithAWSEndpointResolverV2(&ExampleResolver{}),
+		}...)
+
+		keyID, err := svc.Get("key1")
+		require.NoError(t, err)
+		require.Contains(t, keyID, "key1")
+	})
+}
+
 func TestCreateAndPubKeyBytes(t *testing.T) {
 	awsConfig := aws.Config{
 		Region: "ca",
