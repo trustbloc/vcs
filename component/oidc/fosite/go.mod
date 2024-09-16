@@ -66,7 +66,7 @@ require (
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
-	github.com/opencontainers/runc v1.1.13 // indirect
+	github.com/opencontainers/runc v1.1.14 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/ory/go-acc v0.2.9-0.20230103102148-6b1c9a70dbbe // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
