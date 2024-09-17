@@ -1,3 +1,9 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package issuecredential_test
 
 import (
@@ -7,6 +13,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -66,6 +73,61 @@ func TestComposer(t *testing.T) {
 		assert.EqualValues(t, "some-awesome-did", resp.Contents().Subject[0].ID)
 		assert.EqualValues(t, expectedExpiration, parsedCred.Contents().Expired.Time)
 		assert.NotNil(t, expectedExpiration, parsedCred.Contents().Issued)
+	})
+
+	t.Run("success - V2", func(t *testing.T) {
+		srv := issuecredential.NewCredentialComposer()
+
+		cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
+			Types: []string{"VerifiableCredential"},
+			Context: []string{
+				verifiable.V2ContextURI,
+			},
+			Subject: []verifiable.Subject{{ID: "xxx:yyy"}},
+		}, verifiable.CustomFields{})
+		require.NoError(t, err)
+
+		expectedExpiration := time.Now().UTC()
+
+		resp, err := srv.Compose(
+			context.TODO(),
+			cred,
+			&issuecredential.PrepareCredentialsRequest{
+				TxID:       "some-awesome-id",
+				IssuerDID:  "did:example:123",
+				SubjectDID: "some-awesome-did",
+				CredentialConfiguration: &issuecredential.TxCredentialConfiguration{
+					CredentialComposeConfiguration: &issuecredential.CredentialComposeConfiguration{
+						IDTemplate:         "hardcoded:{{.TxID}}:suffix",
+						OverrideIssuer:     true,
+						OverrideSubjectDID: true,
+					},
+					CredentialExpiresAt: &expectedExpiration,
+				},
+			},
+		)
+
+		require.NotNil(t, resp.Contents().Issued)
+		require.NotNil(t, resp.Contents().Expired)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		credJSON, err := resp.MarshalAsJSONLD()
+		require.NoError(t, err)
+
+		parsedCred, err := verifiable.ParseCredential(credJSON,
+			verifiable.WithCredDisableValidation(),
+			verifiable.WithDisabledProofCheck(),
+		)
+		require.NoError(t, err)
+
+		require.EqualValues(t, "hardcoded:some-awesome-id:suffix", resp.Contents().ID)
+		require.EqualValues(t, "did:example:123", resp.Contents().Issuer.ID)
+		require.EqualValues(t, "some-awesome-did", resp.Contents().Subject[0].ID)
+		require.EqualValues(t, expectedExpiration, parsedCred.Contents().Expired.Time)
+		require.NotEmpty(t, parsedCred.CustomField("validFrom"))
+		require.NotEmpty(t, parsedCred.CustomField("validUntil"))
 	})
 
 	t.Run("success with prev-id", func(t *testing.T) {

@@ -289,7 +289,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 func TestCrypto_SignCredentialJWT(t *testing.T) {
 	unsignedVc, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   []string{verifiable.VCType},
 		Subject: []verifiable.Subject{{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -317,7 +317,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 
 	unsignedVcNoSub, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   []string{verifiable.VCType},
 		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
@@ -692,7 +692,7 @@ func TestSignCredential(t *testing.T) {
 
 		unsignedVC := createVCWithCF(t, verifiable.CredentialContents{
 			ID:      "http://example.edu/credentials/1872",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Subject: []verifiable.Subject{{
 				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",

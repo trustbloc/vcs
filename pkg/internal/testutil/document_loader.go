@@ -35,6 +35,8 @@ var (
 	vcDataIntegrity []byte
 	//go:embed contexts/wallet_attestation_vc_v1.jsonld
 	walletAttestationVC []byte
+	//go:embed contexts/citizenship-v2.jsonld
+	citizenshipV2 []byte
 )
 
 type mockLDStoreProvider struct {
@@ -92,6 +94,14 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 		ldcontext.Document{
 			URL:     "https://www.w3.org/2022/credentials/walletAttestation/v1",
 			Content: walletAttestationVC,
+		},
+		{
+			URL:     "https://www.w3.org/ns/credentials/examples/v2",
+			Content: credentialExamples,
+		},
+		{
+			URL:     "https://w3id.org/citizenship/v2",
+			Content: citizenshipV2,
 		},
 	}
 

@@ -69,11 +69,19 @@ func (c *CredentialComposer) Compose(
 	}
 
 	if credential.Contents().Expired == nil && req.CredentialConfiguration.CredentialExpiresAt != nil {
-		credential = credential.WithModifiedExpired(util.NewTime(*req.CredentialConfiguration.CredentialExpiresAt))
+		if verifiable.IsBaseContext(credential.Contents().Context, verifiable.V2ContextURI) {
+			credential = credential.WithModifiedValidUntil(util.NewTime(*req.CredentialConfiguration.CredentialExpiresAt))
+		} else {
+			credential = credential.WithModifiedExpired(util.NewTime(*req.CredentialConfiguration.CredentialExpiresAt))
+		}
 	}
 
 	if credential.Contents().Issued == nil {
-		credential = credential.WithModifiedIssued(util.NewTime(time.Now().UTC()))
+		if verifiable.IsBaseContext(credential.Contents().Context, verifiable.V2ContextURI) {
+			credential = credential.WithModifiedValidFrom(util.NewTime(time.Now().UTC()))
+		} else {
+			credential = credential.WithModifiedIssued(util.NewTime(time.Now().UTC()))
+		}
 	}
 
 	return credential, nil

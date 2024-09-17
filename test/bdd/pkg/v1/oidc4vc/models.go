@@ -111,6 +111,8 @@ type credentialMetadata struct {
 	ExpirationDate *util.TimeWrapper                 `json:"expirationDate,omitempty"`
 	CustomClaims   map[string]map[string]interface{} `json:"customClaims,omitempty"`
 	Attachments    []*oidc4vp.Attachment             `json:"attachments,omitempty"`
+	ValidFrom      *util.TimeWrapper                 `json:"validFrom,omitempty"`
+	ValidUntil     *util.TimeWrapper                 `json:"validUntil,omitempty"`
 }
 
 type retrievedCredentialClaims map[string]credentialMetadata

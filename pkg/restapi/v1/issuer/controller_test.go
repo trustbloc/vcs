@@ -52,6 +52,8 @@ const (
 var (
 	//go:embed testdata/sample_vc.jsonld
 	sampleVCJsonLD string
+	//go:embed testdata/sample_vc_v2.jsonld
+	sampleVCJsonLDV2 []byte
 	//go:embed testdata/sample_vc.jwt
 	sampleVCJWT string
 	//go:embed testdata/sample_vc_university_degree.jsonld
@@ -60,6 +62,8 @@ var (
 	sampleVCInvalidUniversityDegree []byte
 	//go:embed testdata/universitydegree.schema.json
 	universityDegreeSchema []byte
+	//go:embed testdata/sample_invalid_vc_v2.jsonld
+	sampleInvalidVCJsonLDV2 []byte
 )
 
 func TestController_PostIssueCredentials(t *testing.T) {
@@ -425,6 +429,36 @@ func TestController_IssueCredentials(t *testing.T) {
 			c.Request().Context(), orgID, &body, profileID, profileVersion)
 		require.NotNil(t, verifiableCredentials)
 		require.NoError(t, err)
+	})
+
+	t.Run("Success JSON-LD V2.0", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		c := echoContext(withRequestBody(sampleVCJsonLDV2))
+
+		var body IssueCredentialData
+
+		err := util.ReadBody(c, &body)
+		require.NoError(t, err)
+
+		verifiableCredentials, err := controller.issueCredential(
+			c.Request().Context(), orgID, &body, profileID, profileVersion)
+		require.NoError(t, err)
+		require.NotNil(t, verifiableCredentials)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
@@ -1066,7 +1100,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Profile does not exist in the underlying storage",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("not found"))
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, resterr.ErrProfileNotFound)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
 					c = echoContext(withRequestBody(req))
@@ -2153,7 +2187,7 @@ func TestController_PrepareCredential(t *testing.T) {
 		assert.ErrorContains(t, c.PrepareCredential(ctx), "rand-code: rand")
 	})
 
-	t.Run("claims schema validation error", func(t *testing.T) {
+	t.Run("claims JSON schema validation error", func(t *testing.T) {
 		invalidVC, err := verifiable.ParseCredential(
 			sampleVCInvalidUniversityDegree,
 			verifiable.WithDisabledProofCheck(),
@@ -2220,7 +2254,71 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 
 		err = c.PrepareCredential(ctx)
-		assert.EqualError(t, err, "invalid-claims: validation error")
+		assert.EqualError(t, err, "invalid-claims: validate JSON schema: validation error")
+	})
+
+	t.Run("claims JSONLD schema validation error", func(t *testing.T) {
+		invalidVC, err := verifiable.ParseCredential(
+			sampleInvalidVCJsonLDV2,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+		)
+		require.NoError(t, err)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
+			&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             profileID,
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+			}, nil)
+
+		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+					Credentials: []*oidc4ci.PrepareCredentialResultData{
+						{
+							Credential: invalidVC,
+							Format:     vcsverifiable.Ldp,
+							OidcFormat: "",
+							CredentialTemplate: &profileapi.CredentialTemplate{
+								Checks: profileapi.CredentialTemplateChecks{
+									Strict: true,
+								},
+							},
+							Retry:                   false,
+							EnforceStrictValidation: true,
+							NotificationID:          nil,
+						},
+					},
+				}, nil
+			},
+		)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: mockIssueCredentialSvc,
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    NewMockJSONSchemaValidator(gomock.NewController(t)),
+		})
+
+		req := `{"tx_id":"123","types":["UniversityDegreeCredential"],"format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+
+		err = c.PrepareCredential(ctx)
+		require.ErrorContains(t, err, "invalid-claims: validate JSONLD")
 	})
 
 	t.Run("credential response encryption is required error", func(t *testing.T) {

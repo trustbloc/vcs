@@ -586,11 +586,17 @@ func (s *Service) RetrieveClaims(
 		})
 
 		credMeta := CredentialMetadata{
-			Format:         credType,
-			Type:           credContents.Types,
-			SubjectData:    subject,
-			IssuanceDate:   credContents.Issued,
-			ExpirationDate: credContents.Expired,
+			Format:      credType,
+			Type:        credContents.Types,
+			SubjectData: subject,
+		}
+
+		if verifiable.IsBaseContext(credContents.Context, verifiable.V2ContextURI) {
+			credMeta.ValidFrom = credContents.Issued
+			credMeta.ValidUntil = credContents.Expired
+		} else {
+			credMeta.IssuanceDate = credContents.Issued
+			credMeta.ExpirationDate = credContents.Expired
 		}
 
 		credMeta.Name = cred.CustomField(additionalClaimFieldName)

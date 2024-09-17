@@ -212,6 +212,16 @@
       }
     },
     {
+      "url": "https://www.w3.org/ns/credentials/examples/v2",
+      "content" : {
+        "@context": [
+          {
+            "@vocab": "https://www.w3.org/ns/credentials/examples#"
+          }
+        ]
+      }
+    },
+    {
       "url": "https://www.w3.org/ns/odrl.jsonld",
       "content": {
         "@context": {
@@ -472,6 +482,58 @@
       }
     },
     {
+      "url": "https://w3id.org/citizenship/v2",
+      "content": {
+        "@context": {
+          "@version": 1.1,
+          "@protected": true,
+
+          "identifier": "http://schema.org/identifier",
+          "image": {"@id": "http://schema.org/image", "@type": "@id"},
+
+          "PermanentResidentCard": {
+            "@id": "https://w3id.org/citizenship#PermanentResidentCard",
+            "@context": {
+              "@version": 1.1,
+              "@protected": true,
+
+              "id": "@id",
+              "type": "@type",
+
+              "identifier": "http://schema.org/identifier",
+              "image": {"@id": "http://schema.org/image", "@type": "@id"}
+            }
+          },
+          "PermanentResident": {
+            "@id": "https://w3id.org/citizenship#PermanentResident",
+            "@context": {
+              "@version": 1.1,
+              "@protected": true,
+
+              "id": "@id",
+              "type": "@type",
+
+              "ctzn": "https://w3id.org/citizenship#",
+              "schema": "http://schema.org/",
+              "xsd": "http://www.w3.org/2001/XMLSchema#",
+
+              "birthCountry": "ctzn:birthCountry",
+              "birthDate": {"@id": "schema:birthDate", "@type": "xsd:dateTime"},
+              "commuterClassification": "ctzn:commuterClassification",
+              "familyName": "schema:familyName",
+              "gender": "schema:gender",
+              "givenName": "schema:givenName",
+              "lprCategory": "ctzn:lprCategory",
+              "lprNumber": "ctzn:lprNumber",
+              "residentSince": {"@id": "ctzn:residentSince", "@type": "xsd:dateTime"}
+            }
+          },
+
+          "Person": "http://schema.org/Person"
+        }
+      }
+    },
+    {
       "url": "https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld",
       "content": {
         "@context": {
@@ -684,6 +746,95 @@
           "identifier": "prm:identifier",
           "name": "prm:name",
           "description": "prm:description",
+          "volume": "cp:volume",
+          "address": "prm:address",
+          "productionDate": "prm:productionDate",
+          "predecessorOf": "prm:predecessorOf",
+          "successorOf": "prm:successorOf",
+          "physicalSpecs": "cp:physicalSpecs",
+          "chemicalSpecs": "cp:chemicalSpecs",
+          "latitude": "cp:latitude",
+          "longitude": "cp:longitude",
+          "uom": "cp:uom",
+          "minimumQuantity": "cp:minimumQuantity",
+          "apiGravity": "cp:apiGravity",
+          "viscosityAt10C": "cp:viscosityAt10C",
+          "viscosityAt20C": "cp:viscosityAt20C",
+          "viscosityAt30C": "cp:viscosityAt30C",
+          "viscosityAt40C": "cp:viscosityAt40C",
+          "viscosityAt45C": "cp:viscosityAt45C",
+          "pourPoint": "cp:pourPoint",
+          "vapourPressure": "cp:vapourPressure",
+          "density": "cp:density",
+          "naphtha": "cp:naphtha",
+          "distillateAt350To650F": "cp:distillateAt350To650F",
+          "gasOilAt650To980F": "cp:gasOilAt650To980F",
+          "residAt980F": "cp:residAt980F",
+          "deemedButane": "cp:deemedButane",
+          "tan": "cp:tan",
+          "ron": "cp:ron",
+          "mon": "cp:mon",
+          "boilingPoint": "cp:boilingPoint",
+          "freezingPoint": "cp:freezingPoint",
+          "criticalTemperature": "cp:criticalTemperature",
+          "criticalPressure": "cp:criticalPressure",
+          "autoIgnitionTemperatureInAirAt1atm": "cp:autoIgnitionTemperatureInAirAt1atm",
+          "solubilityInTrichloroethylene": "cp:solubilityInTrichloroethylene",
+          "penetrationAt25C100g5sec": "cp:penetrationAt25C100g5sec",
+          "softeningPoint": "cp:softeningPoint",
+          "ductilityAt25C": "cp:ductilityAt25C",
+          "olefin": "cp:olefin",
+          "color": "cp:color",
+          "odor": "cp:odor",
+          "grossCalorificValueAt15C": "cp:grossCalorificValueAt15C",
+          "netCalorificValueAt15C": "cp:netCalorificValueAt15C",
+          "airRequiredForCombustion": "cp:airRequiredForCombustion",
+          "copperCorrosionAt38CFor1Hour": "cp:copperCorrosionAt38CFor1Hour",
+          "microCarbonResidue": "cp:microCarbonResidue",
+          "aromaticsTotalBTEX": "cp:aromaticsTotalBTEX",
+          "sedimentAndWater": "cp:sedimentAndWater",
+          "liquidPhaseH2S": "cp:liquidPhaseH2S",
+          "mercury": "cp:mercury",
+          "oxygenates": "cp:oxygenates",
+          "filterableSolids": "cp:filterableSolids",
+          "phosphorousVolatile": "cp:phosphorousVolatile",
+          "mediumChainTriglycerides": "cp:mediumChainTriglycerides",
+          "benzene": "cp:benzene",
+          "particulates": "cp:particulates",
+          "organicChlorides": "cp:organicChlorides",
+          "nickel": "cp:nickel",
+          "vanadium": "cp:vanadium",
+          "water": "cp:water",
+          "molecularWeight": "cp:molecularWeight",
+          "sulphur": "cp:sulphur",
+          "naphthenes": "cp:naphthenes",
+          "chloride": "cp:chloride",
+          "arsenic": "cp:arsenic",
+          "lead": "cp:lead",
+          "ethene": "cp:ethene",
+          "propane": "cp:propane",
+          "isoButane": "cp:isoButane",
+          "nButane": "cp:nButane",
+          "hydrocarbonsHeavier": "cp:hydrocarbonsHeavier",
+          "unsaturatedHydrocarbons": "cp:unsaturatedHydrocarbons"
+        }
+      }
+    },
+    {
+      "url": "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld",
+      "content": {
+        "@context":
+        {
+          "@version": 1.1,
+          "cp": "https://mavennet.github.io/contexts/crude-product-vocab#",
+          "xsd": "http://www.w3.org/2001/XMLSchema#",
+          "schema": "http://schema.org/",
+          "prm": "http://schema.org/ProductModel",
+          "CrudeProductCredential": "schema:CrudeProductCredential",
+          "producer": "cp:producer",
+          "category": "cp:category",
+          "hsCode": "cp:hsCode",
+          "identifier": "prm:identifier",
           "volume": "cp:volume",
           "address": "prm:address",
           "productionDate": "prm:productionDate",
