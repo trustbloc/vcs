@@ -935,6 +935,7 @@
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
+          "model": "w3c-vc-2.0",
           "refreshServiceEnabled": false,
           "signingAlgorithm": "ES256K",
           "signatureRepresentation": 1,
@@ -1666,6 +1667,7 @@
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
+          "model": "w3c-vc-1.1",
           "refreshServiceEnabled": true,
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
@@ -1879,6 +1881,7 @@
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
+          "model": "w3c-vc-2.0",
           "refreshServiceEnabled": false,
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
@@ -1929,19 +1932,7 @@
             "jsonSchema": "{\"$id\":\"https://trustbloc.com/universitydegree.schema.json\",\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"title\":\"UniversityDegreeCredential\",\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"spouse\":{\"type\":\"string\"},\"degree\":{\"type\":\"object\",\"description\":\"Describes the degree.\",\"properties\":{\"type\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"}},\"required\":[\"type\",\"degree\"]}},\"required\":[\"name\",\"spouse\",\"degree\"]}",
             "type": "UniversityDegreeCredential",
             "id": "universityDegreeTemplateID",
-            "issuer": "did:orb:bank_issuer",
-            "checks": {
-              "strict": true
-            }
-          },
-          {
-            "contexts": [
-              "https://www.w3.org/2018/credentials/v1",
-              "https://www.w3.org/2018/credentials/examples/v1"
-            ],
-            "type": "VerifiedEmployee",
-            "id": "templateID",
-            "issuer": "did:orb:bank_issuer",
+            "issuer": "did:orb:bank_issuer_v2",
             "checks": {
               "strict": true
             }
@@ -1953,7 +1944,7 @@
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
-            "issuer": "did:orb:bank_issuer",
+            "issuer": "did:orb:bank_issuer_v2",
             "checks": {
               "strict": true
             }
@@ -1964,8 +1955,20 @@
               "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
             ],
             "type": "CrudeProductCredential",
-            "id": "crudeProductCredentialTemplateID",
-            "issuer": "did:orb:bank_issuer",
+            "id": "crudeProductCredentialV2TemplateID",
+            "issuer": "did:orb:bank_issuer_v2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialV1TemplateID",
+            "issuer": "did:orb:bank_issuer_v2",
             "checks": {
               "strict": true
             }

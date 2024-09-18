@@ -48,10 +48,6 @@ import (
 
 var logger = log.New("restapi-issuer")
 
-const (
-	defaultCtx = "https://www.w3.org/2018/credentials/v1"
-)
-
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
 type profileService interface {
@@ -240,7 +236,7 @@ func (c *Controller) issueCredential(
 		}
 	}
 
-	credentialParsed, err := c.parseCredential(ctx, finalCredentials, enforceStrictValidation, profile.VCConfig.Format)
+	credentialParsed, err := c.parseCredential(ctx, finalCredentials, enforceStrictValidation, profile.VCConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +291,14 @@ func (c *Controller) buildCredentialsFromTemplate(
 ) (*verifiable.Credential, error) {
 	contexts := credentialTemplate.Contexts
 	if len(contexts) == 0 {
-		contexts = []string{defaultCtx}
+		baseContext, err := getBaseContext(profile.VCConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		contexts = []string{baseContext}
+	} else if err := validateBaseContext(contexts, profile.VCConfig); err != nil {
+		return nil, err
 	}
 
 	vcc := verifiable.CredentialContents{
@@ -332,23 +335,22 @@ func (c *Controller) parseCredential(
 	ctx context.Context,
 	cred interface{},
 	enforceStrictValidation bool,
-	issuerProfileVCFormat vcsverifiable.Format,
+	config *profileapi.VCConfig,
 ) (*verifiable.Credential, error) {
+	schema, err := getJSONSchema(config)
+	if err != nil {
+		return nil, err
+	}
+
 	credential, err := vc.ValidateCredential(
 		ctx,
 		cred,
-		[]vcsverifiable.Format{issuerProfileVCFormat},
+		[]vcsverifiable.Format{config.Format},
 		false,
 		enforceStrictValidation,
 		c.documentLoader,
 		verifiable.WithDisabledProofCheck(),
-		verifiable.WithDefaultSchemaLoader(func(vcc *verifiable.CredentialContents) string {
-			if verifiable.IsBaseContext(vcc.Context, verifiable.V2ContextURI) {
-				return verifiable.JSONSchemaLoaderV2()
-			}
-
-			return verifiable.JSONSchemaLoaderV1(verifiable.WithDisableRequiredField("issuanceDate"))
-		}),
+		verifiable.WithSchema(schema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
@@ -973,6 +975,7 @@ func (c *Controller) issueSingleCredential(
 ) (*PrepareCredentialResult, error) {
 	if err := c.validateClaims(
 		ctx,
+		profile.VCConfig,
 		credentialData.Credential,
 		credentialData.CredentialTemplate,
 		credentialData.EnforceStrictValidation,
@@ -1124,10 +1127,15 @@ func (c *Controller) parseTime(t *utiltime.TimeWrapper) *string {
 
 func (c *Controller) validateClaims( //nolint:gocognit
 	ctx context.Context,
+	vcConfig *profileapi.VCConfig,
 	cred *verifiable.Credential,
 	credentialTemplate *profileapi.CredentialTemplate,
 	validateJSONLD bool,
 ) error {
+	if err := validateBaseContext(cred.Contents().Context, vcConfig); err != nil {
+		return err
+	}
+
 	subjects, err := getCredentialSubjects(cred.Contents().Subject)
 	if err != nil {
 		return fmt.Errorf("get credential subjects: %w", err)
@@ -1139,7 +1147,7 @@ func (c *Controller) validateClaims( //nolint:gocognit
 				logger.Infoc(ctx, "Credential failed validation against JSONLD schema", log.WithError(err),
 					logfields.WithCredentialID(cred.Contents().ID), logfields.WithContext(cred.Contents().Context))
 
-				return fmt.Errorf("validate JSONLD: %w", err)
+				return err
 			}
 		}
 
@@ -1149,7 +1157,7 @@ func (c *Controller) validateClaims( //nolint:gocognit
 					logfields.WithCredentialID(cred.Contents().ID),
 					logfields.WithJSONSchemaID(credentialTemplate.JSONSchemaID))
 
-				return fmt.Errorf("validate JSON schema: %w", err)
+				return err
 			}
 		}
 	}
@@ -1328,5 +1336,46 @@ func (c *Controller) sendFailedEvent(ctx context.Context, orgID, profileID, prof
 		logger.Errorc(ctx, "Error publishing failure event", log.WithError(err))
 
 		return
+	}
+}
+
+func getBaseContext(config *profileapi.VCConfig) (string, error) {
+	switch config.Model {
+	case vcsverifiable.V2_0:
+		return verifiable.V2ContextURI, nil
+	case vcsverifiable.V1_1, "":
+		return verifiable.V1ContextURI, nil
+	default:
+		return "", fmt.Errorf("unsupported VC model: %s", config.Model)
+	}
+}
+
+func validateBaseContext(contexts []string, config *profileapi.VCConfig) error {
+	switch config.Model {
+	case vcsverifiable.V2_0:
+		if !verifiable.IsBaseContext(contexts, verifiable.V2ContextURI) {
+			return fmt.Errorf("invalid context for model %s", config.Model)
+		}
+
+		return nil
+	case vcsverifiable.V1_1, "":
+		if !verifiable.IsBaseContext(contexts, verifiable.V1ContextURI) {
+			return fmt.Errorf("invalid context for model %s", config.Model)
+		}
+
+		return nil
+	default:
+		return fmt.Errorf("unsupported VC model: %s", config.Model)
+	}
+}
+
+func getJSONSchema(config *profileapi.VCConfig) (string, error) {
+	switch config.Model {
+	case vcsverifiable.V2_0:
+		return verifiable.JSONSchemaLoaderV2(), nil
+	case vcsverifiable.V1_1, "":
+		return verifiable.JSONSchemaLoaderV1(verifiable.WithDisableRequiredField("issuanceDate")), nil
+	default:
+		return "", fmt.Errorf("unsupported VC model: %s", config.Model)
 	}
 }

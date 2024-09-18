@@ -50,13 +50,25 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 
     Examples:
-      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate                 | verifierProfile      | presentationDefinitionID                     | fields                                                       |
 #     SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer_v2/v1.0                      | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID       | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
+      | bank_issuer_v2/v1.0                   | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID         | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
 #     SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
-      | bank_issuer_v2/v1.0                      | CrudeProductCredential     | discoverable             | crudeProductCredentialTemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer_v2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV2TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #     JWT issuer, JWT verifier, no limit disclosure and optional fields in PD query.
-      | i_myprofile_ud_es256k_jwt_v2/v1.0        | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_es256k_jwt_v2/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
+
+  @oidc4vc_rest_auth_flow_fail
+  Scenario Outline: OIDC credential issuance and verification Auth flow negative tests
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>" and receives "invalid context for model w3c-vc-2.0" error
+
+    Examples:
+      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+#     SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
+      | bank_issuer_v2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV1TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
 
   @oidc4vc_rest_auth_flow_batch_credential_configuration_id
   Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credentialConfigurationID)

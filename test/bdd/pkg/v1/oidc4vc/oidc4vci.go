@@ -1079,6 +1079,19 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 	return nil
 }
 
+func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethodWithExpectedError(method, expectedError string) error {
+	err := s.runOIDC4CIAuthWithClientRegistrationMethod(method)
+	if err == nil {
+		return fmt.Errorf("error %q expected but got none", expectedError)
+	}
+
+	if !strings.Contains(err.Error(), expectedError) {
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 	u, err := url.Parse(offerCredentialURL)
 	if err != nil {

@@ -132,10 +132,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 				},
 				CredentialTemplates: []*profileapi.CredentialTemplate{
 					{
-						ID: "test_template",
-						Contexts: []string{
-							"https://www.w3.org/2018/credentials/v1",
-						},
+						ID:                                  "test_template",
 						Type:                                "VerifiedEmployee",
 						CredentialDefaultExpirationDuration: lo.ToPtr(55 * time.Hour),
 					},
@@ -165,6 +162,118 @@ func TestController_PostIssueCredentials(t *testing.T) {
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.NoError(t, err)
+	})
+
+	t.Run("LDP with TemplateId - V2.0", func(t *testing.T) {
+		issueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+		issueCredentialSvc.EXPECT().IssueCredential(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+			func(
+				ctx context.Context,
+				credential *verifiable.Credential,
+				profile *profileapi.Issuer,
+				opts ...issuecredential.Opts,
+			) (*verifiable.Credential, error) {
+				return credential, nil
+			},
+		)
+
+		issuerProfile := &profileapi.Issuer{
+			OrganizationID: orgID,
+			ID:             "testId",
+			VCConfig: &profileapi.VCConfig{
+				Format: vcsverifiable.Ldp,
+			},
+			SigningDID: &profileapi.SigningDID{
+				DID: "did:orb:bank_issuer",
+			},
+			CredentialTemplates: []*profileapi.CredentialTemplate{
+				{
+					ID:                                  "test_template",
+					Type:                                "VerifiedEmployee",
+					CredentialDefaultExpirationDuration: lo.ToPtr(55 * time.Hour),
+				},
+			},
+		}
+
+		req := &IssueCredentialData{
+			Claims: lo.ToPtr(map[string]interface{}{
+				"claim1": "value1",
+			}),
+			Credential:            nil,
+			CredentialTemplateId:  lo.ToPtr("test_template"),
+			Options:               nil,
+			CredentialDescription: lo.ToPtr("awesome"),
+			CredentialName:        lo.ToPtr("awesome2"),
+		}
+
+		t.Run("success", func(t *testing.T) {
+			issuerProfile.VCConfig.Model = vcsverifiable.V2_0
+
+			profileSvc := NewMockProfileService(gomock.NewController(t))
+			profileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
+
+			controller := NewController(&Config{
+				ProfileSvc:             profileSvc,
+				DocumentLoader:         testutil.DocumentLoader(t),
+				IssueCredentialService: issueCredentialSvc,
+				Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
+			})
+
+			recorder := httptest.NewRecorder()
+
+			b, _ := json.Marshal(req)
+			c := echoContext(withRequestBody(b), withRecorder(recorder))
+
+			err := controller.PostIssueCredentials(c, profileID, profileVersion)
+			require.NoError(t, err)
+
+			var vcDoc map[string]interface{}
+			require.NoError(t, json.NewDecoder(recorder.Body).Decode(&vcDoc))
+			require.NotEmpty(t, vcDoc["validFrom"])
+			require.NotEmpty(t, vcDoc["validUntil"])
+		})
+
+		t.Run("unsupported model", func(t *testing.T) {
+			issuerProfile.VCConfig.Model = "unsupported"
+
+			profileSvc := NewMockProfileService(gomock.NewController(t))
+			profileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
+
+			controller := NewController(&Config{
+				ProfileSvc:             profileSvc,
+				DocumentLoader:         testutil.DocumentLoader(t),
+				IssueCredentialService: issueCredentialSvc,
+				Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
+			})
+
+			b, _ := json.Marshal(req)
+			c := echoContext(withRequestBody(b))
+
+			err := controller.PostIssueCredentials(c, profileID, profileVersion)
+			require.ErrorContains(t, err, "unsupported VC model")
+		})
+
+		t.Run("invalid context for model 2.0", func(t *testing.T) {
+			issuerProfile.VCConfig.Model = vcsverifiable.V2_0
+			issuerProfile.CredentialTemplates[0].Contexts = []string{"https://www.w3.org/2018/credentials/v1"}
+
+			profileSvc := NewMockProfileService(gomock.NewController(t))
+			profileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
+
+			controller := NewController(&Config{
+				ProfileSvc:             profileSvc,
+				DocumentLoader:         testutil.DocumentLoader(t),
+				IssueCredentialService: issueCredentialSvc,
+				Tracer:                 nooptracer.NewTracerProvider().Tracer(""),
+			})
+
+			b, _ := json.Marshal(req)
+			c := echoContext(withRequestBody(b))
+
+			err := controller.PostIssueCredentials(c, profileID, profileVersion)
+			require.ErrorContains(t, err, "invalid context for model w3c-vc-2.0")
+		})
 	})
 
 	t.Run("Success LDP without TemplateId", func(t *testing.T) {
@@ -437,6 +546,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &profileapi.VCConfig{
+					Model:  vcsverifiable.V2_0,
 					Format: vcsverifiable.Ldp,
 				},
 			}, nil)
@@ -933,6 +1043,9 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		Version:        profileVersion,
 		Active:         true,
 		OIDCConfig:     &profileapi.OIDCConfig{},
+		VCConfig: &profileapi.VCConfig{
+			Model: vcsverifiable.V2_0,
+		},
 		CredentialTemplates: []*profileapi.CredentialTemplate{
 			{
 				ID: "templateID",
@@ -2254,7 +2367,7 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 
 		err = c.PrepareCredential(ctx)
-		assert.EqualError(t, err, "invalid-claims: validate JSON schema: validation error")
+		assert.EqualError(t, err, "invalid-claims: validation error")
 	})
 
 	t.Run("claims JSONLD schema validation error", func(t *testing.T) {
@@ -2271,6 +2384,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             profileID,
 				VCConfig: &profileapi.VCConfig{
+					Model:  vcsverifiable.V2_0,
 					Format: vcsverifiable.Ldp,
 				},
 			}, nil)
@@ -2318,7 +2432,7 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 
 		err = c.PrepareCredential(ctx)
-		require.ErrorContains(t, err, "invalid-claims: validate JSONLD")
+		require.ErrorContains(t, err, "invalid-claims")
 	})
 
 	t.Run("credential response encryption is required error", func(t *testing.T) {
@@ -2521,6 +2635,84 @@ func TestController_PrepareCredential(t *testing.T) {
 		req := `{"tx_id":"123","types":["UniversityDegreeCredential"],"format":"ldp_vc","requested_credential_response_encryption":{"alg":"ECDH-ES","enc":"A192CBC-HS384"}}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareCredential(ctx), "enc A192CBC-HS384 not supported")
+	})
+
+	t.Run("invalid context for model", func(t *testing.T) {
+		sampleVC, err := verifiable.ParseCredential(
+			sampleVCUniversityDegree,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+		)
+		require.NoError(t, err)
+
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
+				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
+
+				return &oidc4ci.PrepareCredentialResult{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+					Credentials: []*oidc4ci.PrepareCredentialResultData{
+						{
+							Credential: sampleVC,
+							Format:     vcsverifiable.Ldp,
+							OidcFormat: "",
+							CredentialTemplate: &profileapi.CredentialTemplate{
+								Checks: profileapi.CredentialTemplateChecks{
+									Strict: true,
+								},
+							},
+							Retry:                   false,
+							EnforceStrictValidation: true,
+							NotificationID:          nil,
+						},
+					},
+				}, nil
+			},
+		)
+
+		issuerProfile := &profileapi.Issuer{
+			OrganizationID: orgID,
+			ID:             profileID,
+			VCConfig: &profileapi.VCConfig{
+				Format: vcsverifiable.Ldp,
+			},
+		}
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(issuerProfile, nil)
+
+		c := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			IssueCredentialService: NewMockIssueCredentialService(gomock.NewController(t)),
+			OIDC4CIService:         mockOIDC4CIService,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			JSONSchemaValidator:    NewMockJSONSchemaValidator(gomock.NewController(t)),
+		})
+
+		t.Run("Model w3c-vc-2.0", func(t *testing.T) {
+			issuerProfile.VCConfig.Model = vcsverifiable.V2_0
+
+			req := `{"tx_id":"123","types":["UniversityDegreeCredential"],"format":"ldp_vc"}`
+			ctx := echoContext(withRequestBody([]byte(req)))
+
+			err = c.PrepareCredential(ctx)
+			require.ErrorContains(t, err, "invalid context for model w3c-vc-2.0")
+		})
+
+		t.Run("Unsupported model", func(t *testing.T) {
+			issuerProfile.VCConfig.Model = "v1.3"
+
+			req := `{"tx_id":"123","types":["UniversityDegreeCredential"],"format":"ldp_vc"}`
+			ctx := echoContext(withRequestBody([]byte(req)))
+
+			err = c.PrepareCredential(ctx)
+			require.ErrorContains(t, err, "unsupported VC model: v1.3")
+		})
 	})
 }
 
