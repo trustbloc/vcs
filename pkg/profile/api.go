@@ -184,6 +184,7 @@ type OIDCConfig struct {
 
 // VCConfig describes how to sign verifiable credentials.
 type VCConfig struct {
+	Model                   vcsverifiable.Model                `json:"model,omitempty"`
 	Format                  vcsverifiable.Format               `json:"format,omitempty"`
 	SigningAlgorithm        vcsverifiable.SignatureType        `json:"signingAlgorithm,omitempty"`
 	KeyType                 kms.KeyType                        `json:"keyType,omitempty"`

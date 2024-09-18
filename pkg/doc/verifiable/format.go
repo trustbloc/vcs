@@ -15,6 +15,13 @@ type OIDCFormat string
 
 type Format string
 
+type Model string
+
+const (
+	V1_1 Model = "w3c-vc-1.1"
+	V2_0 Model = "w3c-vc-2.0"
+)
+
 // For mapping between Format and OIDCFormat see oidc4ci.SelectProperOIDCFormat.
 const (
 	Jwt Format = "jwt"
