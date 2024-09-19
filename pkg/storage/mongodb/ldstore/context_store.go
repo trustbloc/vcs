@@ -19,6 +19,7 @@ import (
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 	"github.com/trustbloc/kms-go/spi/storage"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -212,7 +213,6 @@ func (s *ContextStore) Import(documents []ldcontext.Document) error {
 
 	for _, doc := range targetDocs {
 		_, err := collection.InsertOne(ctxWithTimeout, doc.bsonDoc)
-
 		if err != nil {
 			if mongo.IsDuplicateKeyError(err) {
 				s.cache.Add(doc.remoteDoc.ContextURL, doc.remoteDoc)
@@ -317,9 +317,14 @@ func getJSONLDRemoteDocumentBytes(d ldcontext.Document) ([]byte, error) {
 		return nil, fmt.Errorf("document from reader: %w", err)
 	}
 
+	mongoDoc, err := internal.PrepareDataForBSONStorage(content)
+	if err != nil {
+		return nil, fmt.Errorf("prepare data for bson storage: %w", err)
+	}
+
 	rd := &jsonld.RemoteDocument{
 		DocumentURL: d.DocumentURL,
-		Document:    content,
+		Document:    mongoDoc,
 		ContextURL:  d.URL,
 	}
 
@@ -333,6 +338,11 @@ func getJSONLDRemoteDocumentBytes(d ldcontext.Document) ([]byte, error) {
 
 func mapToBSONRemoteDocument(rd *jsonld.RemoteDocument) (*bsonRemoteDocument, error) {
 	content, err := mongodb.StructureToMap(rd.Document)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err = internal.PrepareDataForBSONStorage(content)
 	if err != nil {
 		return nil, err
 	}

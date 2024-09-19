@@ -43,6 +43,9 @@ const (
     "homepage": {
       "@id": "http://xmlns.com/foaf/0.1/homepage",
       "@type": "@id"
+    },
+    "...": {
+      "@id": "https://www.iana.org/assignments/jwt#..."
     }
   }
 }`
