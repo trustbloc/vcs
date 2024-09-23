@@ -19,8 +19,12 @@ import (
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/verifiable"
+
 	"github.com/trustbloc/vcs/internal/mock/vcskms"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
@@ -49,7 +53,11 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 		testutil.DocumentLoader(t),
 	)
 
-	testSigner := getTestLDPDataIntegritySigner()
+	testSigner := getTestLDPDataIntegritySigner(
+		ecdsa2019.SuiteType,
+		vcsverifiable.Ed25519Signature2018,
+		kmsapi.ED25519,
+	)
 
 	unsignedVc, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		ID:      "http://example.edu/credentials/1872",
@@ -93,6 +101,46 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
 	})
 
+	t.Run("Success ecdsa-rdfc-2019", func(t *testing.T) {
+		legacySigner := getTestLDPDataIntegritySigner(
+			ecdsa2019.SuiteTypeNew,
+			vcsverifiable.Ed25519Signature2020,
+			kmsapi.ED25519,
+		)
+
+		signedVC, err := c.signCredentialLDPDataIntegrity(legacySigner, unsignedVc)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs()))
+
+		require.Equal(t, "DataIntegrityProof", signedVC.Proofs()[0]["type"])
+		require.Equal(t, "ecdsa-rdfc-2019", signedVC.Proofs()[0]["cryptosuite"])
+		require.Equal(t, "#key1", signedVC.Proofs()[0]["verificationMethod"])
+		require.Equal(t, "assertionMethod", signedVC.Proofs()[0]["proofPurpose"])
+		require.Empty(t, signedVC.Proofs()[0]["challenge"])
+		require.Empty(t, signedVC.Proofs()[0]["domain"])
+		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
+	})
+
+	t.Run("Success eddsa-rdfc-2022", func(t *testing.T) {
+		eddsa2022Signer := getTestLDPDataIntegritySigner(
+			eddsa2022.SuiteType,
+			vcsverifiable.Ed25519Signature2020,
+			kmsapi.ED25519,
+		)
+
+		signedVC, err := c.signCredentialLDPDataIntegrity(eddsa2022Signer, unsignedVc)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs()))
+
+		require.Equal(t, "DataIntegrityProof", signedVC.Proofs()[0]["type"])
+		require.Equal(t, "eddsa-rdfc-2022", signedVC.Proofs()[0]["cryptosuite"])
+		require.Equal(t, "#key1", signedVC.Proofs()[0]["verificationMethod"])
+		require.Equal(t, "assertionMethod", signedVC.Proofs()[0]["proofPurpose"])
+		require.Empty(t, signedVC.Proofs()[0]["challenge"])
+		require.Empty(t, signedVC.Proofs()[0]["domain"])
+		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
+	})
+
 	t.Run("Success with options", func(t *testing.T) {
 		testCrypto := New(
 			&vdrmock.VDRegistry{
@@ -127,7 +175,12 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 			verifiable.CredentialContents{ID: "http://example.edu/credentials/1872"}, nil)
 		require.NoError(t, err)
 
-		ariesSigner := getTestLDPDataIntegritySigner()
+		ariesSigner := getTestLDPDataIntegritySigner(
+			ecdsa2019.SuiteType,
+			vcsverifiable.Ed25519Signature2018,
+			kmsapi.ED25519,
+		)
+
 		ariesSigner.DataIntegrityProof.SuiteType = "undefined"
 
 		signedVC, err := c.signCredentialLDPDataIntegrity(ariesSigner, testCredentials)
@@ -136,7 +189,11 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 	})
 
 	t.Run("Error get signer", func(t *testing.T) {
-		ariesSigner := getTestLDPDataIntegritySigner()
+		ariesSigner := getTestLDPDataIntegritySigner(
+			ecdsa2019.SuiteType,
+			vcsverifiable.Ed25519Signature2018,
+			kmsapi.ED25519,
+		)
 
 		ariesSigner.KMS = &vcskms.MockKMS{
 			Signer: &mockwrapper.MockKMSCrypto{FixedKeyCryptoErr: errors.New("some error")},

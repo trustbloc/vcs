@@ -386,6 +386,72 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Pd2 Success without custom claims", func(t *testing.T) {
+		txManager2 := NewMockTransactionManager(gomock.NewController(t))
+
+		var pdClone presexch.PresentationDefinition
+		b, err := json.Marshal(pd)
+		require.NoError(t, err)
+		err = json.Unmarshal(b, &pdClone)
+
+		//pdClone.InputDescriptors[0].Constraints = &presexch.Constraints{
+		//	Fields: []*presexch.Field{
+		//		{
+		//			Path: []string{
+		//				"$.type",
+		//				"$.vc.type",
+		//			},
+		//			Filter: &presexch.Filter{
+		//				Type:  lo.ToPtr("string"),
+		//				Const: "XXYYZZ",
+		//			},
+		//		},
+		//	},
+		//}
+
+		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
+			ID:                     "txID1",
+			ProfileID:              profileID,
+			ProfileVersion:         profileVersion,
+			PresentationDefinition: &pdClone,
+		}, true, nil)
+
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1).
+			DoAndReturn(func(
+				txID oidc4vp.TxID,
+				claims *oidc4vp.ReceivedClaims,
+				profileTransactionDataTTL, profileReceivedClaimsDataTTL int32) error {
+				require.Nil(t, claims.CustomScopeClaims)
+
+				return nil
+			})
+
+		s2 := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
+			TransactionManager:   txManager2,
+			PresentationVerifier: presentationVerifier,
+			ProfileService:       profileService,
+			DocumentLoader:       loader,
+			VDR:                  vdr,
+			TrustRegistry:        trustRegistry,
+		})
+
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+			&oidc4vp.AuthorizationResponseParsed{
+				CustomScopeClaims: nil,
+				VPTokens: []*oidc4vp.ProcessedVPToken{{
+					Nonce:         "nonce1",
+					Presentation:  vp,
+					SignerDIDID:   issuer,
+					VpTokenFormat: vcsverifiable.Jwt,
+				}},
+			},
+		)
+
+		require.NoError(t, err)
+	})
+
 	t.Run("Success - two VP tokens (merged) with custom claims and attestation vp", func(t *testing.T) {
 		var descriptors []*presexch.InputDescriptor
 		err = json.Unmarshal([]byte(twoInputDescriptors), &descriptors)
