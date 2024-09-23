@@ -232,8 +232,8 @@ github.com/trustbloc/kms-go v1.1.2 h1:nAlhDoHkSyX1eQFRz/sJsdgmJuNadyX7FJEy/9ROwy
 github.com/trustbloc/kms-go v1.1.2/go.mod h1:OKOtsLbE6W5s4mpjWkvk8XEqcmt9vTgVmDNkHELpWO0=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 h1:Mzg9wvEoUIWPoI/GHz3YlVbd4nKWeSPGc6+3l95eOZU=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42/go.mod h1:HRaXVV1caceumbDBwLO3ByiCcAc18KwrNvZ7JQBvDIQ=
-github.com/trustbloc/vc-go v1.2.1-0.20240923155539-5cad96042585 h1:GzIFRoW/m2K3/PyTKfE8gWjwbV/wkKGaN5o3xjQuYEQ=
-github.com/trustbloc/vc-go v1.2.1-0.20240923155539-5cad96042585/go.mod h1:JQfiuLGa9/JTOaL/i+yqDB4uPidkMXY5qJi5OUdB6lY=
+github.com/trustbloc/vc-go v1.2.1-0.20240923163858-385ed3ca4cf1 h1:p7a6xwSZlCmOPHMN2QPXItsRq6dGKWYWe2srLnttN70=
+github.com/trustbloc/vc-go v1.2.1-0.20240923163858-385ed3ca4cf1/go.mod h1:mjjE1cfzbV5s1NTXhi10YceDyg7c+EBl70LUYcX1mYo=
 github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd h1:QhdCHSW1/oosJbzBTEYLU6xcKxXbQzzqFnhCtW2UWbA=
 github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd/go.mod h1:D1wnviyjdmcF8AO5Y9kVGU6OGuvXUMGiE0Auo/fYRYo=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
