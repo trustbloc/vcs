@@ -16,7 +16,9 @@ import (
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/creator"
@@ -231,10 +233,24 @@ func (b *LDPProofBuilder) Build(
 		return nil, fmt.Errorf("new presentation: %w", err)
 	}
 
-	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-		SignerGetter:     ecdsa2019.WithStaticSigner(req.Signer),
-		LDDocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
-	})
+	var signerSuite suite.SignerInitializer
+	var cryptoSuite string
+
+	if req.WalletKeyType == kms.ED25519Type {
+		signerSuite = eddsa2022.NewSignerInitializer(&eddsa2022.SignerInitializerOptions{
+			SignerGetter:     eddsa2022.WithStaticSigner(req.Signer),
+			LDDocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
+		})
+
+		cryptoSuite = eddsa2022.SuiteType
+	} else {
+		signerSuite = ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+			SignerGetter:     ecdsa2019.WithStaticSigner(req.Signer),
+			LDDocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
+		})
+
+		cryptoSuite = ecdsa2019.SuiteType
+	}
 
 	signer, err := dataintegrity.NewSigner(&dataintegrity.Options{
 		DIDResolver: req.VDR,
@@ -246,7 +262,7 @@ func (b *LDPProofBuilder) Build(
 	pres.Holder = req.WalletDID
 	if err = pres.AddDataIntegrityProof(&verifiable.DataIntegrityProofContext{
 		SigningKeyID: fmt.Sprintf("%s#%s", req.WalletDID, req.WalletKeyID),
-		CryptoSuite:  ecdsa2019.SuiteType,
+		CryptoSuite:  cryptoSuite,
 		Created:      lo.ToPtr(time.Now().UTC()),
 		Domain:       req.CredentialIssuer,
 		Challenge:    req.Claims.Nonce,

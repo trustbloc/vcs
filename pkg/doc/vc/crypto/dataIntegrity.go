@@ -13,6 +13,7 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity"
 	dataintegritysuite "github.com/trustbloc/vc-go/dataintegrity/suite"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -82,9 +83,14 @@ func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
 func (c *Crypto) getDataIntegritySignerInitializer(
 	dataIntegritySuiteType string, signer vc.SignerAlgorithm) (dataintegritysuite.SignerInitializer, error) {
 	switch dataIntegritySuiteType { //nolint: exhaustive
-	case ecdsa2019.SuiteType:
+	case ecdsa2019.SuiteType, ecdsa2019.SuiteTypeNew:
 		return ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
 			SignerGetter:     ecdsa2019.WithStaticSigner(signer),
+			LDDocumentLoader: c.documentLoader,
+		}), nil
+	case eddsa2022.SuiteType:
+		return eddsa2022.NewSignerInitializer(&eddsa2022.SignerInitializerOptions{
+			SignerGetter:     eddsa2022.WithStaticSigner(signer),
 			LDDocumentLoader: c.documentLoader,
 		}), nil
 	default:

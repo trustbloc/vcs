@@ -18,7 +18,9 @@ import (
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vc-go/vermethod"
@@ -120,7 +122,7 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 }
 
 func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) error {
-	diVerifier, err := s.getDataIntegrityVerifier()
+	diVerifier, err := s.getDataIntegrityVerifier(vc.Proofs())
 	if err != nil {
 		return fmt.Errorf("get data integrity verifier: %w", err)
 	}
@@ -274,10 +276,24 @@ func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 	return nil
 }
 
-func (s *Service) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
-	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		LDDocumentLoader: s.documentLoader,
-	})
+func (s *Service) getDataIntegrityVerifier(proofs []verifiable.Proof) (*dataintegrity.Verifier, error) {
+	var cryptoSuite string
+	if len(proofs) > 0 {
+		cryptoSuite = fmt.Sprint(proofs[0]["cryptosuite"])
+	}
+
+	var verifySuite suite.VerifierInitializer
+
+	switch cryptoSuite {
+	case eddsa2022.SuiteType:
+		verifySuite = eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+			LDDocumentLoader: s.documentLoader,
+		})
+	default:
+		verifySuite = ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+			LDDocumentLoader: s.documentLoader,
+		})
+	}
 
 	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
 		DIDResolver: s.vdr,
