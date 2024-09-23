@@ -19,7 +19,7 @@ require (
 	github.com/trustbloc/kms-go v1.1.1
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.1.2-0.20240325152303-366b12dbb6d3
+	github.com/trustbloc/vc-go v1.1.2-0.20240923201815-8f6b5932e97d
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
 	github.com/trustbloc/vcs/test/bdd v0.0.0-00010101000000-000000000000
