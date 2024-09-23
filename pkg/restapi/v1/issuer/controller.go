@@ -291,7 +291,7 @@ func (c *Controller) parseCredential(
 	enforceStrictValidation bool,
 	issuerProfileVCFormat vcsverifiable.Format,
 ) (*verifiable.Credential, error) {
-	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
+	vcSchema := verifiable.JSONSchemaLoaderV1(verifiable.WithDisableRequiredField("issuanceDate"))
 	credential, err := vc.ValidateCredential(
 		ctx,
 		cred,
