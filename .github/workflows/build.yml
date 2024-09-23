@@ -7,7 +7,7 @@
 name: "build"
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.22'
 
 on:
   push:
@@ -87,10 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Setup Go 1.21
+      - name: Setup Go 1.22
         uses: actions/setup-go@v2
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -136,7 +136,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             ALPINE_VER=3.18
-            GO_VER=1.21
+            GO_VER=1.22
           push: true
           tags: |
             ${{ env.VCS_IMAGE_PREFIX }}:${{ env.IMAGE_TAG }}

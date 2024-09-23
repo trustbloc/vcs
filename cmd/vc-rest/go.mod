@@ -232,4 +232,6 @@ replace (
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 
-go 1.21
+go 1.22
+
+toolchain go1.22.4
