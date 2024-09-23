@@ -454,8 +454,8 @@ github.com/trustbloc/kms-go v1.1.2 h1:nAlhDoHkSyX1eQFRz/sJsdgmJuNadyX7FJEy/9ROwy
 github.com/trustbloc/kms-go v1.1.2/go.mod h1:OKOtsLbE6W5s4mpjWkvk8XEqcmt9vTgVmDNkHELpWO0=
 github.com/trustbloc/logutil-go v1.0.0 h1:KzNs9TRbnmn+M3oYw9UkrtOjNd3ZGO8aLgfYttMypcE=
 github.com/trustbloc/logutil-go v1.0.0/go.mod h1:JlxT0oZfNKgIlSNtgc001WEeDMxlnAvOM43gNm8DQVc=
-github.com/trustbloc/vc-go v1.2.1-0.20240923165743-cff0ab941a12 h1:hA5RiiiEFR2kM8Ud3/s34QbeJlJKRUxQgug0kVSc19I=
-github.com/trustbloc/vc-go v1.2.1-0.20240923165743-cff0ab941a12/go.mod h1:mjjE1cfzbV5s1NTXhi10YceDyg7c+EBl70LUYcX1mYo=
+github.com/trustbloc/vc-go v1.2.1-0.20240923190115-62cdfe76225e h1:m2C6rWOMPzFjvjzv/1uuz8RlVd8uIMlOCfcWX9cRvtk=
+github.com/trustbloc/vc-go v1.2.1-0.20240923190115-62cdfe76225e/go.mod h1:mjjE1cfzbV5s1NTXhi10YceDyg7c+EBl70LUYcX1mYo=
 github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=
 github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
