@@ -22,10 +22,10 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.2.0
+	github.com/trustbloc/did-go v1.3.1-0.20240910130808-bf0188fdfe70
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.1.2-0.20240325152303-366b12dbb6d3
+	github.com/trustbloc/vc-go v1.2.1-0.20240923190115-62cdfe76225e
 	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
@@ -48,7 +48,7 @@ require (
 	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
-	github.com/PaesslerAG/gval v1.2.0 // indirect
+	github.com/PaesslerAG/gval v1.2.2 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -182,11 +182,11 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/kms-go v1.1.1 // indirect
+	github.com/trustbloc/kms-go v1.1.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/veraison/go-cose v1.1.0 // indirect
+	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect
@@ -232,4 +232,6 @@ replace (
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 
-go 1.21
+go 1.22
+
+toolchain go1.22.4
