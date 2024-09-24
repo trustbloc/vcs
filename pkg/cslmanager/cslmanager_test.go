@@ -306,7 +306,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		cslIndexStore := newMockCSLIndexStore()
 		cslVCStore := newMockCSLVCStore()
 
-		statusProcessor, err := statustype.GetVCStatusProcessor(vc.StatusList2021VCStatus)
+		statusProcessor, err := statustype.GetVCStatusProcessor(vc.BitstringStatusList)
 		require.NoError(t, err)
 
 		listID, err := cslIndexStore.GetLatestListID(context.Background())

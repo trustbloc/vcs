@@ -183,13 +183,22 @@ func TestCreateIssuer(t *testing.T) {
 }
 
 func TestAppendSignatureTypeContext(t *testing.T) {
-	context := []string{DefVCContext}
+	context := []string{}
 
 	context = AppendSignatureTypeContext(context, vcsverifiable.JSONWebSignature2020)
-	require.Len(t, context, 2)
+	require.Len(t, context, 1)
 
 	context = AppendSignatureTypeContext(context, vcsverifiable.BbsBlsSignature2020)
+	require.Len(t, context, 2)
+
+	context = AppendSignatureTypeContext(context, vcsverifiable.Ed25519Signature2020)
 	require.Len(t, context, 3)
+
+	context = AppendSignatureTypeContext(context, vcsverifiable.Ed25519Signature2018)
+	require.Len(t, context, 4)
+
+	context = AppendSignatureTypeContext(context, vcsverifiable.Ed25519Signature2018)
+	require.Len(t, context, 4)
 }
 
 func stringToRaw(s string) json.RawMessage {

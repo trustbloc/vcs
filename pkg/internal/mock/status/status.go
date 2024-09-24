@@ -49,7 +49,7 @@ func (m *MockVCStatusProcessor) CreateVC(_ string, _ int, _ *vc.Signer) (*verifi
 	return m.VC, m.CreateVCErr
 }
 
-func (m *MockVCStatusProcessor) CreateVCStatus(_ string, _ string) *verifiable.TypedID {
+func (m *MockVCStatusProcessor) CreateVCStatus(string, string, string, ...vc.Field) *verifiable.TypedID {
 	return m.VCStatus
 }
 

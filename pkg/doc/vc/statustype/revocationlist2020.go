@@ -86,12 +86,13 @@ func (s *revocationList2020Processor) ValidateStatus(vcStatus *verifiable.TypedI
 }
 
 // CreateVCStatus creates verifiable.TypedID.
-func (s *revocationList2020Processor) CreateVCStatus(revocationListIndex, vcID string) *verifiable.TypedID {
+func (s *revocationList2020Processor) CreateVCStatus(index, vcID, _ string,
+	_ ...vcapi.Field) *verifiable.TypedID {
 	return &verifiable.TypedID{
 		ID:   uuid.New().URN(),
 		Type: string(vcapi.RevocationList2020VCStatus),
 		CustomFields: verifiable.CustomFields{
-			RevocationListIndex:      revocationListIndex,
+			RevocationListIndex:      index,
 			RevocationListCredential: vcID,
 		},
 	}
