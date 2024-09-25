@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jinzhu/copier"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
@@ -180,12 +179,13 @@ func (f *Flow) Run(ctx context.Context) error {
 
 	var pd presexch.PresentationDefinition
 
-	if err = copier.CopyWithOption(
-		&pd,
-		requestObject.PresentationDefinition,
-		copier.Option{IgnoreEmpty: true, DeepCopy: true},
-	); err != nil {
-		return fmt.Errorf("copy presentation definition: %w", err)
+	rawPD, err := json.Marshal(requestObject.PresentationDefinition)
+	if err != nil {
+		return fmt.Errorf("marshal presentation definition: %w", err)
+	}
+
+	if err = json.Unmarshal(rawPD, &pd); err != nil {
+		return fmt.Errorf("unmarshal presentation definition: %w", err)
 	}
 
 	if f.disableSchemaValidation && len(pd.InputDescriptors) > 0 {
