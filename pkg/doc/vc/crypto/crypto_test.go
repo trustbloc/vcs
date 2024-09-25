@@ -889,6 +889,7 @@ func getTestLDPSignerInternal(
 	}
 }
 
+//nolint:unparam
 func getTestLDPDataIntegritySigner(
 	suite string,
 	signatureType vcsverifiable.SignatureType,
