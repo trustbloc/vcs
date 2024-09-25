@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
@@ -201,6 +202,12 @@ func (s *Service) GetRefreshedCredential(
 	credConfig.CredentialConfigurationID = configID
 	credConfig.OIDCCredentialFormat = config.Format
 	credConfig.CredentialTemplate = template
+
+	if template.CredentialDefaultExpirationDuration != nil {
+		credConfig.CredentialExpiresAt = lo.ToPtr(time.Now().UTC().Add(*template.CredentialDefaultExpirationDuration))
+	} else {
+		credConfig.CredentialExpiresAt = lo.ToPtr(time.Now().UTC().Add(365 * 24 * time.Hour))
+	}
 
 	refreshServiceEnabled := false
 	if issuer.VCConfig != nil {
