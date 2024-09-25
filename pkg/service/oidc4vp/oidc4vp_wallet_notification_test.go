@@ -111,7 +111,9 @@ func TestService_HandleWalletNotification_SupportedAuthResponseErrorTypes(t *tes
 
 			eventService.EXPECT().
 				Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
-				DoAndReturn(func(_ context.Context, _ string, evt *spi.Event) error {
+				DoAndReturn(func(_ context.Context, _ string, evtArr ...*spi.Event) error {
+					evt := evtArr[0]
+
 					assert.NotEmpty(t, evt.ID)
 					assert.Equal(t, "source://vcs/verifier", evt.Source)
 					assert.Equal(t, string(transactionID), evt.TransactionID)
@@ -179,7 +181,9 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 
 					eventService.EXPECT().
 						Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
-						DoAndReturn(func(_ context.Context, _ string, evt *spi.Event) error {
+						DoAndReturn(func(_ context.Context, _ string, evtArr ...*spi.Event) error {
+							evt := evtArr[0]
+
 							assert.NotEmpty(t, evt.ID)
 							assert.Equal(t, "source://vcs/verifier", evt.Source)
 							assert.Equal(t, string(transactionID), evt.TransactionID)

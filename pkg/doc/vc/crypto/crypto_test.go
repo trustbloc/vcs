@@ -717,7 +717,11 @@ func TestSignCredential(t *testing.T) {
 			"info":       "Info",
 		})
 
-		signedVC, err := c.SignCredential(getTestLDPDataIntegritySigner(), unsignedVC)
+		signedVC, err := c.SignCredential(getTestLDPDataIntegritySigner(
+			ecdsa2019.SuiteType,
+			vcsverifiable.Ed25519Signature2018,
+			kms.ED25519,
+		), unsignedVC)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs()))
 		require.False(t, signedVC.IsJWT())
@@ -862,12 +866,19 @@ func TestSignCredential(t *testing.T) {
 }
 
 func getTestLDPSigner() *vc.Signer {
+	return getTestLDPSignerInternal("Ed25519Signature2018", kms.ED25519Type)
+}
+
+func getTestLDPSignerInternal(
+	signatureType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+) *vc.Signer {
 	return &vc.Signer{
 		DID:           "did:trustbloc:abc",
-		SignatureType: "Ed25519Signature2018",
+		SignatureType: signatureType,
 		Creator:       "did:trustbloc:abc#key1",
 		KMSKeyID:      "key1",
-		KeyType:       kms.ED25519,
+		KeyType:       keyType,
 		KMS: &vcskms.MockKMS{
 			FixedSigner: &mockwrapper.MockFixedKeyCrypto{},
 		},
@@ -878,11 +889,16 @@ func getTestLDPSigner() *vc.Signer {
 	}
 }
 
-func getTestLDPDataIntegritySigner() *vc.Signer {
-	s := getTestLDPSigner()
+//nolint:unparam
+func getTestLDPDataIntegritySigner(
+	suite string,
+	signatureType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+) *vc.Signer {
+	s := getTestLDPSignerInternal(signatureType, keyType)
 	s.DataIntegrityProof = vc.DataIntegrityProofConfig{
 		Enable:    true,
-		SuiteType: ecdsa2019.SuiteType,
+		SuiteType: suite,
 	}
 
 	return s
@@ -890,7 +906,8 @@ func getTestLDPDataIntegritySigner() *vc.Signer {
 
 func getJWTSigner(
 	customSigner api.KMSCryptoMultiSigner,
-	kid string) *vc.Signer {
+	kid string,
+) *vc.Signer {
 	return &vc.Signer{
 		DID:           didID,
 		SignatureType: "Ed25519Signature2018",
