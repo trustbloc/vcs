@@ -109,26 +109,28 @@ func TestService_HandleWalletNotification_SupportedAuthResponseErrorTypes(t *tes
 					WebHook:        profileWebHook,
 				}, nil)
 
-			//eventService.EXPECT().
-			//	Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
-			//	DoAndReturn(func(_ context.Context, _ string, evt *spi.Event) error {
-			//		assert.NotEmpty(t, evt.ID)
-			//		assert.Equal(t, "source://vcs/verifier", evt.Source)
-			//		assert.Equal(t, string(transactionID), evt.TransactionID)
-			//		assert.Equal(t, tt.ExpectedEventType, evt.Type)
-			//
-			//		assert.Equal(t, map[string]interface{}{
-			//			"webHook":        "https://example/com/webhook",
-			//			"profileID":      profileID,
-			//			"profileVersion": profileVersion,
-			//			"orgID":          profileOrgID,
-			//			"error":          tt.ErrorDescription,
-			//			"errorCode":      tt.Error,
-			//			"errorComponent": "wallet",
-			//		}, evt.Data)
-			//
-			//		return nil
-			//	})
+			eventService.EXPECT().
+				Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
+				DoAndReturn(func(_ context.Context, _ string, evtArr ...*spi.Event) error {
+					evt := evtArr[0]
+
+					assert.NotEmpty(t, evt.ID)
+					assert.Equal(t, "source://vcs/verifier", evt.Source)
+					assert.Equal(t, string(transactionID), evt.TransactionID)
+					assert.Equal(t, tt.ExpectedEventType, evt.Type)
+
+					assert.Equal(t, map[string]interface{}{
+						"webHook":        "https://example/com/webhook",
+						"profileID":      profileID,
+						"profileVersion": profileVersion,
+						"orgID":          profileOrgID,
+						"error":          tt.ErrorDescription,
+						"errorCode":      tt.Error,
+						"errorComponent": "wallet",
+					}, evt.Data)
+
+					return nil
+				})
 
 			s := oidc4vp.NewService(&oidc4vp.Config{
 				EventSvc:           eventService,
@@ -177,22 +179,24 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 						Get(transactionID).Times(1).
 						Return(nil, oidc4vp.ErrDataNotFound)
 
-					//eventService.EXPECT().
-					//	Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
-					//	DoAndReturn(func(_ context.Context, _ string, evt *spi.Event) error {
-					//		assert.NotEmpty(t, evt.ID)
-					//		assert.Equal(t, "source://vcs/verifier", evt.Source)
-					//		assert.Equal(t, string(transactionID), evt.TransactionID)
-					//		assert.Equal(t, spi.VerifierOIDCInteractionExpired, evt.Type)
-					//
-					//		assert.Equal(t, map[string]interface{}{
-					//			"errorCode":      "invalid_scope",
-					//			"errorComponent": "wallet",
-					//			"error":          "error description",
-					//		}, evt.Data)
-					//
-					//		return nil
-					//	})
+					eventService.EXPECT().
+						Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
+						DoAndReturn(func(_ context.Context, _ string, evtArr ...*spi.Event) error {
+							evt := evtArr[0]
+
+							assert.NotEmpty(t, evt.ID)
+							assert.Equal(t, "source://vcs/verifier", evt.Source)
+							assert.Equal(t, string(transactionID), evt.TransactionID)
+							assert.Equal(t, spi.VerifierOIDCInteractionExpired, evt.Type)
+
+							assert.Equal(t, map[string]interface{}{
+								"errorCode":      "invalid_scope",
+								"errorComponent": "wallet",
+								"error":          "error description",
+							}, evt.Data)
+
+							return nil
+						})
 				},
 				check: func(t *testing.T, err error) {
 					assert.NoError(t, err)
