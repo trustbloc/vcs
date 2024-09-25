@@ -56,7 +56,7 @@ const (
 	eventTopic        = "testEventTopic"
 )
 
-func validateVCStatus(
+func validateVCStatusList2021Entry(
 	t *testing.T, s *Service, statusID *credentialstatus.StatusListEntry, expectedListID credentialstatus.ListID) {
 	t.Helper()
 
@@ -82,6 +82,43 @@ func validateVCStatus(
 	credSubject := statusListVCC.Subject
 	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
 	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"].(string))
+	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
+	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	require.NoError(t, err)
+
+	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string))
+	require.NoError(t, err)
+	bitSet, err := bitString.Get(revocationListIndex)
+	require.NoError(t, err)
+	require.False(t, bitSet)
+}
+
+func validateBitstringStatusListEntry(
+	t *testing.T, s *Service, statusID *credentialstatus.StatusListEntry, expectedListID credentialstatus.ListID) {
+	t.Helper()
+
+	require.Equal(t, string(vc.BitstringStatusList), statusID.TypedID.Type)
+	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
+
+	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
+	require.True(t, ok)
+
+	chunks := strings.Split(existingStatusListVCID, "/")
+	existingStatusVCListID := chunks[len(chunks)-1]
+	require.Equal(t, string(expectedListID), existingStatusVCListID)
+
+	statusListVC, err := s.GetStatusListVC(context.Background(), externalProfileID, existingStatusVCListID)
+	require.NoError(t, err)
+
+	statusListVCC := statusListVC.Contents()
+
+	require.Equal(t, existingStatusListVCID, statusListVCC.ID)
+	require.Equal(t, "did:test:abc", statusListVCC.Issuer.ID)
+	require.Equal(t, verifiable.V2ContextURI, statusListVCC.Context[0])
+	credSubject := statusListVCC.Subject
+	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
+	require.Equal(t, statustype.StatusListBitstringVCSubjectType, credSubject[0].CustomFields["type"].(string))
 	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
 	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
@@ -140,11 +177,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		statusID, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, s, statusID, listID)
+		validateVCStatusList2021Entry(t, s, statusID, listID)
 
 		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, s, statusID, listID)
+		validateVCStatusList2021Entry(t, s, statusID, listID)
 
 		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
 		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
@@ -153,11 +190,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, s, statusID, updatedListID)
+		validateVCStatusList2021Entry(t, s, statusID, updatedListID)
 
 		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, s, statusID, updatedListID)
+		validateVCStatusList2021Entry(t, s, statusID, updatedListID)
 
 		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
 		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
@@ -167,7 +204,100 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, s, statusID, updatedListIDSecond)
+		validateVCStatusList2021Entry(t, s, statusID, updatedListIDSecond)
+	})
+
+	t.Run("test error get profile service", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("some error"))
+
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+		})
+		require.NoError(t, err)
+
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, credID)
+		require.Error(t, err)
+		require.Nil(t, status)
+		require.Contains(t, err.Error(), "get profile")
+	})
+}
+
+func TestCredentialStatusList_CreateStatusListEntry_Bitstring(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
+			Return(getTestProfileEx(vc.BitstringStatusList, vcsverifiable.Ed25519Signature2018), nil)
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil)
+		ctx := context.Background()
+
+		cslVCStore := newMockCSLVCStore()
+
+		cslIndexStore := newMockCSLIndexStore()
+
+		listID, err := cslIndexStore.GetLatestListID(ctx)
+		require.NoError(t, err)
+
+		vcStatusStore := newMockVCStatusStore()
+
+		cslMgr, err := cslmanager.New(
+			&cslmanager.Config{
+				CSLVCStore:    cslVCStore,
+				CSLIndexStore: cslIndexStore,
+				VCStatusStore: vcStatusStore,
+				ListSize:      2,
+				KMSRegistry:   mockKMSRegistry,
+				ExternalURL:   "https://localhost:8080",
+				Crypto: vccrypto.New(
+					&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+			})
+		require.NoError(t, err)
+
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLManager:     cslMgr,
+			CSLVCStore:     cslVCStore,
+			VCStatusStore:  vcStatusStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			ExternalURL:    "https://localhost:8080",
+			Crypto: vccrypto.New(
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+		})
+		require.NoError(t, err)
+
+		statusID, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		require.NoError(t, err)
+		validateBitstringStatusListEntry(t, s, statusID, listID)
+
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		require.NoError(t, err)
+		validateBitstringStatusListEntry(t, s, statusID, listID)
+
+		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
+		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
+		require.NoError(t, err)
+		require.NotEqual(t, updatedListID, listID)
+
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		require.NoError(t, err)
+		validateBitstringStatusListEntry(t, s, statusID, updatedListID)
+
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		require.NoError(t, err)
+		validateBitstringStatusListEntry(t, s, statusID, updatedListID)
+
+		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
+		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
+		require.NoError(t, err)
+		require.NotEqual(t, updatedListID, updatedListIDSecond)
+		require.NotEqual(t, listID, updatedListIDSecond)
+
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
+		require.NoError(t, err)
+		validateBitstringStatusListEntry(t, s, statusID, updatedListIDSecond)
 	})
 
 	t.Run("test error get profile service", func(t *testing.T) {
@@ -875,6 +1005,10 @@ func validateEvent(e *spi.Event) error {
 }
 
 func getTestProfile() *profileapi.Issuer {
+	return getTestProfileEx(vc.StatusList2021VCStatus, vcsverifiable.Ed25519Signature2018)
+}
+
+func getTestProfileEx(statusListType vc.StatusType, sigType vcsverifiable.SignatureType) *profileapi.Issuer {
 	return &profileapi.Issuer{
 		ID:      profileID,
 		Version: profileVersion,
@@ -882,10 +1016,10 @@ func getTestProfile() *profileapi.Issuer {
 		GroupID: "externalID",
 		VCConfig: &profileapi.VCConfig{
 			Format:           vcsverifiable.Ldp,
-			SigningAlgorithm: "Ed25519Signature2018",
+			SigningAlgorithm: sigType,
 			KeyType:          kms.ED25519Type,
 			Status: profileapi.StatusConfig{
-				Type: vc.StatusList2021VCStatus,
+				Type: statusListType,
 			},
 		},
 		SigningDID: &profileapi.SigningDID{

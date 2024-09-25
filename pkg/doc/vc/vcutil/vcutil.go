@@ -22,6 +22,9 @@ const (
 	DefVCContext                = "https://www.w3.org/2018/credentials/v1"
 	jsonWebSignature2020Context = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 	bbsBlsSignature2020Context  = "https://w3id.org/security/bbs/v1"
+
+	Ed25519Signature2018Context = "https://w3id.org/security/suites/ed25519-2018/v1"
+	Ed25519Signature2020Context = "https://w3id.org/security/suites/ed25519-2020/v1"
 )
 
 // GetContextsFromJSONRaw reads contexts from raw JSON.
@@ -107,12 +110,20 @@ func AppendSignatureTypeContext(
 	context []string,
 	signatureType vcsverifiable.SignatureType,
 ) []string {
+	if signatureType == vcsverifiable.Ed25519Signature2020 {
+		return appendIfMissing(context, Ed25519Signature2020Context)
+	}
+
 	if signatureType == vcsverifiable.JSONWebSignature2020 {
 		return appendIfMissing(context, jsonWebSignature2020Context)
 	}
 
 	if signatureType == vcsverifiable.BbsBlsSignature2020 {
 		return appendIfMissing(context, bbsBlsSignature2020Context)
+	}
+
+	if signatureType == vcsverifiable.Ed25519Signature2018 && !lo.Contains(context, DefVCContext) {
+		return appendIfMissing(context, Ed25519Signature2018Context)
 	}
 
 	return context

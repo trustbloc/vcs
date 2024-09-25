@@ -8,6 +8,28 @@ package statustype
 
 import "github.com/trustbloc/vc-go/verifiable"
 
+const (
+	vcType = "VerifiableCredential"
+
+	// StatusListIndex identifies the bit position of the status value of the VC.
+	//  VC > Status > CustomFields key.
+	StatusListIndex = "statusListIndex"
+	// StatusListCredential stores the link to the status list VC.
+	//  VC > Status > CustomFields key.
+	StatusListCredential = "statusListCredential"
+	// StatusPurpose for StatusList2021.
+	//  VC > Status > CustomFields key. Only "revocation" value is supported.
+	StatusPurpose = "statusPurpose"
+
+	StatusPurposeRevocation = "revocation"
+	StatusPurposeSuspension = "suspension"
+	StatusPurposeMessage    = "statusMessage"
+
+	StatusMessage   = "statusMessage"
+	StatusSize      = "statusSize"
+	StatusReference = "statusReference"
+)
+
 type credentialSubject struct {
 	ID            string `json:"id"`
 	Type          string `json:"type"`
@@ -24,7 +46,7 @@ func toVerifiableSubject(subject credentialSubject) []verifiable.Subject {
 		},
 	}
 	if subject.StatusPurpose != "" {
-		vcSub.CustomFields["statusPurpose"] = subject.StatusPurpose
+		vcSub.CustomFields[StatusPurpose] = subject.StatusPurpose
 	}
 
 	return []verifiable.Subject{vcSub}

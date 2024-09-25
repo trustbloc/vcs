@@ -17,6 +17,8 @@ func GetVCStatusProcessor(vcStatusListType vcapi.StatusType) (vcapi.StatusProces
 	switch vcStatusListType {
 	case vcapi.StatusList2021VCStatus:
 		return NewStatusList2021Processor(), nil
+	case vcapi.BitstringStatusList:
+		return NewBitstringStatusListProcessor(), nil
 	case vcapi.RevocationList2021VCStatus:
 		return NewRevocationList2021Processor(), nil
 	case vcapi.RevocationList2020VCStatus:

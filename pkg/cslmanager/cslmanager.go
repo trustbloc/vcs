@@ -111,7 +111,7 @@ func (s *Manager) CreateCSLEntry(
 	}
 
 	statusListEntry := &credentialstatus.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(statusBitIndex), cslURL),
+		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(statusBitIndex), cslURL, statustype.StatusPurposeRevocation),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
 

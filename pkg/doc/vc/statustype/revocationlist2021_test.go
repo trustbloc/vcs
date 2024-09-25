@@ -120,7 +120,7 @@ func Test_revocationList2021Processor_CreateVC(t *testing.T) {
 
 func Test_revocationList2021Processor_CreateVCStatus(t *testing.T) {
 	s := NewRevocationList2021Processor()
-	statusID := s.CreateVCStatus("1", "vcID2")
+	statusID := s.CreateVCStatus("1", "vcID2", "")
 
 	require.Equal(t, string(vcapi.RevocationList2021VCStatus), statusID.Type)
 	require.Equal(t, verifiable.CustomFields{
