@@ -539,12 +539,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			&verifiable.Presentation{
 				Context: []string{
 					"https://www.w3.org/2018/credentials/v1",
-					"https://identity.foundation/presentation-exchange/submission/v1",
 					"https://w3id.org/security/suites/jws-2020/v1",
 				},
 				Type: []string{
 					"VerifiablePresentation",
-					"PresentationSubmission",
 				},
 			},
 			vcsverifiable.Ldp,

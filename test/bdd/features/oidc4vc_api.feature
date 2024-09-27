@@ -50,13 +50,20 @@ Feature: OIDC4VC REST API
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 
     Examples:
-      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate                 | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate                 | verifierProfile      | presentationDefinitionID                        | fields                                                       |
 #     SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer_v2/v1.0                   | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID         | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               |
+      | bank_issuer_v2/v1.0                   | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID         | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field       | degree_type_id                                               |
 #     SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
-      | bank_issuer_v2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV2TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer_v2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV2TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields       | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #     JWT issuer, JWT verifier, no limit disclosure and optional fields in PD query.
-      | i_myprofile_ud_es256k_jwt_v2/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_es256k_jwt_v2/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields    | lpr_category_id,registration_city,commuter_classification    |
+#     JWT issuer with status list feature disabled, JWT verifier, no limit disclosure and optional fields in PD query.
+      | i_myprofile_ud_es256k_jwt_no_csl_v2/v1.0 | PermanentResidentCard   | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields    | lpr_category_id,registration_city,commuter_classification    |
+#     LDP Data Integrity issuer V2, LDP verifier, no limit disclosure and schema match in PD query.
+#     TODO: Implement Data Integrity V2
+#      | i_myprofile_ud_di_ecdsa-2019_v2/v1.0  | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_ldp/v1.0 | 062759b1-no-limit-disclosure-optional-fields-v2  | lpr_category_id,registration_city,commuter_classification    |
+#     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
+      | i_myprofile_cmtr_p256_ldp_v2/v1.0     | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID   | v_myprofile_ldp/v1.0 | lp403pb9-schema-match-v2                        | schema_id                                                    |
 
   @oidc4vc_rest_auth_flow_fail
   Scenario Outline: OIDC credential issuance and verification Auth flow negative tests
