@@ -277,6 +277,8 @@ var (
 	examplesExtVocab []byte
 	//go:embed contexts/examples-crude-product-v1.jsonld
 	examplesCrudeProductVocab []byte
+	//go:embed contexts/examples-crude-product-v2.jsonld
+	examplesCrudeProductVocabV2 []byte
 	//go:embed contexts/odrl.jsonld
 	odrl []byte
 	//go:embed contexts/revocation-list-2021.jsonld
@@ -310,6 +312,10 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	{
 		URL:     "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld",
 		Content: examplesCrudeProductVocab,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld",
+		Content: examplesCrudeProductVocabV2,
 	},
 	{
 		URL:     "https://www.w3.org/ns/odrl.jsonld",

@@ -21,7 +21,7 @@ require (
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.2.1-0.20240923190115-62cdfe76225e
+	github.com/trustbloc/vc-go v1.2.1-0.20240927095859-a58759112df5
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
 	github.com/trustbloc/vcs/test/bdd v0.0.0-00010101000000-000000000000
@@ -119,7 +119,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/iris-contrib/schema v0.0.6 // indirect
-	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kataras/blocks v0.0.8 // indirect

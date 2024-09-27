@@ -491,6 +491,155 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_di_ecdsa-2019_v2",
+        "version": "v1.0",
+        "groupID": "i_myprofile_ud_di_ecdsa-2019_v2",
+        "name": "i_myprofile_ud_di_ecdsa-2019_v2",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "ion",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          },
+          "dataIntegrityProof": {
+            "enable": true,
+            "suiteType": "ecdsa-2019"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://w3id.org/citizenship/v2"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:ion:i_myprofile_ud_di_ecdsa-2019_v2",
+            "checks": {
+              "strict": false
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployeeIdentifier": {
+              "format": "ldp_vc",
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "PermanentResidentCard"
+                ],
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es256_jwt",
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_es256_jwt",
@@ -642,6 +791,151 @@
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
             "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "PermanentResidentCardIdentifier": {
+              "format": "jwt_vc_json",
+              "display": [
+                {
+                  "name": "Permanent Resident Card",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                },
+                "type": [
+                  "VerifiableCredential",
+                  "PermanentResidentCard"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_es256k_jwt_no_csl_v2",
+        "version": "v1.0",
+        "groupID": "group_i_myprofile_ud_es256k_jwt_no_csl_v2",
+        "name": "i_myprofile_ud_es256k_jwt_no_csl_v2",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "ion",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://w3id.org/citizenship/v2"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_v2",
             "checks": {
               "strict": false
             }
@@ -1566,6 +1860,153 @@
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
             "issuer": "did:jwk:i_myprofile_cmtr_p256_ldp",
+            "checks": {
+              "strict": true
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployeeIdentifier": {
+              "format": "ldp_vc",
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                },
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_cmtr_p256_ldp_v2",
+        "version": "v1.0",
+        "groupID": "group_i_myprofile_cmtr_p256_ldp_v2",
+        "name": "i_myprofile_cmtr_p256_ldp_v2",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "jwk",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "signed_credential_offer_supported": true,
+          "signed_issuer_metadata_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=CrudeProductCredential"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialTemplateID",
+            "issuer": "did:jwk:i_myprofile_cmtr_p256_ldp_v2",
             "checks": {
               "strict": true
             }
@@ -2852,6 +3293,34 @@
             ]
           },
           {
+            "id": "lp403pb9-schema-match-v2",
+            "input_descriptors": [
+              {
+                "id": "schema",
+                "name": "schema",
+                "purpose": "Match credentials using specific schema.",
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$[\"@context\"]"
+                      ],
+                      "id": "schema_id",
+                      "purpose": "Match credentials using specific schema.",
+                      "filter": {
+                        "type": "array",
+                        "contains": {
+                          "type": "string",
+                          "pattern": "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
             "id": "062759b1-no-limit-disclosure-optional-fields",
             "input_descriptors": [
               {
@@ -2861,6 +3330,62 @@
                 "schema": [
                   {
                     "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.lprCategory",
+                        "$.vc.credentialSubject.lprCategory"
+                      ],
+                      "id": "lpr_category_id",
+                      "purpose": "Specific LPR category.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C09"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.commuterClassification",
+                        "$.vc.credentialSubject.commuterClassification"
+                      ],
+                      "id": "commuter_classification",
+                      "purpose": "Specific commuter classification.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C1"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.registrationCity",
+                        "$.vc.credentialSubject.registrationCity"
+                      ],
+                      "id": "registration_city",
+                      "purpose": "Specific registration city.",
+                      "optional": true,
+                      "filter": {
+                        "type": "string",
+                        "const": "Albuquerque"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "062759b1-no-limit-disclosure-optional-fields-v2",
+            "input_descriptors": [
+              {
+                "id": "lprCategory",
+                "name": "lprCategory",
+                "purpose": "Permanent Resident Card specification",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/ns/credentials/v2#VerifiableCredential"
                   }
                 ],
                 "constraints": {

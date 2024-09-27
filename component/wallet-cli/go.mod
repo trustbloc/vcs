@@ -15,7 +15,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/jinzhu/copier v0.3.5
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/ory/dockertest/v3 v3.10.1-0.20240704115616-d229e74b748d
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
@@ -28,7 +27,7 @@ require (
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.2.1-0.20240923190115-62cdfe76225e
+	github.com/trustbloc/vc-go v1.2.1-0.20240927095859-a58759112df5
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.4
 	github.com/veraison/go-cose v1.3.0-rc.1

@@ -623,8 +623,14 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 			vpTokenClaims.VP.CustomFields = map[string]interface{}{}
 		}
 
-		vpTokenClaims.VP.Context = append(vpTokenClaims.VP.Context, presexch.PresentationSubmissionJSONLDContextIRI)
-		vpTokenClaims.VP.Type = append(vpTokenClaims.VP.Type, presexch.PresentationSubmissionJSONLDType)
+		if !lo.Contains(vpTokenClaims.VP.Context, presexch.PresentationSubmissionJSONLDContextIRI) {
+			vpTokenClaims.VP.Context = append(vpTokenClaims.VP.Context, presexch.PresentationSubmissionJSONLDContextIRI)
+		}
+
+		if !lo.Contains(vpTokenClaims.VP.Type, presexch.PresentationSubmissionJSONLDType) {
+			vpTokenClaims.VP.Type = append(vpTokenClaims.VP.Type, presexch.PresentationSubmissionJSONLDType)
+		}
+
 		vpTokenClaims.VP.CustomFields[vpSubmissionProperty] = presentationSubmission
 
 		processedVPTokens = append(processedVPTokens,
