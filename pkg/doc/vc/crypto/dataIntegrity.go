@@ -81,7 +81,9 @@ func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
 }
 
 func (c *Crypto) getDataIntegritySignerInitializer(
-	dataIntegritySuiteType string, signer vc.SignerAlgorithm) (dataintegritysuite.SignerInitializer, error) {
+	dataIntegritySuiteType string,
+	signer vc.SignerAlgorithm,
+) (dataintegritysuite.SignerInitializer, error) {
 	switch dataIntegritySuiteType { //nolint: exhaustive
 	case ecdsa2019.SuiteType, ecdsa2019.SuiteTypeNew:
 		return ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
