@@ -6,17 +6,21 @@ SPDX-License-Identifier: Apache-2.0
 
 package kms
 
-import (
-	"fmt"
-)
-
 type Registry struct {
-	defaultVCSKeyManager VCSKeyManager
+	defaultVCSKeyManager  VCSKeyManager
+	defaultConfig         Config
+	defaultMetricProvider metricsProvider
 }
 
-func NewRegistry(defaultVCSKeyManager VCSKeyManager) *Registry {
+func NewRegistry(
+	defaultVCSKeyManager VCSKeyManager,
+	defaultKmsConfig Config,
+	defaultMetricProvider metricsProvider,
+) *Registry {
 	return &Registry{
-		defaultVCSKeyManager: defaultVCSKeyManager,
+		defaultConfig:         defaultKmsConfig,
+		defaultVCSKeyManager:  defaultVCSKeyManager,
+		defaultMetricProvider: defaultMetricProvider,
 	}
 }
 
@@ -25,6 +29,8 @@ func (r *Registry) GetKeyManager(config *Config) (VCSKeyManager, error) {
 		return r.defaultVCSKeyManager, nil
 	}
 
-	// TODO handle kms per profile creation
-	return nil, fmt.Errorf("unsupported profile kms")
+	cfgCopy := r.defaultConfig
+	cfgCopy.KMSType = config.KMSType
+
+	return NewAriesKeyManager(&cfgCopy, r.defaultMetricProvider)
 }
