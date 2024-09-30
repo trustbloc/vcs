@@ -27,4 +27,15 @@ func TestRegistry_GetKeyManager(t *testing.T) {
 		_, err := r.GetKeyManager(nil)
 		require.NoError(t, err)
 	})
+
+	t.Run("Fallback kms", func(t *testing.T) {
+		r := kms.NewRegistry(nil, kms.Config{KMSType: kms.Local}, nil)
+		require.NotNil(t, r)
+
+		_, err := r.GetKeyManager(&kms.Config{
+			KMSType: "aws",
+		})
+
+		require.NoError(t, err)
+	})
 }

@@ -88,6 +88,27 @@ func TestNewLocalKeyManager(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Success env", func(t *testing.T) {
+		pool, mongoDBResource := startMongoDBContainer(t)
+
+		t.Setenv("VCS_LOCAL_KMS_MASTER_KEY", "00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=")
+
+		defer func() {
+			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		}()
+
+		km, err := kms.NewAriesKeyManager(&kms.Config{
+			KMSType:           kms.Local,
+			SecretLockKeyPath: secretLockKeyFile,
+			DBType:            "mongodb",
+			DBURL:             mongoDBConnString,
+			DBPrefix:          "test",
+		}, nil)
+
+		require.NoError(t, err)
+		require.NotNil(t, km)
+	})
+
 	t.Run("Fail mongodb", func(t *testing.T) {
 		km, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
