@@ -47,6 +47,7 @@ services:
       - VC_TRANSIENT_DATA_STORE_TYPE=redis
       - VC_REDIS_URL=redis.example.com:6379
       - VC_REDIS_DISABLE_TLS=true
+      - VCS_LOCAL_KMS_MASTER_KEY=00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=
     ports:
       - "8075:8075"
       - "48127:48127"

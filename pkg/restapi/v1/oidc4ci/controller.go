@@ -36,7 +36,6 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/dataintegrity"
-	"github.com/trustbloc/vc-go/dataintegrity/suite"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/jwt"
@@ -734,7 +733,7 @@ func (c *Controller) HandleProof(
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid ldp_vp"))
 		}
 
-		ver, err := c.getDataIntegrityVerifier(*credentialReq.Proof.LdpVp)
+		ver, err := c.getDataIntegrityVerifier()
 		if err != nil {
 			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("get data integrity verifier: %w", err))
 		}
@@ -797,30 +796,15 @@ func (c *Controller) HandleProof(
 	return did, proofClaims.Audience, nil
 }
 
-func (c *Controller) getDataIntegrityVerifier(proofData map[string]interface{}) (*dataintegrity.Verifier, error) {
-	var cryptosuite string
-
-	if rawProof, ok := proofData["proof"]; ok {
-		if mapped, mapOk := rawProof.(map[string]interface{}); mapOk {
-			cryptosuite = fmt.Sprint(mapped["cryptosuite"])
-		}
-	}
-
-	var verifySuite suite.VerifierInitializer
-	switch cryptosuite {
-	case eddsa2022.SuiteType:
-		verifySuite = eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
-			LDDocumentLoader: c.documentLoader,
-		})
-	default:
-		verifySuite = ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-			LDDocumentLoader: c.documentLoader,
-		})
-	}
-
+func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
 	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
 		DIDResolver: c.vdr,
-	}, verifySuite)
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: c.documentLoader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: c.documentLoader,
+	}))
+
 	if err != nil {
 		return nil, fmt.Errorf("new verifier: %w", err)
 	}

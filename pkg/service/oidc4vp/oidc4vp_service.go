@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
@@ -644,13 +645,13 @@ func (s *Service) DeleteClaims(_ context.Context, claimsID string) error {
 }
 
 func (s *Service) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
-	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		LDDocumentLoader: s.documentLoader,
-	})
-
 	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
 		DIDResolver: s.vdr,
-	}, verifySuite)
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: s.documentLoader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: s.documentLoader,
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("new verifier: %w", err)
 	}

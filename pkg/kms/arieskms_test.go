@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -225,6 +226,25 @@ func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 	require.NoError(t, waitForMongoDBToBeUp())
 
 	return pool, mongoDBResource
+}
+
+func TestGenerateMasterKey(t *testing.T) {
+	masterKey, err := GenerateMasterKey(32) // aes-256
+	require.NoError(t, err)
+	require.Len(t, masterKey, 32)
+
+	masterKeyBase64 := base64.URLEncoding.EncodeToString(masterKey)
+	require.NotEmpty(t, masterKeyBase64)
+}
+
+// GenerateMasterKey generates a random master key of specified length.
+func GenerateMasterKey(length int) ([]byte, error) {
+	masterKey := make([]byte, length)
+	_, err := io.ReadFull(rand.Reader, masterKey)
+	if err != nil {
+		return nil, err
+	}
+	return masterKey, nil
 }
 
 func waitForMongoDBToBeUp() error {

@@ -17,7 +17,7 @@ Feature: OIDC4VC REST API
     When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>"
     Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
-    And Verifier with profile "<verifierProfile>" retrieves interactions claimsds
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
     Then we wait 2 seconds
     And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 
