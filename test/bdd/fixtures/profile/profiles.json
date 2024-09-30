@@ -687,7 +687,7 @@
           "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
         },
         "kmsConfig" : {
-          "kms_type" : "local"
+          "kmsType" : "local"
         },
         "credentialTemplates": [
           {

@@ -28,7 +28,7 @@ const (
 
 // Config configure kms that stores signing keys.
 type Config struct {
-	KMSType     Type `json:"kms_type"`
+	KMSType     Type `json:"kmsType"`
 	Endpoint    string
 	Region      string
 	AliasPrefix string

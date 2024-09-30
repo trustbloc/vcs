@@ -36,7 +36,7 @@
     }
   },
   "kmsConfig": {
-    "KMSType": "local",
+    "kmsType": "local",
     "Endpoint": "https://example.com"
   },
   "signingDID": {
