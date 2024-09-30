@@ -158,10 +158,10 @@ func TestNewAWSKeyManager(t *testing.T) {
 		require.NotNil(t, km)
 		require.NoError(t, err)
 
-		_, _, err = km.CreateJWKKey(arieskms.ED25519Type)
+		_, _, err = km.CreateJWKKey(arieskms.NISTP384ECDHKW)
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported NISTP384ECDHKW")
 	})
 }
 
