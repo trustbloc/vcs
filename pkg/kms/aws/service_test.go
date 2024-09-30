@@ -354,9 +354,9 @@ func TestCreate(t *testing.T) {
 
 		svc := New(awsConfig, metric, "", []Opts{}...)
 
-		_, _, err := svc.Create(arieskms.ED25519)
+		_, _, err := svc.Create(arieskms.X25519ECDHKW)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported X25519ECDHKW")
 	})
 
 	t.Run("create error", func(t *testing.T) {
@@ -550,59 +550,23 @@ func TestCreateAndPubKeyBytes(t *testing.T) {
 		require.Equal(t, &mockPriv.PublicKey, gotRaw)
 	})
 
-	t.Run("success, raw key ED25519", func(t *testing.T) {
-		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
-
-		mockPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		require.NoError(t, err)
-
-		mockKeyBytes, err := x509.MarshalPKIXPublicKey(&mockPriv.PublicKey)
-		require.NoError(t, err)
-
-		metric := NewMockmetricsProvider(gomock.NewController(t))
-		metric.EXPECT().ExportPublicKeyCount()
-		metric.EXPECT().ExportPublicKeyTime(gomock.Any())
-		client := NewMockawsClient(gomock.NewController(t))
-		client.EXPECT().GetPublicKey(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&kms.GetPublicKeyOutput{
-				PublicKey:         mockKeyBytes,
-				SigningAlgorithms: []types.SigningAlgorithmSpec{types.SigningAlgorithmSpecEcdsaSha256},
-			}, nil)
-		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil)
-
-		suite := NewSuite(&awsConfig, metric, "", WithAWSClient(client))
-
-		creator, err := suite.RawKeyCreator()
-		require.NoError(t, err)
-
-		gotKID, gotRaw, err := creator.CreateRaw(arieskms.ED25519)
-		require.NoError(t, err)
-		require.Equal(t, keyID, gotKID)
-		require.Equal(t, &mockPriv.PublicKey, gotRaw)
-	})
-
 	t.Run("key not supported", func(t *testing.T) {
 		metric := NewMockmetricsProvider(gomock.NewController(t))
 
 		svc := New(&awsConfig, metric, "", []Opts{}...)
 
-		_, _, err := svc.CreateAndExportPubKeyBytes(arieskms.ED25519)
+		_, _, err := svc.CreateAndExportPubKeyBytes(arieskms.X25519ECDHKW)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported X25519ECDHKW")
 
 		suite := NewSuite(&awsConfig, metric, "", []Opts{}...)
 
 		creator, err := suite.RawKeyCreator()
 		require.NoError(t, err)
 
-		_, err = creator.Create(arieskms.ED25519Type)
+		_, err = creator.Create(arieskms.X25519ECDHKW)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
-
-		_, _, err = creator.CreateRaw(arieskms.ED25519Type)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported X25519ECDHKW")
 	})
 
 	t.Run("export error", func(t *testing.T) {
