@@ -8,10 +8,8 @@ package kms
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
@@ -128,7 +126,10 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 }
 
 func createLocalKMS(cfg *Config) (api.Suite, error) {
-	secretLockService, err := createLocalSecretLock(cfg.SecretLockKeyPath)
+	secretLockService, err := createLocalSecretLock(
+		cfg.SecretLockKeyPath,
+		cfg.MasterKey,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -190,17 +191,16 @@ func (km *KeyManager) NewVCSigner(
 	return signer.NewKMSSigner(fks, signatureType, km.metrics), nil
 }
 
-func createLocalSecretLock(keyPath string) (secretlock.Service, error) {
-	var primaryKeyReader io.Reader
+func createLocalSecretLock(
+	keyPath string,
+	kmsMasterKey string,
+) (secretlock.Service, error) {
 	var err error
-	if os.Getenv("VCS_LOCAL_KMS_MASTER_KEY") != "" {
-		primaryKeyReader, err = local.MasterKeyFromEnv("VCS_LOCAL_KMS_", "MASTER_KEY")
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to create MasterKeyFromEnv"))
-		}
-	}
+	var primaryKeyReader io.Reader
 
-	if primaryKeyReader == nil {
+	if kmsMasterKey != "" {
+		primaryKeyReader = strings.NewReader(kmsMasterKey)
+	} else {
 		if keyPath == "" {
 			return nil, fmt.Errorf("no key defined for local secret lock")
 		}

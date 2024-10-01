@@ -31,6 +31,9 @@ func (r *Registry) GetKeyManager(config *Config) (VCSKeyManager, error) {
 
 	cfgCopy := r.defaultConfig
 	cfgCopy.KMSType = config.KMSType
+	if config.MasterKey != "" {
+		cfgCopy.MasterKey = config.MasterKey
+	}
 
 	return NewAriesKeyManager(&cfgCopy, r.defaultMetricProvider)
 }

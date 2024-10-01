@@ -50,6 +50,11 @@ const (
 	aliasPrefixFlagUsage = "alias prefix" +
 		commonEnvVarUsageText + aliasPrefixEnvKey
 
+	masterKeyFlagName  = "local-kms-master-key"
+	masterKeyEnvKey    = "VC_REST_LOCAL_KMS_MASTER_KEY"
+	masterKeyFlagUsage = "Local KMS master key" +
+		commonEnvVarUsageText + masterKeyEnvKey
+
 	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
 	kmsSecretsDatabaseTypeFlagName      = "default-kms-secrets-database-type"         //nolint: gosec
 	kmsSecretsDatabaseTypeEnvKey        = "VC_REST_DEFAULT_KMS_SECRETS_DATABASE_TYPE" //nolint: gosec
@@ -490,6 +495,7 @@ type kmsParameters struct {
 	kmsSecretsDatabasePrefix string
 	secretLockKeyPath        string
 	aliasPrefix              string
+	masterKey                string
 }
 
 // nolint: gocyclo,funlen
@@ -953,6 +959,8 @@ func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
 	secretLockKeyPath := cmdutils.GetUserSetOptionalVarFromString(cmd, secretLockKeyPathFlagName, secretLockKeyPathEnvKey)
 	aliasPrefix := cmdutils.GetUserSetOptionalVarFromString(cmd, aliasPrefixFlagName, aliasPrefixEnvKey)
 
+	masterKey := cmdutils.GetUserSetOptionalVarFromString(cmd, masterKeyFlagName, masterKeyEnvKey)
+
 	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
 		kmsSecretsDatabaseTypeEnvKey, kmsType != kms.Local)
 	if err != nil {
@@ -972,6 +980,7 @@ func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
 		kmsSecretsDatabaseURL:    keyDatabaseURL,
 		kmsSecretsDatabasePrefix: keyDatabasePrefix,
 		aliasPrefix:              aliasPrefix,
+		masterKey:                masterKey,
 	}, nil
 }
 
@@ -1150,6 +1159,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(kmsEndpointFlagName, "", kmsEndpointFlagUsage)
 	startCmd.Flags().String(secretLockKeyPathFlagName, "", secretLockKeyPathFlagUsage)
 	startCmd.Flags().String(aliasPrefixFlagName, "", aliasPrefixFlagUsage)
+	startCmd.Flags().String(masterKeyFlagName, "", masterKeyFlagUsage)
 	startCmd.Flags().String(kmsRegionFlagName, "", kmsRegionFlagUsage)
 	startCmd.Flags().StringP(tlsCertificateFlagName, "", "", tlsCertificateFlagUsage)
 	startCmd.Flags().StringP(tlsKeyFlagName, "", "", tlsKeyFlagUsage)

@@ -91,8 +91,6 @@ func TestNewLocalKeyManager(t *testing.T) {
 	t.Run("Success env", func(t *testing.T) {
 		pool, mongoDBResource := startMongoDBContainer(t)
 
-		t.Setenv("VCS_LOCAL_KMS_MASTER_KEY", "00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=")
-
 		defer func() {
 			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 		}()
@@ -103,6 +101,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			DBType:            "mongodb",
 			DBURL:             mongoDBConnString,
 			DBPrefix:          "test",
+			MasterKey:         "00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=",
 		}, nil)
 
 		require.NoError(t, err)

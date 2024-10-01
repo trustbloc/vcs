@@ -460,6 +460,7 @@ func buildEchoHandler(
 		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
 		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
 		AliasPrefix:       conf.StartupParameters.kmsParameters.aliasPrefix,
+		MasterKey:         conf.StartupParameters.kmsParameters.masterKey,
 	}
 
 	defaultVCSKeyManager, err := kms.NewAriesKeyManager(&defaultKmsConfig, metrics)

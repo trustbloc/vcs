@@ -38,6 +38,7 @@ type Config struct {
 	DBType            string
 	DBURL             string
 	DBPrefix          string
+	MasterKey         string
 }
 
 type VCSKeyManager interface {
