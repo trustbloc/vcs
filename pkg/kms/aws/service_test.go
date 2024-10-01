@@ -354,9 +354,9 @@ func TestCreate(t *testing.T) {
 
 		svc := New(awsConfig, metric, "", []Opts{}...)
 
-		_, _, err := svc.Create(arieskms.ED25519)
+		_, _, err := svc.Create(arieskms.X25519ECDHKW)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported X25519ECDHKW")
 	})
 
 	t.Run("create error", func(t *testing.T) {
@@ -555,22 +555,18 @@ func TestCreateAndPubKeyBytes(t *testing.T) {
 
 		svc := New(&awsConfig, metric, "", []Opts{}...)
 
-		_, _, err := svc.CreateAndExportPubKeyBytes(arieskms.ED25519)
+		_, _, err := svc.CreateAndExportPubKeyBytes(arieskms.X25519ECDHKW)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported X25519ECDHKW")
 
 		suite := NewSuite(&awsConfig, metric, "", []Opts{}...)
 
 		creator, err := suite.RawKeyCreator()
 		require.NoError(t, err)
 
-		_, err = creator.Create(arieskms.ED25519Type)
+		_, err = creator.Create(arieskms.X25519ECDHKW)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
-
-		_, _, err = creator.CreateRaw(arieskms.ED25519Type)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported X25519ECDHKW")
 	})
 
 	t.Run("export error", func(t *testing.T) {

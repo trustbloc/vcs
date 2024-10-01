@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -87,6 +88,26 @@ func TestNewLocalKeyManager(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Success env", func(t *testing.T) {
+		pool, mongoDBResource := startMongoDBContainer(t)
+
+		defer func() {
+			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		}()
+
+		km, err := kms.NewAriesKeyManager(&kms.Config{
+			KMSType:           kms.Local,
+			SecretLockKeyPath: secretLockKeyFile,
+			DBType:            "mongodb",
+			DBURL:             mongoDBConnString,
+			DBPrefix:          "test",
+			MasterKey:         "00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=",
+		}, nil)
+
+		require.NoError(t, err)
+		require.NotNil(t, km)
+	})
+
 	t.Run("Fail mongodb", func(t *testing.T) {
 		km, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
@@ -157,10 +178,10 @@ func TestNewAWSKeyManager(t *testing.T) {
 		require.NotNil(t, km)
 		require.NoError(t, err)
 
-		_, _, err = km.CreateJWKKey(arieskms.ED25519Type)
+		_, _, err = km.CreateJWKKey(arieskms.NISTP384ECDHKW)
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "key not supported ED25519")
+		require.Contains(t, err.Error(), "key not supported NISTP384ECDHKW")
 	})
 }
 
@@ -225,6 +246,25 @@ func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 	require.NoError(t, waitForMongoDBToBeUp())
 
 	return pool, mongoDBResource
+}
+
+func TestGenerateMasterKey(t *testing.T) {
+	masterKey, err := GenerateMasterKey(32) // aes-256
+	require.NoError(t, err)
+	require.Len(t, masterKey, 32)
+
+	masterKeyBase64 := base64.URLEncoding.EncodeToString(masterKey)
+	require.NotEmpty(t, masterKeyBase64)
+}
+
+// GenerateMasterKey generates a random master key of specified length.
+func GenerateMasterKey(length int) ([]byte, error) {
+	masterKey := make([]byte, length)
+	_, err := io.ReadFull(rand.Reader, masterKey)
+	if err != nil {
+		return nil, err
+	}
+	return masterKey, nil
 }
 
 func waitForMongoDBToBeUp() error {

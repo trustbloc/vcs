@@ -33,6 +33,7 @@ Feature: OIDC4VC REST API
       | i_myprofile_ud_es256k_jwt_no_csl/v1.0 | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
 #     LDP Data Integrity issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_ud_di_ecdsa-2019/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID  | v_myprofile_ldp/v1.0 | 062759b1-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_di_eddsa-2022/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID  | v_myprofile_ldp/v1.0 | 062759b1-no-limit-disclosure-optional-fields | lpr_category_id,registration_city,commuter_classification    |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0        | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 

@@ -450,7 +450,7 @@ func buildEchoHandler(
 
 	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}
 
-	defaultVCSKeyManager, err := kms.NewAriesKeyManager(&kms.Config{
+	defaultKmsConfig := kms.Config{
 		KMSType:           conf.StartupParameters.kmsParameters.kmsType,
 		Endpoint:          conf.StartupParameters.kmsParameters.kmsEndpoint,
 		Region:            conf.StartupParameters.kmsParameters.kmsRegion,
@@ -460,12 +460,15 @@ func buildEchoHandler(
 		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
 		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
 		AliasPrefix:       conf.StartupParameters.kmsParameters.aliasPrefix,
-	}, metrics)
+		MasterKey:         conf.StartupParameters.kmsParameters.masterKey,
+	}
+
+	defaultVCSKeyManager, err := kms.NewAriesKeyManager(&defaultKmsConfig, metrics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default kms: %w", err)
 	}
 
-	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
+	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager, defaultKmsConfig, metrics)
 
 	var redisClient, redisClientNoTracing *redisclient.Client
 	if conf.StartupParameters.transientDataParams.storeType == redisStore {

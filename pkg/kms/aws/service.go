@@ -351,6 +351,8 @@ func (s *Service) Create(kt arieskms.KeyType) (string, interface{}, error) {
 	var keySpec types.KeySpec
 
 	switch string(kt) {
+	case arieskms.ED25519:
+		keySpec = types.KeySpecEccNistP256
 	case arieskms.ECDSAP256DER:
 		keySpec = types.KeySpecEccNistP256
 	case arieskms.ECDSAP384DER:

@@ -28,7 +28,7 @@ const (
 
 // Config configure kms that stores signing keys.
 type Config struct {
-	KMSType     Type
+	KMSType     Type `json:"kmsType"`
 	Endpoint    string
 	Region      string
 	AliasPrefix string
@@ -38,6 +38,7 @@ type Config struct {
 	DBType            string
 	DBURL             string
 	DBPrefix          string
+	MasterKey         string
 }
 
 type VCSKeyManager interface {

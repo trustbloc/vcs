@@ -43,10 +43,12 @@ func TestController_GetOpenIDCredentialIssuerConfig(t *testing.T) {
 			setup: func() {
 				mockTestIssuerProfile = loadProfile(t)
 
-				mockKMSRegistry.EXPECT().GetKeyManager(&vcskms.Config{
-					KMSType:  "local",
-					Endpoint: "https://example.com",
-				}).Return(nil, nil)
+				mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).
+					DoAndReturn(func(config *vcskms.Config) (vcskms.VCSKeyManager, error) {
+						assert.EqualValues(t, "local", config.KMSType)
+						assert.EqualValues(t, "https://example.com", config.Endpoint)
+						return nil, nil
+					})
 
 				mockCryptoJWTSigner.EXPECT().NewJWTSigned(gomock.Any(), &vc.Signer{
 					Creator:  "did:orb:bank_issuer#123",
