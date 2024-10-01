@@ -18,7 +18,7 @@ require (
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/did-go v1.3.1-0.20240910130808-bf0188fdfe70
-	github.com/trustbloc/kms-go v1.1.2
+	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
 	github.com/trustbloc/vc-go v1.2.1-0.20240927095859-a58759112df5
