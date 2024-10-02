@@ -2,6 +2,7 @@ package refresh
 
 import (
 	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/profile"
 )
@@ -20,6 +21,11 @@ type GetRefreshStateResponse struct {
 	Challenge                     string                        `json:"challenge"`
 	Domain                        string                        `json:"domain"`
 	RefreshServiceType            ServiceType                   `json:"refreshServiceType"`
+}
+
+type GetRefreshedCredentialResponse struct {
+	Credential *verifiable.Credential
+	IssuerURL  string
 }
 
 type Event struct {

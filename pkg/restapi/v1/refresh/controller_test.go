@@ -220,7 +220,10 @@ func TestGetRefreshedCredential(t *testing.T) {
 			Return(issuer, nil)
 
 		refreshSvc.EXPECT().GetRefreshedCredential(gomock.Any(), gomock.Any(), *issuer).
-			Return(signedRequestedCredentialsVP.Presentation.Credentials()[0], nil)
+			Return(&refresh2.GetRefreshedCredentialResponse{
+				Credential: signedRequestedCredentialsVP.Presentation.Credentials()[0],
+				IssuerURL:  "https://issuer.example.com/oidc/idp/profile-id/v1.0",
+			}, nil)
 
 		ctr := refresh.NewController(&refresh.Config{
 			ProfileService: profileSvc,

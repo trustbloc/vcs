@@ -38,7 +38,7 @@ type CredentialRefreshService interface {
 		ctx context.Context,
 		presentation *verifiable.Presentation,
 		issuer profileapi.Issuer,
-	) (*verifiable.Credential, error)
+	) (*refresh.GetRefreshedCredentialResponse, error)
 }
 
 type ProofChecker interface {
