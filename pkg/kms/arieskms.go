@@ -134,7 +134,7 @@ func createLocalKMS(cfg *Config) (api.Suite, error) {
 		return nil, err
 	}
 
-	kmsStore, err := createStore(cfg.DBType, cfg.DBURL, cfg.DBPrefix)
+	kmsStore, err := createStore(cfg.DBType, cfg.DBURL, cfg.DBName)
 	if err != nil {
 		return nil, err
 	}

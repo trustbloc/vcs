@@ -449,6 +449,7 @@ func buildEchoHandler(
 	}
 
 	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}
+	mongoDbNameWithPrefix := conf.StartupParameters.dbParameters.databasePrefix + "vcs_db"
 
 	defaultKmsConfig := kms.Config{
 		KMSType:           conf.StartupParameters.kmsParameters.kmsType,
@@ -458,7 +459,7 @@ func buildEchoHandler(
 		SecretLockKeyPath: conf.StartupParameters.kmsParameters.secretLockKeyPath,
 		DBType:            conf.StartupParameters.dbParameters.databaseType,
 		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
-		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
+		DBName:            mongoDbNameWithPrefix,
 		AliasPrefix:       conf.StartupParameters.kmsParameters.aliasPrefix,
 		MasterKey:         conf.StartupParameters.kmsParameters.masterKey,
 	}
@@ -495,7 +496,7 @@ func buildEchoHandler(
 
 	mongodbClient, err := mongodb.New(
 		conf.StartupParameters.dbParameters.databaseURL,
-		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
+		mongoDbNameWithPrefix,
 		mongodb.WithTraceProvider(otel.GetTracerProvider()),
 	)
 	if err != nil {
@@ -504,7 +505,7 @@ func buildEchoHandler(
 
 	mongodbClientNoTracing, err := mongodb.New(
 		conf.StartupParameters.dbParameters.databaseURL,
-		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
+		mongoDbNameWithPrefix,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mongodb client (no tracing): %w", err)
