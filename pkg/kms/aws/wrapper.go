@@ -42,6 +42,10 @@ type keyCreator struct {
 	svc *Service
 }
 
+func (c *keyCreator) ExportPubKeyBytes(id string) ([]byte, kms.KeyType, error) {
+	return c.svc.ExportPubKeyBytes(id)
+}
+
 func (c *keyCreator) Create(keyType kms.KeyType) (*jwk.JWK, error) {
 	kid, pkBytes, err := c.svc.CreateAndExportPubKeyBytes(keyType)
 	if err != nil {

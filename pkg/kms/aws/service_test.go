@@ -518,6 +518,48 @@ func TestCreateAndPubKeyBytes(t *testing.T) {
 		require.Equal(t, &mockPriv.PublicKey, pubKey.Key)
 	})
 
+	t.Run("success export key", func(t *testing.T) {
+		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
+
+		mockPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		mockKeyBytes, err := x509.MarshalPKIXPublicKey(&mockPriv.PublicKey)
+		require.NoError(t, err)
+
+		metric := NewMockmetricsProvider(gomock.NewController(t))
+		metric.EXPECT().ExportPublicKeyCount()
+		metric.EXPECT().ExportPublicKeyTime(gomock.Any())
+		client := NewMockawsClient(gomock.NewController(t))
+		client.EXPECT().GetPublicKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.GetPublicKeyOutput{
+				PublicKey:         mockKeyBytes,
+				SigningAlgorithms: []types.SigningAlgorithmSpec{types.SigningAlgorithmSpecEcdsaSha256},
+			}, nil).Times(2)
+		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil)
+
+		metric.EXPECT().ExportPublicKeyCount()
+		metric.EXPECT().ExportPublicKeyTime(gomock.Any())
+
+		suite := NewSuite(&awsConfig, metric, "", WithAWSClient(client))
+
+		creator, err := suite.KeyCreator()
+		require.NoError(t, err)
+
+		pubKey, err := creator.Create(arieskms.ECDSAP256TypeDER)
+		require.NoError(t, err)
+		require.Equal(t, keyID, pubKey.KeyID)
+		require.Equal(t, &mockPriv.PublicKey, pubKey.Key)
+
+		cr, err := suite.KeyCreator()
+		require.NoError(t, err)
+
+		resp2, _, err := cr.ExportPubKeyBytes(keyID)
+		require.NoError(t, err)
+		require.NotNil(t, resp2)
+	})
+
 	t.Run("success, raw key", func(t *testing.T) {
 		keyID := "aws-kms://arn:aws:kms:ca-central-1:111122223333:key/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"
 
