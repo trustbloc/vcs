@@ -178,6 +178,7 @@ func TestGetRefreshedCredential(t *testing.T) {
 			Return(errors.New("ignored"))
 
 		srv := refresh.NewRefreshService(&refresh.Config{
+			VcsAPIURL:              "https://issuer.example.com/",
 			PresentationVerifier:   verifier,
 			TxStore:                txStore,
 			ClaimsStore:            claimStore,
@@ -224,7 +225,9 @@ func TestGetRefreshedCredential(t *testing.T) {
 			Return(&issuecredential.Transaction{
 				ID: "some-id",
 				TransactionData: issuecredential.TransactionData{
-					DID: "some-did",
+					DID:            "some-did",
+					ProfileID:      "profile-id",
+					ProfileVersion: "v1.0",
 					CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 						{
 							ClaimDataID: "some-claim-id",
@@ -268,9 +271,11 @@ func TestGetRefreshedCredential(t *testing.T) {
 				return nil, nil, nil
 			})
 
-		cred, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation, targetIssuer)
+		credentialResponse, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation,
+			targetIssuer)
 		assert.NoError(t, err)
-		assert.Equal(t, cred, targetCred)
+		assert.Equal(t, credentialResponse.Credential, targetCred)
+		assert.Equal(t, credentialResponse.IssuerURL, "https://issuer.example.com/oidc/idp/profile-id/v1.0")
 	})
 
 	t.Run("issue err", func(t *testing.T) {
@@ -378,9 +383,10 @@ func TestGetRefreshedCredential(t *testing.T) {
 				return nil, nil, nil
 			})
 
-		cred, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation, targetIssuer)
+		credentialResponse, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation,
+			targetIssuer)
 		assert.ErrorContains(t, err, "failed to issue credential")
-		assert.Nil(t, cred)
+		assert.Nil(t, credentialResponse)
 	})
 
 	t.Run("prepare err", func(t *testing.T) {
@@ -475,8 +481,9 @@ func TestGetRefreshedCredential(t *testing.T) {
 				return nil, nil, nil
 			})
 
-		cred, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation, targetIssuer)
+		credentialResponse, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation,
+			targetIssuer)
 		assert.ErrorContains(t, err, "failed to prepare credential")
-		assert.Nil(t, cred)
+		assert.Nil(t, credentialResponse)
 	})
 }

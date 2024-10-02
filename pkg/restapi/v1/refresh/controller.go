@@ -71,7 +71,8 @@ func (c *Controller) GetRefreshedCredential(
 	}
 
 	return ctx.JSON(http.StatusOK, GetRefreshedCredentialResp{
-		VerifiableCredential: resp,
+		VerifiableCredential: resp.Credential,
+		IssuerURI:            resp.IssuerURL,
 	})
 }
 

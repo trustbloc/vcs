@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -110,7 +111,7 @@ func (s *Service) GetRefreshedCredential(
 	ctx context.Context,
 	presentation *verifiable.Presentation,
 	issuer profile.Issuer,
-) (*verifiable.Credential, error) {
+) (*GetRefreshedCredentialResponse, error) {
 	resultEvent := &Event{
 		WebHook:        issuer.WebHook,
 		ProfileID:      issuer.ID,
@@ -238,11 +239,19 @@ func (s *Service) GetRefreshedCredential(
 
 	if err != nil {
 		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, string(tx.ID), err)
-	} else {
-		s.tryPublish(ctx, spi.CredentialRefreshSuccessful, resultEvent, string(tx.ID), nil)
+		return nil, err
 	}
 
-	return updatedCred, err
+	issuerURL, _ := url.JoinPath(s.cfg.VcsAPIURL, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
+
+	credentialResponse := &GetRefreshedCredentialResponse{
+		Credential: updatedCred,
+		IssuerURL:  issuerURL,
+	}
+
+	s.tryPublish(ctx, spi.CredentialRefreshSuccessful, resultEvent, string(tx.ID), nil)
+
+	return credentialResponse, nil
 }
 
 func (s *Service) findCredentialTemplate(

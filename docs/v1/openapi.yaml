@@ -1659,10 +1659,13 @@ components:
           type: string
           anyOf:
             - { }
+        issuerURI:
+          type: string
       x-tags:
         - refresh
       required:
         - verifiable_credential
+        - issuerURI
     DeprecatedComposeOIDC4CICredential:
       title: DeprecatedComposeOIDC4CICredential
       type: object

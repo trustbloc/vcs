@@ -24,6 +24,7 @@ type GetRefreshedCredentialReq struct {
 
 // Model for getting refreshed credential.
 type GetRefreshedCredentialResp struct {
+	IssuerURI            string      `json:"issuerURI"`
 	VerifiableCredential interface{} `json:"verifiable_credential"`
 }
 
