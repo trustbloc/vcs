@@ -145,7 +145,7 @@ jobs:
       - name: Build binaries
         run: make build-wallet-cli-binaries
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: wallet-cli
           path: |
