@@ -141,7 +141,7 @@ func ValidateKMSConfig(config *KMSConfig) (*kms.Config, error) {
 		SecretLockKeyPath: *config.SecretLockKeyPath,
 		DBType:            *config.DbType,
 		DBURL:             *config.DbURL,
-		DBPrefix:          *config.DbPrefix,
+		DBName:            *config.DbPrefix,
 	}, nil
 }
 

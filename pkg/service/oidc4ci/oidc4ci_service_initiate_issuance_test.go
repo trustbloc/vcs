@@ -2139,7 +2139,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					SecretLockKeyPath: "SecretLockKeyPath",
 					DBType:            "DBType",
 					DBURL:             "DBURL",
-					DBPrefix:          "DBPrefix",
+					DBName:            "DBName",
 				}
 
 				kmsRegistry.EXPECT().GetKeyManager(kmsConfig).Return(nil, nil)
@@ -2291,7 +2291,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 					SecretLockKeyPath: "SecretLockKeyPath",
 					DBType:            "DBType",
 					DBURL:             "DBURL",
-					DBPrefix:          "DBPrefix",
+					DBName:            "DBName",
 				}
 
 				kmsRegistry.EXPECT().GetKeyManager(kmsConfig).Return(nil, nil)

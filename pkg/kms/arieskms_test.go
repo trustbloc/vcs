@@ -44,7 +44,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "mem",
 			DBURL:             "",
-			DBPrefix:          "",
+			DBName:            "",
 		}, nil)
 
 		require.NotNil(t, km)
@@ -81,7 +81,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "mongodb",
 			DBURL:             mongoDBConnString,
-			DBPrefix:          "test",
+			DBName:            "test",
 		}, nil)
 
 		require.NotNil(t, km)
@@ -100,7 +100,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "mongodb",
 			DBURL:             mongoDBConnString,
-			DBPrefix:          "test",
+			DBName:            "test",
 			MasterKey:         "00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=",
 		}, nil)
 
@@ -114,7 +114,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "mongodb",
 			DBURL:             "not a url!",
-			DBPrefix:          "test",
+			DBName:            "test",
 		}, nil)
 
 		require.Nil(t, km)
@@ -127,7 +127,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			SecretLockKeyPath: "incorrect",
 			DBType:            "mem",
 			DBURL:             "",
-			DBPrefix:          "",
+			DBName:            "",
 		}, nil)
 
 		require.Contains(t, err.Error(), "no such file or directory")
@@ -139,7 +139,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "incorrect",
 			DBURL:             "",
-			DBPrefix:          "",
+			DBName:            "",
 		}, nil)
 
 		require.Contains(t, err.Error(), "not supported database type")

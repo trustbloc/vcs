@@ -37,7 +37,7 @@ type Config struct {
 	SecretLockKeyPath string
 	DBType            string
 	DBURL             string
-	DBPrefix          string
+	DBName            string
 	MasterKey         string
 }
 
