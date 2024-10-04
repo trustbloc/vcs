@@ -80,7 +80,7 @@ func (p *TxStore) Create(
 	return oidc4vp.TxID(txID), tx, nil
 }
 
-// Get profile by give id.
+// Get returns oidc4vp.Transaction by given id.
 func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.redisClient.ContextWithTimeout()
 	defer cancel()
@@ -91,6 +91,21 @@ func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	}
 
 	return txFromDocument(strID, doc), nil
+}
+
+// Delete deletes oidc4vp.Transaction from store.
+func (p *TxStore) Delete(strID oidc4vp.TxID) error {
+	ctxWithTimeout, cancel := p.redisClient.ContextWithTimeout()
+	defer cancel()
+
+	key := resolveRedisKey(string(strID))
+
+	err := p.redisClient.API().Del(ctxWithTimeout, key).Err()
+	if err != nil {
+		return fmt.Errorf("delete tx %w", err)
+	}
+
+	return nil
 }
 
 // Get returns txDocument by given id.

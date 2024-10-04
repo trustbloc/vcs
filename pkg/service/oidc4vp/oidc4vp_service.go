@@ -84,6 +84,7 @@ type transactionManager interface {
 	DeleteReceivedClaims(claimsID string) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
 	Get(txID TxID) (*Transaction, error)
+	Delete(txID TxID) error
 }
 
 type requestObjectStore interface {

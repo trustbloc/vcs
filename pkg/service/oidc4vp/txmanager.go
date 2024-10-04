@@ -70,6 +70,7 @@ type txStore interface {
 	) (TxID, *Transaction, error)
 	Update(update TransactionUpdate, profileTransactionDataTTL int32) error
 	Get(txID TxID) (*Transaction, error)
+	Delete(txID TxID) error
 }
 
 type txClaimsStore interface {
@@ -156,7 +157,7 @@ func (tm *TxManager) StoreReceivedClaims(
 	return tm.txStore.Update(TransactionUpdate{ID: txID, ReceivedClaimsID: receivedClaimsID}, profileTransactionDataTTL)
 }
 
-// Get transaction id.
+// Get transaction by TxID.
 func (tm *TxManager) Get(txID TxID) (*Transaction, error) {
 	tx, err := tm.txStore.Get(txID)
 	if errors.Is(err, ErrDataNotFound) {
@@ -183,6 +184,17 @@ func (tm *TxManager) Get(txID TxID) (*Transaction, error) {
 	tx.ReceivedClaims = decrypted
 
 	return tx, nil
+}
+
+// Delete transaction by TxID.
+// Note, that given func does not remove associated claims from store.
+func (tm *TxManager) Delete(txID TxID) error {
+	err := tm.txStore.Delete(txID)
+	if err != nil {
+		return fmt.Errorf("delete tx from store: %w", err)
+	}
+
+	return nil
 }
 
 // GetByOneTimeToken get transaction by nonce and then delete nonce.

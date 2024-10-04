@@ -159,6 +159,26 @@ func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	return txFromDocument(txDoc)
 }
 
+// Delete deletes oidc4vp.Transaction from store.
+func (p *TxStore) Delete(strID oidc4vp.TxID) error {
+	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	collection := p.mongoClient.Database().Collection(txCollection)
+
+	id, err := txIDFromString(strID)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.DeleteOne(ctxWithTimeout, bson.M{"_id": id})
+	if err != nil {
+		return fmt.Errorf("delete tx: %w", err)
+	}
+
+	return nil
+}
+
 func (p *TxStore) Update(update oidc4vp.TransactionUpdate, _ int32) error {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()

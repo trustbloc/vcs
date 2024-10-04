@@ -132,6 +132,10 @@ func TestService_HandleWalletNotification_SupportedAuthResponseErrorTypes(t *tes
 					return nil
 				})
 
+			transactionManager.EXPECT().
+				Delete(transactionID).Times(1).
+				Return(nil)
+
 			s := oidc4vp.NewService(&oidc4vp.Config{
 				EventSvc:           eventService,
 				EventTopic:         spi.VerifierEventTopic,
@@ -228,6 +232,10 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 							OrganizationID: profileOrgID,
 							WebHook:        profileWebHook,
 						}, nil)
+
+					transactionManager.EXPECT().
+						Delete(transactionID).Times(1).
+						Return(nil)
 				},
 				check: func(t *testing.T, err error) {
 					assert.NoError(t, err)
@@ -367,6 +375,45 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 				},
 				check: func(t *testing.T, err error) {
 					assert.ErrorContains(t, err, "event service error")
+				},
+			},
+			notification: &oidc4vp.WalletNotification{
+				TxID:             transactionID,
+				Error:            "invalid_scope",
+				ErrorDescription: "error description",
+			},
+		},
+		{
+			name: "Error: failed to delete transaction",
+			fields: fields{
+				setup: func() {
+					transactionManager.EXPECT().
+						Get(transactionID).Times(1).
+						Return(&oidc4vp.Transaction{
+							ID:             transactionID,
+							ProfileID:      profileID,
+							ProfileVersion: profileVersion,
+						}, nil)
+
+					profileService.EXPECT().
+						GetProfile(profileID, profileVersion).
+						Return(&profileapi.Verifier{
+							ID:             profileID,
+							Version:        profileVersion,
+							OrganizationID: profileOrgID,
+							WebHook:        profileWebHook,
+						}, nil)
+
+					eventService.EXPECT().
+						Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).
+						Return(nil)
+
+					transactionManager.EXPECT().
+						Delete(transactionID).Times(1).
+						Return(errors.New("transaction service error"))
+				},
+				check: func(t *testing.T, err error) {
+					assert.ErrorContains(t, err, "transaction service error")
 				},
 			},
 			notification: &oidc4vp.WalletNotification{

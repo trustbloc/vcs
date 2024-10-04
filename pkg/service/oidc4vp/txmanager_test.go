@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/presexch"
@@ -554,6 +555,42 @@ func TestTxManagerDeleteReceivedClaims(t *testing.T) {
 		err := manager.DeleteReceivedClaims("claimsID")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "delete error")
+	})
+}
+
+func TestTxManagerDeleteTransaction(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		txID := oidc4vp.TxID(uuid.NewString())
+
+		store := NewMockTxStore(gomock.NewController(t))
+		store.EXPECT().Delete(txID).Return(nil)
+
+		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+		crypto := NewMockDataProtector(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
+			testutil.DocumentLoader(t))
+
+		err := manager.Delete(txID)
+		require.NoError(t, err)
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		txID := oidc4vp.TxID(uuid.NewString())
+
+		store := NewMockTxStore(gomock.NewController(t))
+		store.EXPECT().Delete(txID).Return(errors.New("some error"))
+
+		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+		crypto := NewMockDataProtector(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
+			testutil.DocumentLoader(t))
+
+		err := manager.Delete(txID)
+		require.Contains(t, err.Error(), "some error")
 	})
 }
 

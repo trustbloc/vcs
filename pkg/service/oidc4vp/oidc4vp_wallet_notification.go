@@ -76,6 +76,12 @@ func (s *Service) HandleWalletNotification(ctx context.Context, req *WalletNotif
 		return err
 	}
 
+	// Delete tx from store.
+	err = s.transactionManager.Delete(req.TxID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
