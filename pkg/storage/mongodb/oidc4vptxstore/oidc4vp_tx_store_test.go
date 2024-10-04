@@ -15,6 +15,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/presexch"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -43,54 +44,48 @@ func TestTxStore_Success(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
-	require.NoError(t, err)
+	client, e := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
+	assert.NoError(t, e)
 
-	store, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), defaultClaimsTTL)
-	require.NoError(t, err)
-	require.NotNil(t, store)
+	store, e := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), defaultClaimsTTL)
+	assert.NoError(t, e)
+	assert.NotNil(t, store)
 	defer func() {
-		require.NoError(t, client.Close(), "failed to close mongodb client")
+		assert.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
-	t.Run("Create tx", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
-		require.NoError(t, err)
-		require.NotNil(t, id)
-	})
+	t.Run("Success: create tx, update with received claims ID, delete", func(t *testing.T) {
+		id, txCreate, err := store.Create(
+			&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
 
-	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
-
-		require.NoError(t, err)
-		require.NotNil(t, id)
-
-		tx, err := store.Get(id)
-		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Equal(t, []string{customScope}, tx.CustomScopes)
-	})
-
-	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, nil)
-
-		require.NoError(t, err)
-		require.NotNil(t, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, id)
 
 		err = store.Update(oidc4vp.TransactionUpdate{
 			ID:               id,
 			ReceivedClaimsID: receivedClaimsID,
 		}, 0)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		tx, err := store.Get(id)
-		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Nil(t, tx.ReceivedClaims)
-		require.Nil(t, tx.CustomScopes)
+		txCreate.ReceivedClaimsID = receivedClaimsID
+
+		txUpdate, err := store.Get(id)
+		assert.NoError(t, err)
+
+		assert.Equal(t, txCreate, txUpdate)
+
+		err = store.Delete(id)
+		assert.NoError(t, err)
+
+		_, err = store.Get(id)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+
+		// Delete not existing tx.
+		err = store.Delete(id)
+		assert.NoError(t, err)
 	})
 }
 
@@ -98,53 +93,53 @@ func TestTxStore_Fails(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
 	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	store, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), defaultClaimsTTL)
-	require.NoError(t, err)
-	require.NotNil(t, store)
+	assert.NoError(t, err)
+	assert.NotNil(t, store)
 	defer func() {
-		require.NoError(t, client.Close(), "failed to close mongodb client")
+		assert.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
 	t.Run("Get invalid tx id", func(t *testing.T) {
 		_, err := store.Get("invalid")
-		require.Contains(t, err.Error(), "tx invalid id")
+		assert.Contains(t, err.Error(), "tx invalid id")
+	})
+
+	t.Run("Delete invalid tx id", func(t *testing.T) {
+		err := store.Delete("invalid")
+		assert.Contains(t, err.Error(), "tx invalid id")
 	})
 
 	t.Run("Get empty tx id", func(t *testing.T) {
 		_, err := store.Get("")
-		require.Contains(t, err.Error(), oidc4vp.ErrDataNotFound.Error())
-	})
-
-	t.Run("Get not existing tx id", func(t *testing.T) {
-		_, err := store.Get("121212121212121212121212")
-		require.EqualError(t, err, oidc4vp.ErrDataNotFound.Error())
+		assert.Contains(t, err.Error(), oidc4vp.ErrDataNotFound.Error())
 	})
 
 	t.Run("Get update tx id", func(t *testing.T) {
 		err := store.Update(oidc4vp.TransactionUpdate{
 			ID: "invalid",
 		}, 0)
-		require.Contains(t, err.Error(), "tx invalid id")
+		assert.Contains(t, err.Error(), "tx invalid id")
 	})
 
 	t.Run("Get empty tx id", func(t *testing.T) {
 		err := store.Update(oidc4vp.TransactionUpdate{
 			ID: "",
 		}, 0)
-		require.Contains(t, err.Error(), "profile with given id not found")
+		assert.Contains(t, err.Error(), "profile with given id not found")
 	})
 
 	t.Run("Get not existing tx id", func(t *testing.T) {
 		err := store.Update(oidc4vp.TransactionUpdate{
 			ID: "121212121212121212121212",
 		}, 0)
-		require.EqualError(t, err, "profile with given id not found")
+		assert.EqualError(t, err, "profile with given id not found")
 	})
 
 	t.Run("invalid doc content", func(t *testing.T) {
@@ -155,39 +150,39 @@ func TestTxStore_Fails(t *testing.T) {
 			},
 		})
 
-		require.Error(t, err)
+		assert.Error(t, err)
 	})
 
 	t.Run("test default expiration", func(t *testing.T) {
 		storeExpired, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), 1)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		id, _, err := storeExpired.Create(
 			&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
-		require.NoError(t, err)
-		require.NotNil(t, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, id)
 
 		time.Sleep(time.Second)
 
 		tx, err := storeExpired.Get(id)
-		require.Nil(t, tx)
-		require.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+		assert.Nil(t, tx)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 
 	t.Run("test profile expiration", func(t *testing.T) {
 		storeExpired, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), 100)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		id, _, err := storeExpired.Create(
 			&presexch.PresentationDefinition{}, profileID, profileVersion, 1, []string{customScope})
-		require.NoError(t, err)
-		require.NotNil(t, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, id)
 
 		time.Sleep(time.Second)
 
 		tx, err := storeExpired.Get(id)
-		require.Nil(t, tx)
-		require.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+		assert.Nil(t, tx)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 }
 
@@ -195,7 +190,7 @@ func TestMigrate(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
 	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(defaultClaimsTTL))
@@ -204,11 +199,11 @@ func TestMigrate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	store, err := NewTxStore(ctx, client, testutil.DocumentLoader(t), defaultClaimsTTL)
-	require.Nil(t, store)
-	require.ErrorContains(t, err, "context canceled")
+	assert.Nil(t, store)
+	assert.ErrorContains(t, err, "context canceled")
 
 	defer func() {
-		require.NoError(t, client.Close(), "failed to close mongodb client")
+		assert.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 }
 

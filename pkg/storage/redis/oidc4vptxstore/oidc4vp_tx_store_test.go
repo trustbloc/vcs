@@ -8,7 +8,6 @@ package oidc4vptxstore
 
 import (
 	"context"
-	_ "embed"
 	"testing"
 	"time"
 
@@ -43,114 +42,77 @@ func TestTxStore_Success(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client, err := redis.New([]string{redisConnString})
-	assert.NoError(t, err)
+	client, e := redis.New([]string{redisConnString})
+	assert.NoError(t, e)
 
 	store := NewTxStore(client, testutil.DocumentLoader(t), defaultClaimsTTL)
-	require.NotNil(t, store)
+	assert.NotNil(t, store)
 
 	defer func() {
-		require.NoError(t, client.API().Close(), "failed to close redis client")
+		assert.NoError(t, client.API().Close(), "failed to close redis client")
 	}()
 
-	t.Run("Create tx", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
-		require.NoError(t, err)
-		require.NotNil(t, id)
-	})
+	t.Run("Success: create tx, update with received claims ID, and delete", func(t *testing.T) {
+		id, txCreate, err := store.Create(
+			&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion, 0, []string{customScope})
+		assert.NoError(t, err)
 
-	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
-
-		require.NoError(t, err)
-		require.NotNil(t, id)
-
-		tx, err := store.Get(id)
-		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.Equal(t, []string{customScope}, tx.CustomScopes)
-	})
-
-	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
-		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion, 0, nil)
-
-		require.NoError(t, err)
-		require.NotNil(t, id)
-		require.NotNil(t, txCreate)
-		require.Empty(t, txCreate.ReceivedClaimsID)
-		require.Nil(t, txCreate.CustomScopes)
+		assert.NotNil(t, id)
+		assert.NotNil(t, txCreate)
+		assert.Empty(t, txCreate.ReceivedClaimsID)
+		assert.Equal(t, []string{customScope}, txCreate.CustomScopes)
 
 		err = store.Update(oidc4vp.TransactionUpdate{
 			ID:               id,
 			ReceivedClaimsID: receivedClaimsID,
 		}, 0)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		txCreate.ReceivedClaimsID = receivedClaimsID
 
 		txUpdate, err := store.Get(id)
-		require.NoError(t, err)
-		require.NotNil(t, txUpdate)
-		require.Nil(t, txUpdate.ReceivedClaims)
-		require.Equal(t, txCreate, txUpdate)
-		require.Nil(t, txCreate.CustomScopes)
-	})
-}
+		assert.NoError(t, err)
 
-func TestTxStore_Fails(t *testing.T) {
-	pool, redisResource := startRedisContainer(t)
-	defer func() {
-		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
-	}()
+		assert.Nil(t, txUpdate.ReceivedClaims)
+		assert.Equal(t, txCreate, txUpdate)
 
-	client, err := redis.New([]string{redisConnString})
-	assert.NoError(t, err)
+		err = store.Delete(id)
+		assert.NoError(t, err)
 
-	store := NewTxStore(client, testutil.DocumentLoader(t), defaultClaimsTTL)
-	require.NotNil(t, store)
+		_, err = store.Get(id)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 
-	defer func() {
-		require.NoError(t, client.API().Close(), "failed to close redis client")
-	}()
-
-	t.Run("Get empty tx id", func(t *testing.T) {
-		_, err := store.Get("")
-		require.Contains(t, err.Error(), oidc4vp.ErrDataNotFound.Error())
+		// Delete not existing tx.
+		err = store.Delete(id)
+		assert.NoError(t, err)
 	})
 
-	t.Run("Get not existing tx id", func(t *testing.T) {
-		_, err := store.Get("121212121212121212121212")
-		require.EqualError(t, err, oidc4vp.ErrDataNotFound.Error())
-	})
-
-	t.Run("test default expiration", func(t *testing.T) {
+	t.Run("Success: default expiration", func(t *testing.T) {
 		storeExpired := NewTxStore(client, testutil.DocumentLoader(t), 1)
 
 		id, _, err := storeExpired.Create(
 			&presexch.PresentationDefinition{}, profileID, profileVersion, 0, []string{customScope})
-		require.NoError(t, err)
-		require.NotNil(t, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, id)
 
 		time.Sleep(time.Second)
 
 		tx, err := storeExpired.Get(id)
-		require.Nil(t, tx)
-		require.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+		assert.Nil(t, tx)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 
-	t.Run("test profile expiration", func(t *testing.T) {
-		storeExpired := NewTxStore(client, testutil.DocumentLoader(t), 100)
-
-		id, _, err := storeExpired.Create(
+	t.Run("Success: profile expiration", func(t *testing.T) {
+		id, _, err := store.Create(
 			&presexch.PresentationDefinition{}, profileID, profileVersion, 1, []string{customScope})
-		require.NoError(t, err)
-		require.NotNil(t, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, id)
 
 		time.Sleep(time.Second)
 
-		tx, err := storeExpired.Get(id)
-		require.Nil(t, tx)
-		require.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+		tx, err := store.Get(id)
+		assert.Nil(t, tx)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 }
 
@@ -173,7 +135,7 @@ func startRedisContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 	t.Helper()
 
 	pool, err := dctest.NewPool("")
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	redisResource, err := pool.RunWithOptions(&dctest.RunOptions{
 		Repository: dockerRedisImage,
