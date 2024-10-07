@@ -80,6 +80,11 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 			Content:     citizenship,
 		},
 		ldcontext.Document{
+			URL:         "https://w3id.org/citizenship/v2",
+			DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v2.jsonld",
+			Content:     citizenshipV2,
+		},
+		ldcontext.Document{
 			URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 			Content: jws2020,
 		},
@@ -98,10 +103,6 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 		{
 			URL:     "https://www.w3.org/ns/credentials/examples/v2",
 			Content: credentialExamples,
-		},
-		{
-			URL:     "https://w3id.org/citizenship/v2",
-			Content: citizenshipV2,
 		},
 	}
 

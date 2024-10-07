@@ -27,6 +27,8 @@ var (
 	odrl []byte
 	//go:embed contexts/citizenship_v1.jsonld
 	citizenship []byte
+	//go:embed contexts/citizenship_v2.jsonld
+	citizenshipV2 []byte
 	//go:embed contexts/lds-jws2020-v1.jsonld
 	jws2020 []byte
 	//go:embed contexts/vc-status-list-2021-v1.jsonld
@@ -72,6 +74,11 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *document
 			URL:         "https://w3id.org/citizenship/v1",
 			DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
 			Content:     citizenship,
+		},
+		ldcontext.Document{
+			URL:         "https://w3id.org/citizenship/v2",
+			DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v2.jsonld",
+			Content:     citizenshipV2,
 		},
 		ldcontext.Document{
 			URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
