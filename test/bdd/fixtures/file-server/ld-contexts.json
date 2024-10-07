@@ -482,7 +482,7 @@
       }
     },
     {
-      "url": "https://w3id.org/citizenship/v2",
+      "url": "https://w3id.org/citizenship/mod/v2",
       "content": {
         "@context": {
           "@version": 1.1,

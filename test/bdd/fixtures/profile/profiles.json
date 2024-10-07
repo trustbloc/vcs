@@ -542,7 +542,7 @@
           {
             "contexts": [
               "https://www.w3.org/ns/credentials/v2",
-              "https://w3id.org/citizenship/v2"
+              "https://w3id.org/citizenship/mod/v2"
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
@@ -1082,7 +1082,7 @@
           {
             "contexts": [
               "https://www.w3.org/ns/credentials/v2",
-              "https://w3id.org/citizenship/v2"
+              "https://w3id.org/citizenship/mod/v2"
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
@@ -1419,7 +1419,7 @@
           {
             "contexts": [
               "https://www.w3.org/ns/credentials/v2",
-              "https://w3id.org/citizenship/v2"
+              "https://w3id.org/citizenship/mod/v2"
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
