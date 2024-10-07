@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
-	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/dataintegrity"
 	dataintegritysuite "github.com/trustbloc/vc-go/dataintegrity/suite"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
@@ -22,10 +21,7 @@ import (
 
 const (
 	dataIntegrityProofContext = "https://w3id.org/security/data-integrity/v1"
-	credentialV
 )
-
-var logger = log.New("vcs-crypto")
 
 // signCredentialLDP adds verifiable.DataIntegrityProofContext to the VC.
 func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
