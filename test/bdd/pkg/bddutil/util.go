@@ -269,6 +269,8 @@ var (
 	jws2020V1Vocab []byte
 	//go:embed contexts/citizenship-v1.jsonld
 	citizenshipVocab []byte
+	//go:embed contexts/citizenship-mod-v2.jsonld
+	citizenshipVocabModV2 []byte
 	//go:embed contexts/examples-v1.jsonld
 	examplesVocabV1 []byte
 	//go:embed contexts/examples-v2.jsonld
@@ -296,6 +298,10 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://w3id.org/citizenship/v1",
 		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld", // resolvable
 		Content:     citizenshipVocab,
+	},
+	{
+		URL:     "https://w3id.org/citizenship/mod/v2",
+		Content: citizenshipVocabModV2,
 	},
 	{
 		URL:     "https://www.w3.org/2018/credentials/examples/v1",
