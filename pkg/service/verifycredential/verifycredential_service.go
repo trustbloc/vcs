@@ -136,6 +136,7 @@ func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) err
 		// See usage of vcInVPValidation variable in ValidateCredentialProof method.
 		// TODO: define verifier purpose field.
 		verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
+		verifiable.WithJSONLDIncludeDetailedStructureDiffOnError(),
 	}
 
 	if strictValidation {
