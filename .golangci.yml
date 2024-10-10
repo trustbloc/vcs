@@ -26,6 +26,10 @@ linters-settings:
     # Default: 0.0
     package-average: 10.0
 
+  staticcheck:
+    checks:
+      - "-SA1019:pkg/observability/tracing/tracing.go"
+
   errcheck:
     # Report about not checking of errors in type assertions: `a := b.(MyStruct)`.
     # Such cases aren't reported by default.

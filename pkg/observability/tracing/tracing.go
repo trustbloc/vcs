@@ -13,7 +13,7 @@ import (
 
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -35,7 +35,9 @@ const (
 )
 
 const (
-	tracerName = "https://github.com/trustbloc/vcs"
+	JaegerAgentEndpointEnvKey     = "OTEL_EXPORTER_JAEGER_AGENT_HOST"
+	JaegerCollectorEndpointEnvKey = "OTEL_EXPORTER_JAEGER_ENDPOINT"
+	tracerName                    = "https://github.com/trustbloc/vcs"
 )
 
 // Initialize creates and registers globally a new tracer provider with specified span exporter.
@@ -57,10 +59,18 @@ func Initialize(exporter SpanExporterType, serviceName string) (func(), trace.Tr
 
 	switch exporter {
 	case Jaeger:
-		spanExporter, err = otlptracehttp.New(context.Background())
-		if err != nil {
-			return nil, nil, fmt.Errorf("create OTLP HTTP exporter: %w", err)
+		var endpoint jaeger.EndpointOption
+
+		switch {
+		case os.Getenv(JaegerAgentEndpointEnvKey) != "":
+			endpoint = jaeger.WithAgentEndpoint()
+		case os.Getenv(JaegerCollectorEndpointEnvKey) != "":
+			endpoint = jaeger.WithCollectorEndpoint()
+		default:
+			return nil, nil, fmt.Errorf("neither agent nor collector endpoint is provided")
 		}
+
+		spanExporter, err = jaeger.New(endpoint)
 	case Stdout:
 		spanExporter, err = stdouttrace.New()
 		if err != nil {
