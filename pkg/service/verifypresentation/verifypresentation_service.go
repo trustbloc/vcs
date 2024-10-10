@@ -215,10 +215,17 @@ func (s *Service) checkCredentialStrict(
 			)
 		}
 
-		if err = validator.ValidateJSONLDMap(credMap,
+		validateOpts := []validator.ValidateOpts{
 			validator.WithDocumentLoader(s.documentLoader),
 			validator.WithStrictValidation(true),
-			validator.WithJSONLDIncludeDetailedStructureDiffOnError(),
+		}
+
+		if logger.IsEnabled(log.DEBUG) {
+			validateOpts = append(validateOpts, validator.WithJSONLDIncludeDetailedStructureDiffOnError())
+		}
+
+		if err = validator.ValidateJSONLDMap(credMap,
+			validateOpts...,
 		); err != nil {
 			return claimKeysDict, err
 		}

@@ -1205,10 +1205,17 @@ func (c *Controller) validateJSONLD(
 	data["@context"] = ctx
 	data["type"] = types
 
-	return validator.ValidateJSONLDMap(data,
+	validateOpts := []validator.ValidateOpts{
 		validator.WithDocumentLoader(c.documentLoader),
 		validator.WithStrictValidation(true),
-		validator.WithJSONLDIncludeDetailedStructureDiffOnError(),
+	}
+
+	if logger.IsEnabled(log.DEBUG) {
+		validateOpts = append(validateOpts, validator.WithJSONLDIncludeDetailedStructureDiffOnError())
+	}
+
+	return validator.ValidateJSONLDMap(data,
+		validateOpts...,
 	)
 }
 
