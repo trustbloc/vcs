@@ -38,8 +38,7 @@ services:
       - VC_PROM_HTTP_URL=vc-rest-echo.trustbloc.local:48127
       - VC_OAUTH_CLIENTS_FILE_PATH=/oauth-clients/clients.json
       - OTEL_EXPORTER_TYPE=JAEGER
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger.example.com:14268
-      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger.example.com:14268
+      - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger.example.com:14268
       - VC_OIDC4VP_RECEIVED_CLAIMS_DATA_TTL=10s
       - VC_SYSTEM_VERSION=v1.0.0
       - VC_REST_DATA_ENCRYPTION_KEY_ID=bc436485-5092-42b8-92a3-0aa8b93536dc
