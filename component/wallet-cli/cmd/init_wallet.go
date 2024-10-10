@@ -125,6 +125,8 @@ func initServices(
 		ldOpts = append(ldOpts, ldutil.WithRemoteProviderURL(contextProviderURL))
 	}
 
+	ldOpts = append(ldOpts, ldutil.WithContextEnableRemote())
+
 	documentLoader, err := ldutil.DocumentLoader(storageProvider, ldOpts...)
 	if err != nil {
 		return nil, err
