@@ -1208,7 +1208,6 @@ func (c *Controller) validateJSONLD(
 	return validator.ValidateJSONLDMap(data,
 		validator.WithDocumentLoader(c.documentLoader),
 		validator.WithStrictValidation(true),
-		validator.WithJSONLDIncludeDetailedStructureDiffOnError(),
 	)
 }
 
