@@ -193,7 +193,7 @@ func (s *Service) sendTxEvent(
 	tx *Transaction,
 	profile *profileapi.Verifier,
 ) error {
-	event, err := CreateEvent(eventType, tx.ID, createTxEventPayload(tx, profile))
+	event, err := CreateEvent(eventType, tx.ID, createBaseTxEventPayload(tx, profile))
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (s *Service) sendOIDCInteractionInitiatedEvent(
 	profile *profileapi.Verifier,
 	authorizationRequest string,
 ) error {
-	ep := createTxEventPayload(tx, profile)
+	ep := createBaseTxEventPayload(tx, profile)
 	ep.AuthorizationRequest = authorizationRequest
 	ep.Filter = getFilter(tx.PresentationDefinition)
 
@@ -225,7 +225,7 @@ func (s *Service) sendFailedTransactionEvent(
 	profile *profileapi.Verifier,
 	e error,
 ) {
-	ep := createTxEventPayload(tx, profile)
+	ep := createBaseTxEventPayload(tx, profile)
 	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
 
 	event, e := CreateEvent(spi.VerifierOIDCInteractionFailed, tx.ID, ep)
@@ -484,7 +484,8 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 
 	logger.Debugc(ctx, "extractClaimData claims stored")
 
-	err = s.sendOIDCInteractionEvent(ctx, spi.VerifierOIDCInteractionSucceeded, tx, profile, receivedClaims)
+	err = s.sendOIDCInteractionEvent(
+		ctx, spi.VerifierOIDCInteractionSucceeded, tx, profile, receivedClaims, authResponse.InteractionDetails)
 	if err != nil {
 		return err
 	}
@@ -633,7 +634,7 @@ func (s *Service) RetrieveClaims(
 
 	logger.Debugc(ctx, "RetrieveClaims succeed")
 
-	err := s.sendOIDCInteractionEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile, tx.ReceivedClaims)
+	err := s.sendOIDCInteractionEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile, tx.ReceivedClaims, nil)
 	if err != nil {
 		logger.Warnc(ctx, "Failed to send event", log.WithError(err))
 	}
@@ -914,8 +915,11 @@ func (s *Service) sendOIDCInteractionEvent(
 	tx *Transaction,
 	profile *profileapi.Verifier,
 	receivedClaims *ReceivedClaims,
+	interactionDetails map[string]interface{},
 ) error {
-	ep := createTxEventPayload(tx, profile)
+	ep := createBaseTxEventPayload(tx, profile)
+
+	ep.InteractionDetails = interactionDetails
 
 	for _, c := range receivedClaims.Credentials {
 		cred := c.Contents()
@@ -1001,7 +1005,7 @@ func CreateEvent(
 	return event, nil
 }
 
-func createTxEventPayload(tx *Transaction, profile *profileapi.Verifier) *EventPayload {
+func createBaseTxEventPayload(tx *Transaction, profile *profileapi.Verifier) *EventPayload {
 	var presentationDefID string
 
 	if tx.PresentationDefinition != nil {

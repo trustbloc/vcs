@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
@@ -149,21 +149,21 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 	t.Run("Success JSON-LD", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVCJsonLD))
 		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVCJWT))
 		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
 		c := createContextWithBody([]byte("abc"))
 		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 
-		require.Error(t, err)
+		assert.Error(t, err)
 	})
 }
 
@@ -198,11 +198,11 @@ func TestController_VerifyCredentials(t *testing.T) {
 		var body VerifyCredentialData
 
 		err := util.ReadBody(c, &body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
-		require.NoError(t, err)
-		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
+		assert.NoError(t, err)
+		assert.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
@@ -211,11 +211,11 @@ func TestController_VerifyCredentials(t *testing.T) {
 		var body VerifyCredentialData
 
 		err := util.ReadBody(c, &body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 
-		require.NoError(t, err)
-		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
+		assert.NoError(t, err)
+		assert.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
@@ -284,10 +284,10 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 				e := testCase.getCtx()
 				err := util.ReadBody(e, &body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				rsp, err := failedController.verifyCredential(e.Request().Context(), &body, profileID, profileVersion, tenantID)
-				require.Error(t, err)
-				require.Nil(t, rsp)
+				assert.Error(t, err)
+				assert.Nil(t, rsp)
 			})
 		}
 	})
@@ -321,21 +321,21 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 	t.Run("Success JSON-LD", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVPJsonLD))
 		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVPJWT))
 		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
 
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
 		c := createContextWithBody([]byte("abc"))
 		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
 
-		require.Error(t, err)
+		assert.Error(t, err)
 	})
 }
 
@@ -370,11 +370,11 @@ func TestController_VerifyPresentation(t *testing.T) {
 		var body VerifyPresentationData
 
 		err := util.ReadBody(c, &body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
-		require.NoError(t, err)
-		require.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
+		assert.NoError(t, err)
+		assert.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
@@ -383,11 +383,11 @@ func TestController_VerifyPresentation(t *testing.T) {
 		var body VerifyPresentationData
 
 		err := util.ReadBody(c, &body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
-		require.NoError(t, err)
-		require.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
+		assert.NoError(t, err)
+		assert.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
@@ -456,10 +456,10 @@ func TestController_VerifyPresentation(t *testing.T) {
 
 				e := testCase.getCtx()
 				err := util.ReadBody(e, &body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				rsp, err := failedController.verifyPresentation(e.Request().Context(), &body, profileID, profileVersion, tenantID)
-				require.Error(t, err)
-				require.Nil(t, rsp)
+				assert.Error(t, err)
+				assert.Nil(t, rsp)
 			})
 		}
 	})
@@ -501,7 +501,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpToken +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -523,7 +523,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Success LDP", func(t *testing.T) {
@@ -555,10 +555,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			})
 
 		vpToken, err := vpSigned.MarshalJSON()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
@@ -577,13 +577,17 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				VPToken:                []string{string(vpToken)},
 				PresentationSubmission: string(presentationSubmission),
 				State:                  "txid",
+				InteractionDetails: map[string]interface{}{
+					"key1": "value1",
+				},
 			},
 		)
 
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Nil(t, authorisationResponseParsed.CustomScopeClaims)
-		require.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.Nil(t, authorisationResponseParsed.CustomScopeClaims)
+		assert.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.Equal(t, map[string]interface{}{"key1": "value1"}, authorisationResponseParsed.InteractionDetails)
 	})
 
 	t.Run("Success LDP With Attachments", func(t *testing.T) {
@@ -620,10 +624,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			})
 
 		vpToken, err := vpSigned.MarshalJSON()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
@@ -645,14 +649,15 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Nil(t, authorisationResponseParsed.CustomScopeClaims)
-		require.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.Nil(t, authorisationResponseParsed.CustomScopeClaims)
+		assert.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
 
-		require.Len(t, authorisationResponseParsed.Attachments, 1)
-		require.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
+		assert.Len(t, authorisationResponseParsed.Attachments, 1)
+		assert.EqualValues(t, "data:image/svg;base64,YmFzZTY0Y29udGVudC1odHRwczovL2xvY2FsaG9zdC9jYXQucG5n",
 			authorisationResponseParsed.Attachments["id1"])
+		assert.Nil(t, authorisationResponseParsed.InteractionDetails)
 	})
 
 	t.Run("Success JWT ID1", func(t *testing.T) {
@@ -713,9 +718,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		require.NoError(t, err)
-		require.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
-		require.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.NoError(t, err)
+		assert.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
+		assert.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.Nil(t, responseParsed.InteractionDetails)
 	})
 
 	t.Run("Success CWT", func(t *testing.T) {
@@ -776,22 +782,27 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		require.NoError(t, err)
-		require.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
-		require.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.NoError(t, err)
+		assert.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
+		assert.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
+		assert.Nil(t, responseParsed.InteractionDetails)
 	})
 
 	t.Run("Success error AR response", func(t *testing.T) {
+		interactionDetails := base64.StdEncoding.EncodeToString([]byte(`{"key1":"value1"}`))
+
 		body := "error=invalid_request" +
 			"&error_description=unsupported%20client_id_scheme" +
-			"&state=txid"
+			"&state=txid" +
+			"&interaction_details=" + interactionDetails
 
 		ctx := createContextApplicationForm([]byte(body))
 
 		svc.EXPECT().HandleWalletNotification(gomock.Any(), &oidc4vp.WalletNotification{
-			TxID:             oidc4vp.TxID("txid"),
-			Error:            "invalid_request",
-			ErrorDescription: "unsupported client_id_scheme",
+			TxID:               oidc4vp.TxID("txid"),
+			Error:              "invalid_request",
+			ErrorDescription:   "unsupported client_id_scheme",
+			InteractionDetails: map[string]interface{}{"key1": "value1"},
 		}).Return(nil)
 
 		c := NewController(&Config{
@@ -800,7 +811,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Error: failed to HandleWalletNotification", func(t *testing.T) {
@@ -822,7 +833,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
-		require.ErrorContains(t, err, "handle wallet notification error")
+		assert.ErrorContains(t, err, "handle wallet notification error")
 	})
 
 	t.Run("Presentation submission missed", func(t *testing.T) {
@@ -873,7 +884,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				ep := &oidc4ci.EventPayload{}
 
 				jsonData, err := json.Marshal(msg.Data.(map[string]interface{}))
-				require.NoError(t, err)
+				assert.NoError(t, err)
 
 				assert.NoError(t, json.Unmarshal(jsonData, ep))
 
@@ -981,7 +992,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpToken +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1037,7 +1048,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpToken +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1094,7 +1105,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpToken +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1149,7 +1160,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpTokenSignedJWTResult.JWT +
 			"&id_token=" + vpTokenSignedJWTResult.JWT +
@@ -1206,7 +1217,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpToken +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1261,7 +1272,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpTokenSignedJWTResult.JWT +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1309,7 +1320,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + vpToken +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1354,7 +1365,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				"PresentationSubmission",
 			},
 		}).MarshalJSON()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		vpSigned := testutil.SignedVP(t,
 			vpb,
@@ -1365,10 +1376,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			})
 
 		vpToken, err := vpSigned.Presentation.MarshalJSON()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + string(vpToken) +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1425,10 +1436,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			})
 
 		vpToken, err := vpSigned.MarshalJSON()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + string(vpToken) +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1484,10 +1495,10 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			})
 
 		vpToken, err := vpSigned.MarshalJSON()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		body := "vp_token=" + string(vpToken) +
 			"&id_token=" + signedClaimsJWTResult.JWT +
@@ -1551,7 +1562,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Success - delete claims error", func(t *testing.T) {
@@ -1590,7 +1601,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Error - claims expired", func(t *testing.T) {
@@ -1626,8 +1637,8 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		require.Error(t, err)
-		require.Contains(t, err.Error(),
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(),
 			"claims are either retrieved or expired for transaction 'txid'")
 	})
 
@@ -1663,8 +1674,8 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "claims were not received for transaction 'txid'")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "claims were not received for transaction 'txid'")
 	})
 
 	t.Run("Tx not found", func(t *testing.T) {
@@ -1745,7 +1756,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 }
 
 func TestController_decodeAuthorizationResponse(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success: without interaction details", func(t *testing.T) {
 		body := "vp_token=toke1&" +
 			"&id_token=toke2" +
 			"&state=txid"
@@ -1753,8 +1764,27 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, ar)
+		assert.NoError(t, err)
+		assert.NotNil(t, ar)
+	})
+
+	t.Run("Success: with interaction details", func(t *testing.T) {
+		interactionDetails := map[string]interface{}{
+			"key1": "value1",
+		}
+		interactionDetailsBytes, err := json.Marshal(interactionDetails)
+		assert.NoError(t, err)
+
+		body := "vp_token=toke1&" +
+			"&id_token=toke2" +
+			"&interaction_details=" + base64.StdEncoding.EncodeToString(interactionDetailsBytes) +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		ar, err := decodeAuthorizationResponse(ctx)
+		assert.NoError(t, err)
+		assert.NotNil(t, ar)
 	})
 
 	t.Run("Success: authorization error response", func(t *testing.T) {
@@ -1765,12 +1795,12 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, ar)
+		assert.NoError(t, err)
+		assert.NotNil(t, ar)
 
-		require.Equal(t, ar.State, "txid")
-		require.Equal(t, ar.Error, "invalid_request")
-		require.Equal(t, ar.ErrorDescription, "unsupported client_id_scheme")
+		assert.Equal(t, ar.State, "txid")
+		assert.Equal(t, ar.Error, "invalid_request")
+		assert.Equal(t, ar.ErrorDescription, "unsupported client_id_scheme")
 	})
 
 	t.Run("Success - vp token is an array", func(t *testing.T) {
@@ -1781,8 +1811,8 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, ar)
+		assert.NoError(t, err)
+		assert.NotNil(t, ar)
 	})
 
 	t.Run("Missed state", func(t *testing.T) {
@@ -1804,6 +1834,32 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 
 		_, err := decodeAuthorizationResponse(ctx)
 		requireValidationError(t, resterr.InvalidValue, "state", err)
+	})
+
+	t.Run("Error: interaction_details contains invalid data: base64", func(t *testing.T) {
+		body := "vp_token=toke1&" +
+			"&id_token=toke2" +
+			"&interaction_details=   " +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		assert.ErrorContains(t, err, "base64 decode")
+		requireValidationError(t, resterr.InvalidValue, "interaction_details", err)
+	})
+
+	t.Run("Error: interaction_details contains invalid data: json", func(t *testing.T) {
+		body := "vp_token=toke1&" +
+			"&id_token=toke2" +
+			"&interaction_details=abcd" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := decodeAuthorizationResponse(ctx)
+		assert.ErrorContains(t, err, "json decode")
+		requireValidationError(t, resterr.InvalidValue, "interaction_details", err)
 	})
 
 	t.Run("Error: authorization error response: missed error_description", func(t *testing.T) {
@@ -2114,40 +2170,40 @@ func Test_getVerifyPresentationOptions(t *testing.T) {
 }
 
 func requireAuthError(t *testing.T, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
+	assert.IsType(t, &resterr.CustomError{}, actual)
 	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
+	assert.True(t, errors.As(actual, &actualErr))
 
-	require.Equal(t, resterr.Unauthorized, actualErr.Code)
+	assert.Equal(t, resterr.Unauthorized, actualErr.Code)
 }
 
 func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
+	assert.IsType(t, &resterr.CustomError{}, actual)
 	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
+	assert.True(t, errors.As(actual, &actualErr))
 
-	require.Equal(t, expectedCode, actualErr.Code)
-	require.Equal(t, incorrectValueName, actualErr.IncorrectValue)
-	require.Error(t, actualErr.Err)
+	assert.Equal(t, expectedCode, actualErr.Code)
+	assert.Equal(t, incorrectValueName, actualErr.IncorrectValue)
+	assert.Error(t, actualErr.Err)
 }
 
 func requireSystemError(t *testing.T, component, failedOperation string, actual error) { //nolint: unparam
-	require.IsType(t, &resterr.CustomError{}, actual)
+	assert.IsType(t, &resterr.CustomError{}, actual)
 	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
-	require.Equal(t, resterr.SystemError, actualErr.Code)
-	require.Equal(t, component, actualErr.Component)
-	require.Equal(t, failedOperation, actualErr.FailedOperation)
-	require.Error(t, actualErr.Err)
+	assert.True(t, errors.As(actual, &actualErr))
+	assert.Equal(t, resterr.SystemError, actualErr.Code)
+	assert.Equal(t, component, actualErr.Component)
+	assert.Equal(t, failedOperation, actualErr.FailedOperation)
+	assert.Error(t, actualErr.Err)
 }
 
 func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
+	assert.IsType(t, &resterr.CustomError{}, actual)
 	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
+	assert.True(t, errors.As(actual, &actualErr))
 
-	require.Equal(t, expectedCode, actualErr.Code)
-	require.Error(t, actualErr.Err)
+	assert.Equal(t, expectedCode, actualErr.Code)
+	assert.Error(t, actualErr.Err)
 }
 
 func TestController_AuthFailed(t *testing.T) {
@@ -2217,7 +2273,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Profile not found", func(t *testing.T) {
@@ -2269,8 +2325,8 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		require.NoError(t, err)
-		require.NotNil(t, result)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
 	})
 
 	t.Run("Success - With Presentation Definition and PD filters", func(t *testing.T) {
@@ -2285,7 +2341,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		result, err := controller.initiateOidcInteraction(context.TODO(),
 			&InitiateOIDC4VPData{
@@ -2304,8 +2360,8 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		require.NoError(t, err)
-		require.NotNil(t, result)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
 	})
 
 	t.Run("Success - With Multiple Presentation Definitions, "+
@@ -2321,12 +2377,12 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		var pd2 presexch.PresentationDefinition
 
 		err = json.Unmarshal([]byte(testPD), &pd2)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		pd2.ID = "some-id"
 
@@ -2350,8 +2406,8 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		require.NoError(t, err)
-		require.NotNil(t, result)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
 	})
 
 	t.Run("Error - With Multiple Presentation Definitions, "+
@@ -2367,12 +2423,12 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		var pd2 presexch.PresentationDefinition
 
 		err = json.Unmarshal([]byte(testPD), &pd2)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		pd2.ID = "some-other-id"
 
@@ -2393,9 +2449,9 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		require.Error(t, err)
-		require.Nil(t, result)
-		require.Contains(t, err.Error(),
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(),
 			"invalid-value[presentationDefinitionID]: presentation definition id= not found for profile with id=profile-id")
 	})
 
@@ -2413,7 +2469,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		result, err := controller.initiateOidcInteraction(context.TODO(),
 			&InitiateOIDC4VPData{
@@ -2431,9 +2487,9 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		require.Error(t, err)
-		require.Nil(t, result)
-		require.Contains(t, err.Error(), "invalid-value[presentationDefinitionFilters]: failed to compile regex")
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "invalid-value[presentationDefinitionFilters]: failed to compile regex")
 	})
 
 	t.Run("Should have oidc config", func(t *testing.T) {
@@ -2504,8 +2560,8 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 func TestMatchField(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		_, matched, err := matchField(nil, "id")
-		require.NoError(t, err)
-		require.False(t, matched)
+		assert.NoError(t, err)
+		assert.False(t, matched)
 	})
 }
 
@@ -2514,11 +2570,11 @@ func TestCopyPresentationDefinition(t *testing.T) {
 		var pd *presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		copied, err := copyPresentationDefinition(pd)
-		require.NoError(t, err)
-		require.Equal(t, pd, copied)
+		assert.NoError(t, err)
+		assert.Equal(t, pd, copied)
 	})
 }
 
@@ -2527,56 +2583,56 @@ func TestApplyFieldsFilter(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		result, err := applyFieldsFilter(&pd, []string{"degree_type_id"})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Fail - field not found", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		_, err = applyFieldsFilter(&pd, []string{"degree_type_id", "random_field"})
-		require.ErrorContains(t, err, "field random_field not found")
+		assert.ErrorContains(t, err, "field random_field not found")
 	})
 
 	t.Run("Success - empty string filter(accept fields with empty ID)", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		result, err := applyFieldsFilter(&pd, []string{""})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Success - supply fields filter", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		result, err := applyFieldsFilter(&pd, []string{"degree_type_id"})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Success - test prefix filter", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		const testPrefix = "*_test_prefix"
 
@@ -2584,17 +2640,17 @@ func TestApplyFieldsFilter(t *testing.T) {
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = testPrefix + "_second"
 
 		result, err := applyFieldsFilter(&pd, []string{testPrefix})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Fail - test invalid regex", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		const testPrefix = `*[ ]\K(?<!\d )(?=(?: ?\d){8})(?!(?: ?\d){9})\d[ \d]+\d`
 
@@ -2602,14 +2658,14 @@ func TestApplyFieldsFilter(t *testing.T) {
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = testPrefix + "_second"
 
 		_, err = applyFieldsFilter(&pd, []string{testPrefix})
-		require.ErrorContains(t, err, "failed to compile regex")
+		assert.ErrorContains(t, err, "failed to compile regex")
 	})
 
 	t.Run("Success - test suffix filter", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		const testSuffix = "test_suffix_*"
 
@@ -2617,65 +2673,65 @@ func TestApplyFieldsFilter(t *testing.T) {
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = "second" + testSuffix
 
 		result, err := applyFieldsFilter(&pd, []string{testSuffix})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Success - test wildcard", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		pd.InputDescriptors[0].Constraints.Fields[0].ID = "first_group_id"
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = "second_group_addon_id"
 
 		result, err := applyFieldsFilter(&pd, []string{"*group*"})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Success - test wildcard", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		pd.InputDescriptors[0].Constraints.Fields[0].ID = "first_group_id"
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = "second_group_addon_id"
 
 		result, err := applyFieldsFilter(&pd, []string{"*group*"})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Success - test wildcard", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		pd.InputDescriptors[0].Constraints.Fields[0].ID = "prefix_first_group_a_suffix"
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = "prefix_second_group_b_suffix"
 
 		result, err := applyFieldsFilter(&pd, []string{"prefix*group*suffix"})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
-		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
-		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		assert.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
 	})
 
 	t.Run("Error - test wildcard", func(t *testing.T) {
 		var pd presexch.PresentationDefinition
 
 		err := json.Unmarshal([]byte(testPD), &pd)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		pd.InputDescriptors[0].Constraints.Fields[0].ID = "prefix_id"
 		pd.InputDescriptors[1].Constraints.Fields[0].ID = "suffix_id"
@@ -2683,9 +2739,9 @@ func TestApplyFieldsFilter(t *testing.T) {
 		const invalidRegex = "^(#[=+[.rst:)$*"
 
 		result, err := applyFieldsFilter(&pd, []string{invalidRegex})
-		require.Error(t, err)
-		require.Nil(t, result)
-		require.Contains(t, err.Error(), "failed to compile regex")
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "failed to compile regex")
 	})
 }
 

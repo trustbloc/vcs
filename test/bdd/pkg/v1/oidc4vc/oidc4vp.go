@@ -104,8 +104,8 @@ func (s *Steps) initiateOIDC4VPInteraction(req *initiateOIDC4VPRequest) (*initia
 	return r, nil
 }
 
-func (s *Steps) retrieveInteractionsClaim(profile string) error {
-	if err := s.waitForOIDCEvent("verifier.oidc-interaction-succeeded.v1"); err != nil {
+func (s *Steps) retrieveInteractionsClaim(_ string) error {
+	if err := s.waitForOIDC4VPEvent(string(spi.VerifierOIDCInteractionSucceeded)); err != nil {
 		return err
 	}
 
@@ -117,8 +117,8 @@ func (s *Steps) retrieveInteractionsClaim(profile string) error {
 	return s.validateRetrievedCredentialClaims(claims)
 }
 
-func (s *Steps) retrieveInteractionsClaimWithCustomScopes(profile, customScopes string) error {
-	if err := s.waitForOIDCEvent("verifier.oidc-interaction-succeeded.v1"); err != nil {
+func (s *Steps) retrieveInteractionsClaimWithCustomScopes(_, customScopes string) error {
+	if err := s.waitForOIDC4VPEvent(string(spi.VerifierOIDCInteractionSucceeded)); err != nil {
 		return err
 	}
 
@@ -345,50 +345,59 @@ func (s *Steps) setHardcodedVPTokenFormat(vpTokenFormat string) error {
 	return nil
 }
 
-func (s *Steps) waitForOIDCEvent(eventType string) error {
-	txID, err := s.waitForEvent(eventType)
+func (s *Steps) waitForOIDC4VPEvent(eventType string) error {
+	event, err := s.waitForEvent(spi.EventType(eventType))
 	if err != nil {
 		return err
 	}
 
-	s.vpClaimsTransactionID = txID
+	s.vpClaimsTransactionID = event.TransactionID
+
+	switch spi.EventType(eventType) {
+	case spi.VerifierOIDCInteractionSucceeded, spi.VerifierOIDCInteractionNoConsent, spi.VerifierOIDCInteractionNoMatchFound:
+		if err = checkEventInteractionDetailsClaim(event); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-func (s *Steps) waitForEvent(eventType string) (string, error) {
+func (s *Steps) waitForEvent(eventType spi.EventType) (*spi.Event, error) {
 	incoming := &spi.Event{}
 
 	for i := 0; i < pullTopicsAttemptsBeforeFail; {
 		resp, err := bddutil.HTTPSDo(http.MethodGet, oidc4vpWebhookURL, "application/json", "", //nolint: bodyclose
 			nil, s.tlsConfig)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		defer bddutil.CloseResponseBody(resp.Body)
 
 		respBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
+		bddutil.CloseResponseBody(resp.Body)
+
 		if resp.StatusCode != http.StatusOK {
-			return "", bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+			return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 		}
 
 		err = json.Unmarshal(respBytes, incoming)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		if incoming.Type == spi.EventType(eventType) {
-			return incoming.TransactionID, nil
+		if incoming.Type == eventType {
+			return incoming, nil
 		}
 
 		i++
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
-	return "", errors.New("webhook waiting timeout exited")
+
+	return nil, errors.New("webhook waiting timeout exited")
 }
 
 type oidc4vpProvider struct {

@@ -138,6 +138,9 @@ func TestAckFallback(t *testing.T) {
 				assert.Equal(t, "1234", dat.WebHook)
 				assert.Equal(t, "wallet", dat.ErrorComponent)
 				assert.Equal(t, "some-random-text", dat.Error)
+				assert.Equal(t, map[string]interface{}{
+					"key1": "value1",
+				}, dat.InteractionDetails)
 
 				return nil
 			})
@@ -148,6 +151,9 @@ func TestAckFallback(t *testing.T) {
 			Event:            "failure",
 			EventDescription: "some-random-text",
 			IssuerIdentifier: "https://someurl/some_issuer/v1.0",
+			InteractionDetails: map[string]interface{}{
+				"key1": "value1",
+			},
 		})
 		assert.ErrorIs(t, err, oidc4ci.ErrAckExpired)
 		assert.Equal(t, err.Error(), "expired_ack_id") // do not change this error code. wallet-sdk.
@@ -190,6 +196,7 @@ func TestAckFallback(t *testing.T) {
 				assert.Equal(t, "1234", dat.WebHook)
 				assert.Equal(t, "wallet", dat.ErrorComponent)
 				assert.Equal(t, "some-random-text", dat.Error)
+				assert.Nil(t, dat.InteractionDetails)
 
 				return nil
 			})
@@ -353,6 +360,9 @@ func TestAck(t *testing.T) {
 				assert.Equal(t, "444", dat.WebHook)
 				assert.Equal(t, "wallet", dat.ErrorComponent)
 				assert.Equal(t, "some-random-text", dat.Error)
+				assert.Equal(t, map[string]interface{}{
+					"key1": "value1",
+				}, dat.InteractionDetails)
 
 				return nil
 			})
@@ -364,6 +374,9 @@ func TestAck(t *testing.T) {
 			ID:               "123",
 			Event:            "credential_failure",
 			EventDescription: "some-random-text",
+			InteractionDetails: map[string]interface{}{
+				"key1": "value1",
+			},
 		})
 		assert.NoError(t, err)
 	})

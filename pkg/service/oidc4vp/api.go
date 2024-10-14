@@ -30,10 +30,11 @@ type Claims = map[string]interface{}
 type AuthorizationResponseParsed struct {
 	// CustomScopeClaims stores additional claims provided by Holder
 	// caused by custom scope as a part of Initiate Credential Presentation request.
-	CustomScopeClaims map[string]Claims
-	VPTokens          []*ProcessedVPToken
-	AttestationVP     string
-	Attachments       map[string]string // Attachments from IDToken for AttachmentEvidence type
+	CustomScopeClaims  map[string]Claims
+	VPTokens           []*ProcessedVPToken
+	AttestationVP      string
+	Attachments        map[string]string // Attachments from IDToken for AttachmentEvidence type
+	InteractionDetails map[string]interface{}
 }
 
 type ProcessedVPToken struct {
@@ -62,9 +63,10 @@ type CredentialMetadata struct {
 }
 
 type WalletNotification struct {
-	TxID             TxID
-	Error            string
-	ErrorDescription string
+	TxID               TxID
+	Error              string
+	ErrorDescription   string
+	InteractionDetails map[string]interface{}
 }
 
 type ServiceInterface interface {
@@ -95,6 +97,7 @@ type EventPayload struct {
 	ErrorCode                string                    `json:"errorCode,omitempty"`
 	ErrorComponent           string                    `json:"errorComponent,omitempty"`
 	Credentials              []*CredentialEventPayload `json:"credentials,omitempty"`
+	InteractionDetails       map[string]interface{}    `json:"interaction_details,omitempty"`
 }
 
 type Filter struct {

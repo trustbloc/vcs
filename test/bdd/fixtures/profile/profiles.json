@@ -8,6 +8,7 @@
         "name": "Acme Issuer",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -142,6 +143,7 @@
         "name": "Acme Issuer",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -326,6 +328,7 @@
         "name": "i_myprofile_ud_P256k1",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -349,6 +352,7 @@
         "name": "i_myprofile_ud_di_ecdsa-2019",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -497,6 +501,7 @@
         "name": "i_myprofile_ud_di_ecdsa-2019_v2",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "model": "w3c-vc-2.0",
@@ -646,6 +651,7 @@
         "name": "i_myprofile_ud_di_eddsa-2022",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -797,6 +803,7 @@
         "name": "i_myprofile_ud_es256_jwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -820,6 +827,7 @@
         "name": "i_myprofile_ud_es256_sdjwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -847,6 +855,7 @@
         "name": "i_myprofile_ud_es384_jwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -870,6 +879,7 @@
         "name": "i_myprofile_ud_es384_sdjwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -897,6 +907,7 @@
         "name": "i_myprofile_ud_es256k_jwt_no_csl",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1041,6 +1052,7 @@
         "name": "i_myprofile_ud_es256k_jwt_no_csl_v2",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "model": "w3c-vc-2.0",
@@ -1186,6 +1198,7 @@
         "name": "i_myprofile_ud_es256k_jwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1378,6 +1391,7 @@
         "name": "i_myprofile_ud_es256k_jwt v2.0",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "model": "w3c-vc-2.0",
@@ -1571,6 +1585,7 @@
         "name": "awesome_cwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1763,6 +1778,7 @@
         "name": "i_myprofile_ud_es256k_sdjwt",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1790,6 +1806,7 @@
         "name": "i_myprofile_ud_p256",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1813,6 +1830,7 @@
         "name": "i_myprofile_prc_P256k1",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1836,6 +1854,7 @@
         "name": "i_myprofile_prc_p256",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1859,6 +1878,7 @@
         "name": "i_myprofile_cp_p384",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1882,6 +1902,7 @@
         "name": "i_myprofile_cp_p256",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1905,6 +1926,7 @@
         "name": "i_myprofile_cmtr_p384",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -1928,6 +1950,7 @@
         "name": "i_myprofile_cmtr_p256_ldp",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -2110,6 +2133,7 @@
         "name": "i_myprofile_cmtr_p256_ldp_v2",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "model": "w3c-vc-2.0",
@@ -2257,6 +2281,7 @@
         "name": "Bank Issuer",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "model": "w3c-vc-1.1",
@@ -2471,6 +2496,7 @@
         "name": "Bank Issuer 2.0",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "model": "w3c-vc-2.0",
@@ -2685,6 +2711,7 @@
         "name": "Bank Issuer SDJWT v5",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -2882,6 +2909,7 @@
         "name": "Issuer Without OIDC",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -3002,6 +3030,7 @@
         "name": "i_disabled_preauth_without_client_id",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "vcConfig": {
           "refreshServiceEnabled": false,
@@ -3144,6 +3173,7 @@
         "name": "i_myprofile_jwt_client_attestation",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
         "active": true,
         "checks": {
           "policy": {

@@ -648,11 +648,12 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	var finalErr error
 	for _, r := range body.Credentials {
 		if err := c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
-			HashedToken:      hashToken(token),
-			ID:               r.NotificationId,
-			Event:            r.Event,
-			EventDescription: lo.FromPtr(r.EventDescription),
-			IssuerIdentifier: lo.FromPtr(r.IssuerIdentifier),
+			HashedToken:        hashToken(token),
+			ID:                 r.NotificationId,
+			Event:              r.Event,
+			EventDescription:   lo.FromPtr(r.EventDescription),
+			IssuerIdentifier:   lo.FromPtr(r.IssuerIdentifier),
+			InteractionDetails: lo.FromPtr(body.InteractionDetails),
 		}); err != nil {
 			finalErr = errors.Join(finalErr, err)
 		}

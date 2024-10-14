@@ -83,10 +83,11 @@ func (s *AckService) HandleAckNotFound(
 	}
 
 	eventPayload := &EventPayload{
-		WebHook:        profile.WebHook,
-		ProfileID:      profile.ID,
-		ProfileVersion: profile.Version,
-		OrgID:          profile.OrganizationID,
+		WebHook:            profile.WebHook,
+		ProfileID:          profile.ID,
+		ProfileVersion:     profile.Version,
+		OrgID:              profile.OrganizationID,
+		InteractionDetails: req.InteractionDetails,
 	}
 
 	if req.EventDescription != "" {
@@ -124,13 +125,14 @@ func (s *AckService) Ack(
 	}
 
 	eventPayload := &EventPayload{
-		WebHook:        ack.WebHookURL,
-		ProfileID:      ack.ProfileID,
-		ProfileVersion: ack.ProfileVersion,
-		OrgID:          ack.OrgID,
-		ErrorComponent: "wallet",
-		Error:          req.EventDescription,
-		ErrorCode:      req.Event,
+		WebHook:            ack.WebHookURL,
+		ProfileID:          ack.ProfileID,
+		ProfileVersion:     ack.ProfileVersion,
+		OrgID:              ack.OrgID,
+		ErrorComponent:     "wallet",
+		Error:              req.EventDescription,
+		ErrorCode:          req.Event,
+		InteractionDetails: req.InteractionDetails,
 	}
 
 	err = s.sendEvent(ctx, s.AckEventMap(req.Event), extractTransactionID(ack.TxID), eventPayload)

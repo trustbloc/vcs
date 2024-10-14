@@ -47,11 +47,12 @@ type AckErrorResponse struct {
 
 // Ack response.
 type AckRequest struct {
-	Credentials []AcpRequestItem `json:"credentials"`
+	Credentials        []AckRequestItem        `json:"credentials"`
+	InteractionDetails *map[string]interface{} `json:"interaction_details,omitempty"`
 }
 
-// AcpRequestItem
-type AcpRequestItem struct {
+// AckRequestItem
+type AckRequestItem struct {
 	// Type of the notification event.
 	Event string `json:"event"`
 

@@ -4559,12 +4559,17 @@ func TestController_Ack(t *testing.T) {
 				assert.Equal(t, "tx_id", remote.ID)
 				assert.Equal(t, "credential_accepted", remote.Event)
 				assert.Equal(t, "err_txt", remote.EventDescription)
+				assert.Equal(t, map[string]interface{}{
+					"userId":        "userId",
+					"transactionId": "transactionId",
+				}, remote.InteractionDetails)
 
 				return nil
 			})
 
 		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"credentials" : [{"notification_id" : "tx_id", "event" : "credential_accepted", "event_description" : "err_txt"}]
+			"credentials" : [{"notification_id" : "tx_id", "event" : "credential_accepted", "event_description" : "err_txt"}],
+			"interaction_details": {"userId": "userId", "transactionId": "transactionId"}
 		}`)))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer xxxx")
