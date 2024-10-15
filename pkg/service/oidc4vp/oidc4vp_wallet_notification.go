@@ -87,9 +87,10 @@ func (s *Service) HandleWalletNotification(ctx context.Context, req *WalletNotif
 
 func (s *Service) handleAckNotFound(ctx context.Context, ackData *WalletNotification) error {
 	eventPayload := &EventPayload{
-		Error:          ackData.ErrorDescription,
-		ErrorCode:      ackData.Error,
-		ErrorComponent: errorComponentWallet,
+		Error:              ackData.ErrorDescription,
+		ErrorCode:          ackData.Error,
+		ErrorComponent:     errorComponentWallet,
+		InteractionDetails: ackData.InteractionDetails,
 	}
 
 	event, err := CreateEvent(spi.VerifierOIDCInteractionExpired, ackData.TxID, eventPayload)
@@ -111,9 +112,10 @@ func (s *Service) sendWalletNotificationEvent(
 		return nil
 	}
 
-	ep := createTxEventPayload(tx, profile)
+	ep := createBaseTxEventPayload(tx, profile)
 
 	ep.Error, ep.ErrorCode, ep.ErrorComponent = notification.ErrorDescription, notification.Error, errorComponentWallet
+	ep.InteractionDetails = notification.InteractionDetails
 
 	spiEventType := s.getEventType(notification.Error, notification.ErrorDescription)
 

@@ -39,6 +39,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wellknown"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -1182,7 +1183,30 @@ func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount stri
 	return nil
 }
 
+func checkEventInteractionDetailsClaim(event *spi.Event) error {
+	eventData, ok := event.Data.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("event payload has unexpected type: %v", event.Data)
+	}
+
+	interactionDetails, ok := eventData["interaction_details"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("event payload does not contain interaction_details claim: %v", event.Data)
+	}
+
+	if len(interactionDetails) == 0 {
+		return fmt.Errorf("interaction_details is empty: %v", event.Data)
+	}
+
+	return nil
+}
+
 func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
+	err := s.waitForOIDC4CIEvent(spi.IssuerOIDCInteractionAckSucceeded)
+	if err != nil {
+		return err
+	}
+
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
 		return fmt.Errorf("wallet.GetAll(): %w", err)
@@ -1432,6 +1456,22 @@ func checkCredentialStatusType(vc *verifiable.Credential, expected string) error
 func checkIssuer(vc *verifiable.Credential, expected string) error {
 	if vc.Contents().Issuer.CustomFields["name"] != expected {
 		return bddutil.ExpectedStringError(expected, vc.Contents().Issuer.CustomFields["name"].(string))
+	}
+
+	return nil
+}
+
+func (s *Steps) waitForOIDC4CIEvent(eventType spi.EventType) error {
+	event, err := s.waitForEvent(eventType)
+	if err != nil {
+		return err
+	}
+
+	switch eventType {
+	case spi.IssuerOIDCInteractionAckSucceeded, spi.IssuerOIDCInteractionAckFailed, spi.IssuerOIDCInteractionAckRejected:
+		if err = checkEventInteractionDetailsClaim(event); err != nil {
+			return err
+		}
 	}
 
 	return nil

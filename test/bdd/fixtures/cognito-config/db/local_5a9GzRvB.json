@@ -25,8 +25,7 @@
       "UserStatus": "CONFIRMED",
       "UserCreateDate": "2023-09-06T09:10:29.107Z",
       "UserLastModifiedDate": "2023-09-06T09:10:29.107Z",
-      "RefreshTokens": [
-      ]
+      "RefreshTokens": []
     },
     "profile-user-verifier-1": {
       "Username": "profile-user-verifier-1",
@@ -53,8 +52,7 @@
       "UserStatus": "CONFIRMED",
       "UserCreateDate": "2023-09-06T09:10:29.107Z",
       "UserLastModifiedDate": "2023-09-06T09:10:29.107Z",
-      "RefreshTokens": [
-      ]
+      "RefreshTokens": []
     },
     "profile-user-non-issuer-1": {
       "Username": "profile-user-non-issuer-1",
@@ -81,8 +79,7 @@
       "UserStatus": "CONFIRMED",
       "UserCreateDate": "2023-09-06T09:10:29.107Z",
       "UserLastModifiedDate": "2023-09-06T09:10:29.107Z",
-      "RefreshTokens": [
-      ]
+      "RefreshTokens": []
     },
     "profile-user-non-verifier-1": {
       "Username": "profile-user-non-verifier-1",

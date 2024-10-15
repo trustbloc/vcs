@@ -158,9 +158,10 @@ type EventPayload struct {
 	// Deprecated: use Credentials instead.
 	CredentialTemplateID string `json:"credentialTemplateID,omitempty"`
 	// Deprecated: use Credentials instead.
-	Format        vcsverifiable.OIDCFormat            `json:"format,omitempty"`
-	Credentials   map[string]vcsverifiable.OIDCFormat `json:"credentials"`
-	CredentialIDs []string                            `json:"credentialIDs"`
+	Format             vcsverifiable.OIDCFormat            `json:"format,omitempty"`
+	Credentials        map[string]vcsverifiable.OIDCFormat `json:"credentials"`
+	CredentialIDs      []string                            `json:"credentialIDs"`
+	InteractionDetails map[string]interface{}              `json:"interaction_details,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {
@@ -239,11 +240,12 @@ type Ack struct {
 }
 
 type AckRemote struct {
-	HashedToken      string `json:"hashed_token"`
-	ID               string `json:"id"`
-	Event            string `json:"event"`
-	EventDescription string `json:"event_description"`
-	IssuerIdentifier string `json:"issuer_identifier"`
+	HashedToken        string                 `json:"hashed_token"`
+	ID                 string                 `json:"id"`
+	Event              string                 `json:"event"`
+	EventDescription   string                 `json:"event_description"`
+	IssuerIdentifier   string                 `json:"issuer_identifier"`
+	InteractionDetails map[string]interface{} `json:"interaction_details"`
 }
 
 type ExchangeAuthorizationCodeResult struct {

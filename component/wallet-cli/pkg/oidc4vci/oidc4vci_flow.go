@@ -1150,7 +1150,10 @@ func (f *Flow) handleIssuanceAck(
 	)
 
 	ackRequest := oidc4civ1.AckRequest{
-		Credentials: []oidc4civ1.AcpRequestItem{},
+		Credentials: []oidc4civ1.AckRequestItem{},
+		InteractionDetails: lo.ToPtr(map[string]interface{}{
+			"notification_ids": notificationIDs,
+		}),
 	}
 
 	for _, notificationID := range notificationIDs {
@@ -1158,7 +1161,7 @@ func (f *Flow) handleIssuanceAck(
 			continue
 		}
 
-		ackRequest.Credentials = append(ackRequest.Credentials, oidc4civ1.AcpRequestItem{
+		ackRequest.Credentials = append(ackRequest.Credentials, oidc4civ1.AckRequestItem{
 			Event:            "credential_accepted",
 			EventDescription: nil,
 			IssuerIdentifier: wellKnown.CredentialIssuer,

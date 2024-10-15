@@ -2316,12 +2316,14 @@ components:
         credentials:
           type: array
           items:
-            $ref: '#/components/schemas/AcpRequestItem'
+            $ref: '#/components/schemas/AckRequestItem'
+        interaction_details:
+          type: object
       required:
         - credentials
-    AcpRequestItem:
+    AckRequestItem:
       type: object
-      description: AcpRequestItem
+      description: AckRequestItem
       properties:
         notification_id:
           type: string

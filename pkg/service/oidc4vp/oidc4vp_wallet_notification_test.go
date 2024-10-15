@@ -23,70 +23,85 @@ func TestService_HandleWalletNotification_SupportedAuthResponseErrorTypes(t *tes
 		profileService     = NewMockProfileService(gomock.NewController(t))
 		eventService       = NewMockeventService(gomock.NewController(t))
 
-		transactionID  = oidc4vp.TxID(uuid.NewString())
-		profileOrgID   = uuid.NewString()
-		profileWebHook = "https://example/com/webhook"
+		transactionID      = oidc4vp.TxID(uuid.NewString())
+		profileOrgID       = uuid.NewString()
+		profileWebHook     = "https://example/com/webhook"
+		interactionDetails = map[string]interface{}{
+			"key1": "value1",
+		}
 	)
 
 	tests := []struct {
-		Error             string
-		ErrorDescription  string
-		ExpectedEventType spi.EventType
+		Error              string
+		ErrorDescription   string
+		ExpectedEventType  spi.EventType
+		InteractionDetails map[string]interface{}
 	}{
 		{
-			Error:             "invalid_scope",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "invalid_scope",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "invalid_request",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "invalid_request",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "invalid_client",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "invalid_client",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "access_denied",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "access_denied",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "access_denied",
-			ErrorDescription:  "no_consent",
-			ExpectedEventType: spi.VerifierOIDCInteractionNoConsent,
+			Error:              "access_denied",
+			ErrorDescription:   "no_consent",
+			ExpectedEventType:  spi.VerifierOIDCInteractionNoConsent,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "access_denied",
-			ErrorDescription:  "no_match_found",
-			ExpectedEventType: spi.VerifierOIDCInteractionNoMatchFound,
+			Error:              "access_denied",
+			ErrorDescription:   "no_match_found",
+			ExpectedEventType:  spi.VerifierOIDCInteractionNoMatchFound,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "vp_formats_not_supported",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "vp_formats_not_supported",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "invalid_presentation_definition_uri",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "invalid_presentation_definition_uri",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "invalid_presentation_definition_reference",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "invalid_presentation_definition_reference",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "invalid_request_uri_method",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "invalid_request_uri_method",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 		{
-			Error:             "wallet_unavailable",
-			ErrorDescription:  "error description",
-			ExpectedEventType: spi.VerifierOIDCInteractionFailed,
+			Error:              "wallet_unavailable",
+			ErrorDescription:   "error description",
+			ExpectedEventType:  spi.VerifierOIDCInteractionFailed,
+			InteractionDetails: interactionDetails,
 		},
 	}
 
@@ -120,13 +135,14 @@ func TestService_HandleWalletNotification_SupportedAuthResponseErrorTypes(t *tes
 					assert.Equal(t, tt.ExpectedEventType, evt.Type)
 
 					assert.Equal(t, map[string]interface{}{
-						"webHook":        "https://example/com/webhook",
-						"profileID":      profileID,
-						"profileVersion": profileVersion,
-						"orgID":          profileOrgID,
-						"error":          tt.ErrorDescription,
-						"errorCode":      tt.Error,
-						"errorComponent": "wallet",
+						"webHook":             "https://example/com/webhook",
+						"profileID":           profileID,
+						"profileVersion":      profileVersion,
+						"orgID":               profileOrgID,
+						"error":               tt.ErrorDescription,
+						"errorCode":           tt.Error,
+						"errorComponent":      "wallet",
+						"interaction_details": interactionDetails,
 					}, evt.Data)
 
 					return nil
@@ -144,9 +160,10 @@ func TestService_HandleWalletNotification_SupportedAuthResponseErrorTypes(t *tes
 			})
 
 			err := s.HandleWalletNotification(ctx, &oidc4vp.WalletNotification{
-				TxID:             transactionID,
-				Error:            tt.Error,
-				ErrorDescription: tt.ErrorDescription,
+				TxID:               transactionID,
+				Error:              tt.Error,
+				ErrorDescription:   tt.ErrorDescription,
+				InteractionDetails: tt.InteractionDetails,
 			})
 
 			assert.NoError(t, err)
@@ -197,6 +214,9 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 								"errorCode":      "invalid_scope",
 								"errorComponent": "wallet",
 								"error":          "error description",
+								"interaction_details": map[string]interface{}{
+									"key1": "value1",
+								},
 							}, evt.Data)
 
 							return nil
@@ -210,6 +230,9 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 				TxID:             transactionID,
 				Error:            "invalid_scope",
 				ErrorDescription: "error description",
+				InteractionDetails: map[string]interface{}{
+					"key1": "value1",
+				},
 			},
 		},
 		{

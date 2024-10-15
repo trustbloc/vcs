@@ -9,6 +9,7 @@ package oidc4vp
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -196,12 +197,15 @@ func (f *Flow) Run(ctx context.Context) error {
 	vps, presentationSubmission, err := f.queryWallet(&pd, requestObject.ClientMetadata.VPFormats)
 	if err != nil {
 		if strings.Contains(err.Error(), "no matching credentials found") {
+			interactionDetailsBytes, _ := json.Marshal(map[string]string{"transaction_id": requestObject.State})
+
 			// Send wallet notification no_match_found.
 			v := url.Values{}
 
 			v.Add("error", "access_denied")
 			v.Add("error_description", "no_match_found")
 			v.Add("state", requestObject.State)
+			v.Add("interaction_details", base64.StdEncoding.EncodeToString(interactionDetailsBytes))
 
 			if e := f.postAuthorizationResponse(ctx, requestObject.ResponseURI, []byte(v.Encode())); e != nil {
 				slog.Error("failed to send wallet notification", "err", e)
@@ -486,6 +490,10 @@ func (f *Flow) sendAuthorizationResponse(
 
 	v.Add("presentation_submission", string(presentationSubmissionJSON))
 	v.Add("state", requestObject.State)
+
+	interactionDetailsBytes, _ := json.Marshal(map[string]string{"transaction_id": requestObject.State})
+
+	v.Add("interaction_details", base64.StdEncoding.EncodeToString(interactionDetailsBytes))
 
 	f.perfInfo.CreateAuthorizedResponse = time.Since(start)
 

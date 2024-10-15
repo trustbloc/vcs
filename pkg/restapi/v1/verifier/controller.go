@@ -11,6 +11,7 @@ package verifier
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -67,6 +68,7 @@ type rawAuthorizationResponse struct {
 	Error                  string
 	ErrorDescription       string
 	State                  string
+	InteractionDetails     map[string]interface{}
 }
 
 type IDTokenClaims struct {
@@ -464,9 +466,10 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 		// Error authorization response
 		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-6.4
 		return c.oidc4VPService.HandleWalletNotification(ctx, &oidc4vp.WalletNotification{
-			TxID:             oidc4vp.TxID(rawAuthResp.State),
-			Error:            rawAuthResp.Error,
-			ErrorDescription: rawAuthResp.ErrorDescription,
+			TxID:               oidc4vp.TxID(rawAuthResp.State),
+			Error:              rawAuthResp.Error,
+			ErrorDescription:   rawAuthResp.ErrorDescription,
+			InteractionDetails: rawAuthResp.InteractionDetails,
 		})
 	}
 
@@ -645,10 +648,11 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 	}
 
 	return &oidc4vp.AuthorizationResponseParsed{
-		CustomScopeClaims: idTokenClaims.CustomScopeClaims,
-		VPTokens:          processedVPTokens,
-		AttestationVP:     idTokenClaims.AttestationVP,
-		Attachments:       idTokenClaims.Attachments,
+		CustomScopeClaims:  idTokenClaims.CustomScopeClaims,
+		VPTokens:           processedVPTokens,
+		AttestationVP:      idTokenClaims.AttestationVP,
+		Attachments:        idTokenClaims.Attachments,
+		InteractionDetails: authResp.InteractionDetails,
 	}, nil
 }
 
@@ -863,6 +867,28 @@ func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, e
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
 		return nil, err
+	}
+
+	var rawInteractionDetails string
+	err = decodeFormValue(&rawInteractionDetails, "interaction_details", req.PostForm)
+	if err == nil {
+		var rawInteractionDetailsBytes []byte
+
+		rawInteractionDetailsBytes, err = base64.StdEncoding.DecodeString(rawInteractionDetails)
+		if err != nil {
+			return nil, resterr.NewValidationError(
+				resterr.InvalidValue,
+				"interaction_details",
+				fmt.Errorf("base64 decode: %w", err))
+		}
+
+		err = json.Unmarshal(rawInteractionDetailsBytes, &res.InteractionDetails)
+		if err != nil {
+			return nil, resterr.NewValidationError(
+				resterr.InvalidValue,
+				"interaction_details",
+				fmt.Errorf("json decode: %w", err))
+		}
 	}
 
 	err = decodeFormValue(&res.Error, "error", req.PostForm)
