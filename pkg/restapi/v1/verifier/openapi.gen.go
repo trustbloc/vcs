@@ -47,11 +47,11 @@ type VerifyCredentialCheckResult struct {
 
 // Model for credential verification.
 type VerifyCredentialData struct {
-	// Credential in jws(string) or jsonld(object) formats.
-	Credential interface{} `json:"credential"`
-
 	// Options for verify credential.
 	Options *VerifyCredentialOptions `json:"options,omitempty"`
+
+	// Credential in jws(string) or jsonld(object) formats.
+	VerifiableCredential interface{} `json:"verifiableCredential"`
 }
 
 // Options for verify credential.
@@ -83,7 +83,7 @@ type VerifyPresentationData struct {
 	Options *VerifyPresentationOptions `json:"options,omitempty"`
 
 	// Presentation in jws(string) or jsonld(object) formats.
-	Presentation interface{} `json:"presentation"`
+	VerifiablePresentation interface{} `json:"verifiablePresentation"`
 }
 
 // Options for verify presentation.

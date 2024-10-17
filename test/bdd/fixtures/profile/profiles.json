@@ -1824,6 +1824,31 @@
     },
     {
       "issuer": {
+        "id": "vc-data-model-test-suite-issuer",
+        "version": "v1.0",
+        "groupID": "vc-data-model-test-suite-issuer",
+        "name": "vc-data-model-test-suite-issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "ion",
+          "status": {
+            "type": "RevocationList2020Status"
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_prc_P256k1",
         "version": "v1.0",
         "groupID": "group_i_myprofile_prc_P256k1",

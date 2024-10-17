@@ -1148,13 +1148,13 @@ components:
       properties:
         options:
           $ref: '#/components/schemas/VerifyCredentialOptions'
-        credential:
+        verifiableCredential:
           oneOf:
             - type: string
             - type: object
           description: Credential in jws(string) or jsonld(object) formats.
       required:
-        - credential
+        - verifiableCredential
     CredentialDisplay:
       title: CredentialDisplay
       x-tag:
@@ -1253,13 +1253,13 @@ components:
       properties:
         options:
           $ref: '#/components/schemas/VerifyPresentationOptions'
-        presentation:
+        verifiablePresentation:
           oneOf:
             - type: string
             - type: object
           description: Presentation in jws(string) or jsonld(object) formats.
       required:
-        - presentation
+        - verifiablePresentation
     VerifyPresentationOptions:
       title: VerifyPresentationOptions
       x-tags:
