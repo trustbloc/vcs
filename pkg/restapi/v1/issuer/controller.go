@@ -222,6 +222,8 @@ func (c *Controller) issueCredential(
 
 	if body.Credential != nil {
 		finalCredentials = *body.Credential
+
+		enforceStrictValidation = true // todo for test passing, should we have it somewhere?
 	} else {
 		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
 		if tmplErr != nil {

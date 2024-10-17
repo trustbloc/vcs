@@ -51,7 +51,7 @@ func ValidateCredential(
 	// strict credential validation can only be applied to LDP or unsecured JWT.
 	// Means, that in case first argument in verifiable.ParseCredential() is a JWS -
 	// variable externalJWT will not be empty and validation will be skipped.
-	if enforceStrictValidation && isJWT(cred) {
+	if enforceStrictValidation {
 		// If it's SDJWT
 		if credentialContents.SDJWTHashAlg != nil {
 			return validateSDJWTCredential(credential, documentLoader)
@@ -62,7 +62,8 @@ func ValidateCredential(
 		err = credential.ValidateCredential(
 			verifiable.WithJSONLDDocumentLoader(documentLoader),
 			verifiable.WithStrictValidation(),
-			verifiable.WithJSONLDValidation())
+			verifiable.WithJSONLDValidation(),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate JWT credential claims: %w", err)
 		}
