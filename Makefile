@@ -20,7 +20,7 @@ GOPROXY ?= https://proxy.golang.org
 
 VC_FRAMEWORK_VERSION				= a58759112df5dec505bb1bd37c1baa1c8fcd823c
 KMS_FRAMEWORK_VERSION 				= 8d9510c6bb88df0666fa45c55c0ace699a675b12
-DID_GO_VERSION						= bb3317ba5bdd06744d94995130e2734c08b92262
+DID_GO_VERSION						= 5721a3ff7396cfa3f5e5a64fd409c3edf82ddf94
 SIDE_TREE_VERSION							= f4260aff710479ba5fa3f0c61b51d451d9041225
 
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))

@@ -17,9 +17,15 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
+	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/did-go/method/key"
+	vdrpkg "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	mockvdr "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -1106,4 +1112,30 @@ func TestService_checkCredentialExpiry(t *testing.T) {
 			)
 		})
 	}
+}
+
+//go:embed testdata/example_presentation.jsonld
+var realPresentation []byte
+
+func TestVerifyRealPresentation(t *testing.T) {
+	srv := New(&Config{})
+
+	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
+
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: nil,
+	}))
+	assert.NoError(t, err)
+
+	resp, err := verifiable.ParsePresentation(realPresentation,
+		verifiable.WithPresDataIntegrityVerifier(verifier),
+		verifiable.WithPresExpectedDataIntegrityFields("authentication",
+			"github.com/w3c/vc-data-model-2.0-test-suite", "uCg8ttCT78CHVjIOZB6ki0A"),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	srv.VerifyPresentation(context.Background(), &verifiable.Presentation{}, &Options{}, &profileapi.Verifier{})
 }
