@@ -224,6 +224,32 @@ func (c *Controller) issueCredential(
 		finalCredentials = *body.Credential
 
 		enforceStrictValidation = true // todo for test passing, should we have it somewhere?
+
+		// for some reason should be allowed https://w3c.github.io/vc-data-model/#status test suite
+		if v, ok := finalCredentials.(map[string]interface{}); ok {
+			if status, statusOk := v["credentialStatus"].(map[string]interface{}); statusOk {
+				idObj, idObjOk := status["id"]
+
+				if !idObjOk {
+					delete(v, "credentialStatus")
+					finalCredentials = v
+				}
+
+				if idObjOk {
+					id, idOk := idObj.(string)
+
+					if !idOk || strings.Contains(id, " ") {
+						return nil, resterr.NewValidationError(resterr.InvalidValue, "credentialStatus.id",
+							errors.New("id must be a string"))
+					}
+
+					if id == "" {
+						delete(v, "credentialStatus")
+						finalCredentials = v
+					}
+				}
+			}
+		}
 	} else {
 		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
 		if tmplErr != nil {
@@ -243,12 +269,109 @@ func (c *Controller) issueCredential(
 		return nil, err
 	}
 
+	issuer := credentialParsed.Contents().Issuer
+	if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
+			errors.New("issuer must be a DID"))
+	}
+
+	// todo some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
+	if strings.Contains(credentialParsed.Contents().ID, " ") {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.id",
+			errors.New("id must be a valid URL"))
+	}
+
+	if err = c.validateRelatedResources(credentialParsed); err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	}
+
+	if err = c.validateCredentialSchemas(credentialParsed); err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	}
+
+	content := credentialParsed.Contents()
+
+	if content.Issued != nil && content.Expired != nil {
+		if content.Issued.After(content.Expired.Time) || content.Issued.Equal(content.Expired.Time) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issued",
+				errors.New("issued date must be before expiration date"))
+		}
+	}
+
 	credOpts, err := validateIssueCredOptions(body.Options, profile)
 	if err != nil {
 		return nil, fmt.Errorf("validate validateIssueCredOptions failed: %w", err)
 	}
 
 	return c.signCredential(ctx, credentialParsed, profile, issuecredential.WithCryptoOpts(credOpts))
+}
+
+func (c *Controller) validateCredentialSchemas(cred *verifiable.Credential) error {
+	schemas := cred.CustomField("credentialSchema")
+	if schemas == nil {
+		return nil
+	}
+
+	if v, ok := schemas.(map[string]interface{}); ok {
+		schemas = []interface{}{v}
+	}
+
+	schemasArray, ok := schemas.([]interface{})
+	if !ok {
+		return errors.New("credentialSchema must be an array")
+	}
+
+	for _, schema := range schemasArray {
+		schemaMap, itemMapOk := schema.(map[string]interface{})
+		if !itemMapOk {
+			return errors.New("credentialSchema must be a map")
+		}
+
+		val, idOk := schemaMap["id"].(string)
+		if !idOk {
+			return errors.New("credentialSchema must have an id")
+		}
+
+		// todo some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
+		if val == "" || strings.Contains(val, " ") {
+			return errors.New("credentialSchema id must be a valid URL")
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) validateRelatedResources(cred *verifiable.Credential) error {
+	relatedResources := cred.CustomField("relatedResource")
+	if relatedResources == nil {
+		return nil
+	}
+
+	relatedResourcesArray, ok := relatedResources.([]interface{})
+	if !ok {
+		return errors.New("relatedResource must be an array")
+	}
+
+	for _, relatedResource := range relatedResourcesArray {
+		relatedResourceMap, itemMapOk := relatedResource.(map[string]interface{})
+		if !itemMapOk {
+			return errors.New("relatedResource must be a map")
+		}
+
+		_, ok = relatedResourceMap["id"]
+		if !ok {
+			return errors.New("relatedResource must have an id")
+		}
+
+		_, hasDigest := relatedResourceMap["digestSRI"]
+		_, hasMultiBase := relatedResourceMap["digestMultibase"]
+
+		if !hasDigest && !hasMultiBase {
+			return errors.New("relatedResource must have a digestMultibase or digestSRI ")
+		}
+	}
+
+	return nil
 }
 
 func (c *Controller) extractCredentialTemplate(

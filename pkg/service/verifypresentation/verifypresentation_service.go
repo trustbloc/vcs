@@ -96,6 +96,26 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		logger.Debugc(ctx, "Checks.Presentation.Proof", log.WithDuration(time.Since(st)))
 	}
 
+	for _, cred := range credentials { // vc-suite requirement
+		content := cred.Contents()
+
+		if len(content.Types) == 0 {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "credentialType",
+				Error: "credential type is missing",
+			})
+		}
+
+		if content.Issued != nil && content.Expired != nil {
+			if content.Issued.After(content.Expired.Time) || content.Issued.Equal(content.Expired.Time) {
+				result = append(result, PresentationVerificationCheckResult{
+					Check: "credentialExpiry",
+					Error: "credential issued date should be before expired date",
+				})
+			}
+		}
+	}
+
 	if len(profile.Checks.Credential.IssuerTrustList) > 0 {
 		err := s.checkIssuerTrustList(ctx, credentials, profile.Checks.Credential.IssuerTrustList)
 		if err != nil {

@@ -992,16 +992,17 @@ func buildEchoHandler(
 	}
 
 	verifierController := verifierv1.NewController(&verifierv1.Config{
-		VerifyCredentialSvc: verifyCredentialSvc,
-		ProfileSvc:          verifierProfileSvc,
-		KMSRegistry:         kmsRegistry,
-		DocumentLoader:      documentLoader,
-		VDR:                 conf.VDR,
-		OIDCVPService:       oidc4vpService,
-		Metrics:             metrics,
-		Tracer:              conf.Tracer,
-		EventSvc:            eventSvc,
-		EventTopic:          conf.StartupParameters.verifierEventTopic,
+		VerifyCredentialSvc:   verifyCredentialSvc,
+		VerifyPresentationSvc: verifyPresentationSvc,
+		ProfileSvc:            verifierProfileSvc,
+		KMSRegistry:           kmsRegistry,
+		DocumentLoader:        documentLoader,
+		VDR:                   conf.VDR,
+		OIDCVPService:         oidc4vpService,
+		Metrics:               metrics,
+		Tracer:                conf.Tracer,
+		EventSvc:              eventSvc,
+		EventTopic:            conf.StartupParameters.verifierEventTopic,
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)

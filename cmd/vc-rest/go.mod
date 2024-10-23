@@ -25,7 +25,7 @@ require (
 	github.com/trustbloc/did-go v1.3.1-0.20241021165331-5721a3ff7396
 	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.2.1-0.20240927095859-a58759112df5
+	github.com/trustbloc/vc-go v1.2.1-0.20241021195658-882ca910f091
 	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
@@ -282,6 +282,7 @@ require (
 )
 
 replace (
+	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/skynet2/json-gold v0.6.0
 	github.com/trustbloc/vcs => ../..
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/echo => ../../component/echo

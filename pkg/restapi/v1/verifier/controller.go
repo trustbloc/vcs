@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -273,6 +274,10 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVe
 	resp, err := c.verifyPresentation(ctx, &body, profileID, profileVersion, tenantID)
 	if err != nil {
 		return err
+	}
+
+	if len(lo.FromPtr(resp.Checks)) > 0 {
+		return util.WriteOutputWithCode(http.StatusBadRequest, e)(resp, nil)
 	}
 
 	return util.WriteOutput(e)(resp, nil)
