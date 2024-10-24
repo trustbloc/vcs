@@ -37,8 +37,8 @@ Feature: OIDC4VC REST API
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
       | i_myprofile_cmtr_p256_ldp/v1.0        | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0 | lp403pb9-schema-match                        | schema_id                                                    |
 
-  @oidc4vc_rest_auth_flow_v2
-  Scenario Outline: OIDC credential issuance and verification Auth flow with credential model 2.0
+  @oidc4vc_rest_auth_flow_vcdm2
+  Scenario Outline: OIDC credential issuance and verification Auth flow with VC data model 2.0
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
     And  User holds credential "<credentialType>" with templateID "<credentialTemplate>"
     And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
@@ -47,23 +47,21 @@ Feature: OIDC4VC REST API
     Then "1" credentials are issued
     Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Verifier with profile "<verifierProfile>" retrieves interactions claims
-    Then we wait 2 seconds
-    And Verifier with profile "<verifierProfile>" requests deleted interactions claims
 
     Examples:
-      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate                 | verifierProfile      | presentationDefinitionID                        | fields                                                       |
+      | issuerProfile                            | credentialType             | clientRegistrationMethod | credentialTemplate                 | verifierProfile      | presentationDefinitionID                        | fields                                                       |
 #     SDJWT issuer, JWT verifier, no limit disclosure in PD query.
-      | bank_issuer_v2/v1.0                   | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID         | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field       | degree_type_id                                               |
+      | bank_issuer_vcdm2/v1.0                   | UniversityDegreeCredential | dynamic                  | universityDegreeTemplateID         | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-single-field       | degree_type_id                                               |
 #     SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
-      | bank_issuer_v2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV2TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields       | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer_vcdm2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV2TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields       | unit_of_measure_barrel,api_gravity,category,supplier_address |
 #     JWT issuer, JWT verifier, no limit disclosure and optional fields in PD query.
-      | i_myprofile_ud_es256k_jwt_v2/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields    | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_es256k_jwt_vcdm2/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields    | lpr_category_id,registration_city,commuter_classification    |
 #     JWT issuer with status list feature disabled, JWT verifier, no limit disclosure and optional fields in PD query.
-      | i_myprofile_ud_es256k_jwt_no_csl_v2/v1.0 | PermanentResidentCard   | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields    | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_es256k_jwt_no_csl_v2/v1.0 | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0 | 32f54163-no-limit-disclosure-optional-fields    | lpr_category_id,registration_city,commuter_classification    |
 #     LDP Data Integrity issuer V2, LDP verifier, no limit disclosure and schema match in PD query.
-      | i_myprofile_ud_di_ecdsa-2019_v2/v1.0  | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_ldp/v1.0 | 062759b1-no-limit-disclosure-optional-fields-v2  | lpr_category_id,registration_city,commuter_classification    |
+      | i_myprofile_ud_di_ecdsa-2019_v2/v1.0     | PermanentResidentCard      | pre-registered           | permanentResidentCardTemplateID    | v_myprofile_ldp/v1.0 | 062759b1-no-limit-disclosure-optional-fields-v2  | lpr_category_id,registration_city,commuter_classification   |
 #     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
-      | i_myprofile_cmtr_p256_ldp_v2/v1.0     | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID   | v_myprofile_ldp/v1.0 | lp403pb9-schema-match-v2                        | schema_id                                                    |
+      | i_myprofile_cmtr_p256_ldp_v2/v1.0        | CrudeProductCredential     | pre-registered           | crudeProductCredentialTemplateID   | v_myprofile_ldp/v1.0 | lp403pb9-schema-match-v2                        | schema_id                                                    |
 
   @oidc4vc_rest_auth_flow_fail
   Scenario Outline: OIDC credential issuance and verification Auth flow negative tests
@@ -73,9 +71,9 @@ Feature: OIDC4VC REST API
     When User interacts with Wallet to initiate credential issuance using authorization code flow with client registration method "<clientRegistrationMethod>" and receives "invalid context for model w3c-vc-2.0" error
 
     Examples:
-      | issuerProfile                         | credentialType             | clientRegistrationMethod | credentialTemplate               | verifierProfile      | presentationDefinitionID                     | fields                                                       |
+      | issuerProfile          | credentialType         | clientRegistrationMethod | credentialTemplate                 | verifierProfile      | presentationDefinitionID                     | fields                                                       |
 #     SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
-      | bank_issuer_v2/v1.0                   | CrudeProductCredential     | discoverable             | crudeProductCredentialV1TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | bank_issuer_vcdm2/v1.0 | CrudeProductCredential | discoverable             | crudeProductCredentialV1TemplateID | v_myprofile_jwt/v1.0 | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address |
 
   @oidc4vc_rest_auth_flow_batch_credential_configuration_id
   Scenario Outline: OIDC Batch credential issuance and verification Auth flow (request all credentials by credentialConfigurationID)
@@ -223,6 +221,35 @@ Feature: OIDC4VC REST API
       | i_myprofile_cmtr_p256_ldp/v1.0 | CrudeProductCredential     | crudeProductCredentialTemplateID | v_myprofile_ldp/v1.0      | lp403pb9-schema-match                        | schema_id                                                    | jwt       |
       | awesome_cwt/v1.0               | PermanentResidentCard      | permanentResidentCardTemplateID  | awesome_cwt_verifier/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | cwt       |
       | i_myprofile_ud_es256k_jwt/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID  | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | cwt       |
+
+  @oidc4vc_rest_pre_auth_flow_vcdm2
+  Scenario Outline: OIDC credential issuance and verification Pre Auth flow with VC data model 2.0
+    Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And   User holds credential "<credentialType>" with templateID "<credentialTemplate>"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    And proofType is "<proofType>"
+
+    When User interacts with Wallet to initiate credential issuance using pre authorization code flow
+    Then "1" credentials are issued
+    Then User interacts with Verifier and initiate OIDC4VP interaction under "<verifierProfile>" profile with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
+    And Verifier with profile "<verifierProfile>" retrieves interactions claims
+
+    Examples:
+      | issuerProfile                        | credentialType             | credentialTemplate                 | verifierProfile           | presentationDefinitionID                     | fields                                                       | proofType |
+#      SDJWT issuer, JWT verifier, no limit disclosure in PD query.
+      | bank_issuer_vcdm2/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID         | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | jwt       |
+      | bank_issuer_vcdm2/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID         | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | ldp_vc    |
+      | bank_issuer_vcdm2/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID         | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | cwt       |
+      | acme_issuer_vcdm2/v1.0               | UniversityDegreeCredential | universityDegreeTemplateID         | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-single-field    | degree_type_id                                               | jwt       |
+#      SDJWT issuer, JWT verifier, limit disclosure and optional fields in PD query.
+      | bank_issuer_vcdm2/v1.0               | CrudeProductCredential     | crudeProductCredentialV2TemplateID | v_myprofile_jwt/v1.0      | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address | jwt       |
+      | bank_issuer_sdjwt_v5_vcdm2/v1.0      | CrudeProductCredential     | crudeProductCredentialTemplateID   | v_myprofile_jwt/v1.0      | 3c8b1d9a-limit-disclosure-optional-fields    | unit_of_measure_barrel,api_gravity,category,supplier_address | jwt       |
+#     JWT issuer, JWT verifier, no limit disclosure and optional fields in PD query.
+      | i_myprofile_ud_es256k_jwt_vcdm2/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | jwt       |
+#     LDP issuer, LDP verifier, no limit disclosure and schema match in PD query.
+      | i_myprofile_cmtr_p256_ldp_v2/v1.0    | CrudeProductCredential     | crudeProductCredentialTemplateID   | v_myprofile_ldp/v1.0      | lp403pb9-schema-match-v2                     | schema_id                                                    | jwt       |
+      | awesome_cwt_vcdm2/v1.0               | PermanentResidentCard      | permanentResidentCardTemplateID    | awesome_cwt_verifier/v1.0 | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | cwt       |
+      | i_myprofile_ud_es256k_jwt_vcdm2/v1.0 | PermanentResidentCard      | permanentResidentCardTemplateID    | v_myprofile_jwt/v1.0      | 32f54163-no-limit-disclosure-optional-fields | lpr_category_id,commuter_classification,registration_city    | cwt       |
 
   @oidc4vc_rest_pre_auth_flow_credential_refresh
   Scenario Outline: OIDC credential issuance and verification Pre Auth flow

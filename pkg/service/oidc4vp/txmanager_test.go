@@ -670,7 +670,7 @@ func TestDecrypt(t *testing.T) {
 
 		resp, err := manager.DecryptClaims(context.TODO(), &oidc4vp.ClaimData{})
 		assert.ErrorContains(t, err,
-			"received claims deserialize failed: unmarshal new credential: invalid character")
+			"received claims deserialize failed: unsupported credential format")
 		assert.Nil(t, resp)
 	})
 }
