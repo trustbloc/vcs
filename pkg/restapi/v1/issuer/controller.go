@@ -227,6 +227,13 @@ func (c *Controller) issueCredential(
 
 		// for some reason should be allowed https://w3c.github.io/vc-data-model/#status test suite
 		if v, ok := finalCredentials.(map[string]interface{}); ok {
+			contexts := v["@context"].([]interface{})
+
+			// required by interop ed25519 signature suite
+			if len(contexts) > 0 && contexts[0].(string) == verifiable.V1ContextURI {
+				profile.VCConfig.Model = vcsverifiable.V1_1
+			}
+
 			if status, statusOk := v["credentialStatus"].(map[string]interface{}); statusOk {
 				idObj, idObjOk := status["id"]
 
