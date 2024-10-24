@@ -1184,9 +1184,19 @@ func (s *Steps) setExpectedCredentialsAmountForVP(expectedCredentialsAmount stri
 }
 
 func checkEventInteractionDetailsClaim(event *spi.Event) error {
-	eventData, ok := event.Data.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("event payload has unexpected type: %v", event.Data)
+	var eventData map[string]interface{}
+
+	if v, t := event.Data.(map[string]interface{}); t {
+		eventData = v
+	} else {
+		jsonData, err := base64.StdEncoding.DecodeString(event.Data.(string))
+		if err != nil {
+			return fmt.Errorf("failed to decode event %v: %w", event.Data, err)
+		}
+
+		if err = json.Unmarshal(jsonData, &eventData); err != nil {
+			return fmt.Errorf("invalid event payload %v: %w", event.Data, err)
+		}
 	}
 
 	interactionDetails, ok := eventData["interaction_details"].(map[string]interface{})
@@ -1468,7 +1478,10 @@ func (s *Steps) waitForOIDC4CIEvent(eventType spi.EventType) error {
 	}
 
 	switch eventType {
-	case spi.IssuerOIDCInteractionAckSucceeded, spi.IssuerOIDCInteractionAckFailed, spi.IssuerOIDCInteractionAckRejected:
+	case spi.IssuerOIDCInteractionAckSucceeded,
+		spi.IssuerOIDCInteractionAckFailed,
+		spi.IssuerOIDCInteractionAckRejected,
+		spi.IssuerOIDCInteractionAckExpired:
 		if err = checkEventInteractionDetailsClaim(event); err != nil {
 			return err
 		}
