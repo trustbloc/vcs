@@ -322,6 +322,192 @@
     },
     {
       "issuer": {
+        "id": "acme_issuer_vcdm2",
+        "version": "v1.0",
+        "groupID": "group_acme_issuer_vcdm2",
+        "name": "Acme Issuer VC DM 2.0",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "RS256",
+          "signatureRepresentation": 0,
+          "keyType": "RSARS256",
+          "format": "jwt",
+          "didMethod": "ion",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          },
+          "sdjwt": {
+            "enable": false
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "enable_discoverable_client_id_scheme": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "jsonSchema": "{\"$id\":\"https://trustbloc.com/universitydegree.schema.json\",\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"title\":\"UniversityDegreeCredential\",\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"spouse\":{\"type\":\"string\"},\"degree\":{\"type\":\"object\",\"description\":\"Describes the degree.\",\"properties\":{\"type\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"}},\"required\":[\"type\",\"degree\"]}},\"required\":[\"name\",\"spouse\",\"degree\"]}",
+            "type": "UniversityDegreeCredential",
+            "id": "universityDegreeTemplateID",
+            "issuer": "did:orb:acme_issuer_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "VerifiedEmployee",
+            "id": "templateID",
+            "issuer": "did:orb:acme_issuer_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://w3id.org/citizenship/mod/v2"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:acme_issuer_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialTemplateID",
+            "issuer": "did:orb:acme_issuer_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "credential_configurations_supported": {
+            "UniversityDegreeCredentialIdentifier": {
+              "format": "jwt_vc_json-ld",
+              "scope": "UniversityDegreeCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "UniversityDegreeCredential"
+                ],
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                }
+              },
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "url": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_P256k1",
         "version": "v1.0",
         "groupID": "group_i_myprofile_ud_P256k1",
@@ -1098,7 +1284,7 @@
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
-            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_v2",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_vcdm2",
             "checks": {
               "strict": false
             }
@@ -1385,9 +1571,9 @@
     },
     {
       "issuer": {
-        "id": "i_myprofile_ud_es256k_jwt_v2",
+        "id": "i_myprofile_ud_es256k_jwt_vcdm2",
         "version": "v1.0",
-        "groupID": "group_i_myprofile_ud_es256k_jwt_v2",
+        "groupID": "group_i_myprofile_ud_es256k_jwt_vcdm2",
         "name": "i_myprofile_ud_es256k_jwt v2.0",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -1437,7 +1623,7 @@
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
-            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_v2",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_vcdm2",
             "checks": {
               "strict": true
             }
@@ -1449,7 +1635,7 @@
             ],
             "type": "VerifiedEmployee",
             "id": "templateID",
-            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_v2",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_vcdm2",
             "checks": {
               "strict": true
             }
@@ -1461,7 +1647,7 @@
             ],
             "type": "UniversityDegreeCredential",
             "id": "universityDegreeTemplateID",
-            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_v2",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_vcdm2",
             "checks": {
               "strict": true
             }
@@ -1473,7 +1659,7 @@
             ],
             "type": "CrudeProductCredential",
             "id": "crudeProductCredentialTemplateID",
-            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_v2",
+            "issuer": "did:orb:i_myprofile_ud_es256k_jwt_vcdm2",
             "checks": {
               "strict": true
             }
@@ -1667,6 +1853,200 @@
             "type": "CrudeProductCredential",
             "id": "crudeProductCredentialTemplateID",
             "issuer": "did:orb:i_myprofile_ud_es256k_jwt",
+            "checks": {
+              "strict": false
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployeeIdentifier": {
+              "format": "cwt_vc-ld",
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                },
+                "type": [
+                  "VerifiableCredential",
+                  "PermanentResidentCard"
+                ]
+              }
+            },
+            "CrudeProductCredentialIdentifier": {
+              "format": "cwt_vc-ld",
+              "scope": "CrudeProductCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
+                ],
+                "credentialSubject": {}
+              },
+              "display": []
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "awesome_cwt_vcdm2",
+        "version": "v1.0",
+        "groupID": "group_awesome_cwt_vcdm2",
+        "name": "Awesome CWT VC Data Model 2.0",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "RSARS256",
+          "format": "cwt",
+          "didMethod": "ion",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://w3id.org/citizenship/mod/v2"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:awesome_cwt_vcdm2",
+            "checks": {
+              "strict": false
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "VerifiedEmployee",
+            "id": "templateID",
+            "issuer": "did:orb:awesome_cwt_vcdm2",
+            "checks": {
+              "strict": false
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "UniversityDegreeCredential",
+            "id": "universityDegreeTemplateID",
+            "issuer": "did:orb:awesome_cwt_vcdm2",
+            "checks": {
+              "strict": false
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialTemplateID",
+            "issuer": "did:orb:awesome_cwt_vcdm2",
             "checks": {
               "strict": false
             }
@@ -2490,9 +2870,9 @@
     },
     {
       "issuer": {
-        "id": "bank_issuer_v2",
+        "id": "bank_issuer_vcdm2",
         "version": "v1.0",
-        "groupID": "group_bank_issuer_v2",
+        "groupID": "group_bank_issuer_vcdm2",
         "name": "Bank Issuer 2.0",
         "organizationID": "00000000-0000-0000-0000-000000000001",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -2550,7 +2930,7 @@
             "jsonSchema": "{\"$id\":\"https://trustbloc.com/universitydegree.schema.json\",\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"title\":\"UniversityDegreeCredential\",\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"spouse\":{\"type\":\"string\"},\"degree\":{\"type\":\"object\",\"description\":\"Describes the degree.\",\"properties\":{\"type\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"}},\"required\":[\"type\",\"degree\"]}},\"required\":[\"name\",\"spouse\",\"degree\"]}",
             "type": "UniversityDegreeCredential",
             "id": "universityDegreeTemplateID",
-            "issuer": "did:orb:bank_issuer_v2",
+            "issuer": "did:orb:bank_issuer_vcdm2",
             "checks": {
               "strict": true
             }
@@ -2562,7 +2942,7 @@
             ],
             "type": "PermanentResidentCard",
             "id": "permanentResidentCardTemplateID",
-            "issuer": "did:orb:bank_issuer_v2",
+            "issuer": "did:orb:bank_issuer_vcdm2",
             "checks": {
               "strict": true
             }
@@ -2798,6 +3178,205 @@
             "type": "CrudeProductCredential",
             "id": "crudeProductCredentialTemplateID",
             "issuer": "did:orb:bank_issuer_sdjwt_v5",
+            "checks": {
+              "strict": true
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployeeIdentifier": {
+              "format": "jwt_vc_json-ld",
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                },
+                "type": [
+                  "VerifiableCredential",
+                  "UniversityDegreeCredential"
+                ]
+              }
+            },
+            "CrudeProductCredentialIdentifier": {
+              "format": "jwt_vc_json-ld",
+              "scope": "CrudeProductCredential_001",
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "CrudeProductCredential"
+                ],
+                "credentialSubject": {}
+              },
+              "display": []
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "bank_issuer_sdjwt_v5_vcdm2",
+        "version": "v1.0",
+        "groupID": "group_bank_issuer_sdjwt_v5_vcdm2",
+        "name": "Bank Issuer SDJWT v5 VC DM 2.0",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "ion",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          },
+          "sdjwt": {
+            "version": 5,
+            "enable": true,
+            "hashAlg": 6
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "enable_discoverable_client_id_scheme": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "UniversityDegreeCredential",
+            "id": "universityDegreeTemplateID",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "VerifiedEmployee",
+            "id": "templateID",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://w3id.org/citizenship/mod/v2"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5_vcdm2",
+            "checks": {
+              "strict": true
+            }
+          },
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
+            ],
+            "type": "CrudeProductCredential",
+            "id": "crudeProductCredentialTemplateID",
+            "issuer": "did:orb:bank_issuer_sdjwt_v5_vcdm2",
             "checks": {
               "strict": true
             }
