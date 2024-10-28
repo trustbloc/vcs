@@ -21,10 +21,10 @@ func TestInitialize(t *testing.T) {
 		require.NotPanics(t, shutdown)
 	})
 
-	t.Run("Provider JAEGER", func(t *testing.T) {
-		t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost")
+	t.Run("Provider DEFAULT", func(t *testing.T) {
+		t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost")
 
-		shutdown, tracer, err := Initialize("JAEGER", "service1")
+		shutdown, tracer, err := Initialize("DEFAULT", "service1")
 		require.NoError(t, err)
 		require.NotNil(t, shutdown)
 		require.NotNil(t, tracer)
@@ -46,4 +46,11 @@ func TestInitialize(t *testing.T) {
 		require.Nil(t, shutdown)
 		require.Nil(t, tracer)
 	})
+}
+
+func TestIsExportedSupported(t *testing.T) {
+	require.True(t, IsExportedSupported("DEFAULT"))
+	require.True(t, IsExportedSupported("STDOUT"))
+	require.True(t, IsExportedSupported("JAEGER"))
+	require.False(t, IsExportedSupported("unsupported"))
 }
