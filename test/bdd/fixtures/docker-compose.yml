@@ -37,9 +37,8 @@ services:
       - VC_METRICS_PROVIDER_NAME=prometheus
       - VC_PROM_HTTP_URL=vc-rest-echo.trustbloc.local:48127
       - VC_OAUTH_CLIENTS_FILE_PATH=/oauth-clients/clients.json
-      - OTEL_EXPORTER_TYPE=JAEGER
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger.example.com:14268
-      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger.example.com:14268
+      - OTEL_EXPORTER_TYPE=DEFAULT
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger.example.com:4318
       - VC_OIDC4VP_RECEIVED_CLAIMS_DATA_TTL=10s
       - VC_SYSTEM_VERSION=v1.0.0
       - VC_REST_DATA_ENCRYPTION_KEY_ID=bc436485-5092-42b8-92a3-0aa8b93536dc
@@ -278,11 +277,11 @@ services:
 
   jaeger.example.com:
     container_name: jaeger.example.com
-    image: jaegertracing/all-in-one:1.41
+    image: jaegertracing/all-in-one:1.62.0
     ports:
       - 6831:6831/udp
       - 16686:16686
-      - 14268:14268
+      - 4318:4318
     networks:
       - bdd_net
 
