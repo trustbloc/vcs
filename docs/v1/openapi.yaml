@@ -1153,6 +1153,12 @@ components:
             - type: string
             - type: object
           description: Credential in jws(string) or jsonld(object) formats.
+        credential:
+          oneOf:
+            - type: string
+            - type: object
+          description: Credential in jws(string) or jsonld(object) formats. Backward compatibility, use verifiableCredential.
+          deprecated: true
       required:
         - verifiableCredential
     CredentialDisplay:

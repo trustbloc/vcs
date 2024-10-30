@@ -111,7 +111,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 
 		if v.CreateDID {
 			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
-				config, nil, v.Data.VCConfig)
+				config, nil, v.Data.VCConfig, v.Data.ID)
 			if err != nil {
 				return nil, fmt.Errorf("issuer profile service: create profile failed: %w", err)
 			}
@@ -201,7 +201,7 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	for _, v := range p.VerifiersData {
 		if v.Data.OIDCConfig != nil && v.CreateDID {
 			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
-				config, v.Data.OIDCConfig, nil)
+				config, v.Data.OIDCConfig, nil, v.Data.ID)
 			if err != nil {
 				return nil, fmt.Errorf("verifier profile service: create profile failed: %w", err)
 			}
@@ -295,8 +295,16 @@ func getDifDIDOrigin(webHook string) (string, error) {
 	return difDIDOrigin, nil
 }
 
-func createDid(didDomain string, _ string, kmsConfig *vcskms.Config, webHook string, config *Config,
-	oidcConfig *profileapi.OIDC4VPConfig, vcConfig *profileapi.VCConfig) (*profileapi.SigningDID, error) {
+func createDid(
+	didDomain string,
+	_ string,
+	kmsConfig *vcskms.Config,
+	webHook string,
+	config *Config,
+	oidcConfig *profileapi.OIDC4VPConfig,
+	vcConfig *profileapi.VCConfig,
+	profileID string,
+) (*profileapi.SigningDID, error) {
 	if oidcConfig == nil && vcConfig == nil {
 		return nil, fmt.Errorf("create did: either oidcConfig or vcConfig must be provided")
 	}
@@ -320,6 +328,7 @@ func createDid(didDomain string, _ string, kmsConfig *vcskms.Config, webHook str
 		return nil, fmt.Errorf("get difDidOrigin %w", err)
 	}
 
+	logger.Info(fmt.Sprintf("creating did for profile: %v", profileID))
 	var createResult *createResult
 	if oidcConfig != nil {
 		createResult, err = didCreator.publicDID(oidcConfig.DIDMethod, oidcConfig.ROSigningAlgorithm,

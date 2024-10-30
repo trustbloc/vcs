@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.1-0.20241021165331-5721a3ff7396
+	github.com/trustbloc/did-go v1.3.1-0.20241028131019-014935534038
 	github.com/trustbloc/vc-go v1.2.1-0.20241021195658-882ca910f091
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )

@@ -1835,13 +1835,13 @@
         "vcConfig": {
           "model": "w3c-vc-2.0",
           "refreshServiceEnabled": false,
-          "signingAlgorithm": "JsonWebSignature2020",
-          "signatureRepresentation": 1,
-          "keyType": "ECDSAP256DER",
+          "signingAlgorithm": "Ed25519Signature2018",
+          "signatureRepresentation": 0,
+          "keyType": "ED25519",
           "format": "ldp",
           "didMethod": "ion",
           "status": {
-            "type": "RevocationList2020Status"
+            "type": "StatusList2021Entry"
           }
         }
       },

@@ -202,7 +202,7 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 		return err
 	}
 
-	return util.WriteOutput(e)(credential, nil)
+	return util.WriteOutputWithCode(http.StatusCreated, e)(credential, nil)
 }
 
 func (c *Controller) issueCredential(
@@ -255,6 +255,11 @@ func (c *Controller) issueCredential(
 						finalCredentials = v
 					}
 				}
+			}
+
+			if _, credSubOk := v["credential_subject"].(map[string]interface{}); !credSubOk {
+				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
+					errors.New("credential_subject must be an object"))
 			}
 		}
 	} else {

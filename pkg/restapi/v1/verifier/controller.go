@@ -202,6 +202,10 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 		return err
 	}
 
+	if body.VerifiableCredential == nil && body.Credential != nil {
+		body.VerifiableCredential = body.Credential
+	}
+
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		return err

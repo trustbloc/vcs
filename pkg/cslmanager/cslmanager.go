@@ -10,6 +10,7 @@ package cslmanager
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -279,6 +280,12 @@ func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslUR
 	if err != nil {
 		return fmt.Errorf("failed to createCSLIndexWrapper VC: %w", err)
 	}
+
+	b, _ := json.Marshal(vc)
+	b1, _ := json.Marshal(signer)
+
+	logger.Warnc(ctx, "Signer", log.WithToken(string(b1)))
+	logger.Warnc(ctx, "VC", log.WithToken(string(b)))
 
 	signed, err := s.crypto.SignCredential(signer, vc)
 	if err != nil {

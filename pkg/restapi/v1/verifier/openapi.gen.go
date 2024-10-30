@@ -47,6 +47,9 @@ type VerifyCredentialCheckResult struct {
 
 // Model for credential verification.
 type VerifyCredentialData struct {
+	// Credential in jws(string) or jsonld(object) formats. Backward compatibility, use verifiableCredential.
+	Credential *interface{} `json:"credential,omitempty"`
+
 	// Options for verify credential.
 	Options *VerifyCredentialOptions `json:"options,omitempty"`
 
