@@ -33,6 +33,12 @@ type PresentationDefinitionFilters struct {
 	Fields *[]string `json:"fields,omitempty"`
 }
 
+// Presentation result.
+type PresentationResult struct {
+	// Presentation verification result.
+	Verified bool `json:"verified"`
+}
+
 // Verify credential response containing failure check details.
 type VerifyCredentialCheckResult struct {
 	// Check title.
@@ -71,15 +77,6 @@ type VerifyCredentialResponse struct {
 	Checks *[]VerifyCredentialCheckResult `json:"checks,omitempty"`
 }
 
-// Verify presentation response containing failure check details.
-type VerifyPresentationCheckResult struct {
-	// Check title.
-	Check string `json:"check"`
-
-	// Error message.
-	Error string `json:"error"`
-}
-
 // Model for presentation verification.
 type VerifyPresentationData struct {
 	// Options for verify presentation.
@@ -100,7 +97,17 @@ type VerifyPresentationOptions struct {
 
 // Model for response of presentation verification.
 type VerifyPresentationResponse struct {
-	Checks *[]VerifyPresentationCheckResult `json:"checks,omitempty"`
+	Checks            []string             `json:"checks"`
+	CredentialResults []PresentationResult `json:"credentialResults"`
+	Errors            *[]string            `json:"errors,omitempty"`
+
+	// Presentation object.
+	Presentation *map[string]interface{} `json:"presentation,omitempty"`
+
+	// Presentation result.
+	PresentationResult PresentationResult `json:"presentationResult"`
+	Verified           bool               `json:"verified"`
+	Warnings           *[]string          `json:"warnings,omitempty"`
 }
 
 // PostVerifyCredentialsJSONBody defines parameters for PostVerifyCredentials.

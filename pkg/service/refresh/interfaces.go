@@ -34,7 +34,7 @@ type presentationVerifier interface {
 		opts *verifypresentation.Options,
 		profile *profileapi.Verifier,
 	) (
-		[]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error,
+		verifypresentation.PresentationVerificationResult, map[string][]string, error,
 	)
 }
 

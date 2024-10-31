@@ -280,7 +280,7 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVe
 		return err
 	}
 
-	if len(lo.FromPtr(resp.Checks)) > 0 {
+	if len(lo.FromPtr(resp.Errors)) > 0 {
 		return util.WriteOutputWithCode(http.StatusBadRequest, e)(resp, nil)
 	}
 
@@ -340,9 +340,9 @@ func (c *Controller) verifyPresentation(
 		return nil, resterr.NewSystemError(resterr.VerifierVerifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
-	logger.Debugc(ctx, "PostVerifyPresentation success")
+	logger.Debugc(ctx, "PostVerifyPresentation completed")
 
-	return mapVerifyPresentationChecks(verRes), nil
+	return mapVerifyPresentationChecks(verRes, presentation), nil
 }
 
 func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
@@ -1147,22 +1147,42 @@ func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerification
 }
 
 func mapVerifyPresentationChecks(
-	checks []verifypresentation.PresentationVerificationCheckResult) *VerifyPresentationResponse {
-	if len(checks) == 0 {
-		return &VerifyPresentationResponse{}
+	result verifypresentation.PresentationVerificationResult,
+	pres *verifiable.Presentation,
+) *VerifyPresentationResponse {
+	final := &VerifyPresentationResponse{
+		Checks:             nil,
+		Errors:             nil,
+		PresentationResult: PresentationResult{}, // vcplayground
+		Warnings:           nil,
 	}
 
-	var checkList []VerifyPresentationCheckResult
-	for _, check := range checks {
-		checkList = append(checkList, VerifyPresentationCheckResult{
-			Check: check.Check,
-			Error: check.Error,
-		})
+	var errArr []string
+
+	for _, check := range result.Checks {
+		final.Checks = append(final.Checks, check.Check)
+
+		if check.Error != nil {
+			errArr = append(errArr, check.Error.Error())
+		}
 	}
 
-	return &VerifyPresentationResponse{
-		Checks: &checkList,
+	if len(errArr) > 0 {
+		final.Errors = &errArr
 	}
+
+	final.PresentationResult.Verified = len(errArr) == 0 // vcplayeground
+	final.Verified = final.PresentationResult.Verified   // vcplayeground
+
+	if final.PresentationResult.Verified && pres != nil {
+		for range pres.Credentials() {
+			final.CredentialResults = append(final.CredentialResults, PresentationResult{ // vcplayeground
+				Verified: true,
+			})
+		}
+	}
+
+	return final
 }
 
 func getVerifyCredentialOptions(options *VerifyCredentialOptions) *verifycredential.Options {

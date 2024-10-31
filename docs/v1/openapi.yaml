@@ -752,7 +752,7 @@ paths:
       responses:
         '302':
           description: Found
-          headers: {}
+          headers: { }
           content:
             application/x-www-form-urlencoded:
               schema:
@@ -835,7 +835,7 @@ paths:
           description: 'String indicating that client is using an identifier not assigned by the authorization server. The only supported value "urn:ietf:params:oauth:client-id-scheme:oauth-discoverable-client" specifies "client_id" parameter in the request as an HTTPS based URL corresponding to the "client_uri". If the authorization server does not already have the metadata for the identified client, it can retrieve the metadata from client’s well-known location.'
       tags:
         - oidc4ci
-    parameters: []
+    parameters: [ ]
   /oidc/token:
     post:
       summary: OIDC Token Request
@@ -969,7 +969,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CredentialRequest'
-      parameters: []
+      parameters: [ ]
   /oidc/batch_credential:
     post:
       summary: OIDC Batch Credential
@@ -992,7 +992,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/BatchCredentialRequest'
-      parameters: []
+      parameters: [ ]
   /oidc/notification:
     post:
       summary: OIDC Notification
@@ -1014,7 +1014,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AckRequest'
-      parameters: []
+      parameters: [ ]
 components:
   schemas:
     HealthCheckResponse:
@@ -1289,7 +1289,43 @@ components:
         checks:
           type: array
           items:
-            $ref: '#/components/schemas/VerifyPresentationCheckResult'
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+        verified:
+          type: boolean
+        presentation:
+          type: object
+          description: Presentation object.
+        presentationResult:
+          $ref: '#/components/schemas/PresentationResult'
+        credentialResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/PresentationResult'
+      required:
+        - presentationResult
+        - credentialResults
+        - checks
+        - verified
+    PresentationResult:
+      title: PresentationResult
+      x-tags:
+        - verifier
+      type: object
+      description: Presentation result.
+      properties:
+        verified:
+          type: boolean
+          description: Presentation verification result.
+      required:
+        - verified
     VerifyPresentationCheckResult:
       title: VerifyPresentationCheckResult
       x-tags:
@@ -2578,4 +2614,4 @@ components:
         - alg_values_supported
         - enc_values_supported
         - encryption_required
-  securitySchemes: {}
+  securitySchemes: { }

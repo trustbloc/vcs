@@ -138,7 +138,7 @@ func (s *Service) GetRefreshedCredential(
 		return nil, err
 	}
 
-	if len(verifyResult) > 0 {
+	if verifyResult.HasErrors() {
 		err = fmt.Errorf("presentation verification failed. %s", spew.Sdump(verifyResult))
 		s.tryPublish(ctx, spi.CredentialRefreshFailed, resultEvent, "", err)
 

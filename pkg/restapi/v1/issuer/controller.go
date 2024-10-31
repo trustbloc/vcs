@@ -227,7 +227,22 @@ func (c *Controller) issueCredential(
 
 		// for some reason should be allowed https://w3c.github.io/vc-data-model/#status test suite
 		if v, ok := finalCredentials.(map[string]interface{}); ok {
-			contexts := v["@context"].([]interface{})
+			contextObj, contextObjOk := v["@context"]
+			if !contextObjOk {
+				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
+					errors.New("@context must be specified"))
+			}
+
+			contexts, contextsOk := contextObj.([]interface{})
+			if !contextsOk {
+				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
+					errors.New("@context must be an array"))
+			}
+
+			if len(contexts) == 0 {
+				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
+					errors.New("@context must be specified"))
+			}
 
 			// required by interop ed25519 signature suite
 			if len(contexts) > 0 && contexts[0].(string) == verifiable.V1ContextURI {
@@ -257,7 +272,7 @@ func (c *Controller) issueCredential(
 				}
 			}
 
-			if _, credSubOk := v["credential_subject"].(map[string]interface{}); !credSubOk {
+			if _, credSubOk := v["credentialSubject"].(map[string]interface{}); !credSubOk {
 				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
 					errors.New("credential_subject must be an object"))
 			}

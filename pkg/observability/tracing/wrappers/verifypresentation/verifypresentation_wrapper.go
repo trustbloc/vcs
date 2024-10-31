@@ -39,7 +39,7 @@ func (w *Wrapper) VerifyPresentation(
 	presentation *verifiable.Presentation,
 	opts *verifypresentation.Options,
 	profile *profileapi.Verifier,
-) ([]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error) {
+) (verifypresentation.PresentationVerificationResult, map[string][]string, error) {
 	ctx, span := w.tracer.Start(ctx, "verifypresentation.VerifyPresentation")
 	defer span.End()
 
@@ -53,7 +53,7 @@ func (w *Wrapper) VerifyPresentation(
 	w.setClaimKeys(span, claimKeys)
 
 	if err != nil {
-		return nil, claimKeys, err
+		return verifypresentation.PresentationVerificationResult{}, claimKeys, err
 	}
 
 	return res, claimKeys, nil
