@@ -354,7 +354,10 @@ func (s *Steps) waitForOIDC4VPEvent(eventType string) error {
 	s.vpClaimsTransactionID = event.TransactionID
 
 	switch spi.EventType(eventType) {
-	case spi.VerifierOIDCInteractionSucceeded, spi.VerifierOIDCInteractionNoConsent, spi.VerifierOIDCInteractionNoMatchFound:
+	case spi.VerifierOIDCInteractionSucceeded,
+		spi.VerifierOIDCInteractionNoConsent,
+		spi.VerifierOIDCInteractionNoMatchFound,
+		spi.VerifierOIDCInteractionExpired:
 		if err = checkEventInteractionDetailsClaim(event); err != nil {
 			return err
 		}

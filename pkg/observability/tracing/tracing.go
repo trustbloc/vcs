@@ -29,8 +29,14 @@ var logger = log.New("tracing")
 type SpanExporterType = string
 
 const (
-	None   SpanExporterType = ""
+	// None is the noop span exporter.
+	None SpanExporterType = ""
+	// Default is the default span exporter to be used with any Open Telemetry-compatible agent.
+	Default SpanExporterType = "DEFAULT"
+	// Jaeger is the Jaeger span exporter.
+	//Deprecated: use Default instead.
 	Jaeger SpanExporterType = "JAEGER"
+	// Stdout is the stdout span exporter.
 	Stdout SpanExporterType = "STDOUT"
 )
 
@@ -56,7 +62,7 @@ func Initialize(exporter SpanExporterType, serviceName string) (func(), trace.Tr
 	)
 
 	switch exporter {
-	case Jaeger:
+	case Default, Jaeger:
 		spanExporter, err = otlptracehttp.New(context.Background())
 		if err != nil {
 			return nil, nil, fmt.Errorf("create OTLP HTTP exporter: %w", err)
@@ -91,4 +97,9 @@ func Initialize(exporter SpanExporterType, serviceName string) (func(), trace.Tr
 			logger.Warn("Error shutting down tracer provider", log.WithError(err))
 		}
 	}, tracerProvider.Tracer(tracerName), nil
+}
+
+// IsExportedSupported returns true if the given exporter is supported.
+func IsExportedSupported(exporter SpanExporterType) bool {
+	return exporter == None || exporter == Default || exporter == Jaeger || exporter == Stdout
 }
