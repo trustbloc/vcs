@@ -36,6 +36,7 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/context/remote"
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/otel/correlationidecho"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/vermethod"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -446,6 +447,7 @@ func buildEchoHandler(
 
 	if conf.IsTraceEnabled {
 		e.Use(otelecho.Middleware(""))
+		e.Use(correlationidecho.Middleware())
 	}
 
 	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}

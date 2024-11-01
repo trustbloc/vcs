@@ -99,7 +99,7 @@ func Initialize(exporter SpanExporterType, serviceName string) (func(), trace.Tr
 	}, tracerProvider.Tracer(tracerName), nil
 }
 
-// IsExportedSupported returns true if the given exporter is supported.
-func IsExportedSupported(exporter SpanExporterType) bool {
+// IsExporterSupported returns true if the given exporter is supported.
+func IsExporterSupported(exporter SpanExporterType) bool {
 	return exporter == None || exporter == Default || exporter == Jaeger || exporter == Stdout
 }

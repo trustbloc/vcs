@@ -19,7 +19,9 @@ import (
 	vdrpkg "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
+	"go.opentelemetry.io/otel/trace"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/tracing"
 	"github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -39,6 +41,7 @@ type BDDContext struct {
 	CredentialSubject     []string
 	IssuerProfiles        map[string]*profile.Issuer
 	VerifierProfiles      map[string]*profile.Verifier
+	Tracer                trace.Tracer
 }
 
 type profilesFileData struct {
@@ -108,6 +111,8 @@ func NewBDDContext(caCertPath, testDataPath, profilesDataPath string) (*BDDConte
 		verifierProfiles[fmt.Sprintf("%s/%s", verifier.Verifier.ID, verifier.Verifier.Version)] = verifier.Verifier
 	}
 
+	tracer := tracing.Initialize("vcs-bdd-test")
+
 	instance := BDDContext{
 		Args:             make(map[string]string),
 		VDRI:             vdr,
@@ -116,6 +121,7 @@ func NewBDDContext(caCertPath, testDataPath, profilesDataPath string) (*BDDConte
 		Data:             make(map[string]interface{}),
 		IssuerProfiles:   issuerProfiles,
 		VerifierProfiles: verifierProfiles,
+		Tracer:           tracer,
 	}
 
 	return &instance, nil
