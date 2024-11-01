@@ -10,7 +10,6 @@ package cslmanager
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -276,18 +275,12 @@ func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslUR
 		return fmt.Errorf("failed to get VC status processor: %w", err)
 	}
 
-	vc, err := processor.CreateVC(cslURL, s.listSize, signer)
+	vcCred, err := processor.CreateVC(cslURL, s.listSize, signer)
 	if err != nil {
 		return fmt.Errorf("failed to createCSLIndexWrapper VC: %w", err)
 	}
 
-	b, _ := json.Marshal(vc)
-	b1, _ := json.Marshal(signer)
-
-	logger.Warnc(ctx, "Signer", log.WithToken(string(b1)))
-	logger.Warnc(ctx, "VC", log.WithToken(string(b)))
-
-	signed, err := s.crypto.SignCredential(signer, vc)
+	signed, err := s.crypto.SignCredential(signer, vcCred)
 	if err != nil {
 		return fmt.Errorf("failed to sign VC: %w", err)
 	}
@@ -299,10 +292,10 @@ func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslUR
 
 	vcWrapper := &credentialstatus.CSLVCWrapper{
 		VCByte: vcBytes,
-		VC:     vc,
+		VC:     vcCred,
 	}
 
-	if err := s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
+	if err = s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
 		return fmt.Errorf("failed to store VC: %w", err)
 	}
 
