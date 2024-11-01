@@ -205,6 +205,59 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 	return util.WriteOutputWithCode(http.StatusCreated, e)(credential, nil)
 }
 
+func (c *Controller) ValidateRawCredential(
+	finalCredentials map[string]interface{},
+	profile *profileapi.Issuer,
+) error {
+	contextObj, contextObjOk := finalCredentials["@context"]
+	if !contextObjOk {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
+			errors.New("@context must be specified"))
+	}
+
+	contexts, contextsOk := contextObj.([]interface{})
+	if !contextsOk {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
+			errors.New("@context must be an array"))
+	}
+
+	if len(contexts) == 0 {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
+			errors.New("@context must be specified"))
+	}
+
+	// required by interop ed25519 signature suite
+	if len(contexts) > 0 && contexts[0].(string) == verifiable.V1ContextURI {
+		profile.VCConfig.Model = vcsverifiable.V1_1
+	}
+
+	if status, statusOk := finalCredentials["credentialStatus"].(map[string]interface{}); statusOk {
+		idObj, idObjOk := status["id"]
+
+		if !idObjOk {
+			delete(finalCredentials, "credentialStatus")
+		} else {
+			id, idOk := idObj.(string)
+
+			if !idOk || strings.Contains(id, " ") {
+				return resterr.NewValidationError(resterr.InvalidValue, "credentialStatus.id",
+					errors.New("id must be a string"))
+			}
+
+			if id == "" {
+				delete(finalCredentials, "credentialStatus")
+			}
+		}
+	}
+
+	if _, credSubOk := finalCredentials["credentialSubject"].(map[string]interface{}); !credSubOk {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
+			errors.New("credential_subject must be an object"))
+	}
+
+	return nil
+}
+
 func (c *Controller) issueCredential(
 	ctx context.Context,
 	tenantID string,
@@ -227,54 +280,8 @@ func (c *Controller) issueCredential(
 
 		// for some reason should be allowed https://w3c.github.io/vc-data-model/#status test suite
 		if v, ok := finalCredentials.(map[string]interface{}); ok {
-			contextObj, contextObjOk := v["@context"]
-			if !contextObjOk {
-				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
-					errors.New("@context must be specified"))
-			}
-
-			contexts, contextsOk := contextObj.([]interface{})
-			if !contextsOk {
-				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
-					errors.New("@context must be an array"))
-			}
-
-			if len(contexts) == 0 {
-				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
-					errors.New("@context must be specified"))
-			}
-
-			// required by interop ed25519 signature suite
-			if len(contexts) > 0 && contexts[0].(string) == verifiable.V1ContextURI {
-				profile.VCConfig.Model = vcsverifiable.V1_1
-			}
-
-			if status, statusOk := v["credentialStatus"].(map[string]interface{}); statusOk {
-				idObj, idObjOk := status["id"]
-
-				if !idObjOk {
-					delete(v, "credentialStatus")
-					finalCredentials = v
-				}
-
-				if idObjOk {
-					id, idOk := idObj.(string)
-
-					if !idOk || strings.Contains(id, " ") {
-						return nil, resterr.NewValidationError(resterr.InvalidValue, "credentialStatus.id",
-							errors.New("id must be a string"))
-					}
-
-					if id == "" {
-						delete(v, "credentialStatus")
-						finalCredentials = v
-					}
-				}
-			}
-
-			if _, credSubOk := v["credentialSubject"].(map[string]interface{}); !credSubOk {
-				return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-					errors.New("credential_subject must be an object"))
+			if validationErr := c.ValidateRawCredential(v, profile); validationErr != nil {
+				return nil, validationErr
 			}
 		}
 	} else {

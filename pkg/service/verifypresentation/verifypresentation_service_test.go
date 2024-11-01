@@ -103,7 +103,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 		marshal bool
 		fields  fields
 		args    args
-		want    []PresentationVerificationCheckResult
+		want    PresentationVerificationResult
 		wantErr bool
 	}{
 		{
