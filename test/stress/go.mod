@@ -19,7 +19,7 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/did-go v1.3.1-0.20241015091350-bb3317ba5bdd
 	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88
-	github.com/trustbloc/logutil-go v1.0.0
+	github.com/trustbloc/logutil-go v1.0.1-0.20241101181049-1d51079631d9
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
 	github.com/trustbloc/vc-go v1.2.1-0.20241024133843-c0dd16d854d1
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea

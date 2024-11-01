@@ -1110,7 +1110,7 @@ func getTracingParams(cmd *cobra.Command) (*tracingParams, error) {
 		serviceName: serviceName,
 	}
 
-	if !tracing.IsExportedSupported(params.exporter) {
+	if !tracing.IsExporterSupported(params.exporter) {
 		return nil, fmt.Errorf("unsupported otel span exporter: %s", params.exporter)
 	}
 

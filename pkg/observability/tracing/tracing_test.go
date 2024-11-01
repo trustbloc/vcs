@@ -48,9 +48,9 @@ func TestInitialize(t *testing.T) {
 	})
 }
 
-func TestIsExportedSupported(t *testing.T) {
-	require.True(t, IsExportedSupported("DEFAULT"))
-	require.True(t, IsExportedSupported("STDOUT"))
-	require.True(t, IsExportedSupported("JAEGER"))
-	require.False(t, IsExportedSupported("unsupported"))
+func TestIsExporterSupported(t *testing.T) {
+	require.True(t, IsExporterSupported("DEFAULT"))
+	require.True(t, IsExporterSupported("STDOUT"))
+	require.True(t, IsExporterSupported("JAEGER"))
+	require.False(t, IsExporterSupported("unsupported"))
 }

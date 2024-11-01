@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
 	"log/slog"
 	"net"
@@ -32,9 +33,12 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/otel/correlationid"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
@@ -51,6 +55,8 @@ import (
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
+
+var logger = log.New("oidc4vci-flow")
 
 const (
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
@@ -110,6 +116,7 @@ type Flow struct {
 	walletKeyType               kms.KeyType
 	perfInfo                    *PerfInfo
 	verificationMethod          did.VerificationMethod
+	tracer                      trace.Tracer
 }
 
 type credentialFilter struct {
@@ -231,6 +238,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		pin:                         o.pin,
 		perfInfo:                    &PerfInfo{},
 		verificationMethod:          targetVerMethod,
+		tracer:                      o.tracer,
 	}, nil
 }
 
@@ -246,6 +254,20 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 		"credential_filters", f.credentialFilters,
 		"scope", f.scopes,
 	)
+
+	if f.tracer != nil {
+		spanCtx, span := f.tracer.Start(ctx, "OIDC4VCIFlow")
+		defer span.End()
+
+		correlationCtx, correlationID, err := correlationid.Set(spanCtx)
+		if err != nil {
+			return nil, fmt.Errorf("set correlation ID: %w", err)
+		}
+
+		ctx = correlationCtx
+
+		logger.Infoc(ctx, "Running OIDC4VCI flow", zap.String("correlation_id", correlationID))
+	}
 
 	var (
 		credentialIssuer        string
@@ -278,7 +300,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 
 	start := time.Now()
 
-	openIDConfig, err := f.wellKnownService.GetWellKnownOpenIDConfiguration(credentialIssuer)
+	openIDConfig, err := f.wellKnownService.GetWellKnownOpenIDConfiguration(ctx, credentialIssuer)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +463,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 
 	f.perfInfo.GetAccessToken = time.Since(start)
 
-	return f.receiveVC(token, openIDConfig, credentialOfferResponse, credentialIssuer)
+	return f.receiveVC(ctx, token, openIDConfig, credentialOfferResponse, credentialIssuer)
 }
 
 func (f *Flow) Signer() jose.Signer {
@@ -720,6 +742,7 @@ func (f *Flow) getAttestationVP() (string, error) {
 }
 
 func (f *Flow) receiveVC(
+	ctx context.Context,
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	credentialOfferResponse *oidc4ci.CredentialOfferResponse,
@@ -756,6 +779,7 @@ func (f *Flow) receiveVC(
 		)
 
 		credentialResp, err := f.batchCredentialRequest(
+			ctx,
 			batchCredentialEndpoint,
 			token,
 			credentialFilters,
@@ -785,6 +809,7 @@ func (f *Flow) receiveVC(
 		}
 
 		credentialResp, err := f.credentialRequest(
+			ctx,
 			credentialEndpoint,
 			token,
 			credentialFilters[0].oidcCredentialFormat,
@@ -802,7 +827,7 @@ func (f *Flow) receiveVC(
 			})
 	}
 
-	credentials, err := f.parseCredentialsResponse(parseCredentialResponseDataList, token, wellKnown)
+	credentials, err := f.parseCredentialsResponse(ctx, parseCredentialResponseDataList, token, wellKnown)
 	if err != nil {
 		return nil, fmt.Errorf("parseCredentialsResponse: %w", err)
 	}
@@ -811,6 +836,7 @@ func (f *Flow) receiveVC(
 }
 
 func (f *Flow) credentialRequest(
+	ctx context.Context,
 	credentialEndpoint string,
 	token *oauth2.Token,
 	credentialFormat vcsverifiable.OIDCFormat,
@@ -830,7 +856,7 @@ func (f *Flow) credentialRequest(
 		return nil, fmt.Errorf("marshal credential request: %w", err)
 	}
 
-	responseBody, err := f.doCredentialRequest(credentialEndpoint, b, token)
+	responseBody, err := f.doCredentialRequest(ctx, credentialEndpoint, b, token)
 	if err != nil {
 		return nil, fmt.Errorf("doCredentialRequest: %w", err)
 	}
@@ -845,6 +871,7 @@ func (f *Flow) credentialRequest(
 }
 
 func (f *Flow) batchCredentialRequest(
+	ctx context.Context,
 	credentialEndpoint string,
 	token *oauth2.Token,
 	credentialFilters []*credentialFilter,
@@ -872,7 +899,7 @@ func (f *Flow) batchCredentialRequest(
 		return nil, fmt.Errorf("marshal batch credential request: %w", err)
 	}
 
-	responseBody, err := f.doCredentialRequest(credentialEndpoint, b, token)
+	responseBody, err := f.doCredentialRequest(ctx, credentialEndpoint, b, token)
 	if err != nil {
 		return nil, fmt.Errorf("doCredentialRequest: %w", err)
 	}
@@ -887,6 +914,7 @@ func (f *Flow) batchCredentialRequest(
 }
 
 func (f *Flow) parseCredentialsResponse(
+	ctx context.Context,
 	parseCredentialResponseDataList []*parseCredentialResponseData,
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
@@ -953,7 +981,7 @@ func (f *Flow) parseCredentialsResponse(
 		notificationIDs = append(notificationIDs, lo.FromPtr(parseCredentialData.notificationID))
 	}
 
-	if err := f.handleIssuanceAck(wellKnown, notificationIDs, token); err != nil {
+	if err := f.handleIssuanceAck(ctx, wellKnown, notificationIDs, token); err != nil {
 		return nil, fmt.Errorf("handleIssuanceAck: %w", err)
 	}
 
@@ -985,11 +1013,12 @@ func (f *Flow) buildProof(
 }
 
 func (f *Flow) doCredentialRequest(
+	ctx context.Context,
 	credentialEndpoint string,
 	requestPayload []byte,
 	token *oauth2.Token,
 ) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodPost, credentialEndpoint, bytes.NewBuffer(requestPayload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, credentialEndpoint, bytes.NewBuffer(requestPayload))
 	if err != nil {
 		return nil, fmt.Errorf("new credential request: %w", err)
 	}
@@ -1126,6 +1155,7 @@ func (f *Flow) getCredentialFiltersFromCredentialConfigurationIDs(
 }
 
 func (f *Flow) handleIssuanceAck(
+	ctx context.Context,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 	notificationIDs []string,
 	token *oauth2.Token,
@@ -1174,7 +1204,7 @@ func (f *Flow) handleIssuanceAck(
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, notificationEndpoint, bytes.NewBuffer(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, notificationEndpoint, bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("ack credential request: %w", err)
 	}
@@ -1303,6 +1333,7 @@ type options struct {
 	pin                         string
 	walletDIDIndex              int
 	credentialFilters           []*credentialFilter
+	tracer                      trace.Tracer
 }
 
 type Opt func(opts *options)
@@ -1397,5 +1428,11 @@ func WithWalletDIDIndex(idx int) Opt {
 func WithCredentialConfigurationIDs(credentialConfigurationIDs []string) Opt {
 	return func(opts *options) {
 		opts.credentialConfigurationIDs = credentialConfigurationIDs
+	}
+}
+
+func WithTracer(tracer trace.Tracer) Opt {
+	return func(opts *options) {
+		opts.tracer = tracer
 	}
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package wellknown
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/samber/lo"
@@ -31,13 +32,19 @@ type Service struct {
 
 // GetWellKnownOpenIDConfiguration returns OIDC Configuration.
 func (s *Service) GetWellKnownOpenIDConfiguration(
+	ctx context.Context,
 	issuerURL string,
 ) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
 	slog.Info("Getting OpenID credential issuer configuration",
 		"url", issuerURL+"/.well-known/openid-credential-issuer",
 	)
 
-	resp, err := s.HTTPClient.Get(issuerURL + "/.well-known/openid-credential-issuer")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, issuerURL+"/.well-known/openid-credential-issuer", http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("new HTTP request: %w", err)
+	}
+
+	resp, err := s.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get issuer well-known: %w", err)
 	}
