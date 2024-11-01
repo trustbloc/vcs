@@ -10,7 +10,6 @@ package verifypresentation
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -353,16 +352,10 @@ func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) 
 		return err
 	}
 
-	b, _ := json.Marshal(didDoc)
-
-	logger.Warn(fmt.Sprintf("Holder: %v", vp.Holder))
-	logger.Warn(fmt.Sprintf("Controller: %v", didDoc.ID))
-	logger.Warn(fmt.Sprintf("VerificationMethod: %v", string(b)))
-
 	// validate if holder matches the controller of verification method
-	//if vp.Holder != "" && vp.Holder != didDoc.ID {
-	//	return fmt.Errorf("controller of verification method doesn't match the holder")
-	//}
+	if vp.Holder != "" && vp.Holder != didDoc.ID {
+		return fmt.Errorf("controller of verification method doesn't match the holder")
+	}
 
 	// validate proof purpose
 	if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
