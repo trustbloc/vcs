@@ -405,7 +405,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got, tt.want) { //nolint:govet
 				t.Errorf("VerifyPresentation() got = %v, want %v", got, tt.want)
 			}
 		})

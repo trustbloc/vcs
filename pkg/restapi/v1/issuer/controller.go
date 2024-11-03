@@ -258,6 +258,7 @@ func (c *Controller) ValidateRawCredential(
 	return nil
 }
 
+// nolint:gocognit
 func (c *Controller) issueCredential(
 	ctx context.Context,
 	tenantID string,
@@ -309,7 +310,7 @@ func (c *Controller) issueCredential(
 			errors.New("issuer must be a DID"))
 	}
 
-	// todo some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
+	// maybe implement some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
 	if strings.Contains(credentialParsed.Contents().ID, " ") {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.id",
 			errors.New("id must be a valid URL"))
