@@ -226,6 +226,10 @@ func (c *Controller) verifyCredential(
 	profileVersion string,
 	tenantID string,
 ) (*VerifyCredentialResponse, error) {
+	if body.VerifiableCredential == nil && body.Credential != nil {
+		body.VerifiableCredential = body.Credential
+	}
+
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
