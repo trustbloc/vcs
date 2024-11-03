@@ -13,7 +13,6 @@ import (
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
-	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -90,10 +89,4 @@ func validateSDJWTCredential(
 	}
 
 	return credential, nil
-}
-
-func isJWT(cred interface{}) bool {
-	str, isStr := cred.(string)
-
-	return isStr && (jwt.IsJWTUnsecured(str) || jwt.IsJWS(str))
 }

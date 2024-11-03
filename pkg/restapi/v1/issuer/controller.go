@@ -231,7 +231,7 @@ func (c *Controller) ValidateRawCredential(
 		profile.VCConfig.Model = vcsverifiable.V1_1
 	}
 
-	if status, statusOk := finalCredentials["credentialStatus"].(map[string]interface{}); statusOk {
+	if status, statusOk := finalCredentials["credentialStatus"].(map[string]interface{}); statusOk { //nolint:nestif
 		idObj, idObjOk := status["id"]
 
 		if !idObjOk {
@@ -273,7 +273,7 @@ func (c *Controller) issueCredential(
 	var finalCredentials interface{}
 	var enforceStrictValidation bool
 
-	if body.Credential != nil {
+	if body.Credential != nil { //nolint:nestif
 		finalCredentials = *body.Credential
 
 		enforceStrictValidation = true // todo for test passing, should we have it somewhere?
