@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,15 +22,19 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/otel/correlationid"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
-
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/presentation"
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/refresh"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var logger = log.New("refresh-flow")
 
 type Flow struct {
 	httpClient     *http.Client
@@ -40,6 +45,7 @@ type Flow struct {
 	cryptoSuite    api.Suite
 	vdrRegistry    vdrapi.Registry
 	history        map[string]*CredentialHistory
+	tracer         trace.Tracer
 }
 
 type CredentialHistory struct {
@@ -59,6 +65,12 @@ func WithWalletDIDIndex(idx int) Opt {
 	}
 }
 
+func WithTracer(tracer trace.Tracer) Opt {
+	return func(opts *options) {
+		opts.tracer = tracer
+	}
+}
+
 type provider interface {
 	HTTPClient() *http.Client
 	DocumentLoader() ld.DocumentLoader
@@ -69,6 +81,7 @@ type provider interface {
 
 type options struct {
 	walletDIDIndex int
+	tracer         trace.Tracer
 }
 
 func NewFlow(p provider, opts ...Opt) (*Flow, error) {
@@ -118,6 +131,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		wallet:         p.Wallet(),
 		history:        make(map[string]*CredentialHistory),
 		perfInfo:       &PerfInfo{},
+		tracer:         o.tracer,
 	}, nil
 }
 
@@ -130,6 +144,20 @@ func (f *Flow) Run(ctx context.Context) error {
 	defer func() {
 		f.perfInfo.FullRefreshFlow = time.Since(totalFlowStart)
 	}()
+
+	if f.tracer != nil {
+		spanCtx, span := f.tracer.Start(ctx, "RefreshFlow")
+		defer span.End()
+
+		correlationCtx, correlationID, err := correlationid.Set(spanCtx)
+		if err != nil {
+			return fmt.Errorf("set correlation ID: %w", err)
+		}
+
+		logger.Infoc(ctx, "Running Refresh flow", zap.String("correlation_id", correlationID))
+
+		ctx = correlationCtx
+	}
 
 	allCredentials, err := f.wallet.GetAll()
 	if err != nil {

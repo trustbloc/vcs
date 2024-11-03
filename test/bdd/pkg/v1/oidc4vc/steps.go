@@ -13,9 +13,8 @@ import (
 	"net/http/cookiejar"
 	"os"
 
-	"github.com/henvic/httpretty"
-
 	"github.com/cucumber/godog"
+	"github.com/henvic/httpretty"
 	"github.com/piprate/json-gold/ld"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 	"github.com/trustbloc/did-go/legacy/mem"
@@ -28,8 +27,10 @@ import (
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/logutil-go/pkg/otel/correlationid"
 	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 	"github.com/trustbloc/vc-go/verifiable"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
@@ -259,6 +260,10 @@ func (s *Steps) ResetAndSetup() error {
 
 		httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
 	}
+
+	httpClient.Transport = otelhttp.NewTransport(httpClient.Transport)
+
+	httpClient.Transport = correlationid.NewHTTPTransport(httpClient.Transport)
 
 	wellKnownService := &wellknown.Service{
 		HTTPClient:  httpClient,

@@ -65,6 +65,10 @@
       "method": "GET",
       "input_query_strings": [
         "credentialID"
+      ],
+      "input_headers": [
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -72,6 +76,11 @@
       "method": "POST",
       "input_query_strings": [
         "credentialID"
+      ],
+      "input_headers": [
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -116,6 +125,10 @@
       "input_query_strings": [
         "*"
       ],
+      "input_headers": [
+        "Traceparent",
+        "X-Correlation-ID"
+      ],
       "backend_extra_config": {
         "plugin/http-client": {
           "name": "http-client-no-redirect"
@@ -126,7 +139,9 @@
       "endpoint": "/oidc/{profileID}/{profileVersion}/register",
       "method": "POST",
       "input_headers": [
-        "Content-Type"
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -150,7 +165,9 @@
       "method": "POST",
       "input_headers": [
         "Authorization",
-        "Content-Type"
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -158,7 +175,9 @@
       "method": "POST",
       "input_headers": [
         "Authorization",
-        "Content-Type"
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -166,7 +185,9 @@
       "method": "POST",
       "input_headers": [
         "Authorization",
-        "Content-Type"
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -174,7 +195,9 @@
       "method": "POST",
       "input_headers": [
         "Authorization",
-        "Content-Type"
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -182,7 +205,9 @@
       "method": "POST",
       "input_headers": [
         "Authorization",
-        "Content-Type"
+        "Content-Type",
+        "Traceparent",
+        "X-Correlation-ID"
       ]
     },
     {
@@ -245,7 +270,11 @@
     },
     {
       "endpoint": "/request-object/{uuid}",
-      "method": "GET"
+      "method": "GET",
+      "input_headers": [
+        "Traceparent",
+        "X-Correlation-ID"
+      ]
     },
     {
       "endpoint": "/version",

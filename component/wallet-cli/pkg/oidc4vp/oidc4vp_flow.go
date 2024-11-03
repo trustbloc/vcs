@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
 	"log/slog"
 	"net/http"
@@ -26,19 +27,24 @@ import (
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/otel/correlationid"
 	didconfigclient "github.com/trustbloc/vc-go/didconfig/client"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vc-go/vermethod"
-
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/presentation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
-	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
+	"go.opentelemetry.io/otel/trace"
+
+	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 )
+
+var logger = log.New("oidc4vp-flow")
 
 const (
 	linkedDomainsService = "LinkedDomains"
@@ -79,6 +85,7 @@ type Flow struct {
 	perfInfo                       *PerfInfo
 	useMultiVPs                    bool
 	attachments                    map[string]string
+	tracer                         trace.Tracer
 }
 
 type provider interface {
@@ -150,6 +157,7 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		useMultiVPs:                    o.useMultiVPs,
 		perfInfo:                       &PerfInfo{},
 		attachments:                    o.attachments,
+		tracer:                         o.tracer,
 	}, nil
 }
 
@@ -166,6 +174,20 @@ func (f *Flow) Run(ctx context.Context) error {
 		"disable_domain_matching", f.disableDomainMatching,
 		"disable_schema_validation", f.disableSchemaValidation,
 	)
+
+	if f.tracer != nil {
+		spanCtx, span := f.tracer.Start(ctx, "OIDC4VP")
+		defer span.End()
+
+		correlationCtx, correlationID, err := correlationid.Set(spanCtx)
+		if err != nil {
+			return fmt.Errorf("set correlation ID: %w", err)
+		}
+
+		logger.Infoc(ctx, "Running OIDC4VP flow", zap.String("correlation_id", correlationID))
+
+		ctx = correlationCtx
+	}
 
 	requestObject, err := f.fetchRequestObject(ctx)
 	if err != nil {
@@ -659,6 +681,7 @@ type options struct {
 	disableSchemaValidation        bool
 	useMultiVPs                    bool
 	attachments                    map[string]string
+	tracer                         trace.Tracer
 }
 
 type Opt func(opts *options)
@@ -702,5 +725,11 @@ func WithSchemaValidationDisabled() Opt {
 func WithMultiVPs() Opt {
 	return func(opts *options) {
 		opts.useMultiVPs = true
+	}
+}
+
+func WithTracer(tracer trace.Tracer) Opt {
+	return func(opts *options) {
+		opts.tracer = tracer
 	}
 }

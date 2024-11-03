@@ -313,6 +313,7 @@ func (s *Steps) runOIDC4VPFlowWithOpts(
 		oidc4vp.WithRequestURI(requestURI[1]),
 		oidc4vp.WithDomainMatchingDisabled(),
 		oidc4vp.WithSchemaValidationDisabled(),
+		oidc4vp.WithTracer(s.bddContext.Tracer),
 	}
 
 	if len(s.vpAttachments) > 0 {
