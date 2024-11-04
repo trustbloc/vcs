@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - mocks-pub
 jobs:
   mock-webhook:
     runs-on: ubuntu-latest
@@ -56,6 +57,7 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-webhook:latest
             ghcr.io/trustbloc/mock-webhook:${{ env.IMAGE_TAG }}-latest
+            ghcr.io/trustbloc/mock-webhook:${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
   mock-login-consent:
     runs-on: ubuntu-latest
     timeout-minutes: 45
