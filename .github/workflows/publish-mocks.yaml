@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - main
-      - mocks-pub
 jobs:
   mock-webhook:
     runs-on: ubuntu-latest
@@ -98,6 +97,7 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-login-consent:latest
             ghcr.io/trustbloc/mock-login-consent:${{ env.IMAGE_TAG }}-latest
+            ghcr.io/trustbloc/mock-login-consent:${{ env.IMAGE_TAG }}-${{ env.COMMIT_HASH }}
 
   mock-trustregistry:
     runs-on: ubuntu-latest
@@ -137,6 +137,7 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-trustregistry:latest
             ghcr.io/trustbloc/mock-trustregistry:${{ env.IMAGE_TAG }}-latest
+            ghcr.io/trustbloc/mock-trustregistry:${{ env.IMAGE_TAG }}-${{ env.COMMIT_HASH }}
   mock-attestation:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -175,6 +176,7 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-attestation:latest
             ghcr.io/trustbloc/mock-attestation:${{ env.IMAGE_TAG }}-latest
+            ghcr.io/trustbloc/mock-attestation:${{ env.IMAGE_TAG }}-${{ env.COMMIT_HASH }}
 
   mock-cognito-auth:
     runs-on: ubuntu-latest
@@ -221,3 +223,4 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-cognito-auth:latest
             ghcr.io/trustbloc/mock-cognito-auth:${{ env.IMAGE_TAG }}-latest
+            ghcr.io/trustbloc/mock-cognito-auth:${{ env.IMAGE_TAG }}-${{ env.COMMIT_HASH }}
