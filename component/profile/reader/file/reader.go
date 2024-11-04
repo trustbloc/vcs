@@ -328,7 +328,6 @@ func createDid(
 		return nil, fmt.Errorf("get difDidOrigin %w", err)
 	}
 
-	logger.Info(fmt.Sprintf("creating did for profile: %v", profileID))
 	var createResult *createResult
 	if oidcConfig != nil {
 		createResult, err = didCreator.publicDID(oidcConfig.DIDMethod, oidcConfig.ROSigningAlgorithm,

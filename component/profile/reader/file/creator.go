@@ -310,7 +310,6 @@ func newVerMethods(count int, km KeysCreator, verMethodType vcsverifiable.Signat
 
 		verificationMethod := signatureTypeToDidVerificationMethod[verMethodType]
 
-		logger.Info(fmt.Sprintf("creating verification method: %v", verificationMethod))
 		// TODO sidetree doesn't support VM controller: https://github.com/decentralized-identity/sidetree/issues/1010
 		vm, err := did.NewVerificationMethodFromJWK(
 			keyID,

@@ -279,6 +279,10 @@ func (c *Controller) issueCredential(
 
 		enforceStrictValidation = true // todo for test passing, should we have it somewhere?
 
+		if _, ok := finalCredentials.(string); ok {
+			enforceStrictValidation = false
+		}
+
 		// for some reason should be allowed https://w3c.github.io/vc-data-model/#status test suite
 		if v, ok := finalCredentials.(map[string]interface{}); ok {
 			if validationErr := c.ValidateRawCredential(v, profile); validationErr != nil {
