@@ -26,7 +26,9 @@ jobs:
       - name: Set ENV vars
         run: |
           TAG=$(git describe --tags --always `git rev-list --tags --max-count=1`)
+          COMMIT_HASH=$(git rev-parse --short "$GITHUB_SHA")
           echo "IMAGE_TAG"=$TAG >> $GITHUB_ENV
+          echo "COMMIT_HASH"=$COMMIT_HASH >> $GITHUB_ENV
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
@@ -57,7 +59,7 @@ jobs:
           tags: |
             ghcr.io/trustbloc/mock-webhook:latest
             ghcr.io/trustbloc/mock-webhook:${{ env.IMAGE_TAG }}-latest
-            ghcr.io/trustbloc/mock-webhook:${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
+            ghcr.io/trustbloc/mock-webhook:${{ env.IMAGE_TAG }}-${{ env.COMMIT_HASH }}
   mock-login-consent:
     runs-on: ubuntu-latest
     timeout-minutes: 45
