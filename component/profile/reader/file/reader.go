@@ -295,8 +295,15 @@ func getDifDIDOrigin(webHook string) (string, error) {
 	return difDIDOrigin, nil
 }
 
-func createDid(didDomain string, _ string, kmsConfig *vcskms.Config, webHook string, config *Config,
-	oidcConfig *profileapi.OIDC4VPConfig, vcConfig *profileapi.VCConfig) (*profileapi.SigningDID, error) {
+func createDid(
+	didDomain string,
+	_ string,
+	kmsConfig *vcskms.Config,
+	webHook string,
+	config *Config,
+	oidcConfig *profileapi.OIDC4VPConfig,
+	vcConfig *profileapi.VCConfig,
+) (*profileapi.SigningDID, error) {
 	if oidcConfig == nil && vcConfig == nil {
 		return nil, fmt.Errorf("create did: either oidcConfig or vcConfig must be provided")
 	}

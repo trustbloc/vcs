@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/kms-go/doc/jose"
 	storageapi "github.com/trustbloc/kms-go/spi/storage"
 	"github.com/trustbloc/kms-go/wrapper/api"
@@ -330,7 +331,12 @@ func (s *Service) doRequest(
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	expectedCodes := []int{
+		http.StatusOK,
+		http.StatusCreated,
+	}
+
+	if !lo.Contains(expectedCodes, resp.StatusCode) {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status code: %d; response: %s", resp.StatusCode, string(b))
 	}

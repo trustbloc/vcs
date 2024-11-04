@@ -80,6 +80,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 				ID:             "testId",
 				VCConfig: &profileapi.VCConfig{
 					Format: vcsverifiable.Ldp,
+					Model:  vcsverifiable.V2_0,
 				},
 			}, nil)
 
@@ -517,6 +518,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				ID:             "testId",
 				VCConfig: &profileapi.VCConfig{
 					Format: vcsverifiable.Ldp,
+					Model:  vcsverifiable.V2_0,
 				},
 			}, nil)
 
@@ -536,8 +538,9 @@ func TestController_IssueCredentials(t *testing.T) {
 
 		verifiableCredentials, err := controller.issueCredential(
 			c.Request().Context(), orgID, &body, profileID, profileVersion)
-		require.NotNil(t, verifiableCredentials)
+
 		require.NoError(t, err)
+		require.NotNil(t, verifiableCredentials)
 	})
 
 	t.Run("Success JSON-LD V2.0", func(t *testing.T) {
@@ -597,8 +600,9 @@ func TestController_IssueCredentials(t *testing.T) {
 
 		verifiableCredentials, err := controller.issueCredential(
 			c.Request().Context(), orgID, &body, profileID, profileVersion)
-		require.NotNil(t, verifiableCredentials)
+
 		require.NoError(t, err)
+		require.NotNil(t, verifiableCredentials)
 	})
 
 	t.Run("Failed", func(t *testing.T) {

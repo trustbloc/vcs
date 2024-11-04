@@ -120,7 +120,12 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 	return result, nil
 }
 
-func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) error {
+func (s *Service) verifyVC(
+	vc *verifiable.Credential,
+	strictValidation bool,
+	challenge string,
+	domain string,
+) error {
 	diVerifier, err := s.getDataIntegrityVerifier()
 	if err != nil {
 		return fmt.Errorf("get data integrity verifier: %w", err)
@@ -134,8 +139,7 @@ func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) err
 		verifiable.WithDataIntegrityVerifier(diVerifier),
 		// Use empty domain and challenge in order to skip the validation.
 		// See usage of vcInVPValidation variable in ValidateCredentialProof method.
-		// TODO: define verifier purpose field.
-		verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, "", ""),
+		verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, domain, challenge),
 	}
 
 	if strictValidation {
@@ -156,9 +160,15 @@ func (s *Service) verifyVC(vc *verifiable.Credential, strictValidation bool) err
 }
 
 // ValidateCredentialProof validate credential proof.
-func (s *Service) ValidateCredentialProof(_ context.Context, credential *verifiable.Credential, proofChallenge,
-	proofDomain string, vcInVPValidation, strictValidation bool) error { // nolint: lll,gocyclo
-	err := s.verifyVC(credential, strictValidation)
+func (s *Service) ValidateCredentialProof(
+	_ context.Context,
+	credential *verifiable.Credential,
+	proofChallenge,
+	proofDomain string,
+	vcInVPValidation,
+	strictValidation bool,
+) error { // nolint: lll,gocyclo
+	err := s.verifyVC(credential, strictValidation, proofChallenge, proofDomain)
 	if err != nil {
 		return err
 	}

@@ -14,11 +14,11 @@ require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
-	github.com/trustbloc/did-go v1.3.1-0.20241015091350-bb3317ba5bdd
+	github.com/trustbloc/did-go v1.3.1-0.20241028131019-014935534038
 	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88
 	github.com/trustbloc/logutil-go v1.0.1-0.20241101181049-1d51079631d9
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.2.1-0.20241024133843-c0dd16d854d1
+	github.com/trustbloc/vc-go v1.2.1-0.20241031140324-d25fb970e6f5
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 
@@ -171,4 +171,7 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/trustbloc/vcs => ../../
+replace (
+	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/trustbloc/json-gold v0.5.1
+	github.com/trustbloc/vcs => ../../
+)

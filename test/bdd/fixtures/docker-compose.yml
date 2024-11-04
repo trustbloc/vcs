@@ -47,6 +47,7 @@ services:
       - VC_REDIS_URL=redis.example.com:6379
       - VC_REDIS_DISABLE_TLS=true
       - VC_REST_LOCAL_KMS_MASTER_KEY=00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=
+      - VC_REST_CONTEXT_ENABLE_REMOTE=true
     ports:
       - "8075:8075"
       - "48127:48127"

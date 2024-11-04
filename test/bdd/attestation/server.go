@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/samber/lo"
 	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/jwt"
@@ -297,7 +298,12 @@ func (s *server) attestationVC(
 		return "", fmt.Errorf("read response: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	expectedCodes := []int{
+		http.StatusOK,
+		http.StatusCreated,
+	}
+
+	if !lo.Contains(expectedCodes, resp.StatusCode) {
 		return "", fmt.Errorf("unexpected status code: %d; response: %s", resp.StatusCode, string(b))
 	}
 

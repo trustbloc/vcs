@@ -300,7 +300,7 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 	mockVerifyPresSvc.EXPECT().
 		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
-		Return([]verifypresentation.PresentationVerificationCheckResult{{}}, nil, nil)
+		Return(verifypresentation.PresentationVerificationResult{}, nil, nil)
 
 	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
@@ -341,7 +341,13 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 
 func TestController_VerifyPresentation(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-	verificationResult := []verifypresentation.PresentationVerificationCheckResult{{}}
+	verificationResult := verifypresentation.PresentationVerificationResult{
+		Checks: []*verifypresentation.Check{
+			{
+				Check: "proof",
+			},
+		},
+	}
 	mockVerifyPresentationSvc := NewMockverifyPresentationSvc(gomock.NewController(t))
 
 	mockVerifyPresentationSvc.EXPECT().
@@ -373,8 +379,10 @@ func TestController_VerifyPresentation(t *testing.T) {
 		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
+
 		assert.NoError(t, err)
-		assert.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
+		assert.Len(t, rsp.Checks, 1)
+		assert.Len(t, lo.FromPtr(rsp.Errors), 0)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
@@ -387,7 +395,10 @@ func TestController_VerifyPresentation(t *testing.T) {
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 		assert.NoError(t, err)
-		assert.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
+
+		assert.NoError(t, err)
+		assert.Len(t, rsp.Checks, 1)
+		assert.Len(t, lo.FromPtr(rsp.Errors), 0)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
@@ -437,7 +448,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 					failedMockVerifyPresSvc.EXPECT().
 						VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						AnyTimes().
-						Return(nil, nil, errors.New("some error"))
+						Return(verifypresentation.PresentationVerificationResult{}, nil, errors.New("some error"))
 					return failedMockVerifyPresSvc
 				},
 			},
@@ -2052,58 +2063,26 @@ func Test_mapVerifyCredentialChecks(t *testing.T) {
 }
 
 func Test_mapVerifyPresentationChecks(t *testing.T) {
-	type args struct {
-		checks []verifypresentation.PresentationVerificationCheckResult
-	}
-	tests := []struct {
-		name string
-		args args
-		want *VerifyPresentationResponse
-	}{
-		{
-			name: "OK",
-			args: args{
-				checks: []verifypresentation.PresentationVerificationCheckResult{
-					{
-						Check: "check1",
-						Error: "error1",
-					},
-					{
-						Check: "check2",
-						Error: "error2",
-					},
-				},
+	res := mapVerifyPresentationChecks(verifypresentation.PresentationVerificationResult{
+		Checks: []*verifypresentation.Check{
+			{
+				Check: "check1",
+				Error: errors.New("error1"),
 			},
-			want: &VerifyPresentationResponse{
-				Checks: &[]VerifyPresentationCheckResult{
-					{
-						Check: "check1",
-						Error: "error1",
-					},
-					{
-						Check: "check2",
-						Error: "error2",
-					},
-				},
+			{
+				Check: "check2",
 			},
 		},
-		{
-			name: "OK Empty",
-			args: args{
-				checks: []verifypresentation.PresentationVerificationCheckResult{},
-			},
-			want: &VerifyPresentationResponse{
-				Checks: nil,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := mapVerifyPresentationChecks(tt.args.checks); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("mapVerifyPresentationChecks() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	}, &verifiable.Presentation{})
+
+	assert.Len(t, res.Checks, 2)
+	assert.EqualValues(t, "check1", res.Checks[0])
+	assert.EqualValues(t, "check2", res.Checks[1])
+
+	assert.Len(t, *res.Errors, 1)
+	assert.EqualValues(t, "error1", (*res.Errors)[0])
+
+	assert.False(t, res.Verified)
 }
 
 func Test_getVerifyPresentationOptions(t *testing.T) {

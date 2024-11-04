@@ -37,6 +37,8 @@ var (
 	walletAttestationVC []byte
 	//go:embed contexts/citizenship-v2.jsonld
 	citizenshipV2 []byte
+	//go:embed contexts/vc-v2.jsonld
+	vcV2 []byte
 )
 
 type mockLDStoreProvider struct {
@@ -65,6 +67,10 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 		ldcontext.Document{
 			URL:     "https://www.w3.org/2018/credentials/examples/v1",
 			Content: credentialExamples,
+		},
+		{
+			URL:     "https://www.w3.org/ns/credentials/v2",
+			Content: vcV2,
 		},
 		ldcontext.Document{
 			URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",

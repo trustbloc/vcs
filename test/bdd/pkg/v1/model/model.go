@@ -120,7 +120,7 @@ type VCConfig struct {
 	Status map[string]interface{} `json:"status,omitempty"`
 }
 
-// Model for issuer credential.
+// IssueCredentialData model for issuing credential.
 type IssueCredentialData struct {
 	// URI of the verifier.
 	Credential interface{} `json:"credential"`
@@ -152,10 +152,10 @@ type CredentialStatusOpt struct {
 	Type string `json:"type"`
 }
 
-// Model for credential verification.
+// VerifyCredentialData model for verifying credential.
 type VerifyCredentialData struct {
-	// Credential in jws(string) or jsonld(object) formats.
-	Credential interface{} `json:"credential"`
+	// VerifiableCredential in jws(string) or jsonld(object) formats.
+	VerifiableCredential interface{} `json:"verifiableCredential"`
 
 	// Options for verify credential.
 	Options *VerifyCredentialOptions `json:"options,omitempty"`

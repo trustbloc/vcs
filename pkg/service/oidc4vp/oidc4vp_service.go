@@ -114,7 +114,7 @@ type presentationVerifier interface {
 		opts *verifypresentation.Options,
 		profile *profileapi.Verifier,
 	) (
-		[]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error,
+		verifypresentation.PresentationVerificationResult, map[string][]string, error,
 	)
 }
 
@@ -349,9 +349,9 @@ func (s *Service) verifyTokens(
 				return
 			}
 
-			if len(vr) > 0 {
+			if len(vr.Errors()) > 0 {
 				e := resterr.NewCustomError(resterr.PresentationVerificationFailed,
-					fmt.Errorf("presentation verification checks failed: %s", vr[0].Error))
+					fmt.Errorf("presentation verification checks failed: %s", vr.Errors()[0].Error.Error()))
 
 				mut.Lock()
 				validationErrors = append(validationErrors, e)

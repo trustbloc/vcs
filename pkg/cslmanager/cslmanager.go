@@ -275,12 +275,12 @@ func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslUR
 		return fmt.Errorf("failed to get VC status processor: %w", err)
 	}
 
-	vc, err := processor.CreateVC(cslURL, s.listSize, signer)
+	vcCred, err := processor.CreateVC(cslURL, s.listSize, signer)
 	if err != nil {
 		return fmt.Errorf("failed to createCSLIndexWrapper VC: %w", err)
 	}
 
-	signed, err := s.crypto.SignCredential(signer, vc)
+	signed, err := s.crypto.SignCredential(signer, vcCred)
 	if err != nil {
 		return fmt.Errorf("failed to sign VC: %w", err)
 	}
@@ -292,10 +292,10 @@ func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslUR
 
 	vcWrapper := &credentialstatus.CSLVCWrapper{
 		VCByte: vcBytes,
-		VC:     vc,
+		VC:     vcCred,
 	}
 
-	if err := s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
+	if err = s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
 		return fmt.Errorf("failed to store VC: %w", err)
 	}
 

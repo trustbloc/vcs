@@ -62,13 +62,13 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	presentation *verifiable.Presentation,
 	opts *Options,
 	profile *profileapi.Verifier,
-) ([]PresentationVerificationCheckResult, map[string][]string, error) {
+) (PresentationVerificationResult, map[string][]string, error) {
 	startTime := time.Now().UTC()
 	defer func() {
 		logger.Debugc(ctx, "VerifyPresentation", log.WithDuration(time.Since(startTime)))
 	}()
 
-	var result []PresentationVerificationCheckResult
+	result := &PresentationVerificationResult{}
 
 	var credentials []*verifiable.Credential
 	if presentation != nil {
@@ -86,46 +86,68 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		}
 
 		err := s.validatePresentationProof(targetPresentation, opts)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "proof",
-				Error: err.Error(),
-			})
-		}
+		result.Checks = append(result.Checks, &Check{
+			Check: "proof",
+			Error: err,
+		})
 
 		logger.Debugc(ctx, "Checks.Presentation.Proof", log.WithDuration(time.Since(st)))
 	}
 
-	if len(profile.Checks.Credential.IssuerTrustList) > 0 {
-		err := s.checkIssuerTrustList(ctx, credentials, profile.Checks.Credential.IssuerTrustList)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "issuerTrustList",
-				Error: err.Error(),
+	for _, cred := range credentials { // vc-suite requirement
+		content := cred.Contents()
+
+		var err error
+
+		if len(content.Types) == 0 {
+			err = errors.New("credential type is missing")
+		}
+
+		result.Checks = append(result.Checks, &Check{
+			Check: "credentialType",
+			Error: err,
+		})
+
+		err = nil
+
+		if content.Issued != nil && content.Expired != nil {
+			if content.Issued.After(content.Expired.Time) || content.Issued.Equal(content.Expired.Time) {
+				err = errors.New("credential issued date should be before expired date")
+			}
+
+			result.Checks = append(result.Checks, &Check{
+				Check: "credentialExpiry",
+				Error: err,
 			})
 		}
 	}
 
+	if len(profile.Checks.Credential.IssuerTrustList) > 0 {
+		err := s.checkIssuerTrustList(ctx, credentials, profile.Checks.Credential.IssuerTrustList)
+
+		result.Checks = append(result.Checks, &Check{
+			Check: "issuerTrustList",
+			Error: err,
+		})
+	}
+
 	if profile.Checks.Credential.CredentialExpiry {
 		err := s.checkCredentialExpiry(credentials)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialExpiry",
-				Error: err.Error(),
-			})
-		}
+
+		result.Checks = append(result.Checks, &Check{
+			Check: "credentialExpiry",
+			Error: err,
+		})
 	}
 
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
 		err := s.validateCredentialsProof(ctx, presentation.JWT, credentials)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialProof",
-				Error: err.Error(),
-			})
-		}
+		result.Checks = append(result.Checks, &Check{
+			Check: "credentialProof",
+			Error: err,
+		})
 
 		logger.Debugc(ctx, "Checks.Credential.Proof", log.WithDuration(time.Since(st)))
 	}
@@ -134,25 +156,23 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		st := time.Now()
 
 		err := s.validateCredentialsStatus(ctx, credentials)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialStatus",
-				Error: err.Error(),
-			})
-		}
+		result.Checks = append(result.Checks, &Check{
+			Check: "credentialStatus",
+			Error: err,
+		})
 
 		logger.Debugc(ctx, "Checks.Credential.Status", log.WithDuration(time.Since(st)))
 	}
 
 	if profile.Checks.Credential.LinkedDomain {
 		st := time.Now()
+
 		err := s.vcVerifier.ValidateLinkedDomain(ctx, profile.SigningDID.DID)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "linkedDomain",
-				Error: err.Error(),
-			})
-		}
+		result.Checks = append(result.Checks, &Check{
+			Check: "linkedDomain",
+			Error: err,
+		})
+
 		logger.Debugc(ctx, "Checks.Credential.LinkedDomain", log.WithDuration(time.Since(st)))
 	}
 
@@ -162,16 +182,16 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 
 		keys, err := s.checkCredentialStrict(ctx, credentials)
 		claimsKeys = keys
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialStrict",
-				Error: err.Error(),
-			})
-		}
+
+		result.Checks = append(result.Checks, &Check{
+			Check: "credentialStrict",
+			Error: err,
+		})
+
 		logger.Debugc(ctx, "Checks.Credential.Strict", log.WithDuration(time.Since(st)))
 	}
 
-	return result, claimsKeys, nil
+	return *result, claimsKeys, nil
 }
 
 func (s *Service) checkCredentialStrict(

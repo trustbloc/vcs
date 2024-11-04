@@ -107,6 +107,54 @@ func TestValidateCredential(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "OK JSON-LD Strict",
+			args: args{
+				cred: func(t *testing.T) interface{} {
+					mapped := map[string]interface{}{}
+					err := json.Unmarshal([]byte(sampleVCJsonLD), &mapped)
+					require.NoError(t, err)
+					return mapped
+				},
+				format: vcsverifiable.Ldp,
+				opts: []verifiable.CredentialOpt{
+					verifiable.WithDisabledProofCheck(),
+					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				},
+				documentLoader:          testutil.DocumentLoader(t),
+				enforceStrictValidation: true,
+			},
+			want: func(t *testing.T) *verifiable.Credential {
+				cred, err := verifiable.ParseCredential([]byte(sampleVCJsonLD), verifiable.WithDisabledProofCheck(),
+					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
+				require.NoError(t, err)
+				return cred
+			},
+			wantErr: false,
+		},
+		{
+			name: "Fail JSON-LD Strict",
+			args: args{
+				cred: func(t *testing.T) interface{} {
+					mapped := map[string]interface{}{}
+					err := json.Unmarshal([]byte(sampleVCJsonLD), &mapped)
+					require.NoError(t, err)
+					mapped["some_field"] = "some_value"
+					return mapped
+				},
+				format: vcsverifiable.Ldp,
+				opts: []verifiable.CredentialOpt{
+					verifiable.WithDisabledProofCheck(),
+					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				},
+				documentLoader:          testutil.DocumentLoader(t),
+				enforceStrictValidation: true,
+			},
+			want: func(t *testing.T) *verifiable.Credential {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
 			name: "Error invalid format JWT",
 			args: args{
 				cred: func(t *testing.T) interface{} {

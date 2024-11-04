@@ -261,14 +261,14 @@ func TestGetRefreshedCredential(t *testing.T) {
 				presentation *verifiable.Presentation,
 				options *verifypresentation.Options,
 				verifier *profileapi.Verifier,
-			) ([]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error) {
+			) (verifypresentation.PresentationVerificationResult, map[string][]string, error) {
 				assert.True(t, verifier.Checks.Presentation.Proof)
 
 				assert.True(t, verifier.Checks.Credential.Proof)
 				assert.True(t, verifier.Checks.Credential.CredentialExpiry)
 				assert.True(t, verifier.Checks.Credential.Status)
 
-				return nil, nil, nil
+				return verifypresentation.PresentationVerificationResult{}, nil, nil
 			})
 
 		credentialResponse, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation,
@@ -373,14 +373,14 @@ func TestGetRefreshedCredential(t *testing.T) {
 				presentation *verifiable.Presentation,
 				options *verifypresentation.Options,
 				verifier *profileapi.Verifier,
-			) ([]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error) {
+			) (verifypresentation.PresentationVerificationResult, map[string][]string, error) {
 				assert.True(t, verifier.Checks.Presentation.Proof)
 
 				assert.True(t, verifier.Checks.Credential.Proof)
 				assert.True(t, verifier.Checks.Credential.CredentialExpiry)
 				assert.True(t, verifier.Checks.Credential.Status)
 
-				return nil, nil, nil
+				return verifypresentation.PresentationVerificationResult{}, nil, nil
 			})
 
 		credentialResponse, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation,
@@ -471,14 +471,14 @@ func TestGetRefreshedCredential(t *testing.T) {
 				presentation *verifiable.Presentation,
 				options *verifypresentation.Options,
 				verifier *profileapi.Verifier,
-			) ([]verifypresentation.PresentationVerificationCheckResult, map[string][]string, error) {
+			) (verifypresentation.PresentationVerificationResult, map[string][]string, error) {
 				assert.True(t, verifier.Checks.Presentation.Proof)
 
 				assert.True(t, verifier.Checks.Credential.Proof)
 				assert.True(t, verifier.Checks.Credential.CredentialExpiry)
 				assert.True(t, verifier.Checks.Credential.Status)
 
-				return nil, nil, nil
+				return verifypresentation.PresentationVerificationResult{}, nil, nil
 			})
 
 		credentialResponse, err := srv.GetRefreshedCredential(context.TODO(), signedRequestedCredentialsVP.Presentation,

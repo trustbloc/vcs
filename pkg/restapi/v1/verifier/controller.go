@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -25,6 +26,9 @@ import (
 	"github.com/samber/lo"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
@@ -153,6 +157,7 @@ type Controller struct {
 	tracer                trace.Tracer
 	eventSvc              eventService
 	eventTopic            string
+	vdr                   vdrapi.Registry
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
@@ -179,6 +184,7 @@ func NewController(config *Config) *Controller {
 		tracer:                config.Tracer,
 		eventSvc:              config.EventSvc,
 		eventTopic:            config.EventTopic,
+		vdr:                   config.VDR,
 	}
 }
 
@@ -194,6 +200,10 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 
 	if err := util.ReadBody(e, &body); err != nil {
 		return err
+	}
+
+	if body.VerifiableCredential == nil && body.Credential != nil {
+		body.VerifiableCredential = body.Credential
 	}
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
@@ -216,6 +226,10 @@ func (c *Controller) verifyCredential(
 	profileVersion string,
 	tenantID string,
 ) (*VerifyCredentialResponse, error) {
+	if body.VerifiableCredential == nil && body.Credential != nil {
+		body.VerifiableCredential = body.Credential
+	}
+
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
@@ -223,7 +237,7 @@ func (c *Controller) verifyCredential(
 
 	credential, err := vc.ValidateCredential(
 		ctx,
-		body.Credential,
+		body.VerifiableCredential,
 		profile.Checks.Credential.Format,
 		profile.Checks.Credential.CredentialExpiry,
 		profile.Checks.Credential.Strict,
@@ -270,32 +284,84 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVe
 		return err
 	}
 
+	if len(lo.FromPtr(resp.Errors)) > 0 {
+		return util.WriteOutputWithCode(http.StatusBadRequest, e)(resp, nil)
+	}
+
 	return util.WriteOutput(e)(resp, nil)
 }
 
-func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresentationData,
-	profileID, profileVersion, tenantID string) (*VerifyPresentationResponse, error) {
+func (c *Controller) verifyPresentation(
+	ctx context.Context,
+	body *VerifyPresentationData,
+	profileID string,
+	profileVersion string,
+	tenantID string,
+) (*VerifyPresentationResponse, error) {
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	presentation, err := vp.ValidatePresentation(body.Presentation, profile.Checks.Presentation.Format,
+	dataVerifier, err := c.getDataIntegrityVerifier()
+	if err != nil {
+		return nil, resterr.NewSystemError(resterr.VerifierPresentationVerifierComponent,
+			"VerifyPresentation", err)
+	}
+
+	opts := []verifiable.PresentationOpt{
 		verifiable.WithPresProofChecker(c.proofChecker),
-		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader))
+		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
+		verifiable.WithPresDataIntegrityVerifier(dataVerifier),
+	}
+
+	if body.Options != nil {
+		opts = append(opts, verifiable.WithPresExpectedDataIntegrityFields(
+			"authentication",
+			lo.FromPtr(body.Options.Domain),
+			lo.FromPtr(body.Options.Challenge),
+		))
+	}
+
+	presentation, err := vp.ValidatePresentation(
+		body.VerifiablePresentation,
+		profile.Checks.Presentation.Format,
+		opts...,
+	)
 
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation", err)
 	}
 
-	verRes, _, err := c.verifyPresentationSvc.VerifyPresentation(ctx, presentation,
-		getVerifyPresentationOptions(body.Options), profile)
+	verRes, _, err := c.verifyPresentationSvc.VerifyPresentation(
+		ctx,
+		presentation,
+		getVerifyPresentationOptions(body.Options),
+		profile,
+	)
+
 	if err != nil {
 		return nil, resterr.NewSystemError(resterr.VerifierVerifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
-	logger.Debugc(ctx, "PostVerifyPresentation success")
-	return mapVerifyPresentationChecks(verRes), nil
+	logger.Debugc(ctx, "PostVerifyPresentation completed")
+
+	return mapVerifyPresentationChecks(verRes, presentation), nil
+}
+
+func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: c.vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: c.documentLoader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: c.documentLoader,
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("new verifier: %w", err)
+	}
+
+	return verifier, nil
 }
 
 // InitiateOidcInteraction initiates OpenID presentation flow through VCS.
@@ -758,7 +824,8 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 
 	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-		verifiable.WithPresProofChecker(c.proofChecker))
+		verifiable.WithPresProofChecker(c.proofChecker),
+	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
@@ -1084,22 +1151,42 @@ func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerification
 }
 
 func mapVerifyPresentationChecks(
-	checks []verifypresentation.PresentationVerificationCheckResult) *VerifyPresentationResponse {
-	if len(checks) == 0 {
-		return &VerifyPresentationResponse{}
+	result verifypresentation.PresentationVerificationResult,
+	pres *verifiable.Presentation,
+) *VerifyPresentationResponse {
+	final := &VerifyPresentationResponse{
+		Checks:             nil,
+		Errors:             nil,
+		PresentationResult: PresentationResult{}, // vcplayground
+		Warnings:           nil,
 	}
 
-	var checkList []VerifyPresentationCheckResult
-	for _, check := range checks {
-		checkList = append(checkList, VerifyPresentationCheckResult{
-			Check: check.Check,
-			Error: check.Error,
-		})
+	var errArr []string
+
+	for _, check := range result.Checks {
+		final.Checks = append(final.Checks, check.Check)
+
+		if check.Error != nil {
+			errArr = append(errArr, check.Error.Error())
+		}
 	}
 
-	return &VerifyPresentationResponse{
-		Checks: &checkList,
+	if len(errArr) > 0 {
+		final.Errors = &errArr
 	}
+
+	final.PresentationResult.Verified = len(errArr) == 0 // vcplayeground
+	final.Verified = final.PresentationResult.Verified   // vcplayeground
+
+	if final.PresentationResult.Verified && pres != nil {
+		for range pres.Credentials() {
+			final.CredentialResults = append(final.CredentialResults, PresentationResult{ // vcplayeground
+				Verified: true,
+			})
+		}
+	}
+
+	return final
 }
 
 func getVerifyCredentialOptions(options *VerifyCredentialOptions) *verifycredential.Options {

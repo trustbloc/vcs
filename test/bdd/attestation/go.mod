@@ -12,8 +12,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.1-0.20241015091350-bb3317ba5bdd
-	github.com/trustbloc/vc-go v1.2.1-0.20241024133843-c0dd16d854d1
+	github.com/trustbloc/did-go v1.3.1-0.20241028131019-014935534038
+	github.com/trustbloc/vc-go v1.2.1-0.20241031140324-d25fb970e6f5
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 
@@ -71,3 +71,5 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/trustbloc/json-gold v0.5.1

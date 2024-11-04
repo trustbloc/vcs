@@ -97,7 +97,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 		marshal bool
 		fields  fields
 		args    args
-		want    []PresentationVerificationCheckResult
+		want    PresentationVerificationResult
 		wantErr bool
 	}{
 		{
@@ -154,7 +154,34 @@ func TestService_VerifyPresentation(t *testing.T) {
 					Challenge: crypto.Challenge,
 				},
 			},
-			want:    nil,
+			want: PresentationVerificationResult{
+				Checks: []*Check{
+					{
+						Check: "proof",
+					},
+					{
+						Check: "credentialType",
+					},
+					{
+						Check: "issuerTrustList",
+					},
+					{
+						Check: "credentialExpiry",
+					},
+					{
+						Check: "credentialProof",
+					},
+					{
+						Check: "credentialStatus",
+					},
+					{
+						Check: "linkedDomain",
+					},
+					{
+						Check: "credentialStrict",
+					},
+				},
+			},
 			wantErr: false,
 		},
 		{
@@ -215,10 +242,33 @@ func TestService_VerifyPresentation(t *testing.T) {
 					Challenge: crypto.Challenge,
 				},
 			},
-			want: []PresentationVerificationCheckResult{
-				{
-					Check: "issuerTrustList",
-					Error: "credential type: UniversityDegreeCredential is not a member of trustlist configuration",
+			want: PresentationVerificationResult{
+				Checks: []*Check{
+					{
+						Check: "proof",
+					},
+					{
+						Check: "credentialType",
+					},
+					{
+						Check: "issuerTrustList",
+						Error: errors.New("credential type: UniversityDegreeCredential is not a member of trustlist configuration"),
+					},
+					{
+						Check: "credentialExpiry",
+					},
+					{
+						Check: "credentialProof",
+					},
+					{
+						Check: "credentialStatus",
+					},
+					{
+						Check: "linkedDomain",
+					},
+					{
+						Check: "credentialStrict",
+					},
 				},
 			},
 			wantErr: false,
@@ -252,7 +302,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 				opts: nil,
 			},
-			want:    nil,
+			want: PresentationVerificationResult{
+				Checks: nil,
+			},
 			wantErr: false,
 		},
 		{
@@ -310,22 +362,30 @@ func TestService_VerifyPresentation(t *testing.T) {
 					Challenge: crypto.Challenge,
 				},
 			},
-			want: []PresentationVerificationCheckResult{
-				{
-					Check: "issuerTrustList",
-					Error: "issuer with id: https://example.edu/issuers/14 is not a member of trustlist",
-				},
-				{
-					Check: "credentialProof",
-					Error: "some error\nsome error",
-				},
-				{
-					Check: "credentialStatus",
-					Error: "some error",
-				},
-				{
-					Check: "linkedDomain",
-					Error: "some error",
+			want: PresentationVerificationResult{
+				Checks: []*Check{
+					{
+						Check: "credentialType",
+					},
+					{
+						Check: "credentialType",
+					},
+					{
+						Check: "issuerTrustList",
+						Error: errors.New("issuer with id: https://example.edu/issuers/14 is not a member of trustlist"),
+					},
+					{
+						Check: "credentialProof",
+						Error: errors.Join(errors.Join(errors.New("some error")), errors.New("some error")),
+					},
+					{
+						Check: "credentialStatus",
+						Error: errors.New("some error"),
+					},
+					{
+						Check: "linkedDomain",
+						Error: errors.New("some error"),
+					},
 				},
 			},
 			wantErr: false,
@@ -344,7 +404,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 				t.Errorf("VerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+
+			if !reflect.DeepEqual(got, tt.want) { //nolint:govet
 				t.Errorf("VerifyPresentation() got = %v, want %v", got, tt.want)
 			}
 		})
@@ -409,7 +470,7 @@ func TestService_VerifyPresentationCWT(t *testing.T) {
 				})
 
 			assert.NoError(t, err)
-			assert.Len(t, got, 0)
+			assert.Len(t, got.Checks, 8)
 		})
 	}
 }

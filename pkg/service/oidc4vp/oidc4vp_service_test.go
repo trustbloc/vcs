@@ -46,6 +46,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
+	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
 var (
@@ -454,7 +455,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	}, nil)
 
 	presentationVerifier.EXPECT().VerifyPresentation(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().Return(nil, nil, nil)
+		AnyTimes().Return(verifypresentation.PresentationVerificationResult{}, nil, nil)
 
 	trustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil)
@@ -1068,7 +1069,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errPresentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
 		errPresentationVerifier.EXPECT().VerifyPresentation(
 			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
-			Return(nil, nil, errors.New("verification failed"))
+			Return(verifypresentation.PresentationVerificationResult{}, nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             mockEventSvc,
 			EventTopic:           spi.VerifierEventTopic,

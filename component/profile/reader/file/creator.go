@@ -308,13 +308,16 @@ func newVerMethods(count int, km KeysCreator, verMethodType vcsverifiable.Signat
 			return nil, fmt.Errorf("failed to create key: %w", err)
 		}
 
+		verificationMethod := signatureTypeToDidVerificationMethod[verMethodType]
+
 		// TODO sidetree doesn't support VM controller: https://github.com/decentralized-identity/sidetree/issues/1010
 		vm, err := did.NewVerificationMethodFromJWK(
 			keyID,
-			signatureTypeToDidVerificationMethod[verMethodType],
+			verificationMethod,
 			"",
 			j,
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to create verification method: %w", err)
 		}
