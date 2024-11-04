@@ -105,7 +105,7 @@ func (e *Steps) createCredential(
 	}
 
 	req := &model.IssueCredentialData{
-		VerifiableCredential: reqData,
+		Credential: reqData,
 	}
 
 	requestBytes, err := json.Marshal(req)

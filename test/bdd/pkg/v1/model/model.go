@@ -123,7 +123,7 @@ type VCConfig struct {
 // IssueCredentialData model for issuing credential.
 type IssueCredentialData struct {
 	// URI of the verifier.
-	VerifiableCredential interface{} `json:"verifiableCredential"`
+	Credential interface{} `json:"credential"`
 
 	// Options for issuing credential.
 	Options *IssueCredentialOptions `json:"options,omitempty"`
