@@ -128,8 +128,8 @@ func (e *Steps) createCredential(
 		return cred.Contents().ID, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return cred.Contents().ID, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	if resp.StatusCode != http.StatusCreated {
+		return cred.Contents().ID, bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
 	e.Lock()
