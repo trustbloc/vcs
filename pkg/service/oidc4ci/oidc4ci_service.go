@@ -175,6 +175,7 @@ type Config struct {
 	AckService                    ackService
 	DocumentLoader                documentLoader
 	PrepareCredential             credentialIssuer
+	WellKnownProvider             wellKnownProvider
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -198,6 +199,7 @@ type Service struct {
 	ackService                    ackService
 	documentLoader                documentLoader
 	credentialIssuer              credentialIssuer
+	wellKnownProvider             wellKnownProvider
 }
 
 // NewService returns a new Service instance.
@@ -222,6 +224,7 @@ func NewService(config *Config) (*Service, error) {
 		ackService:                    config.AckService,
 		documentLoader:                config.DocumentLoader,
 		credentialIssuer:              config.PrepareCredential,
+		wellKnownProvider:             config.WellKnownProvider,
 	}, nil
 }
 
@@ -779,6 +782,13 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 			return nil, err
 		}
+
+		id := requestedTxCredentialConfigurationIDs
+		b, _ := json.Marshal(id)
+		logger.Info(fmt.Sprintf("requestedTxCredentialConfigurationIDs : %v", string(b)))
+
+		b1, _ := json.Marshal(tx)
+		logger.Info(fmt.Sprintf("tx : %v", string(b1)))
 
 		requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID] = struct{}{}
 

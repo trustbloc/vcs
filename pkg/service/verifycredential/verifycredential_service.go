@@ -131,6 +131,7 @@ func (s *Service) verifyVC(
 		return fmt.Errorf("get data integrity verifier: %w", err)
 	}
 
+	logger.Info(fmt.Sprintf("verifying VC with challenge[%s] and domain[%s]", challenge, domain))
 	opts := []verifiable.CredentialOpt{
 		verifiable.WithProofChecker(
 			defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)),

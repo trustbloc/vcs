@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"log/slog"
 	"net"
@@ -23,6 +22,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/cli/browser"
 	"github.com/google/uuid"

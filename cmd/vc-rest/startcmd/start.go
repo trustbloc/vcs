@@ -115,6 +115,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
 	"github.com/trustbloc/vcs/pkg/storage/redis/ackstore"
+	"github.com/trustbloc/vcs/pkg/storage/redis/dynamicwellknown"
 	oidc4ciclaimdatastoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4ciclaimdatastore"
 	oidc4cinoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cinoncestore"
 	oidc4cistatestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cistatestore"
@@ -553,10 +554,16 @@ func buildEchoHandler(
 		return newHTTPClient(tlsConfig, conf.StartupParameters, metrics, id)
 	}
 
+	dynamicWellKnownStore, err := getDynamicWellKnownStore(redisClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dynamic well-known store: %w", err)
+	}
+
 	openidCredentialIssuerConfigProviderSvc := wellknownprovider.NewService(&wellknownprovider.Config{
-		ExternalHostURL: conf.StartupParameters.apiGatewayURL,
-		KMSRegistry:     kmsRegistry,
-		CryptoJWTSigner: vcCrypto,
+		ExternalHostURL:       conf.StartupParameters.apiGatewayURL,
+		KMSRegistry:           kmsRegistry,
+		CryptoJWTSigner:       vcCrypto,
+		DynamicWellKnownStore: dynamicWellKnownStore,
 	})
 
 	// Issuer Profile Management API
@@ -735,6 +742,7 @@ func buildEchoHandler(
 		AckService:                    ackService,
 		DocumentLoader:                documentLoader,
 		PrepareCredential:             prepareCredentialSvc,
+		WellKnownProvider:             openidCredentialIssuerConfigProviderSvc,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -1211,6 +1219,12 @@ func getOIDC4CITransactionStore(
 	}
 
 	return store, nil
+}
+
+func getDynamicWellKnownStore(
+	redisClient *redis.Client,
+) (wellknownprovider.DynamicWellKnownStore, error) {
+	return dynamicwellknown.New(redisClient, defaultDynamicWellKnownTTL), nil
 }
 
 func getAckStore(

@@ -148,7 +148,7 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIResponseData initiateOIDC4VCIR
 
 	opts = append(opts, options...)
 
-	if !s.useCredentialOfferCredConfigIDForCredentialRequest {
+	if !s.useCredentialOfferCredConfigIDForCredentialRequest && !s.issuerProfile.OIDCConfig.DynamicWellKnownSupported {
 		credentialTypes := strings.Split(s.issuedCredentialType, ",")
 
 		// Set option filters

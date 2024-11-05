@@ -179,6 +179,7 @@ type OIDCConfig struct {
 	CredentialResponseAlgValuesSupported       []string `json:"credential_response_alg_values_supported"`
 	CredentialResponseEncValuesSupported       []string `json:"credential_response_enc_values_supported"`
 	CredentialResponseEncryptionRequired       bool     `json:"credential_response_encryption_required"`
+	DynamicWellKnownSupported                  bool     `json:"dynamic_well_known_supported"`
 	ClaimsEndpoint                             string   `json:"claims_endpoint"`
 }
 

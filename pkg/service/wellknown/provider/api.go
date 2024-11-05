@@ -1,0 +1,3 @@
+package provider
+
+type DynamicWellKnownStore dynamicWellKnownStore
