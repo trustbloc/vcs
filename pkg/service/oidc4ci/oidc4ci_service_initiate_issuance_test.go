@@ -1342,7 +1342,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := ""
 				claimData := degreeClaims
 
-				profile = &testProfile
+				b, err := json.Marshal(testProfile)
+				require.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(b, &profile))
 				delete(profile.CredentialMetaData.CredentialsConfigurationSupported, "UniversityDegreeCredentialIdentifier")
 				profile.OIDCConfig.DynamicWellKnownSupported = true
 
@@ -1570,6 +1573,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				}
 
 				profile = &testProfile
+				profile.OIDCConfig.DynamicWellKnownSupported = false
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
