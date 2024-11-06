@@ -156,6 +156,10 @@
           },
           "sdjwt": {
             "enable": false
+          },
+          "dataIntegrityProof": {
+            "enable": true,
+            "suiteType": "eddsa-rdfc-2022"
           }
         },
         "oidcConfig": {
@@ -182,6 +186,9 @@
           "wallet_initiated_auth_flow_supported": true,
           "dynamic_well_known_supported" : true,
           "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
+        },
+        "kmsConfig" : {
+          "kmsType" : "local"
         },
         "credentialTemplates": [],
         "credentialMetadata": {}

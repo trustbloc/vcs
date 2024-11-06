@@ -792,6 +792,8 @@ github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4mua
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
 github.com/trustbloc/vc-go v1.2.1-0.20241031140324-d25fb970e6f5 h1:p3dmAih8yucca6pLMeRwjzHHcX1k5g4KbreH329doBw=
 github.com/trustbloc/vc-go v1.2.1-0.20241031140324-d25fb970e6f5/go.mod h1:3/GbrzF7phN+SxBTZaUBS6VxnoxpXGBUjjk3Eg4ImUk=
+github.com/trustbloc/vc-go v1.2.1-0.20241106122245-51c805275bfc h1:YbH7BthyCr3hipCPxVkUxMVdo2HK7xKc1fPX+vtbXUE=
+github.com/trustbloc/vc-go v1.2.1-0.20241106122245-51c805275bfc/go.mod h1:3/GbrzF7phN+SxBTZaUBS6VxnoxpXGBUjjk3Eg4ImUk=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
