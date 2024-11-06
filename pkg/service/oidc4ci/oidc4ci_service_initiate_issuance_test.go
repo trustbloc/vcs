@@ -56,6 +56,7 @@ type mocks struct {
 	ackService          *MockAckService
 	documentLoader      *jsonld.DefaultDocumentLoader
 	composer            *Mockcomposer
+	wellKnown           *MockwellKnownProvider
 }
 
 func TestService_InitiateIssuance(t *testing.T) {
@@ -1336,6 +1337,42 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "Success with Dynamic WellKnown",
+			setup: func(mocks *mocks) {
+				initialOpState := ""
+				claimData := degreeClaims
+
+				profile = &testProfile
+				delete(profile.CredentialMetaData.CredentialsConfigurationSupported, "UniversityDegreeCredentialIdentifier")
+				profile.OIDCConfig.DynamicWellKnownSupported = true
+
+				mocks.wellKnown.EXPECT().
+					AddDynamicConfiguration(gomock.Any(), profile.ID, gomock.Any(), gomock.Any()).
+					Return(nil)
+
+				mocks.jsonSchemaValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("schema validation err"))
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					GrantType:          oidc4ci.GrantTypePreAuthorizedCode,
+					Scope:              []string{"openid", "profile"},
+					CredentialConfiguration: []oidc4ci.InitiateIssuanceCredentialConfiguration{
+						{
+							CredentialTemplateID: "templateID2",
+							ClaimData:            claimData,
+						},
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "schema validation err")
+				require.Nil(t, resp)
+			},
+		},
+		{
 			name: "Error because of event publishing",
 			setup: func(mocks *mocks) {
 				initialOpState := "eyJhbGciOiJSU0Et"
@@ -1866,6 +1903,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				crypto:              NewMockDataProtector(gomock.NewController(t)),
 				jsonSchemaValidator: NewMockJSONSchemaValidator(gomock.NewController(t)),
 				documentLoader:      jsonld.NewDefaultDocumentLoader(http.DefaultClient),
+				wellKnown:           NewMockwellKnownProvider(gomock.NewController(t)),
 			}
 
 			tt.setup(m)
@@ -1881,6 +1919,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				DataProtector:       m.crypto,
 				JSONSchemaValidator: m.jsonSchemaValidator,
 				DocumentLoader:      m.documentLoader,
+				WellKnownProvider:   m.wellKnown,
 			})
 			require.NoError(t, err)
 

@@ -221,6 +221,23 @@ func TestValidateVPFormat(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestMapVcFormat(t *testing.T) {
+	got, err := MapToVCFormat(vcsverifiable.Jwt)
+	require.NoError(t, err)
+	require.EqualValues(t, JwtVcJson, got)
+
+	got, err = MapToVCFormat(vcsverifiable.Ldp)
+	require.NoError(t, err)
+	require.EqualValues(t, JwtVcJsonLd, got)
+
+	got, err = MapToVCFormat(vcsverifiable.Cwt)
+	require.NoError(t, err)
+	require.EqualValues(t, CwtVcLd, got)
+
+	_, err = MapToVCFormat("invalid")
+	require.Error(t, err)
+}
+
 func TestValidateDIDMethod(t *testing.T) {
 	got, err := ValidateDIDMethod(DIDMethodKey)
 	require.NoError(t, err)

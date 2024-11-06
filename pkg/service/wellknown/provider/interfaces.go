@@ -12,7 +12,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
-//go:generate mockgen -destination interfaces_mocks_test.go -package provider_test -source=interfaces.go
+//go:generate mockgen -destination interfaces_mocks_test.go -package provider -source=interfaces.go
 
 type dynamicWellKnownStore interface {
 	Upsert(
