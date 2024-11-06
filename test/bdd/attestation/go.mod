@@ -11,6 +11,7 @@ toolchain go1.22.4
 require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
+	github.com/samber/lo v1.47.0
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.3.1-0.20241028131019-014935534038
 	github.com/trustbloc/vc-go v1.2.1-0.20241031140324-d25fb970e6f5
@@ -43,7 +44,6 @@ require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
-	github.com/samber/lo v1.47.0 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/gjson v1.14.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -51,7 +51,7 @@ require (
 	github.com/tidwall/sjson v1.1.4 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
 	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88 // indirect
-	github.com/trustbloc/logutil-go v1.0.1-0.20241101181049-1d51079631d9 // indirect
+	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e // indirect
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect

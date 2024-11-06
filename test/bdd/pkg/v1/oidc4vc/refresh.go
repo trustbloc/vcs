@@ -45,7 +45,7 @@ func (s *Steps) ensureCredentialServiceSet() error {
 }
 
 func (s *Steps) ensureNoCredentialRefreshAvailable() error {
-	flow, err := refresh.NewFlow(s.oidc4vpProvider, refresh.WithTracer(s.bddContext.Tracer))
+	flow, err := refresh.NewFlow(s.oidc4vpProvider)
 	if err != nil {
 		return fmt.Errorf("init flow: %w", err)
 	}
@@ -63,7 +63,7 @@ func (s *Steps) ensureNoCredentialRefreshAvailable() error {
 }
 
 func (s *Steps) walletRefreshesCredential() error {
-	flow, err := refresh.NewFlow(s.oidc4vpProvider, refresh.WithTracer(s.bddContext.Tracer))
+	flow, err := refresh.NewFlow(s.oidc4vpProvider)
 	if err != nil {
 		return fmt.Errorf("init flow: %w", err)
 	}
