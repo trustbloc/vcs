@@ -220,10 +220,6 @@ func (s *Service) newTxCredentialConf(
 		return nil, err
 	}
 
-	//profileMeta := profile.CredentialMetaData
-
-	//metaCredentialConfiguration := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
-
 	txCredentialConfiguration := &issuecredential.TxCredentialConfiguration{
 		ID:                    uuid.NewString(),
 		CredentialTemplate:    targetCredentialTemplate,

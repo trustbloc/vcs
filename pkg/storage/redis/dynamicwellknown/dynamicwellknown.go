@@ -53,18 +53,14 @@ func (s *Store) Upsert(
 		return err
 	}
 
-	if err = s.redisClient.API().Set(ctx, s.resolveRedisKey(profileID), string(b), s.defaultTTL).Err(); err != nil {
-		return err
-	}
-
-	return nil
+	return s.redisClient.API().Set(ctx, s.resolveRedisKey(profileID), string(b), s.defaultTTL).Err()
 }
 
 func (s *Store) Get(ctx context.Context, id string) (map[string]*profileapi.CredentialsConfigurationSupported, error) {
 	b, err := s.redisClient.API().Get(ctx, s.resolveRedisKey(id)).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return nil, nil
+			return map[string]*profileapi.CredentialsConfigurationSupported{}, nil
 		}
 
 		return nil, err

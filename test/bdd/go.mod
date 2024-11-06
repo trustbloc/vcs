@@ -32,6 +32,7 @@ require (
 	github.com/trustbloc/vc-go v1.2.1-0.20241031140324-d25fb970e6f5
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
+	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0
 	go.opentelemetry.io/otel/trace v1.29.0
 	go.uber.org/zap v1.27.0
