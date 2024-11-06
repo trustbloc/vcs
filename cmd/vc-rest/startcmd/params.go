@@ -392,6 +392,7 @@ const (
 	defaultOIDC4CITransactionDataTTL    = 15 * time.Minute
 	defaultOIDC4CIAckDataTTL            = 24 * time.Hour
 	defaultOIDC4CIAuthStateTTL          = 15 * time.Minute
+	defaultDynamicWellKnownTTL          = 1 * time.Hour
 	defaultDataEncryptionKeyLength      = 256
 )
 

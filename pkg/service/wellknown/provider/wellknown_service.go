@@ -9,6 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -41,23 +43,37 @@ type JWTWellKnownOpenIDIssuerConfigurationClaims struct {
 }
 
 type Config struct {
-	ExternalHostURL string
-	KMSRegistry     kmsRegistry
-	CryptoJWTSigner cryptoJWTSigner
+	ExternalHostURL       string
+	KMSRegistry           kmsRegistry
+	CryptoJWTSigner       cryptoJWTSigner
+	DynamicWellKnownStore dynamicWellKnownStore
 }
 
 type Service struct {
-	externalHostURL string
-	kmsRegistry     kmsRegistry
-	cryptoJWTSigner cryptoJWTSigner
+	externalHostURL       string
+	kmsRegistry           kmsRegistry
+	cryptoJWTSigner       cryptoJWTSigner
+	dynamicWellKnownStore dynamicWellKnownStore
 }
 
 func NewService(config *Config) *Service {
 	return &Service{
-		externalHostURL: config.ExternalHostURL,
-		kmsRegistry:     config.KMSRegistry,
-		cryptoJWTSigner: config.CryptoJWTSigner,
+		externalHostURL:       config.ExternalHostURL,
+		kmsRegistry:           config.KMSRegistry,
+		cryptoJWTSigner:       config.CryptoJWTSigner,
+		dynamicWellKnownStore: config.DynamicWellKnownStore,
 	}
+}
+
+func (s *Service) AddDynamicConfiguration(
+	ctx context.Context,
+	profileID string,
+	id string,
+	credSupported *profileapi.CredentialsConfigurationSupported,
+) error {
+	return s.dynamicWellKnownStore.Upsert(ctx, profileID, map[string]*profileapi.CredentialsConfigurationSupported{
+		id: credSupported,
+	})
 }
 
 // GetOpenIDCredentialIssuerConfig returns issuer.WellKnownOpenIDIssuerConfiguration object, and
@@ -79,7 +95,10 @@ func (s *Service) GetOpenIDCredentialIssuerConfig(
 		err                     error
 	)
 
-	issuerMetadata := s.getOpenIDIssuerConfig(issuerProfile)
+	issuerMetadata, err := s.getOpenIDIssuerConfig(issuerProfile)
+	if err != nil {
+		return nil, "", err
+	}
 
 	if issuerProfile.OIDCConfig != nil && issuerProfile.OIDCConfig.SignedIssuerMetadataSupported {
 		jwtSignedIssuerMetadata, err = s.signIssuerMetadata(issuerProfile, issuerMetadata)
@@ -91,7 +110,9 @@ func (s *Service) GetOpenIDCredentialIssuerConfig(
 	return issuerMetadata, jwtSignedIssuerMetadata, nil
 }
 
-func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issuer.WellKnownOpenIDIssuerConfiguration {
+func (s *Service) getOpenIDIssuerConfig(
+	issuerProfile *profileapi.Issuer,
+) (*issuer.WellKnownOpenIDIssuerConfiguration, error) {
 	// TODO: add support of internationalization and Accept-Language Header for this function.
 	// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-11.2.2
 	// For now, the following option from the spec supported:
@@ -99,6 +120,27 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 	host := s.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
+	}
+
+	if issuerProfile.OIDCConfig != nil && issuerProfile.OIDCConfig.DynamicWellKnownSupported {
+		if issuerProfile.CredentialMetaData == nil {
+			issuerProfile.CredentialMetaData = &profileapi.CredentialMetaData{}
+		}
+
+		dynamic, err := s.dynamicWellKnownStore.Get(context.Background(), issuerProfile.ID)
+		if err != nil {
+			return nil, errors.Join(err, errors.New("can not get dynamic well-known"))
+		}
+
+		if issuerProfile.CredentialMetaData.CredentialsConfigurationSupported == nil {
+			issuerProfile.CredentialMetaData.CredentialsConfigurationSupported = make(
+				map[string]*profileapi.CredentialsConfigurationSupported,
+			)
+		}
+
+		for k, v := range dynamic {
+			issuerProfile.CredentialMetaData.CredentialsConfigurationSupported[k] = v
+		}
 	}
 
 	credentialsConfigurationSupported := s.buildCredentialConfigurationsSupported(issuerProfile)
@@ -142,7 +184,7 @@ func (s *Service) getOpenIDIssuerConfig(issuerProfile *profileapi.Issuer) *issue
 			lo.ToPtr(issuerProfile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported)
 	}
 
-	return final
+	return final, nil
 }
 
 func (s *Service) signIssuerMetadata(

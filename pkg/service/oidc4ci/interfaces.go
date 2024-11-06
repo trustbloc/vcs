@@ -5,6 +5,7 @@ import (
 
 	"github.com/trustbloc/vc-go/verifiable"
 
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
@@ -23,4 +24,13 @@ type composer interface { // nolint:unused
 		cred *verifiable.Credential,
 		req *issuecredential.PrepareCredentialsRequest,
 	) (*verifiable.Credential, error)
+}
+
+type wellKnownProvider interface {
+	AddDynamicConfiguration(
+		ctx context.Context,
+		profileID string,
+		id string,
+		credSupported *profileapi.CredentialsConfigurationSupported,
+	) error
 }

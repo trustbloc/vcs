@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
@@ -208,15 +209,16 @@ func (s *Service) newTxCredentialConf(
 		}
 	}
 
-	credentialConfigurationID, _, err := findCredentialConfigurationID(
-		targetCredentialTemplate.ID, targetCredentialTemplate.Type, profile)
+	credentialConfigurationID, metaCredentialConfiguration, err := s.findCredentialConfigurationID(
+		ctx,
+		targetCredentialTemplate.ID,
+		targetCredentialTemplate.Type,
+		profile,
+	)
+
 	if err != nil {
 		return nil, err
 	}
-
-	profileMeta := profile.CredentialMetaData
-
-	metaCredentialConfiguration := profileMeta.CredentialsConfigurationSupported[credentialConfigurationID]
 
 	txCredentialConfiguration := &issuecredential.TxCredentialConfiguration{
 		ID:                    uuid.NewString(),
@@ -489,7 +491,8 @@ func findCredentialTemplate(
 	return profile.CredentialTemplates[0], nil
 }
 
-func findCredentialConfigurationID(
+func (s *Service) findCredentialConfigurationID(
+	ctx context.Context,
 	requestedTemplateID string,
 	credentialType string,
 	profile *profileapi.Issuer,
@@ -498,6 +501,28 @@ func findCredentialConfigurationID(
 		if lo.Contains(v.CredentialDefinition.Type, credentialType) {
 			return k, v, nil
 		}
+	}
+
+	if profile.OIDCConfig.DynamicWellKnownSupported {
+		id := uuid.NewString()
+
+		vcFormat, err := common.MapToVCFormat(profile.VCConfig.Format)
+		if err != nil {
+			return "", nil, err
+		}
+
+		cfg := &profileapi.CredentialsConfigurationSupported{
+			Format: vcFormat,
+			CredentialDefinition: &profileapi.CredentialDefinition{
+				Type: []string{credentialType},
+			},
+		}
+
+		if err = s.wellKnownProvider.AddDynamicConfiguration(ctx, profile.ID, id, cfg); err != nil {
+			return "", nil, err
+		}
+
+		return id, cfg, nil
 	}
 
 	return "", nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id",

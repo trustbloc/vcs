@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -284,6 +285,93 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Nil(t, res.RegistrationEndpoint)
 		assert.Nil(t, res.TokenEndpointAuthMethodsSupported)
 	}
+}
+
+func TestBuildWithDynamic(t *testing.T) {
+	t.Run("dynamic err", func(t *testing.T) {
+		store := NewMockdynamicWellKnownStore(gomock.NewController(t))
+
+		srv := NewService(&Config{
+			DynamicWellKnownStore: store,
+		})
+
+		store.EXPECT().Get(gomock.Any(), "12345").
+			Return(nil, errors.New("unexpected err"))
+
+		resp, err := srv.getOpenIDIssuerConfig(&profileapi.Issuer{
+			ID:                 "12345",
+			CredentialMetaData: &profileapi.CredentialMetaData{},
+			OIDCConfig: &profileapi.OIDCConfig{
+				DynamicWellKnownSupported: true,
+			},
+			VCConfig: &profileapi.VCConfig{
+				KeyType: "someKey",
+			},
+		})
+
+		assert.ErrorContains(t, err, "unexpected err")
+		assert.Nil(t, resp)
+	})
+	t.Run("success", func(t *testing.T) {
+		store := NewMockdynamicWellKnownStore(gomock.NewController(t))
+
+		srv := NewService(&Config{
+			DynamicWellKnownStore: store,
+		})
+
+		store.EXPECT().Get(gomock.Any(), "12345").
+			Return(map[string]*profileapi.CredentialsConfigurationSupported{
+				"a": {
+					CredentialDefinition: &profileapi.CredentialDefinition{
+						Type: []string{"SomeType"},
+					},
+				},
+			}, nil)
+
+		resp, err := srv.getOpenIDIssuerConfig(&profileapi.Issuer{
+			ID:                 "12345",
+			CredentialMetaData: &profileapi.CredentialMetaData{},
+			OIDCConfig: &profileapi.OIDCConfig{
+				DynamicWellKnownSupported: true,
+			},
+			VCConfig: &profileapi.VCConfig{
+				KeyType: "someKey",
+			},
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		assert.Len(t, resp.CredentialConfigurationsSupported.AdditionalProperties, 1)
+		assert.EqualValues(
+			t,
+			[]string{"SomeType"},
+			resp.CredentialConfigurationsSupported.AdditionalProperties["a"].CredentialDefinition.Type,
+		)
+	})
+}
+
+func TestUpsert(t *testing.T) {
+	store := NewMockdynamicWellKnownStore(gomock.NewController(t))
+
+	srv := NewService(&Config{
+		DynamicWellKnownStore: store,
+	})
+
+	val := &profileapi.CredentialsConfigurationSupported{}
+
+	store.EXPECT().Upsert(gomock.Any(), "profileID", gomock.Any()).
+		DoAndReturn(func(
+			ctx context.Context,
+			s string,
+			m map[string]*profileapi.CredentialsConfigurationSupported,
+		) error {
+			assert.Len(t, m, 1)
+			assert.Equal(t, val, m["key1"])
+			return nil
+		})
+	assert.NoError(t, srv.AddDynamicConfiguration(context.TODO(), "profileID", "key1",
+		val))
 }
 
 func checkWellKnownOpenIDIssuerConfigurationDisplayPropertyExist(t *testing.T, display []issuer.CredentialDisplay) {
