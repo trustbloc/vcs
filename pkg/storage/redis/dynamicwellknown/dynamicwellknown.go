@@ -1,3 +1,9 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package dynamicwellknown
 
 import (
@@ -66,6 +72,10 @@ func (s *Store) Get(ctx context.Context, id string) (map[string]*profileapi.Cred
 		return nil, err
 	}
 
+	if len(b) == 0 {
+		return map[string]*profileapi.CredentialsConfigurationSupported{}, nil
+	}
+
 	var result map[string]*profileapi.CredentialsConfigurationSupported
 	if err = json.Unmarshal(b, &result); err != nil {
 		return nil, err
@@ -75,5 +85,5 @@ func (s *Store) Get(ctx context.Context, id string) (map[string]*profileapi.Cred
 }
 
 func (s *Store) resolveRedisKey(id string) string {
-	return fmt.Sprintf("%s-%s", keyPrefix, id)
+	return fmt.Sprintf("%s:%s", keyPrefix, id)
 }
