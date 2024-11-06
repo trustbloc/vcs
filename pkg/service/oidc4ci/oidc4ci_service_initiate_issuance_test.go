@@ -1342,8 +1342,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := ""
 				claimData := degreeClaims
 
-				b, err := json.Marshal(testProfile)
-				require.NoError(t, err)
+				b, err := json.Marshal(testProfile) //nolint
+				assert.NoError(t, err)
 
 				assert.NoError(t, json.Unmarshal(b, &profile))
 				delete(profile.CredentialMetaData.CredentialsConfigurationSupported, "UniversityDegreeCredentialIdentifier")
