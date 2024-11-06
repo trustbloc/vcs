@@ -38,7 +38,6 @@ import (
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
@@ -116,7 +115,6 @@ type Flow struct {
 	walletKeyType               kms.KeyType
 	perfInfo                    *PerfInfo
 	verificationMethod          did.VerificationMethod
-	tracer                      trace.Tracer
 }
 
 type credentialFilter struct {
@@ -238,7 +236,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		pin:                         o.pin,
 		perfInfo:                    &PerfInfo{},
 		verificationMethod:          targetVerMethod,
-		tracer:                      o.tracer,
 	}, nil
 }
 
@@ -255,19 +252,14 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 		"scope", f.scopes,
 	)
 
-	if f.tracer != nil {
-		spanCtx, span := f.tracer.Start(ctx, "OIDC4VCIFlow")
-		defer span.End()
-
-		correlationCtx, correlationID, err := correlationid.Set(spanCtx)
-		if err != nil {
-			return nil, fmt.Errorf("set correlation ID: %w", err)
-		}
-
-		ctx = correlationCtx
-
-		logger.Infoc(ctx, "Running OIDC4VCI flow", zap.String("correlation_id", correlationID))
+	correlationCtx, correlationID, err := correlationid.Set(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("set correlation ID: %w", err)
 	}
+
+	ctx = correlationCtx
+
+	logger.Infoc(ctx, "Running OIDC4VCI flow", zap.String("correlation_id", correlationID))
 
 	var (
 		credentialIssuer        string
@@ -1333,7 +1325,6 @@ type options struct {
 	pin                         string
 	walletDIDIndex              int
 	credentialFilters           []*credentialFilter
-	tracer                      trace.Tracer
 }
 
 type Opt func(opts *options)
@@ -1428,11 +1419,5 @@ func WithWalletDIDIndex(idx int) Opt {
 func WithCredentialConfigurationIDs(credentialConfigurationIDs []string) Opt {
 	return func(opts *options) {
 		opts.credentialConfigurationIDs = credentialConfigurationIDs
-	}
-}
-
-func WithTracer(tracer trace.Tracer) Opt {
-	return func(opts *options) {
-		opts.tracer = tracer
 	}
 }

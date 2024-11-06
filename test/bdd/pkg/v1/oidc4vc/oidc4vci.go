@@ -143,7 +143,6 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIResponseData initiateOIDC4VCIR
 		oidc4vci.WithFlowType(oidc4vci.FlowTypePreAuthorizedCode),
 		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 
 	opts = append(opts, options...)
@@ -407,7 +406,6 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 		oidc4vci.WithCredentialOffer(initiateOIDC4CIResponseData.OfferCredentialURL),
 		oidc4vci.WithCredentialFilter(s.issuedCredentialType, s.getIssuerOIDCCredentialFormat(s.issuedCredentialType)),
 		oidc4vci.WithPin(*initiateOIDC4CIResponseData.UserPin),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 
@@ -484,7 +482,6 @@ func (s *Steps) runOIDC4CIAuthWithErrorInvalidClient(updatedClientID, errorConta
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	)
 	if err != nil {
 		return fmt.Errorf("init auth flow: %w", err)
@@ -609,7 +606,6 @@ func (s *Steps) runOIDC4VCIAuthWithError(errorContains string, overrideOpts ...o
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 	opts = append(opts, overrideOpts...)
@@ -645,7 +641,6 @@ func (s *Steps) runOIDC4VCIAuth() error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 
@@ -686,7 +681,6 @@ func (s *Steps) runOIDC4VCIAuthBatchByCredentialConfigurationID(credentialConfig
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 
 	opts = s.addProofBuilder(opts)
@@ -727,7 +721,6 @@ func (s *Steps) runOIDC4VCIAuthBatch() error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 
 	// Set option filters
@@ -774,7 +767,6 @@ func (s *Steps) runOIDC4VCIAuthBatchWithScopes(scopes string) error {
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
 		oidc4vci.WithCredentialOffer(resp.OfferCredentialURL),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 
 	opts = s.addProofBuilder(opts)
@@ -902,7 +894,6 @@ func (s *Steps) runOIDC4VCIAuthWithCredentialConfigurationID(credentialConfigura
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 
@@ -949,7 +940,6 @@ func (s *Steps) runOIDC4VCIAuthWithScopes(scopes string) error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 
@@ -977,7 +967,6 @@ func (s *Steps) runOIDC4VCIAuthWalletInitiatedFlow() error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 
@@ -1029,7 +1018,6 @@ func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	)
 	if err != nil {
 		return fmt.Errorf("init auth flow: %w", err)
@@ -1060,7 +1048,6 @@ func (s *Steps) runOIDC4CIAuthWithClientRegistrationMethod(method string) error 
 		oidc4vci.WithRedirectURI("http://127.0.0.1/callback"),
 		oidc4vci.WithUserLogin("bdd-test"),
 		oidc4vci.WithUserPassword("bdd-test-pass"),
-		oidc4vci.WithTracer(s.bddContext.Tracer),
 	}
 	opts = s.addProofBuilder(opts)
 

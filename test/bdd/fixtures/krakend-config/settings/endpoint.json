@@ -67,7 +67,6 @@
         "credentialID"
       ],
       "input_headers": [
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -79,7 +78,6 @@
       ],
       "input_headers": [
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -126,7 +124,6 @@
         "*"
       ],
       "input_headers": [
-        "Traceparent",
         "X-Correlation-ID"
       ],
       "backend_extra_config": {
@@ -140,7 +137,6 @@
       "method": "POST",
       "input_headers": [
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -166,7 +162,6 @@
       "input_headers": [
         "Authorization",
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -176,7 +171,6 @@
       "input_headers": [
         "Authorization",
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -186,7 +180,6 @@
       "input_headers": [
         "Authorization",
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -196,7 +189,6 @@
       "input_headers": [
         "Authorization",
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -206,7 +198,6 @@
       "input_headers": [
         "Authorization",
         "Content-Type",
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },
@@ -272,7 +263,6 @@
       "endpoint": "/request-object/{uuid}",
       "method": "GET",
       "input_headers": [
-        "Traceparent",
         "X-Correlation-ID"
       ]
     },

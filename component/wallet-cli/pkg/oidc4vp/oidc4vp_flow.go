@@ -37,10 +37,8 @@ import (
 	"github.com/trustbloc/vc-go/vermethod"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/presentation"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/attestation"
-	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
-	"go.opentelemetry.io/otel/trace"
-
 	jwssigner "github.com/trustbloc/vcs/component/wallet-cli/pkg/signer"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	kmssigner "github.com/trustbloc/vcs/pkg/kms/signer"
 )
 
@@ -85,7 +83,6 @@ type Flow struct {
 	perfInfo                       *PerfInfo
 	useMultiVPs                    bool
 	attachments                    map[string]string
-	tracer                         trace.Tracer
 }
 
 type provider interface {
@@ -157,7 +154,6 @@ func NewFlow(p provider, opts ...Opt) (*Flow, error) {
 		useMultiVPs:                    o.useMultiVPs,
 		perfInfo:                       &PerfInfo{},
 		attachments:                    o.attachments,
-		tracer:                         o.tracer,
 	}, nil
 }
 
@@ -175,19 +171,14 @@ func (f *Flow) Run(ctx context.Context) error {
 		"disable_schema_validation", f.disableSchemaValidation,
 	)
 
-	if f.tracer != nil {
-		spanCtx, span := f.tracer.Start(ctx, "OIDC4VP")
-		defer span.End()
-
-		correlationCtx, correlationID, err := correlationid.Set(spanCtx)
-		if err != nil {
-			return fmt.Errorf("set correlation ID: %w", err)
-		}
-
-		logger.Infoc(ctx, "Running OIDC4VP flow", zap.String("correlation_id", correlationID))
-
-		ctx = correlationCtx
+	correlationCtx, correlationID, err := correlationid.Set(ctx)
+	if err != nil {
+		return fmt.Errorf("set correlation ID: %w", err)
 	}
+
+	logger.Infoc(ctx, "Running OIDC4VP flow", zap.String("correlation_id", correlationID))
+
+	ctx = correlationCtx
 
 	requestObject, err := f.fetchRequestObject(ctx)
 	if err != nil {
@@ -681,7 +672,6 @@ type options struct {
 	disableSchemaValidation        bool
 	useMultiVPs                    bool
 	attachments                    map[string]string
-	tracer                         trace.Tracer
 }
 
 type Opt func(opts *options)
@@ -725,11 +715,5 @@ func WithSchemaValidationDisabled() Opt {
 func WithMultiVPs() Opt {
 	return func(opts *options) {
 		opts.useMultiVPs = true
-	}
-}
-
-func WithTracer(tracer trace.Tracer) Opt {
-	return func(opts *options) {
-		opts.tracer = tracer
 	}
 }
