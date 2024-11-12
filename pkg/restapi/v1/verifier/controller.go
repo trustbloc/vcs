@@ -408,7 +408,16 @@ func (c *Controller) initiateOidcInteraction(
 			errors.New("OIDC not configured"))
 	}
 
-	pd, err := findPresentationDefinition(profile, lo.FromPtr(data.PresentationDefinitionId))
+	b, _ := json.Marshal(data)
+
+	logger.Info("InitiateOidcInteraction data")
+	logger.Info(string(b))
+
+	pd, err := findPresentationDefinition(
+		profile,
+		lo.FromPtr(data.PresentationDefinitionId),
+		data,
+	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
 	}
@@ -449,6 +458,15 @@ func applyFieldsFilter(
 	fields []string,
 ) (*presexch.PresentationDefinition, error) {
 	var allMatchedFields []string
+
+	b, _ := json.Marshal(pd)
+
+	logger.Info("BEFORE. PD")
+	logger.Info(string(b))
+
+	b, _ = json.Marshal(fields)
+	logger.Info(string(b))
+
 	for _, desc := range pd.InputDescriptors {
 		var filteredFields []*presexch.Field
 
@@ -473,6 +491,10 @@ func applyFieldsFilter(
 
 		desc.Constraints.Fields = filteredFields
 	}
+
+	logger.Info("AFTER. PD")
+	b, _ = json.Marshal(pd)
+	logger.Info(string(b))
 
 	for _, f := range fields {
 		if !lo.Contains(allMatchedFields, f) {
@@ -1100,8 +1122,11 @@ func (c *Controller) sendOIDCInteractionFailedEvent(
 	}
 }
 
-func findPresentationDefinition(profile *profileapi.Verifier,
-	pdExternalID string) (*presexch.PresentationDefinition, error) {
+func findPresentationDefinition(
+	profile *profileapi.Verifier,
+	pdExternalID string,
+	data *InitiateOIDC4VPData,
+) (*presexch.PresentationDefinition, error) {
 	pds := profile.PresentationDefinitions
 
 	if pdExternalID == "" && len(pds) == 1 {
@@ -1114,7 +1139,59 @@ func findPresentationDefinition(profile *profileapi.Verifier,
 		}
 	}
 
-	return nil, fmt.Errorf("presentation definition id=%s not found for profile with id=%s", pdExternalID, profile.ID)
+	if profile.OIDCConfig != nil && profile.OIDCConfig.DynamicPresentationSupported {
+		return addDynamicPresentation(pdExternalID, data), nil
+	}
+
+	return nil, fmt.Errorf("presentation definition id=%s not found for profile with id=%s",
+		pdExternalID, profile.ID)
+}
+
+func addDynamicPresentation(id string, data *InitiateOIDC4VPData) *presexch.PresentationDefinition {
+	fieldID := "dynamic_id"
+
+	if data != nil && data.PresentationDefinitionFilters != nil {
+		fields := lo.FromPtr(data.PresentationDefinitionFilters.Fields)
+
+		if len(fields) > 0 {
+			fieldID = fields[0]
+		} else {
+			data.PresentationDefinitionFilters.Fields = &[]string{fieldID}
+		}
+	}
+
+	return &presexch.PresentationDefinition{
+		ID:                     id,
+		Name:                   "dynamic",
+		Purpose:                "",
+		Locale:                 "",
+		Format:                 nil,
+		Frame:                  nil,
+		SubmissionRequirements: nil,
+		InputDescriptors: []*presexch.InputDescriptor{
+			{
+				ID: "dynamic-0",
+				Constraints: &presexch.Constraints{
+					Fields: []*presexch.Field{
+						{
+							Path: []string{
+								"$.type",
+								"$.vc.type",
+							},
+							ID: fieldID,
+							Filter: &presexch.Filter{
+								Type: lo.ToPtr("array"),
+								Contains: map[string]interface{}{
+									"const": "UniversityDegreeCredential",
+									"type":  "string",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func copyPresentationDefinition(pd *presexch.PresentationDefinition) (*presexch.PresentationDefinition, error) {

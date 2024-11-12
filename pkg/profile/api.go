@@ -231,9 +231,10 @@ type VerifierDataConfig struct {
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.
 type OIDC4VPConfig struct {
-	ROSigningAlgorithm vcsverifiable.SignatureType `json:"roSigningAlgorithm,omitempty"`
-	DIDMethod          Method                      `json:"didMethod,omitempty"`
-	KeyType            kms.KeyType                 `json:"keyType,omitempty"`
+	ROSigningAlgorithm           vcsverifiable.SignatureType `json:"roSigningAlgorithm,omitempty"`
+	DIDMethod                    Method                      `json:"didMethod,omitempty"`
+	KeyType                      kms.KeyType                 `json:"keyType,omitempty"`
+	DynamicPresentationSupported bool                        `json:"dynamicPresentationSupported"`
 }
 
 // VerificationChecks are checks to be performed for verifying credentials and presentations.

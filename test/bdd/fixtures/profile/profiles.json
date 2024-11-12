@@ -5008,6 +5008,42 @@
     },
     {
       "verifier": {
+        "id": "playground_verifier",
+        "version": "v1.0",
+        "name": "playground_verifier",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "ldp"
+            ],
+            "proof": true,
+            "status": true,
+            "strict": true
+          },
+          "presentation": {
+            "format": [
+              "ldp"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion",
+          "dynamicPresentationSupported" : true
+        },
+        "presentationDefinitions": []
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
         "id": "awesome_cwt_verifier",
         "version": "v1.0",
         "name": "awesome_cwt_verifier",
