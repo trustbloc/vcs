@@ -345,8 +345,10 @@ func (s *Service) RequestRefreshStatus(
 									ID:      "cred_id",
 									Purpose: purpose,
 									Filter: &presexch.Filter{
-										Type:  lo.ToPtr("string"),
-										Const: credentialID,
+										FilterItem: presexch.FilterItem{
+											Type:  lo.ToPtr("string"),
+											Const: credentialID,
+										},
 									},
 									Optional: false,
 								},

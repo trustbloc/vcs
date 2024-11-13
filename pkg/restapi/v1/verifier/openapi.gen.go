@@ -14,6 +14,7 @@ import (
 // InitiateOIDC4VPData defines model for InitiateOIDC4VPData.
 type InitiateOIDC4VPData struct {
 	CustomURLScheme               *string                        `json:"customURLScheme,omitempty"`
+	DynamicPresentationFilters    *PresentationDynamicFilters    `json:"dynamicPresentationFilters,omitempty"`
 	PresentationDefinitionFilters *PresentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
 	PresentationDefinitionId      *string                        `json:"presentationDefinitionId,omitempty"`
 	Purpose                       *string                        `json:"purpose,omitempty"`
@@ -31,6 +32,15 @@ type InitiateOIDC4VPResponse struct {
 // PresentationDefinitionFilters defines model for PresentationDefinitionFilters.
 type PresentationDefinitionFilters struct {
 	Fields *[]string `json:"fields,omitempty"`
+}
+
+// PresentationDynamicFilters defines model for PresentationDynamicFilters.
+type PresentationDynamicFilters struct {
+	// List of @contexts of the VC.
+	Context *[]string `json:"context,omitempty"`
+
+	// VC type.
+	Type *string `json:"type,omitempty"`
 }
 
 // Presentation result.

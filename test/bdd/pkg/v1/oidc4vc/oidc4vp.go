@@ -30,6 +30,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -72,6 +73,16 @@ func (s *Steps) authorizeVerifierProfileUser(profileVersionedID, username, passw
 func (s *Steps) initiateOIDC4VPInteraction(req *initiateOIDC4VPRequest) (*initiateOIDC4VPResponse, error) {
 	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, s.verifierProfile.ID, s.verifierProfile.Version)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
+
+	if s.verifierProfile != nil && s.verifierProfile.OIDCConfig != nil &&
+		s.verifierProfile.OIDCConfig.DynamicPresentationSupported {
+		cred := s.issuedCredentials[0].Contents()
+
+		req.DynamicPresentationFilters = &verifier.PresentationDynamicFilters{
+			Context: &cred.Context,
+			Type:    &s.issuedCredentialType,
+		}
+	}
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
@@ -190,6 +201,18 @@ func (s *Steps) validateRetrievedCredentialClaims(claims retrievedCredentialClai
 		}
 	}
 
+	if pd == nil && s.verifierProfile.OIDCConfig.DynamicPresentationSupported {
+		pd = &presexch.PresentationDefinition{ // just mock for dynamic presentations
+			InputDescriptors: []*presexch.InputDescriptor{
+				{},
+			},
+		}
+	}
+
+	if pd == nil {
+		return fmt.Errorf("presentation definition %s not found", s.presentationDefinitionID)
+	}
+
 	// Check whether credentials are known.
 	credentialMap, err := s.wallet.GetAll()
 	if err != nil {
@@ -288,11 +311,17 @@ func (s *Steps) runOIDC4VPFlowWithOpts(
 
 	fieldsArr := strings.Split(fields, ",")
 
+	if len(fieldsArr) == 1 && fieldsArr[0] == "" {
+		fieldsArr = nil
+	}
+
 	req := &initiateOIDC4VPRequest{
-		PresentationDefinitionId: pdID,
-		PresentationDefinitionFilters: &presentationDefinitionFilters{
-			Fields: &fieldsArr,
-		},
+		PresentationDefinitionId:      pdID,
+		PresentationDefinitionFilters: &presentationDefinitionFilters{},
+	}
+
+	if len(fields) > 0 {
+		req.PresentationDefinitionFilters.Fields = &fieldsArr
 	}
 
 	if len(scopes) > 0 {

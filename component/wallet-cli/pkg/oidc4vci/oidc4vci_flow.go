@@ -677,9 +677,11 @@ func (f *Flow) getAttestationVP() (string, error) {
 							ID:   uuid.New().String(),
 							Path: []string{"$.type"},
 							Filter: &presexch.Filter{
-								Type: lo.ToPtr("array"),
-								Contains: map[string]interface{}{
-									"pattern": "WalletAttestationCredential",
+								FilterItem: presexch.FilterItem{
+									Type: lo.ToPtr("array"),
+									Contains: map[string]interface{}{
+										"pattern": "WalletAttestationCredential",
+									},
 								},
 							},
 						},
