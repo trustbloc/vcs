@@ -1451,6 +1451,8 @@ components:
             type: string
         presentationDefinitionFilters:
           $ref: '#/components/schemas/PresentationDefinitionFilters'
+        dynamicPresentationFilters:
+          $ref: '#/components/schemas/PresentationDynamicFilters'
         customURLScheme:
           type: string
     PresentationDefinitionFilters:
@@ -1461,6 +1463,20 @@ components:
       properties:
         fields:
           type: array
+          items:
+            type: string
+    PresentationDynamicFilters:
+      title: PresentationDynamicFilters
+      x-tags:
+        - verifier
+      type: object
+      properties:
+        type:
+          type: string
+          description: VC type.
+        context:
+          type: array
+          description: List of @contexts of the VC.
           items:
             type: string
     InitiateOIDC4VPResponse:

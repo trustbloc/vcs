@@ -408,11 +408,6 @@ func (c *Controller) initiateOidcInteraction(
 			errors.New("OIDC not configured"))
 	}
 
-	b, _ := json.Marshal(data)
-
-	logger.Info("InitiateOidcInteraction data")
-	logger.Info(string(b))
-
 	pd, err := findPresentationDefinition(
 		profile,
 		lo.FromPtr(data.PresentationDefinitionId),
@@ -1109,6 +1104,7 @@ func (c *Controller) sendOIDCInteractionFailedEvent(
 ) {
 	evt, err := oidc4vp.CreateEvent(spi.VerifierOIDCInteractionFailed, txnID, createPayload())
 	if err != nil {
+
 		logger.Errorc(ctx, "Error creating failure event", log.WithError(err))
 
 		return
@@ -1140,58 +1136,111 @@ func findPresentationDefinition(
 	}
 
 	if profile.OIDCConfig != nil && profile.OIDCConfig.DynamicPresentationSupported {
-		return addDynamicPresentation(pdExternalID, data), nil
+		return addDynamicPresentation(pdExternalID, data)
 	}
 
 	return nil, fmt.Errorf("presentation definition id=%s not found for profile with id=%s",
 		pdExternalID, profile.ID)
 }
 
-func addDynamicPresentation(id string, data *InitiateOIDC4VPData) *presexch.PresentationDefinition {
-	fieldID := "dynamic_id"
-
-	if data != nil && data.PresentationDefinitionFilters != nil {
-		fields := lo.FromPtr(data.PresentationDefinitionFilters.Fields)
-
-		if len(fields) > 0 {
-			fieldID = fields[0]
-		} else {
-			data.PresentationDefinitionFilters.Fields = &[]string{fieldID}
-		}
+func addDynamicPresentation(id string, data *InitiateOIDC4VPData) (*presexch.PresentationDefinition, error) {
+	if data == nil || data.DynamicPresentationFilters == nil {
+		return nil, errors.New("dynamic presentation filters should be specified for dynamic presentation")
 	}
 
-	return &presexch.PresentationDefinition{
-		ID:                     id,
-		Name:                   "dynamic",
-		Purpose:                "",
-		Locale:                 "",
-		Format:                 nil,
-		Frame:                  nil,
-		SubmissionRequirements: nil,
-		InputDescriptors: []*presexch.InputDescriptor{
-			{
-				ID: "dynamic-0",
-				Constraints: &presexch.Constraints{
-					Fields: []*presexch.Field{
-						{
-							Path: []string{
-								"$.type",
-								"$.vc.type",
-							},
-							ID: fieldID,
-							Filter: &presexch.Filter{
-								Type: lo.ToPtr("array"),
-								Contains: map[string]interface{}{
-									"const": "UniversityDegreeCredential",
-									"type":  "string",
-								},
-							},
+	var fields []*presexch.Field
+
+	if len(lo.FromPtr(data.DynamicPresentationFilters.Context)) > 0 {
+		field := &presexch.Field{
+			Path: []string{
+				"$['@context']",
+			},
+			ID: "filter_context",
+			Filter: &presexch.Filter{
+				FilterItem: presexch.FilterItem{
+					Type: lo.ToPtr("array"),
+				},
+				AllOf: []*presexch.FilterItem{
+					{
+						Contains: map[string]interface{}{
+							"const": lo.FromPtr(data.DynamicPresentationFilters.Type),
+							"type":  "string",
 						},
 					},
 				},
 			},
-		},
+		}
+
+		for _, ctx := range lo.FromPtr(data.DynamicPresentationFilters.Context) {
+			field.Filter.AllOf = append(field.Filter.AllOf, &presexch.FilterItem{
+				Contains: map[string]interface{}{
+					"const": ctx,
+					"type":  "string",
+				},
+			})
+		}
+
+		fields = append(fields, field)
 	}
+
+	if lo.FromPtr(data.DynamicPresentationFilters.Type) != "" {
+		fields = append(fields, &presexch.Field{
+			Path: []string{
+				"$['type']",
+			},
+			ID: "filter_type",
+			Filter: &presexch.Filter{
+				FilterItem: presexch.FilterItem{
+					Type: lo.ToPtr("array"),
+				},
+				AllOf: []*presexch.FilterItem{
+					{
+						Contains: map[string]interface{}{
+							"const": lo.FromPtr(data.DynamicPresentationFilters.Type),
+							"type":  "string",
+						},
+					},
+				},
+			},
+		})
+	}
+
+	inputFields := []string{"dynamic_id"}
+	inputFieldsAreEmpty := true
+
+	if data.PresentationDefinitionFilters != nil {
+		defFields := lo.FromPtr(data.PresentationDefinitionFilters.Fields)
+
+		if len(defFields) > 0 {
+			inputFields = defFields
+			inputFieldsAreEmpty = false
+		}
+	}
+
+	for i, fieldID := range inputFields {
+		if i >= len(fields) {
+			break
+		}
+
+		fields[i].ID = fieldID
+	}
+
+	if data.PresentationDefinitionFilters != nil && inputFieldsAreEmpty {
+		data.PresentationDefinitionFilters.Fields = &inputFields
+	}
+
+	return &presexch.PresentationDefinition{
+		ID:   id,
+		Name: "dynamic",
+		InputDescriptors: []*presexch.InputDescriptor{
+			{
+				ID: "dynamic-0",
+				Constraints: &presexch.Constraints{
+					Fields: fields,
+				},
+			},
+		},
+	}, nil
 }
 
 func copyPresentationDefinition(pd *presexch.PresentationDefinition) (*presexch.PresentationDefinition, error) {

@@ -10,6 +10,7 @@ import (
 	util "github.com/trustbloc/did-go/doc/util/time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
 
@@ -20,9 +21,10 @@ type initiateOIDC4VCIResponse struct {
 }
 
 type initiateOIDC4VPRequest struct {
-	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
-	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
-	Scopes                        []string                       `json:"scopes,omitempty"`
+	PresentationDefinitionId      string                               `json:"presentationDefinitionId,omitempty"`
+	PresentationDefinitionFilters *presentationDefinitionFilters       `json:"presentationDefinitionFilters,omitempty"`
+	Scopes                        []string                             `json:"scopes,omitempty"`
+	DynamicPresentationFilters    *verifier.PresentationDynamicFilters `json:"dynamicPresentationFilters,omitempty"`
 }
 
 type presentationDefinitionFilters struct {

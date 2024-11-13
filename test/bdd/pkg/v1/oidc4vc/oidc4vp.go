@@ -30,6 +30,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/trustregistry"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/wallet"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -72,6 +73,14 @@ func (s *Steps) authorizeVerifierProfileUser(profileVersionedID, username, passw
 func (s *Steps) initiateOIDC4VPInteraction(req *initiateOIDC4VPRequest) (*initiateOIDC4VPResponse, error) {
 	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, s.verifierProfile.ID, s.verifierProfile.Version)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.verifierProfile.ID+"/"+s.verifierProfile.Version)]
+
+	if s.verifierProfile != nil && s.verifierProfile.OIDCConfig != nil &&
+		s.verifierProfile.OIDCConfig.DynamicPresentationSupported {
+		req.DynamicPresentationFilters = &verifier.PresentationDynamicFilters{
+			Context: nil,
+			Type:    &s.issuedCredentialType,
+		}
+	}
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
