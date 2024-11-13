@@ -76,8 +76,10 @@ func (s *Steps) initiateOIDC4VPInteraction(req *initiateOIDC4VPRequest) (*initia
 
 	if s.verifierProfile != nil && s.verifierProfile.OIDCConfig != nil &&
 		s.verifierProfile.OIDCConfig.DynamicPresentationSupported {
+		cred := s.issuedCredentials[0].Contents()
+
 		req.DynamicPresentationFilters = &verifier.PresentationDynamicFilters{
-			Context: nil,
+			Context: &cred.Context,
 			Type:    &s.issuedCredentialType,
 		}
 	}
