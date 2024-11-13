@@ -454,14 +454,6 @@ func applyFieldsFilter(
 ) (*presexch.PresentationDefinition, error) {
 	var allMatchedFields []string
 
-	b, _ := json.Marshal(pd)
-
-	logger.Info("BEFORE. PD")
-	logger.Info(string(b))
-
-	b, _ = json.Marshal(fields)
-	logger.Info(string(b))
-
 	for _, desc := range pd.InputDescriptors {
 		var filteredFields []*presexch.Field
 
@@ -486,10 +478,6 @@ func applyFieldsFilter(
 
 		desc.Constraints.Fields = filteredFields
 	}
-
-	logger.Info("AFTER. PD")
-	b, _ = json.Marshal(pd)
-	logger.Info(string(b))
 
 	for _, f := range fields {
 		if !lo.Contains(allMatchedFields, f) {
@@ -1104,7 +1092,6 @@ func (c *Controller) sendOIDCInteractionFailedEvent(
 ) {
 	evt, err := oidc4vp.CreateEvent(spi.VerifierOIDCInteractionFailed, txnID, createPayload())
 	if err != nil {
-
 		logger.Errorc(ctx, "Error creating failure event", log.WithError(err))
 
 		return
@@ -1159,14 +1146,6 @@ func addDynamicPresentation(id string, data *InitiateOIDC4VPData) (*presexch.Pre
 			Filter: &presexch.Filter{
 				FilterItem: presexch.FilterItem{
 					Type: lo.ToPtr("array"),
-				},
-				AllOf: []*presexch.FilterItem{
-					{
-						Contains: map[string]interface{}{
-							"const": lo.FromPtr(data.DynamicPresentationFilters.Type),
-							"type":  "string",
-						},
-					},
 				},
 			},
 		}

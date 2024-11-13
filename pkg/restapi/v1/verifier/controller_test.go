@@ -2724,6 +2724,112 @@ func TestApplyFieldsFilter(t *testing.T) {
 	})
 }
 
+func TestAddDynamicPresentation(t *testing.T) {
+	t.Run("add dynamic success", func(t *testing.T) {
+		resp, err := findPresentationDefinition(
+			&profileapi.Verifier{
+				OIDCConfig: &profileapi.OIDC4VPConfig{
+					DynamicPresentationSupported: true,
+				},
+			},
+			"someID",
+			&InitiateOIDC4VPData{
+				DynamicPresentationFilters: &PresentationDynamicFilters{
+					Context: lo.ToPtr([]string{"a", "b"}),
+					Type:    lo.ToPtr("someType"),
+				},
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{
+					Fields: lo.ToPtr([]string{"query_by_example"}),
+				},
+			},
+		)
+
+		assert.NotNil(t, resp)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "someID", resp.ID)
+		assert.Len(t, resp.InputDescriptors, 1)
+
+		assert.EqualValues(t, "dynamic-0", resp.InputDescriptors[0].ID)
+
+		assert.Len(t, resp.InputDescriptors[0].Constraints.Fields, 2)
+
+		fields := resp.InputDescriptors[0].Constraints.Fields
+
+		assert.EqualValues(t, "query_by_example", fields[0].ID)
+		assert.EqualValues(t, []string{"$['@context']"}, fields[0].Path)
+		assert.Len(t, fields[0].Filter.AllOf, 2)
+
+		assert.EqualValues(t, "a", fields[0].Filter.AllOf[0].Contains["const"])
+		assert.EqualValues(t, "b", fields[0].Filter.AllOf[1].Contains["const"])
+
+		assert.EqualValues(t, "filter_type", fields[1].ID)
+		assert.EqualValues(t, []string{"$['type']"}, fields[1].Path)
+		assert.Len(t, fields[1].Filter.AllOf, 1)
+		assert.EqualValues(t, "someType", fields[1].Filter.AllOf[0].Contains["const"])
+	})
+
+	t.Run("no fields success", func(t *testing.T) {
+		resp, err := findPresentationDefinition(
+			&profileapi.Verifier{
+				OIDCConfig: &profileapi.OIDC4VPConfig{
+					DynamicPresentationSupported: true,
+				},
+			},
+			"someID",
+			&InitiateOIDC4VPData{
+				DynamicPresentationFilters: &PresentationDynamicFilters{
+					Context: lo.ToPtr([]string{"a", "b"}),
+					Type:    lo.ToPtr("someType"),
+				},
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{},
+			},
+		)
+
+		assert.NotNil(t, resp)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "someID", resp.ID)
+		assert.Len(t, resp.InputDescriptors, 1)
+
+		assert.EqualValues(t, "dynamic-0", resp.InputDescriptors[0].ID)
+
+		assert.Len(t, resp.InputDescriptors[0].Constraints.Fields, 2)
+
+		fields := resp.InputDescriptors[0].Constraints.Fields
+
+		assert.EqualValues(t, "dynamic_id", fields[0].ID)
+		assert.EqualValues(t, []string{"$['@context']"}, fields[0].Path)
+		assert.Len(t, fields[0].Filter.AllOf, 2)
+
+		assert.EqualValues(t, "a", fields[0].Filter.AllOf[0].Contains["const"])
+		assert.EqualValues(t, "b", fields[0].Filter.AllOf[1].Contains["const"])
+
+		assert.EqualValues(t, "filter_type", fields[1].ID)
+		assert.EqualValues(t, []string{"$['type']"}, fields[1].Path)
+		assert.Len(t, fields[1].Filter.AllOf, 1)
+		assert.EqualValues(t, "someType", fields[1].Filter.AllOf[0].Contains["const"])
+	})
+
+	t.Run("err no missing dynamic", func(t *testing.T) {
+		resp, err := findPresentationDefinition(
+			&profileapi.Verifier{
+				OIDCConfig: &profileapi.OIDC4VPConfig{
+					DynamicPresentationSupported: true,
+				},
+			},
+			"someID",
+			&InitiateOIDC4VPData{
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{},
+			},
+		)
+
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err,
+			"dynamic presentation filters should be specified for dynamic presentation")
+	})
+}
+
 func TestValidateVPTokenCWT(t *testing.T) {
 	c := NewController(&Config{})
 
