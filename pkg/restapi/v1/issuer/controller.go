@@ -199,7 +199,7 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 
 	credential, err := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
 	if err != nil {
-		return err
+		return resterr.NewValidationError(resterr.BadRequest, "body", err)
 	}
 
 	return util.WriteOutputWithCode(http.StatusCreated, e)(credential, nil)
@@ -288,6 +288,10 @@ func (c *Controller) issueCredential(
 			if validationErr := c.ValidateRawCredential(v, profile); validationErr != nil {
 				return nil, validationErr
 			}
+
+			if _, dateOk := v["issuanceDate"]; !dateOk {
+				v["issuanceDate"] = utiltime.NewTime(time.Now().UTC()).FormatToString() // vc-api-verifier-test-suite
+			}
 		}
 	} else {
 		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
@@ -321,11 +325,11 @@ func (c *Controller) issueCredential(
 	}
 
 	if err = c.validateRelatedResources(credentialParsed); err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.relatedResources", err)
 	}
 
 	if err = c.validateCredentialSchemas(credentialParsed); err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.schemas", err)
 	}
 
 	content := credentialParsed.Contents()
@@ -391,16 +395,26 @@ func (c *Controller) validateRelatedResources(cred *verifiable.Credential) error
 		return errors.New("relatedResource must be an array")
 	}
 
+	ids := map[string]struct{}{}
+
 	for _, relatedResource := range relatedResourcesArray {
 		relatedResourceMap, itemMapOk := relatedResource.(map[string]interface{})
 		if !itemMapOk {
 			return errors.New("relatedResource must be a map")
 		}
 
-		_, ok = relatedResourceMap["id"]
-		if !ok {
+		idObj, idOk := relatedResourceMap["id"]
+		if !idOk {
 			return errors.New("relatedResource must have an id")
 		}
+
+		mappedId := fmt.Sprint(idObj)
+
+		if _, ok = ids[mappedId]; ok {
+			return errors.New("relatedResource must have unique ids")
+		}
+
+		ids[mappedId] = struct{}{}
 
 		_, hasDigest := relatedResourceMap["digestSRI"]
 		_, hasMultiBase := relatedResourceMap["digestMultibase"]

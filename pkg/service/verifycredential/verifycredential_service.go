@@ -93,7 +93,7 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 			opts.Challenge,
 			opts.Domain,
 			false,
-			!credential.IsJWT() && !credential.IsCWT())
+			checks.Strict)
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "proof",
@@ -141,6 +141,7 @@ func (s *Service) verifyVC(
 		// Use empty domain and challenge in order to skip the validation.
 		// See usage of vcInVPValidation variable in ValidateCredentialProof method.
 		verifiable.WithExpectedDataIntegrityFields(crypto.AssertionMethod, domain, challenge),
+		verifiable.WithJSONLDIncludeDetailedStructureDiffOnError(),
 	}
 
 	if strictValidation {

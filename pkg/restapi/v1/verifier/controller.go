@@ -216,6 +216,20 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 		return err
 	}
 
+	hasErrors := false
+	if resp.Checks != nil {
+		for _, check := range *resp.Checks {
+			if check.Error != "" {
+				hasErrors = true
+				break
+			}
+		}
+	}
+
+	if hasErrors {
+		return util.WriteOutputWithCode(http.StatusBadRequest, e)(resp, nil)
+	}
+
 	return util.WriteOutput(e)(resp, nil)
 }
 
@@ -249,6 +263,7 @@ func (c *Controller) verifyCredential(
 		c.documentLoader,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader),
+		verifiable.WithJSONLDIncludeDetailedStructureDiffOnError(),
 	)
 
 	if err != nil {

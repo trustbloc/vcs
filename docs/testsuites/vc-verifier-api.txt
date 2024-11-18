@@ -1,14 +1,12 @@
 https://github.com/w3c-ccg/vc-api-verifier-test-suite
 
+
 > vc-api-verifier-test-suite@0.0.1 test
 > mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="VC API Verifier Interoperability Report 1.0" --timeout 15000 --preserve-symlinks
 
 
   Verify Credential - Data Integrity
     My Company
-      ❌ "before all" hook for "MUST verify a valid VC."
-  Verify Credential - JWT
-    SpruceID
       ✓ MUST verify a valid VC.
       ✓ MUST not verify if "@context" property is missing.
       ✓ MUST not verify if "type" property is missing.
@@ -16,7 +14,27 @@ https://github.com/w3c-ccg/vc-api-verifier-test-suite
       ✓ MUST not verify if "credentialSubject" property is missing.
       ✓ MUST not verify if "proof" property is missing.
       ✓ MUST not verify if "proof.type" property is missing.
-      ❌ MUST not verify if "proof.created" property is missing.
+      ✓ MUST not verify if "proof.created" property is missing.
+      ✓ MUST not verify if "proof.verificationMethod" property is missing.
+      ✓ MUST not verify if "proof.proofValue" property is missing.
+      ✓ MUST not verify if "proof.proofPurpose" property is missing.
+      ✓ MUST not verify if "@context" is not an array.
+      ✓ MUST not verify if "@context" items are not strings.
+      ✓ MUST not verify if "type" is not an array.
+      ✓ MUST not verify if "type" items are not strings.
+      ✓ MUST not verify if "issuer" is not an object or a string.
+      ✓ MUST not verify if "credentialSubject" is not an object.
+      ✓ MUST not verify if "proof" is not an object.
+  Verify Credential - JWT
+    My Company
+      ✓ MUST verify a valid VC.
+      ✓ MUST not verify if "@context" property is missing.
+      ✓ MUST not verify if "type" property is missing.
+      ✓ MUST not verify if "issuer" property is missing.
+      ✓ MUST not verify if "credentialSubject" property is missing.
+      ✓ MUST not verify if "proof" property is missing.
+      ✓ MUST not verify if "proof.type" property is missing.
+      ✓ MUST not verify if "proof.created" property is missing.
       ✓ MUST not verify if "proof.verificationMethod" property is missing.
       ✓ MUST not verify if "proof.proofValue" property is missing.
       ✓ MUST not verify if "proof.proofPurpose" property is missing.
@@ -29,8 +47,8 @@ https://github.com/w3c-ccg/vc-api-verifier-test-suite
       ✓ MUST not verify if "proof" is not an object.
 
 
-Tests passed 17/18 94%
-Tests failed 2/18 12%
-Failures 2
+Tests passed 36/36 100%
+Tests failed 0/36 0%
+Failures 0
 Tests skipped 0
-Total tests 18
+Total tests 36

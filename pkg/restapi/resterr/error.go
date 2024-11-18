@@ -58,6 +58,7 @@ const (
 	VCOptionsNotConfigured           ErrorCode = "vc-options-not-configured"
 	InvalidIssuerURL                 ErrorCode = "invalid-issuer-url"
 	InvalidStateTransition           ErrorCode = "invalid-state-transition"
+	BadRequest                       ErrorCode = "bad-request"
 )
 
 type Component = string
@@ -208,6 +209,8 @@ func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 			"error": e.Component,
 			"_raw":  e.Err.Error(),
 		}
+	case BadRequest:
+		code = http.StatusBadRequest
 
 	case AlreadyExist:
 		code = http.StatusConflict
