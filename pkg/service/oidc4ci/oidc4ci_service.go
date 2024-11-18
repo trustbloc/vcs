@@ -136,17 +136,11 @@ type ackStore interface {
 	Create(ctx context.Context, profileAckDataTTL int32, data *Ack) (string, error)
 	Get(ctx context.Context, id string) (*Ack, error)
 	Delete(ctx context.Context, id string) error
+	Update(ctx context.Context, id string, ack *Ack) error
 }
 
 type ackService interface {
-	Ack(
-		ctx context.Context,
-		req AckRemote,
-	) error
-	CreateAck(
-		ctx context.Context,
-		ack *Ack,
-	) (*string, error)
+	CreateAck(ctx context.Context, ack *Ack) (string, error)
 }
 
 // DocumentLoader knows how to load remote documents.
@@ -785,7 +779,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 
 		requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID] = struct{}{}
 
-		cred, ackID, prepareCredError := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
+		cred, prepareCredError := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
 		if prepareCredError != nil {
 			s.sendFailedTransactionEvent(ctx, tx, prepareCredError)
 
@@ -801,11 +795,25 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			CredentialTemplate:      txCredentialConfiguration.CredentialTemplate,
 			Retry:                   false,
 			EnforceStrictValidation: txCredentialConfiguration.CredentialTemplate.Checks.Strict,
-			NotificationID:          ackID,
 		}
 
 		credentialIDs = append(credentialIDs, cred.Contents().ID)
 		prepareCredentialResult.Credentials = append(prepareCredentialResult.Credentials, prepareCredentialResultData)
+	}
+
+	if credentialsIssued := len(prepareCredentialResult.Credentials); credentialsIssued > 0 {
+		prepareCredentialResult.NotificationID, err = s.ackService.CreateAck(ctx, &Ack{
+			TxID:              tx.ID,
+			HashedToken:       req.HashedToken,
+			ProfileID:         tx.ProfileID,
+			ProfileVersion:    tx.ProfileVersion,
+			WebHookURL:        tx.WebHookURL,
+			OrgID:             tx.OrgID,
+			CredentialsIssued: credentialsIssued,
+		})
+		if err != nil { // its not critical and should not break the flow
+			logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
+		}
 	}
 
 	tx.State = issuecredential.TransactionStateCredentialsIssued
@@ -834,10 +842,10 @@ func (s *Service) prepareCredential( //nolint:funlen
 	tx *issuecredential.Transaction,
 	txCredentialConfiguration *issuecredential.TxCredentialConfiguration,
 	prepareCredentialRequest *PrepareCredentialRequest,
-) (*verifiable.Credential, *string, error) {
+) (*verifiable.Credential, error) {
 	claimData, err := s.getClaimsData(ctx, tx, txCredentialConfiguration)
 	if err != nil {
-		return nil, nil, fmt.Errorf("get claims data: %w", err)
+		return nil, fmt.Errorf("get claims data: %w", err)
 	}
 
 	finalCred, err := s.credentialIssuer.PrepareCredential(ctx, &issuecredential.PrepareCredentialsRequest{
@@ -851,23 +859,10 @@ func (s *Service) prepareCredential( //nolint:funlen
 		RefreshServiceEnabled:   tx.RefreshServiceEnabled,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("prepare credential: %w", err)
+		return nil, fmt.Errorf("prepare credential: %w", err)
 	}
 
-	// Create credential-specific record.
-	ack, err := s.ackService.CreateAck(ctx, &Ack{
-		HashedToken:    prepareCredentialRequest.HashedToken,
-		ProfileID:      tx.ProfileID,
-		ProfileVersion: tx.ProfileVersion,
-		TxID:           generateAckTxID(tx.ID),
-		WebHookURL:     tx.WebHookURL,
-		OrgID:          tx.OrgID,
-	})
-	if err != nil { // its not critical and should not break the flow
-		logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
-	}
-
-	return finalCred, ack, nil
+	return finalCred, nil
 }
 
 func (s *Service) findTxCredentialConfiguration( //nolint:funlen

@@ -25,7 +25,7 @@ func TestCreateAck(t *testing.T) {
 		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{})
 		id, err := srv.CreateAck(context.TODO(), &oidc4ci.Ack{})
 		assert.NoError(t, err)
-		assert.Nil(t, id)
+		assert.Empty(t, id)
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -50,7 +50,7 @@ func TestCreateAck(t *testing.T) {
 		id, err := srv.CreateAck(context.TODO(), item)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "id", *id)
+		assert.Equal(t, "id", id)
 	})
 
 	t.Run("profile srv err", func(t *testing.T) {
@@ -71,7 +71,7 @@ func TestCreateAck(t *testing.T) {
 
 		id, err := srv.CreateAck(context.TODO(), item)
 
-		assert.Nil(t, id)
+		assert.Empty(t, id)
 		assert.ErrorContains(t, err, "some error")
 	})
 
@@ -95,7 +95,7 @@ func TestCreateAck(t *testing.T) {
 		store.EXPECT().Create(gomock.Any(), int32(10), item).Return("", errors.New("some err"))
 		id, err := srv.CreateAck(context.TODO(), item)
 
-		assert.Nil(t, id)
+		assert.Empty(t, id)
 		assert.ErrorContains(t, err, "some err")
 	})
 }
@@ -147,7 +147,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 			IssuerIdentifier: "https://someurl/some_issuer/v1.0",
@@ -203,7 +203,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
@@ -216,7 +216,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 		})
@@ -237,7 +237,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 		})
@@ -258,7 +258,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 			IssuerIdentifier: "abcd",
@@ -283,7 +283,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
@@ -316,7 +316,7 @@ func TestAckFallback(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
 			Event:            "failure",
 			EventDescription: "some-random-text",
 			IssuerIdentifier: "some_issuer/v1.0",
@@ -326,7 +326,7 @@ func TestAckFallback(t *testing.T) {
 }
 
 func TestAck(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success: 2 ack requests", func(t *testing.T) {
 		store := NewMockAckStore(gomock.NewController(t))
 		eventSvc := NewMockEventService(gomock.NewController(t))
 
@@ -336,14 +336,38 @@ func TestAck(t *testing.T) {
 		})
 
 		store.EXPECT().Get(gomock.Any(), "123").Return(&oidc4ci.Ack{
-			HashedToken:    "abcds",
-			ProfileID:      "profile1",
-			ProfileVersion: "v2.0",
-			TxID:           "333",
-			WebHookURL:     "444",
-			OrgID:          "555",
+			HashedToken:       "abcds",
+			ProfileID:         "profile1",
+			ProfileVersion:    "v2.0",
+			TxID:              "333",
+			WebHookURL:        "444",
+			OrgID:             "555",
+			CredentialsIssued: 2,
 		}, nil)
-		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
+
+		store.EXPECT().Update(gomock.Any(), "123", &oidc4ci.Ack{
+			HashedToken:       "abcds",
+			ProfileID:         "profile1",
+			ProfileVersion:    "v2.0",
+			TxID:              "333",
+			WebHookURL:        "444",
+			OrgID:             "555",
+			CredentialsIssued: 1,
+		}).Return(errors.New("ignored"))
+
+		store.EXPECT().Get(gomock.Any(), "123").Return(&oidc4ci.Ack{
+			HashedToken:       "abcds",
+			ProfileID:         "profile1",
+			ProfileVersion:    "v2.0",
+			TxID:              "333",
+			WebHookURL:        "444",
+			OrgID:             "555",
+			CredentialsIssued: 1,
+		}, nil)
+
+		store.EXPECT().Delete(gomock.Any(), "123").Return(errors.New("ignored"))
+
+		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).
 			DoAndReturn(func(ctx context.Context, _ string, events ...*spi.Event) error {
 				assert.Len(t, events, 1)
 				event := events[0]
@@ -367,11 +391,20 @@ func TestAck(t *testing.T) {
 				return nil
 			})
 
-		store.EXPECT().Delete(gomock.Any(), "123").Return(errors.New("ignored"))
-
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken:      "abcds",
-			ID:               "123",
+			TxID:             "123",
+			Event:            "credential_failure",
+			EventDescription: "some-random-text",
+			InteractionDetails: map[string]interface{}{
+				"key1": "value1",
+			},
+		})
+		assert.NoError(t, err)
+
+		err = srv.Ack(context.TODO(), oidc4ci.AckRemote{
+			HashedToken:      "abcds",
+			TxID:             "123",
 			Event:            "credential_failure",
 			EventDescription: "some-random-text",
 			InteractionDetails: map[string]interface{}{
@@ -395,7 +428,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			ID:          "123",
+			TxID:        "123",
 		})
 		assert.ErrorContains(t, err, "store err")
 	})
@@ -415,7 +448,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			ID:          "123",
+			TxID:        "123",
 		})
 		assert.ErrorContains(t, err, "invalid token")
 	})
@@ -438,7 +471,7 @@ func TestAck(t *testing.T) {
 
 		err := srv.Ack(context.TODO(), oidc4ci.AckRemote{
 			HashedToken: "abcds",
-			ID:          "123",
+			TxID:        "123",
 			Event:       "credential_deleted",
 		})
 		assert.ErrorContains(t, err, "event send err")

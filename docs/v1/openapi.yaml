@@ -2207,15 +2207,11 @@ components:
         audienceClaim:
           type: string
           description: The "aud" claim received from the client.
-        hashed_token:
-          type: string
-          description: Hashed token received from the client.
         requested_credential_response_encryption:
           $ref: '#/components/schemas/RequestedCredentialResponseEncryption'
       required:
         - types
         - audienceClaim
-        - hashed_token
     PrepareCredential:
       allOf: # Combines the PrepareCredentialBase and the inline model
         - $ref: '#/components/schemas/PrepareCredentialBase'
@@ -2228,8 +2224,12 @@ components:
             tx_id:
               type: string
               description: Transaction ID.
+            hashed_token:
+              type: string
+              description: Hashed token received from the client.
           required:
             - tx_id
+            - hashed_token
     PrepareBatchCredential:
       title: PrepareBatchCredential
       x-tags:
@@ -2240,6 +2240,9 @@ components:
         tx_id:
           type: string
           description: Transaction ID.
+        hashed_token:
+          type: string
+          description: Hashed token received from the client.
         credential_requests:
           type: array
           items:
@@ -2247,6 +2250,7 @@ components:
       required:
         - tx_id
         - credential_requests
+        - hashed_token
     RequestedCredentialResponseEncryption:
       title: RequestedCredentialResponseEncryption
       x-tags:
@@ -2271,26 +2275,38 @@ components:
       description: Model for Prepare Credential response.
       properties:
         credential:
+          deprecated: true
+          description: Deprecated. Credential value.
           oneOf:
             - type: string
             - type: object
         format:
+          deprecated: true
           type: string
-          description: Format of issued credential.
+          description: Deprecated. Format of issued credential.
         oidc_format:
+          deprecated: true
           type: string
-          description: OIDC credential format
+          description: Deprecated. OIDC credential format
+        credentials:
+          type: array
+          description:  Contains an array of one or more issued Credentials.
+          items:
+            $ref: "./common.yaml#/components/schemas/CredentialResponseCredentialObject"
         notification_id:
           type: string
           description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
         retry:
           type: boolean
-          description: TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+          deprecated: true
+          description: Deprecated. TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
       required:
         - credential
         - format
         - oidc_format
         - retry
+        - notification_id
+        - credentials
     CredentialRequest:
       title: CredentialRequest
       x-tags:
@@ -2369,32 +2385,48 @@ components:
       x-tags:
         - oidc4ci
       type: object
-      description: Ack response.
+      description: Ack request.
       properties:
         credentials:
+          description: Deprecated. Ack request credentials data.
+          deprecated: true
           type: array
           items:
             $ref: '#/components/schemas/AckRequestItem'
-        interaction_details:
-          type: object
-      required:
-        - credentials
-    AckRequestItem:
-      type: object
-      description: AckRequestItem
-      properties:
         notification_id:
           type: string
           description: Ack ID.
-        event:
-          type: string
-          description: Type of the notification event.
         issuer_identifier:
           type: string
           description: Optional issuer identifier.
+        event:
+          type: string
+          description: Type of the notification event.
         event_description:
           type: string
           description: 'Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
+        interaction_details:
+          type: object
+      required:
+        - notification_id
+        - event
+    AckRequestItem:
+      deprecated: true
+      type: object
+      description: Deprecated. AckRequestItem
+      properties:
+        notification_id:
+          type: string
+          description: Deprecated. Ack ID.
+        event:
+          type: string
+          description: Deprecated. Type of the notification event.
+        issuer_identifier:
+          type: string
+          description: Deprecated. Optional issuer identifier.
+        event_description:
+          type: string
+          description: 'Deprecated. Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
       required:
         - notification_id
         - event
@@ -2418,27 +2450,40 @@ components:
       description: Model for OIDC Credential response.
       properties:
         format:
+          deprecated: true
           type: string
-          description: JSON string denoting the format of the issued Credential.
+          description: Deprecated. JSON string denoting the format of the issued Credential.
         credential:
+          deprecated: true
+          description: Deprecated. Credential value.
           oneOf:
             - type: string
             - type: object
+        credentials:
+          type: array
+          description:  Contains an array of one or more issued Credentials.
+          items:
+            $ref: "./common.yaml#/components/schemas/CredentialResponseCredentialObject"
         acceptance_token:
+          deprecated: true
           type: string
-          description: A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
+          description: Deprecated. A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
         c_nonce:
+          deprecated: true
           type: string
-          description: JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+          description: Deprecated. JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
         c_nonce_expires_in:
+          deprecated: true
           type: integer
-          description: JSON integer denoting the lifetime in seconds of the c_nonce.
+          description: Deprecated. JSON integer denoting the lifetime in seconds of the c_nonce.
         notification_id:
           type: string
-          description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
+          description: String identifying one or more Credentials issued in one Credential Response.
       required:
         - format
         - credential
+        - credentials
+        - notification_id
     BatchCredentialResponse:
       title: BatchCredentialResponse
       x-tags:

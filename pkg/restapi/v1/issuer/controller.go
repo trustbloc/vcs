@@ -1024,17 +1024,17 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 
 	ctx := e.Request().Context()
 
-	result, err := c.oidc4ciService.PrepareCredential(
+	preparedCredentials, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
-			TxID: issuecredential.TxID(body.TxId),
+			TxID:        issuecredential.TxID(body.TxId),
+			HashedToken: body.HashedToken,
 			CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
 				{
 					CredentialTypes:  body.Types,
 					CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
 					DID:              lo.FromPtr(body.Did),
 					AudienceClaim:    body.AudienceClaim,
-					HashedToken:      body.HashedToken,
 				},
 			},
 		},
@@ -1049,33 +1049,35 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential", err)
 	}
 
-	if len(result.Credentials) == 0 {
+	if len(preparedCredentials.Credentials) == 0 {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
 			errors.New("empty credentials list"))
 	}
 
-	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
+	profile, err := c.accessProfile(preparedCredentials.ProfileID, preparedCredentials.ProfileVersion)
 	if err != nil {
 		return err
 	}
 
-	prepareCredentialResult, err := c.prepareCredential(
+	prepareCredentialResponse, err := c.prepareCredential(
 		ctx,
 		body.TxId,
+		preparedCredentials.NotificationID,
 		profile,
-		result.Credentials,
+		preparedCredentials.Credentials,
 		[]*RequestedCredentialResponseEncryption{body.RequestedCredentialResponseEncryption},
 	)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(e)(prepareCredentialResult[0], nil)
+	return util.WriteOutput(e)(prepareCredentialResponse[0], nil)
 }
 
 func (c *Controller) prepareCredential(
 	ctx context.Context,
 	txID string,
+	notificationID string,
 	profile *profileapi.Issuer,
 	credentials []*oidc4ci.PrepareCredentialResultData,
 	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
@@ -1102,6 +1104,7 @@ func (c *Controller) prepareCredential(
 				ctx,
 				credentialData,
 				txID,
+				notificationID,
 				profile,
 				requestedCredentialResponseEncryption,
 				index,
@@ -1133,6 +1136,7 @@ func (c *Controller) issueSingleCredential(
 	ctx context.Context,
 	credentialData *oidc4ci.PrepareCredentialResultData,
 	txID string,
+	notificationID string,
 	profile *profileapi.Issuer,
 	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
 	index int,
@@ -1164,11 +1168,16 @@ func (c *Controller) issueSingleCredential(
 	}
 
 	return &PrepareCredentialResult{
-		Credential:     signedCredential,
+		Credential:     signedCredential, // Redundant duplication. Should be removed during code update to the latest spec.
 		Format:         string(credentialData.Format),
 		OidcFormat:     string(credentialData.OidcFormat),
 		Retry:          credentialData.Retry,
-		NotificationId: credentialData.NotificationID,
+		NotificationId: notificationID,
+		Credentials: []common.CredentialResponseCredentialObject{
+			{
+				Credential: signedCredential,
+			},
+		},
 	}, nil
 }
 
@@ -1199,17 +1208,17 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 			CredentialFormat: vcsverifiable.OIDCFormat(requestedFormat),
 			DID:              lo.FromPtr(credentialRequested.Did),
 			AudienceClaim:    credentialRequested.AudienceClaim,
-			HashedToken:      credentialRequested.HashedToken,
 		})
 
 		requestedCredentialResponseEncryption = append(
 			requestedCredentialResponseEncryption, credentialRequested.RequestedCredentialResponseEncryption)
 	}
 
-	result, err := c.oidc4ciService.PrepareCredential(
+	preparedCredentials, err := c.oidc4ciService.PrepareCredential(
 		ctx,
 		&oidc4ci.PrepareCredential{
 			TxID:               issuecredential.TxID(body.TxId),
+			HashedToken:        body.HashedToken,
 			CredentialRequests: credentialRequests,
 		},
 	)
@@ -1223,28 +1232,29 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential", err)
 	}
 
-	if len(result.Credentials) == 0 {
+	if len(preparedCredentials.Credentials) == 0 {
 		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential",
 			errors.New("empty credentials list"))
 	}
 
-	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
+	profile, err := c.accessProfile(preparedCredentials.ProfileID, preparedCredentials.ProfileVersion)
 	if err != nil {
 		return err
 	}
 
-	prepareCredentialResult, err := c.prepareCredential(
+	prepareCredentialResponse, err := c.prepareCredential(
 		ctx,
 		body.TxId,
+		preparedCredentials.NotificationID,
 		profile,
-		result.Credentials,
+		preparedCredentials.Credentials,
 		requestedCredentialResponseEncryption,
 	)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(e)(prepareCredentialResult, nil)
+	return util.WriteOutput(e)(prepareCredentialResponse, nil)
 }
 
 // CredentialIssuanceHistory returns Credential Issuance history.

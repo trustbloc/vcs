@@ -41,7 +41,9 @@ func (s *Store) Create(
 	profileAckDataTTL int32,
 	ack *oidc4ci.Ack,
 ) (string, error) {
-	id := ack.TxID
+	// id (AKA notification_id) should be the same as txID
+	// in order to be able to sent spi.IssuerOIDCInteractionAckExpired event with proper txID.
+	id := string(ack.TxID)
 
 	b, err := json.Marshal(ack)
 	if err != nil {
@@ -54,10 +56,27 @@ func (s *Store) Create(
 	}
 
 	if err = s.redisClient.API().Set(ctx, s.resolveRedisKey(id), string(b), ttl).Err(); err != nil {
-		return "", fmt.Errorf("redis insert received claims data: %w", err)
+		return "", fmt.Errorf("redis create ack: %w", err)
 	}
 
 	return id, nil
+}
+
+func (s *Store) Update(
+	ctx context.Context,
+	id string,
+	ack *oidc4ci.Ack,
+) error {
+	b, err := json.Marshal(ack)
+	if err != nil {
+		return err
+	}
+
+	if err = s.redisClient.API().Set(ctx, s.resolveRedisKey(id), string(b), redis.KeepTTL).Err(); err != nil {
+		return fmt.Errorf("redis update ack: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Store) Get(ctx context.Context, id string) (*oidc4ci.Ack, error) {

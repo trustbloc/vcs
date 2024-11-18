@@ -45,24 +45,37 @@ type AckErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// Ack response.
+// Ack request.
 type AckRequest struct {
-	Credentials        []AckRequestItem        `json:"credentials"`
-	InteractionDetails *map[string]interface{} `json:"interaction_details,omitempty"`
-}
+	// Deprecated. Ack request credentials data.
+	Credentials *[]AckRequestItem `json:"credentials,omitempty"`
 
-// AckRequestItem
-type AckRequestItem struct {
 	// Type of the notification event.
 	Event string `json:"event"`
 
 	// Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
-	EventDescription *string `json:"event_description,omitempty"`
+	EventDescription   *string                 `json:"event_description,omitempty"`
+	InteractionDetails *map[string]interface{} `json:"interaction_details,omitempty"`
 
 	// Optional issuer identifier.
 	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
 
 	// Ack ID.
+	NotificationId string `json:"notification_id"`
+}
+
+// Deprecated. AckRequestItem
+type AckRequestItem struct {
+	// Deprecated. Type of the notification event.
+	Event string `json:"event"`
+
+	// Deprecated. Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
+	EventDescription *string `json:"event_description,omitempty"`
+
+	// Deprecated. Optional issuer identifier.
+	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
+
+	// Deprecated. Ack ID.
 	NotificationId string `json:"notification_id"`
 }
 
@@ -99,21 +112,26 @@ type CredentialRequest struct {
 
 // Model for OIDC Credential response.
 type CredentialResponse struct {
-	// A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
+	// Deprecated. A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
 	AcceptanceToken *string `json:"acceptance_token,omitempty"`
 
-	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+	// Deprecated. JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
 	CNonce *string `json:"c_nonce,omitempty"`
 
-	// JSON integer denoting the lifetime in seconds of the c_nonce.
-	CNonceExpiresIn *int        `json:"c_nonce_expires_in,omitempty"`
-	Credential      interface{} `json:"credential"`
+	// Deprecated. JSON integer denoting the lifetime in seconds of the c_nonce.
+	CNonceExpiresIn *int `json:"c_nonce_expires_in,omitempty"`
 
-	// JSON string denoting the format of the issued Credential.
+	// Deprecated. Credential value.
+	Credential interface{} `json:"credential"`
+
+	// Contains an array of one or more issued Credentials.
+	Credentials []externalRef0.CredentialResponseCredentialObject `json:"credentials"`
+
+	// Deprecated. JSON string denoting the format of the issued Credential.
 	Format string `json:"format"`
 
-	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
-	NotificationId *string `json:"notification_id,omitempty"`
+	// String identifying one or more Credentials issued in one Credential Response.
+	NotificationId string `json:"notification_id"`
 }
 
 // Credential element Batch Credential Response.

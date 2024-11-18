@@ -1212,9 +1212,15 @@ func checkEventInteractionDetailsClaim(event *spi.Event) error {
 }
 
 func (s *Steps) checkIssuedCredential(expectedCredentialsAmount string) error {
-	err := s.waitForOIDC4CIEvent(spi.IssuerOIDCInteractionAckSucceeded)
+	credentialsAmount, err := strconv.Atoi(expectedCredentialsAmount)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert %s to int: %w", expectedCredentialsAmount, err)
+	}
+
+	for i := 0; i < credentialsAmount; i++ {
+		if err = s.waitForOIDC4CIEvent(spi.IssuerOIDCInteractionAckSucceeded); err != nil {
+			return err
+		}
 	}
 
 	credentialMap, err := s.wallet.GetAll()

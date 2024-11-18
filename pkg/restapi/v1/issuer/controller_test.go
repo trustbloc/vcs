@@ -2014,14 +2014,15 @@ func TestController_PrepareCredential(t *testing.T) {
 			) (*oidc4ci.PrepareCredentialResult, error) {
 				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 				assert.Len(t, req.CredentialRequests, 1)
+				assert.Empty(t, req.HashedToken)
 				assert.Equal(t, []string{"UniversityDegreeCredential"}, req.CredentialRequests[0].CredentialTypes)
 				assert.Equal(t, vcsverifiable.OIDCFormat("ldp_vc"), req.CredentialRequests[0].CredentialFormat)
 				assert.Empty(t, req.CredentialRequests[0].AudienceClaim)
-				assert.Empty(t, req.CredentialRequests[0].HashedToken)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: sampleVC,
@@ -2036,7 +2037,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2089,6 +2089,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: sampleVC,
@@ -2103,7 +2104,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2334,6 +2334,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: invalidVC,
@@ -2348,7 +2349,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: false,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2405,6 +2405,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: invalidVC,
@@ -2417,7 +2418,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2470,6 +2470,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: sampleVC,
@@ -2484,7 +2485,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2537,6 +2537,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: sampleVC,
@@ -2551,7 +2552,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2618,7 +2618,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2672,7 +2671,6 @@ func TestController_PrepareCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil
@@ -2759,19 +2757,19 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 			) (*oidc4ci.PrepareCredentialResult, error) {
 				assert.Equal(t, issuecredential.TxID("123"), req.TxID)
 				assert.Len(t, req.CredentialRequests, 2)
+				assert.Empty(t, req.HashedToken)
 				assert.Equal(t, []string{"UniversityDegreeCredential"}, req.CredentialRequests[0].CredentialTypes)
 				assert.Equal(t, vcsverifiable.OIDCFormat("ldp_vc"), req.CredentialRequests[0].CredentialFormat)
 				assert.Empty(t, req.CredentialRequests[0].AudienceClaim)
-				assert.Empty(t, req.CredentialRequests[0].HashedToken)
 
 				assert.Equal(t, []string{"PermanentResidentCard"}, req.CredentialRequests[1].CredentialTypes)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json"), req.CredentialRequests[1].CredentialFormat)
 				assert.Empty(t, req.CredentialRequests[0].AudienceClaim)
-				assert.Empty(t, req.CredentialRequests[0].HashedToken)
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:      profileID,
 					ProfileVersion: profileVersion,
+					NotificationID: "",
 					Credentials: []*oidc4ci.PrepareCredentialResultData{
 						{
 							Credential: sampleVC,
@@ -2786,7 +2784,6 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 						{
 							Credential: sampleVC,
@@ -2801,7 +2798,6 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 							},
 							Retry:                   false,
 							EnforceStrictValidation: true,
-							NotificationID:          nil,
 						},
 					},
 				}, nil

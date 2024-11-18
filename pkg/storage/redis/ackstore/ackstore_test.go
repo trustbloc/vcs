@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	redisapi "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 
@@ -80,6 +81,56 @@ func TestCreate(t *testing.T) {
 
 		id, err := store.Create(context.TODO(), 0, obj)
 		assert.Empty(t, id)
+		assert.ErrorContains(t, err, "unexpected err")
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		cl := NewMockredisClient(gomock.NewController(t))
+		api := NewMockredisApi(gomock.NewController(t))
+
+		cl.EXPECT().API().Times(1).Return(api).AnyTimes()
+
+		obj := &oidc4ci.Ack{
+			TxID:        "12354",
+			HashedToken: "abcd",
+		}
+
+		b, err := json.Marshal(obj)
+		assert.NoError(t, err)
+
+		ackID := uuid.NewString()
+
+		api.EXPECT().
+			Set(gomock.Any(), "oidc4ci_ack-"+ackID, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, _ string, i interface{}, duration time.Duration) *redisapi.StatusCmd {
+				assert.Equal(t, time.Duration(redisapi.KeepTTL), duration)
+				assert.Equal(t, string(b), i)
+
+				return &redisapi.StatusCmd{}
+			})
+
+		err = ackstore.New(cl, 0).Update(context.TODO(), ackID, obj)
+		assert.NoError(t, err)
+	})
+
+	t.Run("err", func(t *testing.T) {
+		cl := NewMockredisClient(gomock.NewController(t))
+		api := NewMockredisApi(gomock.NewController(t))
+
+		cl.EXPECT().API().Return(api).AnyTimes()
+
+		store := ackstore.New(cl, 30)
+
+		obj := &oidc4ci.Ack{
+			HashedToken: "abcd",
+		}
+
+		api.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(redisapi.NewStatusResult("", errors.New("unexpected err")))
+
+		err := store.Update(context.TODO(), uuid.NewString(), obj)
 		assert.ErrorContains(t, err, "unexpected err")
 	})
 }

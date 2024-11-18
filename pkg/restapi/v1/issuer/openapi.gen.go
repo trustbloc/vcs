@@ -373,6 +373,9 @@ type OAuthParameters struct {
 type PrepareBatchCredential struct {
 	CredentialRequests []PrepareCredentialBase `json:"credential_requests"`
 
+	// Hashed token received from the client.
+	HashedToken string `json:"hashed_token"`
+
 	// Transaction ID.
 	TxId string `json:"tx_id"`
 }
@@ -441,9 +444,6 @@ type PrepareCredentialBase struct {
 	// Format of the credential being issued.
 	Format *string `json:"format,omitempty"`
 
-	// Hashed token received from the client.
-	HashedToken string `json:"hashed_token"`
-
 	// Object containing requested information for encrypting the Credential Response.
 	RequestedCredentialResponseEncryption *RequestedCredentialResponseEncryption `json:"requested_credential_response_encryption,omitempty"`
 
@@ -453,18 +453,22 @@ type PrepareCredentialBase struct {
 
 // Model for Prepare Credential response.
 type PrepareCredentialResult struct {
+	// Deprecated. Credential value.
 	Credential interface{} `json:"credential"`
 
-	// Format of issued credential.
+	// Contains an array of one or more issued Credentials.
+	Credentials []externalRef0.CredentialResponseCredentialObject `json:"credentials"`
+
+	// Deprecated. Format of issued credential.
 	Format string `json:"format"`
 
 	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
-	NotificationId *string `json:"notification_id,omitempty"`
+	NotificationId string `json:"notification_id"`
 
-	// OIDC credential format
+	// Deprecated. OIDC credential format
 	OidcFormat string `json:"oidc_format"`
 
-	// TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+	// Deprecated. TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
 	Retry bool `json:"retry"`
 }
 
