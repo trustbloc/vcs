@@ -1,5 +1,4 @@
 source https://github.com/w3c/vc-data-model-2.0-test-suite
-
 > vc-data-model-2.0-test-suite@2.0.0 test
 > mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="VC v2.0 Interoperability Report" --timeout 15000 --preserve-symlinks
 
@@ -84,9 +83,9 @@ source https://github.com/w3c/vc-data-model-2.0-test-suite
   Advanced Concepts
     Gen
       ✓ When processing the active context defined by the base JSON-LD Context document defined in this specification, compliant JSON-LD-based processors produce an error when a JSON-LD context redefines any term.
-      ✓ The value of the relatedResource property MUST be one or more objects of the following form:
+      ❌ The value of the relatedResource property MUST be one or more objects of the following form:
       ✓ The identifier for the resource is REQUIRED and conforms to the format defined in Section 4.4 Identifiers.
-      ❌ The value MUST be unique among the list of related resource objects.
+      ✓ The value MUST be unique among the list of related resource objects.
       ✓ Each object associated with relatedResource MUST contain at least a digestSRI or a digestMultibase value.
       ❌ If the digest provided by the issuer does not match the digest computed for the retrieved resource, the conforming verifier implementation MUST produce an error.
       ✓ The value of the refreshService property MUST be one or more refresh services that provides enough information to the recipient's software such that the recipient can refresh the verifiable credential.
