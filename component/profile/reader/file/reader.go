@@ -165,7 +165,18 @@ func (p *IssuerReader) GetProfile(
 		return nil, resterr.ErrProfileInactive
 	}
 
-	return profile, nil
+	// better deep clone
+	b, err := json.Marshal(profile)
+	if err != nil {
+		return nil, fmt.Errorf("marshal profile: %w", err)
+	}
+
+	var cloned profileapi.Issuer
+	if err = json.Unmarshal(b, &cloned); err != nil {
+		return nil, fmt.Errorf("unmarshal profile: %w", err)
+	}
+
+	return &cloned, nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.

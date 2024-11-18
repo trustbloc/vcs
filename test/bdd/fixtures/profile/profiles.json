@@ -953,6 +953,157 @@
     },
     {
       "issuer": {
+        "id": "ecdsa-test-suite-issuer",
+        "version": "v1.0",
+        "groupID": "ecdsa-test-suite-issuer",
+        "name": "ecdsa-test-suite-issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSAP384DER",
+          "format": "ldp",
+          "didMethod": "key",
+          "status": {
+            "type": "BitstringStatusListEntry",
+            "disable": true
+          },
+          "dataIntegrityProof": {
+            "enable": true,
+            "suiteType": "ecdsa-rdfc-2019"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/ns/credentials/v2",
+              "https://w3id.org/citizenship/mod/v2"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "permanentResidentCardTemplateID",
+            "issuer": "did:ion:i_myprofile_ud_di_ecdsa-2019_v2",
+            "checks": {
+              "strict": false
+            }
+          }
+        ],
+        "credentialMetadata": {
+          "display": [],
+          "credential_configurations_supported": {
+            "VerifiedEmployeeIdentifier": {
+              "format": "ldp_vc",
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "uri": "https://example.com/public/logo.png",
+                    "alt_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credential_definition": {
+                "type": [
+                  "VerifiableCredential",
+                  "PermanentResidentCard"
+                ],
+                "credentialSubject": {
+                  "displayName": {
+                    "display": [
+                      {
+                        "name": "Employee",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "givenName": {
+                    "display": [
+                      {
+                        "name": "Given Name",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "jobTitle": {
+                    "display": [
+                      {
+                        "name": "Job Title",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "surname": {
+                    "display": [
+                      {
+                        "name": "Surname",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "preferredLanguage": {
+                    "display": [
+                      {
+                        "name": "Preferred Language",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "mail": {
+                    "display": [
+                      {
+                        "name": "Mail",
+                        "locale": "en-US"
+                      }
+                    ]
+                  },
+                  "photo": {
+                    "display": [
+                      {
+                        "name": "Photo"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_di_eddsa-2022",
         "version": "v1.0",
         "groupID": "i_myprofile_ud_di_eddsa-2022",
@@ -2366,7 +2517,7 @@
           "signatureRepresentation": 0,
           "keyType": "ED25519",
           "format": "ldp",
-          "didMethod": "key",
+          "didMethod": "ion",
           "status": {
             "type": "StatusList2021Entry"
           }
