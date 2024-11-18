@@ -1,0 +1,47 @@
+https://github.com/w3c/vc-di-ecdsa-test-suite
+
+> vc-di-ecdsa-test-suite@2.0.0 test
+> mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/config/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/config/respec.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="Data Integrity ECDSA Cryptosuites Interoperability Report" --timeout 15000 --preserve-symlinks
+
+
+  Data Integrity (ecdsa-rdfc-2019 issuers)
+    Gen: P-256
+      ❌ "before all" hook for "When expressing a data integrity proof on an object, a proof property MUST be used."
+  ecdsa-rdfc-2019 (create)
+    ecdsa-rdfc-2019 (issuers) VC 1.1
+      Gen: P-256
+        ❌ "before all" hook for "The (proof) type property MUST be DataIntegrityProof."
+  Data Integrity (ecdsa-rdfc-2019 verifiers) VC 1.1
+    Gen: P-256
+      ❌ When deserializing to RDF, implementations MUST ensure that the base URL is set to null.
+      ❌ Conforming processors MUST produce errors when non-conforming documents are consumed.
+      ❌ If either securedDocument is not a map or securedDocument.proof is not a map, an error MUST be raised and SHOULD convey an error type of PARSING_ERROR.
+      ❌ If one or more of proof.type, proof.verificationMethod, and proof.proofPurpose does not exist, an error MUST be raised and SHOULD convey an error type of PROOF_VERIFICATION_ERROR
+      ❌ The type property MUST contain the string DataIntegrityProof.
+      ❌ If expectedProofPurpose was given, and it does not match proof.proofPurpose, an error MUST be raised and SHOULD convey an error type of PROOF_VERIFICATION_ERROR.
+      ❌ The proofValue property MUST be used, as specified in 2.1 Proofs.
+      ❌ ("proof.proofValue") A string value that contains the base-encoded binary data necessary to verify the digital proof using the verificationMethod specified. The contents of the value MUST be expressed with a header and encoding as described in Section 2.4 Multibase of the Controller Documents 1.0 specification.
+      ❌ Implementations that use JSON-LD processing, such as RDF Dataset Canonicalization [RDF-CANON], MUST throw an error, which SHOULD be DATA_LOSS_DETECTION_ERROR, when data is dropped by a JSON-LD processor, such as when an undefined term is detected in an input document.
+      ❌ The value of the cryptosuite property MUST be a string that identifies the cryptographic suite. If the processing environment supports subtypes of string, the type of the cryptosuite value MUST be the https://w3id.org/security#cryptosuiteString subtype of string.
+  ecdsa-rdfc-2019 (interop)
+  ecdsa-rdfc-2019 (verifiers 1.1)
+    Gen: P-256
+      ✓ MUST verify a valid VC with an ecdsa-rdfc-2019 proof.
+      ❌ If the "cryptosuite" field is not the string "ecdsa-rdfc-2019" or the string "ecdsa-jcs-2019", an error MUST be raised.
+    Gen: P-384
+      ❌ MUST verify a valid VC with an ecdsa-rdfc-2019 proof.
+      ❌ If the "cryptosuite" field is not the string "ecdsa-rdfc-2019" or the string "ecdsa-jcs-2019", an error MUST be raised.
+  ecdsa-rdfc-2019 (verifiers 2.0)
+    Gen: P-256
+      ✓ MUST verify a valid VC with an ecdsa-rdfc-2019 proof.
+      ❌ If the "cryptosuite" field is not the string "ecdsa-rdfc-2019" or the string "ecdsa-jcs-2019", an error MUST be raised.
+    Gen: P-384
+      ❌ MUST verify a valid VC with an ecdsa-rdfc-2019 proof.
+      ❌ If the "cryptosuite" field is not the string "ecdsa-rdfc-2019" or the string "ecdsa-jcs-2019", an error MUST be raised.
+
+
+Tests passed 2/18 12%
+Tests failed 18/18 100%
+Failures 18
+Tests skipped 1
+Total tests 19

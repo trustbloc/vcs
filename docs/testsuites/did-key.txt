@@ -1,0 +1,30 @@
+https://github.com/w3c-ccg/did-key-test-suite
+
+> did-key-test-suite@0.1.0 test
+> mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="did:key Method Interoperability Report 1.0" --timeout 15000
+
+
+  did:key Create Operation
+    My Company
+      ✓ The scheme MUST be the value `did`
+      ✓ MUST raise `invalidDid` error if scheme is not `did`
+      ✓ The method MUST be the value `key`
+      ✓ MUST raise `methodNotSupported` error if method is not `key`
+      ✓ The version MUST be convertible to a positive integer value
+      ❌ MUST raise `invalidDid` if version is not convertible to a positive integer value
+      ✓ The multibaseValue MUST be a string and begin with the letter `z`
+      ❌ MUST raise `invalidDid` if the multibaseValue does not begin with the letter `z`
+      ❌ If "didDocument.id" is not a valid DID, an `invalidDid` error MUST be raised
+      ❌ If the byte length of rawPublicKeyBytes does not match the expected public key length for the associated multicodecValue, an `invalidPublicKeyLength` error MUST be raised
+      ❌ If verificationMethod.id is not a valid DID URL, an `invalidDidUrl` error MUST be raised
+      ❌ If publicKeyFormat is not known to the implementation, an `unsupportedPublicKeyType` error MUST be raised
+      ❌ For Signature Verification Methods, if options.enableExperimentalPublicKeyTypes is set to false and publicKeyFormat is not Multikey, JsonWebKey2020, or Ed25519VerificationKey2020, an `invalidPublicKeyType` error MUST be raised
+      ❌ For Encryption Verification Methods, if options.enableExperimentalPublicKeyTypes is set to false and publicKeyFormat is not Multikey, JsonWebKey2020, or X25519KeyAgreementKey2020, an `invalidPublicKeyType` error MUST be raised
+      ❌ If verificationMethod.controller is not a valid DID, an `invalidDid` error MUST be raised
+
+
+Tests passed 6/15 40%
+Tests failed 9/15 60%
+Failures 9
+Tests skipped 1
+Total tests 16

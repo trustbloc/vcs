@@ -545,7 +545,7 @@ func validateIssueCredOptions(
 		return signingOpts, nil
 	}
 
-	if options.CredentialStatus.Type != "" &&
+	if options.CredentialStatus != nil && options.CredentialStatus.Type != "" &&
 		options.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
 			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))

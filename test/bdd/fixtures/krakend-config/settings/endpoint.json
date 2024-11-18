@@ -40,6 +40,162 @@
       }
     },
     {
+      "endpoint": "/issuer/profiles/did-key-test-suite-issuer/v1.0/credentials/issue",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
+      "endpoint": "/issuer/profiles/playground_issuer_no_status/v1.0/credentials/issue",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
+      "endpoint": "/issuer/profiles/i_myprofile_ud_di_ecdsa-2019_v2/v1.0/credentials/issue",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
+      "endpoint": "/issuer/profiles/playground_issuer/v1.0/credentials/issue",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
       "endpoint": "/verifier/profiles/v_myprofile_ldp/v1.0/credentials/verify",
       "method": "POST",
       "protected": false,
@@ -79,7 +235,85 @@
       }
     },
     {
+      "endpoint": "/verifier/profiles/vc-data-model-test-suite-verifier/v1.0/credentials/verify",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
       "endpoint": "/verifier/profiles/v_myprofile_ldp/v1.0/presentations/verify",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
+      "endpoint": "/verifier/profiles/vc-data-model-test-suite-verifier/v1.0/presentations/verify",
       "method": "POST",
       "protected": false,
       "backend_extra_config": {

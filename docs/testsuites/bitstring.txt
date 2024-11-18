@@ -1,0 +1,44 @@
+https://github.com/w3c/vc-bitstring-status-list-test-suite
+
+> vc-bitstring-status-list-test-suite@0.1.0 test
+> mocha tests --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options  abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="VC Bitstring Status List Interoperability Report 1.0" --timeout 15000 --preserve-symlinks
+
+
+  Data Model: BitstringStatusList Entry
+    Gen
+      ❌ Any expression of the data model in this section MUST be expressed in a conforming verifiable credential as defined in [VC-DATA-MODEL-2.0].
+      ✓ If present, the id value is expected to be a URL that identifies the status information associated with the verifiable credential. It MUST NOT be the URL for the status list.
+      ✓ The type property MUST be BitstringStatusListEntry.
+      ✓ The purpose of the status entry MUST be a string.
+      ✓ The statusListIndex property MUST be an arbitrary size integer greater than or equal to 0, expressed as a string in base 10.
+      ❌ The statusListCredential property MUST be a URL to a verifiable credential.
+      ❌ When the URL is dereferenced, the resulting verifiable credential MUST have type property that includes the BitstringStatusListCredential value.
+  Data Model: BitstringStatusList Credential
+    Gen
+      ❌ "before all" hook for "When a status list verifiable credential is published, it MUST be a conforming document, as defined in [VC-DATA-MODEL-2.0]."
+  Algorithm
+    Gen
+      ✓ If an implementation of any of the algorithms in this section processes a property defined in Section 2. Data Model whose value is malformed due to not complying with associated "MUST" statements, a MALFORMED_VALUE_ERROR MUST be raised.
+  Algorithm: Generate Algorithm
+    Gen
+      ❌ "before all" hook for "The following process, or one generating the exact output, MUST be followed when producing a BitstringStatusListCredential."
+  Algorithm: Validate Algorithm
+    Gen
+      ✓ The following process, or one generating the exact output, MUST be followed when validating a verifiable credential that is contained in a BitstringStatusListCredential
+  Algorithm: Bitstring Generation Algorithm
+    Gen
+      ❌ "before all" hook for "The following process, or one generating the exact output, MUST be followed when generating a status list bitstring."
+  Algorithm: Bitstring Expansion Algorithm
+    Gen
+      ✓ The following process, or one generating the exact output, MUST be followed when expanding a compressed status list bitstring.
+  Algorithm: Processing Errors
+    Gen
+  Interop
+    ✓ Gen should verify Gen
+
+
+Tests passed 8/11 72%
+Tests failed 6/11 55%
+Failures 6
+Tests skipped 11
+Total tests 22

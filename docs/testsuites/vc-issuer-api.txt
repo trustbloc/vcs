@@ -1,0 +1,44 @@
+https://github.com/w3c-ccg/vc-api-issuer-test-suite
+
+> vc-api-issuer-test-suite@0.1.0 test
+> mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="VC API Issuer Interoperability Report 1.0" --timeout 15000 --preserve-symlinks
+
+
+  Issue Credential - Data Integrity
+    My Company
+      ✓ MUST successfully issue a credential.
+      ❌ Request body MUST have property "credential".
+      ✓ credential MUST have property "@context".
+      ✓ credential "@context" MUST be an array.
+      ✓ credential "@context" items MUST be strings.
+      ✓ credential MUST have property "type"
+      ✓ "credential.type" MUST be an array.
+      ✓ "credential.type" items MUST be strings
+      ✓ credential MUST have property "issuer"
+      ✓ "credential.issuer" MUST be a string or an object
+      ✓ credential MUST have property "credentialSubject"
+      ✓ "credential.credentialSubject" MUST be an object
+      ✓ credential MAY have property "expirationDate"
+  Issue Credential - JWT
+    SpruceID
+      ✓ MUST successfully issue a credential.
+      ✓ Request body MUST have property "credential".
+      ✓ credential MUST have property "@context".
+      ✓ credential "@context" MUST be an array.
+      ✓ credential "@context" items MUST be strings.
+      ✓ credential MUST have property "type"
+      ✓ "credential.type" MUST be an array.
+      ✓ "credential.type" items MUST be strings
+      ✓ credential MUST have property "issuer"
+      ✓ "credential.issuer" MUST be a string or an object
+      ✓ credential MUST have property "credentialSubject"
+      ✓ "credential.credentialSubject" MUST be an object
+      ✓ credential MAY have property "issuanceDate"
+      ✓ credential MAY have property "expirationDate"
+
+
+Tests passed 26/27 96%
+Tests failed 1/27 4%
+Failures 1
+Tests skipped 1
+Total tests 28

@@ -197,6 +197,68 @@
     },
     {
       "issuer": {
+        "id": "playground_issuer_no_status",
+        "version": "v1.0",
+        "groupID": "playground_issuer_no_status",
+        "name": "Acme Issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "Ed25519Signature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ED25519",
+          "format": "ldp",
+          "didMethod": "ion",
+          "status": {
+            "type": "StatusList2021Entry",
+            "disable": true
+          },
+          "sdjwt": {
+            "enable": false
+          },
+          "dataIntegrityProof": {
+            "enable": true,
+            "suiteType": "eddsa-rdfc-2019"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "enable_discoverable_client_id_scheme": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "dynamic_well_known_supported" : true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
+        },
+        "kmsConfig" : {
+          "kmsType" : "local"
+        },
+        "credentialTemplates": [],
+        "credentialMetadata": {}
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "acme_issuer",
         "version": "v1.0",
         "groupID": "group_acme_issuer",
@@ -2280,6 +2342,31 @@
           "keyType": "ED25519",
           "format": "ldp",
           "didMethod": "ion",
+          "status": {
+            "type": "StatusList2021Entry"
+          }
+        }
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "did-key-test-suite-issuer",
+        "version": "v1.0",
+        "groupID": "did-key-test-suite-issuer",
+        "name": "did-key-test-suite-issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-1.1",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "Ed25519Signature2018",
+          "signatureRepresentation": 0,
+          "keyType": "ED25519",
+          "format": "ldp",
+          "didMethod": "key",
           "status": {
             "type": "StatusList2021Entry"
           }

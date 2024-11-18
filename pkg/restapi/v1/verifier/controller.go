@@ -230,6 +230,11 @@ func (c *Controller) verifyCredential(
 		body.VerifiableCredential = body.Credential
 	}
 
+	if body.VerifiableCredential == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
+			errors.New("missing credential"))
+	}
+
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err

@@ -1159,8 +1159,6 @@ components:
             - type: object
           description: Credential in jws(string) or jsonld(object) formats. Backward compatibility, use verifiableCredential.
           deprecated: true
-      required:
-        - verifiableCredential
     CredentialDisplay:
       title: CredentialDisplay
       x-tag:
