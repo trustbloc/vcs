@@ -1,0 +1,112 @@
+https://github.com/w3c/vc-data-model-2.0-test-suite
+
+> vc-data-model-2.0-test-suite@2.0.0 test
+> mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="VC v2.0 Interoperability Report" --timeout 15000 --preserve-symlinks
+
+
+  Basic Conformance
+    Gen
+      ✓ A conforming document MUST be secured by at least one securing mechanism as described in Section 4.12 Securing Mechanisms.
+      ✓ A conforming issuer implementation MUST include all required properties in the conforming documents it produces.
+      ✓ A conforming issuer implementation MUST secure the conforming documents it produces using a securing mechanismdescribed in Section 4.12 Securing Mechanisms.
+      ✓ A conforming verifier implementation MUST perform verification on a conforming document as described inSection 4.12 Securing Mechanisms.
+      ✓ A conforming verifier implementation MUST produce errors when non-conforming documents are detected.
+  Contexts
+    Gen
+      ✓ Verifiable credentials MUST include a @context property.
+      ✓ Verifiable presentations MUST include a @context property.
+      ✓ Verifiable credentials: The value of the @context property MUST be an ordered set where the first item is a URL with the value https://www.w3.org/ns/credentials/v2.
+      ✓ Verifiable presentations: The value of the @context property MUST be an ordered set where the first item is a URL with the value https://www.w3.org/ns/credentials/v2.
+      ✓ Verifiable Credential `@context`: "Subsequent items in the ordered set MUST be composed of any combination of URLs and/or objects where each is processable as a JSON-LD Context."
+      ✓ Verifiable Presentation `@context`: "Subsequent items in the ordered set MUST be composed of any combination of URLs and/or objects where each is processable as a JSON-LD Context."
+  Identifiers
+    Gen
+      ✓ If present, the value of the id property MUST be a single URL, which MAY be dereferenceable.
+  Types
+    Gen
+      ✓ Verifiable credentials MUST contain a type property with an associated value.
+      ✓ Verifiable presentations MUST contain a type property with an associated value.
+      ✓ The value of the type property MUST be one or more terms and/or absolute URL strings.
+      ✓ If more than one (type) value is provided, the order does not matter.
+      ✓ Verifiable Credential objects MUST have a type specified.
+      ✓ Verifiable Presentation objects MUST have a type specified.
+      ✓ `credentialStatus` objects MUST have a type specified.
+      ✓ `termsOfUse` objects MUST have a type specified.
+      ✓ `evidence` objects MUST have a type specified.
+      ✓ `refreshService` objects MUST have a type specified.
+      ✓ `credentialSchema` objects MUST have a type specified.
+  Names and Descriptions
+    Gen
+      ✓ If present, the value of the name property MUST be a string or a language value object as described in 11.1 Language and Base Direction.
+      ✓ If present, the value of the description property MUST be a string or a language value object as described in 11.1 Language and Base Direction.
+      ✓ If present (on `issuer`), the value of the name property MUST be a string or a language value object as described in 11.1 Language and Base Direction.
+      ✓ If present (on `issuer`), the value of the description property MUST be a string or a language value object as described in 11.1 Language and Base Direction.
+  Issuer
+    Gen
+      ✓ A verifiable credential MUST have an issuer property.
+      ✓ The value of the issuer property MUST be either a URL or an object containing an id property whose value is a URL; in either case, the issuer selects this URL to identify itself in a globally unambiguous way.
+  Credential Subject
+    Gen
+      ✓ A verifiable credential MUST contain a credentialSubject property.
+      ❌ The value of the credentialSubject property is a set of objects where each object MUST be the subject of one or more claims, which MUST be serialized inside the credentialSubject property.
+  Validity Period
+    Gen
+      ✓ If present, the value of the validFrom property MUST be an [XMLSCHEMA11-2] dateTimeStamp string value representing the date and time the credential becomes valid, which could be a date and time in the future or in the past.
+      ✓ If present, the value of the validUntil property MUST be an [XMLSCHEMA11-2] dateTimeStamp string value representing the date and time the credential ceases to be valid, which could be a date and time in the past or in the future.
+      ✓ If a validUntil value also exists, the validFrom value MUST express a datetime that is temporally the same or earlier than the datetime expressed by the validUntil value.
+      ✓ If a validFrom value also exists, the validUntil value MUST express a datetime that is temporally the same or later than the datetime expressed by the validFrom value.
+  Status
+    Gen
+      ✓ The type property is REQUIRED.
+      ✓ The related normative guidance in Section 4.5 Types MUST be followed.
+      ✓ If present (credentialStatus.id), the normative guidance in Section 4.4 Identifiers MUST be followed.
+      ✓ (If a credentialStatus property is present), The type property is REQUIRED. It is used to express the type of status information expressed by the object. The related normative guidance in Section 4.5 Types MUST be followed.
+  Data Schemas
+    Gen
+      ✓ The value of the credentialSchema property MUST be one or more data schemas that provide verifiers with enough information to determine whether the provided data conforms to the provided schema(s).
+      ✓ Each credentialSchema MUST specify its type (for example, JsonSchema), and an id property that MUST be a URL identifying the schema file.
+      ✓ If multiple schemas are present, validity is determined according to the processing rules outlined by each associated type property
+  Verifiable Presentations
+    Gen
+      ✓ If [the `id` field is] present, the normative guidance in Section 4.4 Identifiers MUST be followed.
+      ✓ The type property MUST be present.
+      ✓ One value of this property MUST be VerifiablePresentation, but additional types MAY be included.The related normative guidance in Section 4.5 Types MUST be followed.
+      ✓ The verifiableCredential property MAY be present. The value MUST beone or more verifiable credential and/or enveloped verifiable credential objects (the values MUST NOT be non-object values such as numbers, strings, or URLs).
+      ❌ If present (holder), the value MUST be either a URL or an object containing an id property.
+  VP - Presentations Including Holder Claims
+    Gen
+      ❌ A verifiable presentation that includes a self-asserted verifiable credential that is only secured using the same mechanism as the verifiable presentation MUST include a holder property.
+      ❌ When a self-asserted verifiable credential is secured using the same mechanism as the verifiable presentation, the value of the issuer property of the verifiable credential MUST be identical to the holder property of the verifiable presentation.
+  VP - Enveloped Verifiable Credentials
+    Gen
+      ❌ The @context property of the object MUST be present and include a context, such as the base context for this specification, that defines at least the id, type, and EnvelopedVerifiableCredential terms as defined by the base context provided by this specification.
+      ❌ The id value of the object MUST be a data: URL [RFC2397] that expresses a secured verifiable credential using an enveloping security scheme, such as Securing Verifiable Credentials using JOSE and COSE [VC-JOSE-COSE].
+      ❌ The type value of the object MUST be EnvelopedVerifiableCredential.
+  VP - Enveloped Verifiable Presentations
+    Gen
+      ✓ The @context property of the object MUST be present and include a context, such as the base context for this specification, that defines at least the id, type, and EnvelopedVerifiablePresentation terms as defined by the base context provided by this specification.
+      ✓ The id value of the object MUST be a data: URL [RFC2397] that expresses a secured verifiable presentation using an enveloping securing mechanism, such as Securing Verifiable Credentials using JOSE and COSE [VC-JOSE-COSE].
+      ✓ The type value of the object MUST be EnvelopedVerifiablePresentation.
+  Advanced Concepts
+    Gen
+      ✓ When processing the active context defined by the base JSON-LD Context document defined in this specification, compliant JSON-LD-based processors produce an error when a JSON-LD context redefines any term.
+      ✓ The value of the relatedResource property MUST be one or more objects of the following form:
+      ✓ The identifier for the resource is REQUIRED and conforms to the format defined in Section 4.4 Identifiers.
+      ❌ The value MUST be unique among the list of related resource objects.
+      ✓ Each object associated with relatedResource MUST contain at least a digestSRI or a digestMultibase value.
+      ❌ If the digest provided by the issuer does not match the digest computed for the retrieved resource, the conforming verifier implementation MUST produce an error.
+      ✓ The value of the refreshService property MUST be one or more refresh services that provides enough information to the recipient's software such that the recipient can refresh the verifiable credential.
+      ✓ Each refreshService value MUST specify its type.
+      ✓ The value of the termsOfUse property MUST specify one or more terms of use policies under which the creator issued the credential or presentation.
+      ✓ Each termsOfUse value MUST specify its type, for example, IssuerPolicy, and MAY specify its instance id.
+      ✓ If present, the value associated with the evidence property is a single object or a set of one or more objects.
+  Algorithms
+    Gen
+      ✓ This section contains an algorithm that conforming verifier implementations MUST run when verifying a verifiable credential or a verifiable presentation.
+
+
+Tests passed 58/67 86%
+Tests failed 9/67 14%
+Failures 9
+Tests skipped 4
+Total tests 71
