@@ -259,6 +259,125 @@
     },
     {
       "issuer": {
+        "id": "vc-di-ed25519-test-suite-issuer",
+        "version": "v1.0",
+        "groupID": "vc-di-ed25519-test-suite-issuer",
+        "name": "Acme Issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "Ed25519Signature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ED25519",
+          "format": "ldp",
+          "didMethod": "key",
+          "status": {
+            "type": "StatusList2021Entry",
+            "disable": true
+          },
+          "kmsConfig" : {
+            "kmsType" : "local"
+          },
+          "sdjwt": {
+            "enable": false
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "enable_discoverable_client_id_scheme": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "dynamic_well_known_supported" : true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
+        },
+        "kmsConfig" : {
+          "kmsType" : "local"
+        },
+        "credentialTemplates": [],
+        "credentialMetadata": {}
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "vc-bitstring-status-list-issuer",
+        "version": "v1.0",
+        "groupID": "vc-bitstring-status-list-issuer",
+        "name": "Acme Issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "jwk",
+          "status": {
+            "type": "BitstringStatusListEntry"
+          },
+          "sdjwt": {
+            "enable": false
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "enable_discoverable_client_id_scheme": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "dynamic_well_known_supported" : true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=UniversityDegreeCredential"
+        },
+        "kmsConfig" : {
+          "kmsType" : "local"
+        },
+        "credentialTemplates": [],
+        "credentialMetadata": {}
+      },
+      "createDID": true
+    },
+    {
+      "issuer": {
         "id": "acme_issuer",
         "version": "v1.0",
         "groupID": "group_acme_issuer",
@@ -4536,6 +4655,303 @@
             "proof": true,
             "status": true,
             "strict" : false
+          },
+          "presentation": {
+            "format": [
+              "ldp"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        },
+        "presentationDefinitions": [
+          {
+            "id": "32f54163-no-limit-disclosure-single-field",
+            "input_descriptors": [
+              {
+                "id": "degree",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type",
+                        "$.vc.credentialSubject.degree.type"
+                      ],
+                      "id": "degree_type_id",
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "3c8b1d9a-limit-disclosure-optional-fields",
+            "input_descriptors": [
+              {
+                "id": "uom",
+                "name": "uom",
+                "purpose": "Crude oil stream specification.",
+                "constraints": {
+                  "limit_disclosure": "required",
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.physicalSpecs.uom",
+                        "$.vc.credentialSubject.physicalSpecs.uom"
+                      ],
+                      "id": "unit_of_measure_barrel",
+                      "purpose": "We can only use barrel UoM.",
+                      "filter": {
+                        "type": "string",
+                        "const": "barrel"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.physicalSpecs.apiGravity",
+                        "$.vc.credentialSubject.physicalSpecs.apiGravity"
+                      ],
+                      "id": "api_gravity",
+                      "purpose": "Min API Gravity.",
+                      "filter": {
+                        "type": "integer",
+                        "minimum": 20
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.category",
+                        "$.vc.credentialSubject.category"
+                      ],
+                      "id": "category",
+                      "purpose": "Category.",
+                      "optional": true,
+                      "filter": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.supplierAddress",
+                        "$.vc.credentialSubject.supplierAddress"
+                      ],
+                      "id": "supplier_address",
+                      "purpose": "Supplier Address.",
+                      "optional": true,
+                      "filter": {
+                        "type": "object"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "lp403pb9-schema-match",
+            "input_descriptors": [
+              {
+                "id": "schema",
+                "name": "schema",
+                "purpose": "Match credentials using specific schema.",
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$[\"@context\"]"
+                      ],
+                      "id": "schema_id",
+                      "purpose": "Match credentials using specific schema.",
+                      "filter": {
+                        "type": "array",
+                        "contains": {
+                          "type": "string",
+                          "pattern": "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "lp403pb9-schema-match-v2",
+            "input_descriptors": [
+              {
+                "id": "schema",
+                "name": "schema",
+                "purpose": "Match credentials using specific schema.",
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$[\"@context\"]"
+                      ],
+                      "id": "schema_id",
+                      "purpose": "Match credentials using specific schema.",
+                      "filter": {
+                        "type": "array",
+                        "contains": {
+                          "type": "string",
+                          "pattern": "https://trustbloc.github.io/context/vc/examples-crude-product-v2.jsonld"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "062759b1-no-limit-disclosure-optional-fields",
+            "input_descriptors": [
+              {
+                "id": "lprCategory",
+                "name": "lprCategory",
+                "purpose": "Permanent Resident Card specification",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.lprCategory",
+                        "$.vc.credentialSubject.lprCategory"
+                      ],
+                      "id": "lpr_category_id",
+                      "purpose": "Specific LPR category.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C09"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.commuterClassification",
+                        "$.vc.credentialSubject.commuterClassification"
+                      ],
+                      "id": "commuter_classification",
+                      "purpose": "Specific commuter classification.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C1"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.registrationCity",
+                        "$.vc.credentialSubject.registrationCity"
+                      ],
+                      "id": "registration_city",
+                      "purpose": "Specific registration city.",
+                      "optional": true,
+                      "filter": {
+                        "type": "string",
+                        "const": "Albuquerque"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "062759b1-no-limit-disclosure-optional-fields-v2",
+            "input_descriptors": [
+              {
+                "id": "lprCategory",
+                "name": "lprCategory",
+                "purpose": "Permanent Resident Card specification",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/ns/credentials/v2#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.lprCategory",
+                        "$.vc.credentialSubject.lprCategory"
+                      ],
+                      "id": "lpr_category_id",
+                      "purpose": "Specific LPR category.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C09"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.commuterClassification",
+                        "$.vc.credentialSubject.commuterClassification"
+                      ],
+                      "id": "commuter_classification",
+                      "purpose": "Specific commuter classification.",
+                      "filter": {
+                        "type": "string",
+                        "const": "C1"
+                      }
+                    },
+                    {
+                      "path": [
+                        "$.credentialSubject.registrationCity",
+                        "$.vc.credentialSubject.registrationCity"
+                      ],
+                      "id": "registration_city",
+                      "purpose": "Specific registration city.",
+                      "optional": true,
+                      "filter": {
+                        "type": "string",
+                        "const": "Albuquerque"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
+        "id": "vc-data-model-test-suite-verifier",
+        "version": "v1.0",
+        "name": "vc-data-model-test-suite-verifier",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "ldp"
+            ],
+            "proof": true,
+            "status": false
           },
           "presentation": {
             "format": [

@@ -40,6 +40,84 @@
       }
     },
     {
+      "endpoint": "/issuer/profiles/vc-bitstring-status-list-issuer/v1.0/credentials/issue",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
+      "endpoint": "/issuer/profiles/vc-di-ed25519-test-suite-issuer/v1.0/credentials/issue",
+      "method": "POST",
+      "protected": false,
+      "backend_extra_config": {
+        "modifier/martian": {
+          "fifo.Group" : {
+            "scope": [
+              "request"
+            ],
+            "aggregateErrors": true,
+            "modifiers": [
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-API-Key",
+                  "value": "rw_token"
+                }
+              },
+              {
+                "header.Modifier": {
+                  "scope": [
+                    "request"
+                  ],
+                  "name": "X-Tenant-ID",
+                  "value": "00000000-0000-0000-0000-000000000001"
+                }
+              }
+            ]
+          }
+        },
+        "input_headers": [
+          "X-Tenant-ID",
+          "Content-Type"
+        ]
+      }
+    },
+    {
       "endpoint": "/issuer/profiles/ecdsa-test-suite-issuer/v1.0/credentials/issue",
       "method": "POST",
       "protected": false,

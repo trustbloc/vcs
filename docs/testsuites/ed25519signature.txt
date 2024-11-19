@@ -1,4 +1,3 @@
-https://github.com/w3c/vc-di-ed25519signature2020-test-suite
 
 > vc-di-ed25519signature2020-test-suite@2.0.0 test
 > mocha tests/ --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",templateData="$PWD/reports/index.json",title="Ed25519Signature 2020 Interoperability Report 1.0",suiteLog='./suite.log' --timeout 15000 --preserve-symlinks
@@ -10,45 +9,45 @@ https://github.com/w3c/vc-di-ed25519signature2020-test-suite
         ✓ When expressing a data integrity proof on an object, a proof property MUST be used.
         ✓ If present (proof), its value MUST be either a single object, or an unordered set of objects.
         ✓ ("proof.id") An optional identifier for the proof, which MUST be a URL.
-        ❌ The specific type of proof MUST be specified as a string that maps to a URL.
-        ❌ "proof.type" field MUST be "Ed25519Signature2020" and the associated document MUST include expected contexts.
+        ✓ The specific type of proof MUST be specified as a string that maps to a URL.
+        ✓ "proof.type" field MUST be "Ed25519Signature2020" and the associated document MUST include expected contexts.
         ✓ If the proof type is DataIntegrityProof, cryptosuite MUST be specified; otherwise, cryptosuite MAY be specified.
         ✓ If specified (proof.cryptosuite), its value MUST be a string.
-        ❌ A verification method is the means and information needed to verify the proof. If included, the value MUST be a string that maps to a [URL].
-        ❌ The reason the proof was created ("proof.proofPurpose") MUST be specified as a string that maps to a URL.
+        ✓ A verification method is the means and information needed to verify the proof. If included, the value MUST be a string that maps to a [URL].
+        ✓ The reason the proof was created ("proof.proofPurpose") MUST be specified as a string that maps to a URL.
         ✓ ("proof.proofValue") A string value that expresses base-encoded binary data necessary to verify the digital proof using the verificationMethod specified. The value MUST use a header and encoding as described in Section 2.4 Multibase of the Controller Documents 1.0 specification to express the binary data.
         ✓ Cryptographic suite designers MUST use mandatory proof value properties defined in Section 2.1 Proofs, and MAY define other properties specific to their cryptographic suite.
-        ❌ Implementations that use JSON-LD processing, such as RDF Dataset Canonicalization [RDF-CANON], MUST throw an error, which SHOULD be DATA_LOSS_DETECTION_ERROR, when data is dropped by a JSON-LD processor, such as when an undefined term is detected in an input document.
+        ✓ Implementations that use JSON-LD processing, such as RDF Dataset Canonicalization [RDF-CANON], MUST throw an error, which SHOULD be DATA_LOSS_DETECTION_ERROR, when data is dropped by a JSON-LD processor, such as when an undefined term is detected in an input document.
         ✓ If the algorithm produces an error, the error MUST be propagated and SHOULD convey the error type.
     Ed25519Signature2020 (issuer)
       Gen
-        ❌ "proofValue" field when decoded to raw bytes, MUST be 64 bytes in length if the associated public key is 32 bytes or 114 bytes in length if the public key is 57 bytes.
+        ✓ "proofValue" field when decoded to raw bytes, MUST be 64 bytes in length if the associated public key is 32 bytes or 114 bytes in length if the public key is 57 bytes.
         ✓ "proof" MUST verify when using a conformant verifier.
   Ed25519Signature2020 (verify)
     Data Integrity (verifier)
       Gen
-        ❌ When deserializing to RDF, implementations MUST ensure that the base URL is set to null.
-        ❌ Conforming processors MUST produce errors when non-conforming documents are consumed.
-        ❌ If either securedDocument is not a map or securedDocument.proof is not a map, an error MUST be raised and SHOULD convey an error type of PARSING_ERROR.
-        ❌ If one or more of proof.type, proof.verificationMethod, and proof.proofPurpose does not exist, an error MUST be raised and SHOULD convey an error type of PROOF_VERIFICATION_ERROR
-        ❌ If the "proof.type" field is not the string "Ed25519Signature2020", an error MUST be raised.
-        ❌ If expectedProofPurpose was given, and it does not match proof.proofPurpose, an error MUST be raised and SHOULD convey an error type of PROOF_VERIFICATION_ERROR.
-        ❌ The proofValue property MUST be used, as specified in 2.1 Proofs.
-        ❌ ("proof.proofValue") A string value that contains the base-encoded binary data necessary to verify the digital proof using the verificationMethod specified. The contents of the value MUST be expressed with a header and encoding as described in Section 2.4 Multibase of the Controller Documents 1.0 specification.
+        ✓ When deserializing to RDF, implementations MUST ensure that the base URL is set to null.
+        ✓ Conforming processors MUST produce errors when non-conforming documents are consumed.
+        ✓ If either securedDocument is not a map or securedDocument.proof is not a map, an error MUST be raised and SHOULD convey an error type of PARSING_ERROR.
+        ✓ If one or more of proof.type, proof.verificationMethod, and proof.proofPurpose does not exist, an error MUST be raised and SHOULD convey an error type of PROOF_VERIFICATION_ERROR
+        ✓ If the "proof.type" field is not the string "Ed25519Signature2020", an error MUST be raised.
+        ✓ If expectedProofPurpose was given, and it does not match proof.proofPurpose, an error MUST be raised and SHOULD convey an error type of PROOF_VERIFICATION_ERROR.
+        ✓ The proofValue property MUST be used, as specified in 2.1 Proofs.
+        ✓ ("proof.proofValue") A string value that contains the base-encoded binary data necessary to verify the digital proof using the verificationMethod specified. The contents of the value MUST be expressed with a header and encoding as described in Section 2.4 Multibase of the Controller Documents 1.0 specification.
         ❌ Implementations that use JSON-LD processing, such as RDF Dataset Canonicalization [RDF-CANON], MUST throw an error, which SHOULD be DATA_LOSS_DETECTION_ERROR, when data is dropped by a JSON-LD processor, such as when an undefined term is detected in an input document.
-        ❌ The value of the cryptosuite property MUST be a string that identifies the cryptographic suite. If the processing environment supports subtypes of string, the type of the cryptosuite value MUST be the https://w3id.org/security#cryptosuiteString subtype of string.
+        ✓ The value of the cryptosuite property MUST be a string that identifies the cryptographic suite. If the processing environment supports subtypes of string, the type of the cryptosuite value MUST be the https://w3id.org/security#cryptosuiteString subtype of string.
     Ed25519Signature2020 (verifier)
       Gen
         ❌ MUST verify a valid VC with an Ed25519Signature2020 proof
-        ❌ If the "proofValue" field, when decoded to raw bytes, is not 64 bytes in length if the associated public key is 32 bytes in length, or 114 bytes in length if the public key is 57 bytes in length, an error MUST be raised.
-        ❌ If a canonicalization algorithm other than URDNA2015 is used, an error MUST be raised.
-        ❌ If a canonicalization data hashing algorithm SHA-2-256 is used, an error MUST be raised.
+        ✓ If the "proofValue" field, when decoded to raw bytes, is not 64 bytes in length if the associated public key is 32 bytes in length, or 114 bytes in length if the public key is 57 bytes in length, an error MUST be raised.
+        ✓ If a canonicalization algorithm other than URDNA2015 is used, an error MUST be raised.
+        ✓ If a canonicalization data hashing algorithm SHA-2-256 is used, an error MUST be raised.
   Ed25519Signature2020 (interop)
     ✓ Gen should verify Gen
 
 
-Tests passed 10/30 34%
-Tests failed 20/30 66%
-Failures 20
+Tests passed 28/30 93%
+Tests failed 2/30 7%
+Failures 2
 Tests skipped 0
 Total tests 30

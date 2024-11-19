@@ -289,8 +289,16 @@ func (c *Controller) issueCredential(
 				return nil, validationErr
 			}
 
-			if _, dateOk := v["issuanceDate"]; !dateOk {
-				v["issuanceDate"] = utiltime.NewTime(time.Now().UTC()).FormatToString() // vc-api-verifier-test-suite
+			//if typesObj, ok := v["type"]; ok {
+			//	if types, ok := typesObj.([]interface{}); ok && len(types) == 1 { // vc-bitstring-status-list-test-suite
+			//		enforceStrictValidation = false // some test send only VerifiableCredential
+			//	}
+			//}
+
+			if profile.VCConfig.Model == vcsverifiable.V1_1 {
+				if _, dateOk := v["issuanceDate"]; !dateOk {
+					v["issuanceDate"] = utiltime.NewTime(time.Now().UTC()).FormatToString() // vc-api-verifier-test-suite
+				}
 			}
 		}
 	} else {
@@ -529,7 +537,9 @@ func (c *Controller) parseCredential(
 		c.documentLoader,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(schema),
-		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
+		verifiable.WithJSONLDDocumentLoader(c.documentLoader),
+		verifiable.WithJSONLDIncludeDetailedStructureDiffOnError(),
+	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}

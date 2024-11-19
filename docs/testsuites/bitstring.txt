@@ -1,4 +1,3 @@
-https://github.com/w3c/vc-bitstring-status-list-test-suite
 
 > vc-bitstring-status-list-test-suite@0.1.0 test
 > mocha tests --reporter @digitalbazaar/mocha-w3c-interop-reporter --reporter-options  abstract="$PWD/abstract.hbs",reportDir="$PWD/reports",respec="$PWD/respecConfig.json",suiteLog='./suite.log',templateData="$PWD/reports/index.json",title="VC Bitstring Status List Interoperability Report 1.0" --timeout 15000 --preserve-symlinks
@@ -11,23 +10,28 @@ https://github.com/w3c/vc-bitstring-status-list-test-suite
       ✓ The type property MUST be BitstringStatusListEntry.
       ✓ The purpose of the status entry MUST be a string.
       ✓ The statusListIndex property MUST be an arbitrary size integer greater than or equal to 0, expressed as a string in base 10.
-      ❌ The statusListCredential property MUST be a URL to a verifiable credential.
-      ❌ When the URL is dereferenced, the resulting verifiable credential MUST have type property that includes the BitstringStatusListCredential value.
+      ✓ The statusListCredential property MUST be a URL to a verifiable credential.
+      ✓ When the URL is dereferenced, the resulting verifiable credential MUST have type property that includes the BitstringStatusListCredential value.
   Data Model: BitstringStatusList Credential
     Gen
-      ❌ "before all" hook for "When a status list verifiable credential is published, it MUST be a conforming document, as defined in [VC-DATA-MODEL-2.0]."
+      ✓ When a status list verifiable credential is published, it MUST be a conforming document, as defined in [VC-DATA-MODEL-2.0].
+      ✓ The verifiable credential that contains the status list MUST express a type property that includes the BitstringStatusListCredential value.
+      ✓ The type of the credential subject, which is the status list, MUST be BitstringStatusList.
+      ✓ The value of the purpose property of the status entry, statusPurpose, MUST be one or more strings.
+      ❌ The encodedList property of the credential subject MUST be a Multibase-encoded base64url (with no padding) [RFC4648] representation of the GZIP-compressed [RFC1952] bitstring values for the associated range of verifiable credential status values.
+      ❌ The uncompressed bitstring MUST be at least 16KB in size.
   Algorithm
     Gen
       ✓ If an implementation of any of the algorithms in this section processes a property defined in Section 2. Data Model whose value is malformed due to not complying with associated "MUST" statements, a MALFORMED_VALUE_ERROR MUST be raised.
   Algorithm: Generate Algorithm
     Gen
-      ❌ "before all" hook for "The following process, or one generating the exact output, MUST be followed when producing a BitstringStatusListCredential."
+      ✓ The following process, or one generating the exact output, MUST be followed when producing a BitstringStatusListCredential.
   Algorithm: Validate Algorithm
     Gen
       ✓ The following process, or one generating the exact output, MUST be followed when validating a verifiable credential that is contained in a BitstringStatusListCredential
   Algorithm: Bitstring Generation Algorithm
     Gen
-      ❌ "before all" hook for "The following process, or one generating the exact output, MUST be followed when generating a status list bitstring."
+      ❌ The following process, or one generating the exact output, MUST be followed when generating a status list bitstring.
   Algorithm: Bitstring Expansion Algorithm
     Gen
       ✓ The following process, or one generating the exact output, MUST be followed when expanding a compressed status list bitstring.
@@ -37,8 +41,8 @@ https://github.com/w3c/vc-bitstring-status-list-test-suite
     ✓ Gen should verify Gen
 
 
-Tests passed 8/11 72%
-Tests failed 6/11 55%
-Failures 6
-Tests skipped 11
-Total tests 22
+Tests passed 15/19 78%
+Tests failed 4/19 22%
+Failures 4
+Tests skipped 13
+Total tests 32

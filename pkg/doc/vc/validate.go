@@ -66,6 +66,7 @@ func ValidateCredential(
 			verifiable.WithJSONLDDocumentLoader(documentLoader),
 			verifiable.WithStrictValidation(),
 			verifiable.WithJSONLDValidation(),
+			verifiable.WithJSONLDIncludeDetailedStructureDiffOnError(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate JWT credential claims: %w", err)
