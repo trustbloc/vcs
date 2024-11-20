@@ -51,7 +51,7 @@ type AckRequest struct {
 	Credentials *[]AckRequestItem `json:"credentials,omitempty"`
 
 	// Type of the notification event.
-	Event string `json:"event"`
+	Event *string `json:"event,omitempty"`
 
 	// Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
 	EventDescription   *string                 `json:"event_description,omitempty"`
@@ -61,7 +61,7 @@ type AckRequest struct {
 	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
 
 	// Ack ID.
-	NotificationId string `json:"notification_id"`
+	NotificationId *string `json:"notification_id,omitempty"`
 }
 
 // Deprecated. AckRequestItem

@@ -2407,9 +2407,6 @@ components:
           description: 'Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
         interaction_details:
           type: object
-      required:
-        - notification_id
-        - event
     AckRequestItem:
       deprecated: true
       type: object
