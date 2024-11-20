@@ -654,10 +654,10 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 
 	// todo: according to the spec those 2 fields are required, so condition is redundant.
 	//  Should be removed during endpoint update to the latest spec.
-	if body.NotificationId != "" && body.Event != "" {
+	if body.NotificationId != nil && body.Event != nil {
 		if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
-			TxID:               issuecredential.TxID(body.NotificationId),
-			Event:              body.Event,
+			TxID:               issuecredential.TxID(lo.FromPtr(body.NotificationId)),
+			Event:              lo.FromPtr(body.Event),
 			HashedToken:        hashedToken,
 			EventDescription:   lo.FromPtr(body.EventDescription),
 			IssuerIdentifier:   lo.FromPtr(body.IssuerIdentifier),
