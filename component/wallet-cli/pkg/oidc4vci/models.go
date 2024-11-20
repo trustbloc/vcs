@@ -81,13 +81,8 @@ type Proof struct {
 	LdpVp     any    `json:"ldp_vp,omitempty"`
 }
 
-type CredentialResponse struct {
-	AcceptanceToken string                `json:"acceptance_token,omitempty"`
-	CNonce          string                `json:"c_nonce,omitempty"`
-	CNonceExpiresIn int                   `json:"c_nonce_expires_in,omitempty"`
-	Credential      interface{}           `json:"credential"`
-	Format          verifiable.OIDCFormat `json:"format"`
-	NotificationId  *string               `json:"notification_id"`
+type CredentialResponseCredential struct {
+	Credential interface{} `json:"credential"`
 }
 
 type PerfInfo struct {
@@ -96,9 +91,4 @@ type PerfInfo struct {
 	GetCredential                  time.Duration `json:"vci_get_credential"`
 	CredentialsAck                 time.Duration `json:"vci_credentials_ack"`
 	VcsCIFlowDuration              time.Duration `json:"_vcs_ci_flow_duration"`
-}
-
-type parseCredentialResponseData struct {
-	credential     interface{}
-	notificationID *string
 }

@@ -1366,8 +1366,14 @@ func TestController_OidcCredential(t *testing.T) {
 						), nil)
 
 				b, marshalErr := json.Marshal(issuer.PrepareCredentialResult{
-					Credential: "credential in jwt format",
-					Format:     string(verifiable.Jwt),
+					Credential:     "credential in jwt format",
+					Format:         string(verifiable.Jwt),
+					NotificationId: "notificationID",
+					Credentials: []common.CredentialResponseCredentialObject{
+						{
+							Credential: "credential in jwt format",
+						},
+					},
 				})
 				require.NoError(t, marshalErr)
 
@@ -1388,6 +1394,14 @@ func TestController_OidcCredential(t *testing.T) {
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, rec.Code)
+
+				var resp *oidc4ci.CredentialResponse
+				require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+				assert.NotEmpty(t, resp.CNonce)
+				assert.Equal(t, "credential in jwt format", resp.Credential)
+				assert.Equal(t, []common.CredentialResponseCredentialObject{{Credential: "credential in jwt format"}}, resp.Credentials)
+				assert.Equal(t, "notificationID", resp.NotificationId)
 			},
 		},
 		{
@@ -2734,16 +2748,18 @@ func TestController_OidcBatchCredential(t *testing.T) {
 		credentialResponseBatchCredential, ok := response.CredentialResponses[0].(map[string]interface{})
 		assert.True(t, ok)
 
-		assert.Equal(t, credentialResponseBatchCredential, map[string]interface{}{
-			"credential": "credential1 in jwt format",
-		})
+		assert.Equal(t, map[string]interface{}{
+			"credential":      "credential1 in jwt format",
+			"notification_id": "notificationID",
+		}, credentialResponseBatchCredential)
 
 		credentialResponseBatchCredential, ok = response.CredentialResponses[1].(map[string]interface{})
 		assert.True(t, ok)
 
-		assert.Equal(t, credentialResponseBatchCredential, map[string]interface{}{
-			"credential": "credential2 in jwt format",
-		})
+		assert.Equal(t, map[string]interface{}{
+			"credential":      "credential2 in jwt format",
+			"notification_id": "notificationID",
+		}, credentialResponseBatchCredential)
 	}
 
 	ecdsaPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -2784,12 +2800,14 @@ func TestController_OidcBatchCredential(t *testing.T) {
 
 				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
 					{
-						Credential: "credential1 in jwt format",
-						Format:     string(verifiable.Jwt),
+						Credential:     "credential1 in jwt format",
+						Format:         string(verifiable.Jwt),
+						NotificationId: "notificationID",
 					},
 					{
-						Credential: "credential2 in jwt format",
-						Format:     string(verifiable.Jwt),
+						Credential:     "credential2 in jwt format",
+						Format:         string(verifiable.Jwt),
+						NotificationId: "notificationID",
 					},
 				})
 				require.NoError(t, marshalErr)
@@ -2831,12 +2849,14 @@ func TestController_OidcBatchCredential(t *testing.T) {
 
 				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
 					{
-						Credential: "credential1 in jwt format",
-						Format:     string(verifiable.Jwt),
+						Credential:     "credential1 in jwt format",
+						Format:         string(verifiable.Jwt),
+						NotificationId: "notificationID",
 					},
 					{
-						Credential: "credential2 in jwt format",
-						Format:     string(verifiable.Jwt),
+						Credential:     "credential2 in jwt format",
+						Format:         string(verifiable.Jwt),
+						NotificationId: "notificationID",
 					},
 				})
 				require.NoError(t, marshalErr)
@@ -2877,11 +2897,23 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				b, marshalErr := json.Marshal([]issuer.PrepareCredentialResult{
 					{
 						Credential: "credential1 in jwt format",
-						Format:     string(verifiable.Jwt),
+						Credentials: []common.CredentialResponseCredentialObject{
+							{
+								Credential: "credential1 in jwt format",
+							},
+						},
+						Format:         string(verifiable.Jwt),
+						NotificationId: "notificationId",
 					},
 					{
 						Credential: "credential2 in jwt format",
-						Format:     string(verifiable.Jwt),
+						Credentials: []common.CredentialResponseCredentialObject{
+							{
+								Credential: "credential2 in jwt format",
+							},
+						},
+						Format:         string(verifiable.Jwt),
+						NotificationId: "notificationId",
 					},
 				})
 				require.NoError(t, marshalErr)
@@ -2962,14 +2994,15 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					CNonceExpiresIn: nil,
 					Credential:      "credential1 in jwt format",
 					Format:          "",
-					NotificationId:  nil,
+					NotificationId:  "notificationId",
 				})
 
 				credentialResponseBatchCredential, ok := response.CredentialResponses[1].(map[string]interface{})
 				assert.True(t, ok)
 
 				assert.Equal(t, credentialResponseBatchCredential, map[string]interface{}{
-					"credential": "credential2 in jwt format",
+					"credential":      "credential2 in jwt format",
+					"notification_id": "notificationId",
 				})
 			},
 		},
@@ -4539,7 +4572,7 @@ func TestController_Ack(t *testing.T) {
 		return hex.EncodeToString(hash[:])
 	}
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success: with Credentials array", func(t *testing.T) {
 		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
 
 		ackMock := NewMockAckService(gomock.NewController(t))
@@ -4556,7 +4589,7 @@ func TestController_Ack(t *testing.T) {
 		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, remote oidc4cisrv.AckRemote) error {
 				assert.Equal(t, hh(expectedToken), remote.HashedToken)
-				assert.Equal(t, "tx_id", remote.ID)
+				assert.Equal(t, "tx_id", string(remote.TxID))
 				assert.Equal(t, "credential_accepted", remote.Event)
 				assert.Equal(t, "err_txt", remote.EventDescription)
 				assert.Equal(t, map[string]interface{}{
@@ -4580,7 +4613,48 @@ func TestController_Ack(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, rec.Code)
 	})
 
-	t.Run("ack err", func(t *testing.T) {
+	t.Run("success: without Credentials array", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		ackMock := NewMockAckService(gomock.NewController(t))
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			AckService:     ackMock,
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		expectedToken := "xxxx"
+
+		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, remote oidc4cisrv.AckRemote) error {
+				assert.Equal(t, hh(expectedToken), remote.HashedToken)
+				assert.Equal(t, "tx_id", string(remote.TxID))
+				assert.Equal(t, "credential_accepted", remote.Event)
+				assert.Equal(t, "err_txt", remote.EventDescription)
+				assert.Equal(t, map[string]interface{}{
+					"userId":        "userId",
+					"transactionId": "transactionId",
+				}, remote.InteractionDetails)
+
+				return nil
+			})
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"notification_id": "tx_id", "event": "credential_accepted","event_description": "err_txt",
+			"interaction_details": {"userId": "userId", "transactionId": "transactionId"}
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer xxxx")
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+	})
+
+	t.Run("ack err: with Credentials array", func(t *testing.T) {
 		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
 
 		ackMock := NewMockAckService(gomock.NewController(t))
@@ -4614,6 +4688,40 @@ func TestController_Ack(t *testing.T) {
 		assert.Equal(t, "some error", bd.Error)
 	})
 
+	t.Run("ack err: without Credentials array", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		ackMock := NewMockAckService(gomock.NewController(t))
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			AckService:     ackMock,
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
+			Return(errors.New("some error"))
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
+			"notification_id": "tx_id", "event": "credential_accepted","event_description": "err_txt"
+		}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer xxxx")
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var bd oidc4ci.AckErrorResponse
+		b, _ := io.ReadAll(rec.Body)
+
+		assert.NoError(t, json.Unmarshal(b, &bd))
+		assert.Equal(t, "some error", bd.Error)
+	})
+
 	t.Run("token err 2", func(t *testing.T) {
 		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
 
@@ -4624,9 +4732,7 @@ func TestController_Ack(t *testing.T) {
 			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
 		})
 
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
-		}`)))
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{}`)))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
 		rec := httptest.NewRecorder()

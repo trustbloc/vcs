@@ -758,7 +758,7 @@ func (f *Flow) receiveVC(
 		return nil, fmt.Errorf("getCredentialRequestOIDCCredentialFormat: %w", err)
 	}
 
-	var parseCredentialResponseDataList []*parseCredentialResponseData
+	var credentialResponse *oidc4civ1.CredentialResponse
 
 	canUseBatchCredentialsEndpoint := lo.FromPtr(wellKnown.BatchCredentialEndpoint) != "" && len(credentialFilters) > 1
 
@@ -773,7 +773,7 @@ func (f *Flow) receiveVC(
 			"credential_issuer", credentialIssuer,
 		)
 
-		credentialResp, err := f.batchCredentialRequest(
+		credentialResponse, err = f.batchCredentialRequest(
 			ctx,
 			batchCredentialEndpoint,
 			token,
@@ -783,15 +783,6 @@ func (f *Flow) receiveVC(
 		if err != nil {
 			return nil, fmt.Errorf("batchCredentialRequest: %w", err)
 		}
-
-		for _, credentialData := range credentialResp.CredentialResponses {
-			parseCredentialResponseDataList = append(parseCredentialResponseDataList,
-				&parseCredentialResponseData{
-					credential:     credentialData.Credential,
-					notificationID: credentialData.NotificationId,
-				})
-		}
-
 	} else {
 		credentialEndpoint := lo.FromPtr(wellKnown.CredentialEndpoint)
 		slog.Info("Getting credential",
@@ -803,7 +794,7 @@ func (f *Flow) receiveVC(
 			return nil, errors.New("no credential filters defined")
 		}
 
-		credentialResp, err := f.credentialRequest(
+		credentialResponse, err = f.credentialRequest(
 			ctx,
 			credentialEndpoint,
 			token,
@@ -814,15 +805,9 @@ func (f *Flow) receiveVC(
 		if err != nil {
 			return nil, fmt.Errorf("credentialRequest: %w", err)
 		}
-
-		parseCredentialResponseDataList = append(parseCredentialResponseDataList,
-			&parseCredentialResponseData{
-				credential:     credentialResp.Credential,
-				notificationID: credentialResp.NotificationId,
-			})
 	}
 
-	credentials, err := f.parseCredentialsResponse(ctx, parseCredentialResponseDataList, token, wellKnown)
+	credentials, err := f.parseCredentialsResponse(ctx, credentialResponse, token, wellKnown)
 	if err != nil {
 		return nil, fmt.Errorf("parseCredentialsResponse: %w", err)
 	}
@@ -837,7 +822,7 @@ func (f *Flow) credentialRequest(
 	credentialFormat vcsverifiable.OIDCFormat,
 	credentialType string,
 	proof *Proof,
-) (*CredentialResponse, error) {
+) (*oidc4civ1.CredentialResponse, error) {
 	b, err := json.Marshal(CredentialRequest{
 		Format: credentialFormat,
 		CredentialDefinition: &CredentialDefinition{
@@ -856,7 +841,7 @@ func (f *Flow) credentialRequest(
 		return nil, fmt.Errorf("doCredentialRequest: %w", err)
 	}
 
-	var credentialResp CredentialResponse
+	var credentialResp oidc4civ1.CredentialResponse
 
 	if err = json.Unmarshal(responseBody, &credentialResp); err != nil {
 		return nil, fmt.Errorf("decode credential response: %w", err)
@@ -871,7 +856,7 @@ func (f *Flow) batchCredentialRequest(
 	token *oauth2.Token,
 	credentialFilters []*credentialFilter,
 	proof *Proof,
-) (*BatchCredentialResponse, error) {
+) (*oidc4civ1.CredentialResponse, error) {
 	batchCredentialRequest := BatchCredentialRequest{
 		CredentialRequests: make([]CredentialRequest, 0, len(credentialFilters)),
 	}
@@ -905,27 +890,41 @@ func (f *Flow) batchCredentialRequest(
 		return nil, fmt.Errorf("decode batch credential response: %w", err)
 	}
 
-	return &batchCredentialResponse, nil
+	credentialResponse := &oidc4civ1.CredentialResponse{
+		Credentials: make([]common.CredentialResponseCredentialObject, len(batchCredentialResponse.CredentialResponses)),
+	}
+
+	for i, batch := range batchCredentialResponse.CredentialResponses {
+		credentialResponse.Credentials[i] = common.CredentialResponseCredentialObject{
+			Credential: batch.Credential,
+		}
+
+		// Batch credential endpoint is deprecated into the spec for now.
+		// But it is still supported by VCS, and it returns same notification ID for all issued Credentials.
+		// So we are safe to use the latest one.
+		credentialResponse.NotificationId = lo.FromPtr(batch.NotificationId)
+	}
+
+	return credentialResponse, nil
 }
 
 func (f *Flow) parseCredentialsResponse(
 	ctx context.Context,
-	parseCredentialResponseDataList []*parseCredentialResponseData,
+	credentialEndpointResponse *oidc4civ1.CredentialResponse,
 	token *oauth2.Token,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
 ) ([]*verifiable.Credential, error) {
-	notificationIDs := make([]string, 0, len(parseCredentialResponseDataList))
-	credentials := make([]*verifiable.Credential, 0, len(parseCredentialResponseDataList))
+	credentials := make([]*verifiable.Credential, 0, len(credentialEndpointResponse.Credentials))
 
-	for i, parseCredentialData := range parseCredentialResponseDataList {
+	for i, parseCredentialData := range credentialEndpointResponse.Credentials {
 		var vcBytes []byte
 		var err error
 
-		switch credVal := parseCredentialData.credential.(type) {
+		switch credVal := parseCredentialData.Credential.(type) {
 		case string:
 			vcBytes = []byte(credVal) // cwt
 		default:
-			vcBytes, err = json.Marshal(parseCredentialData.credential)
+			vcBytes, err = json.Marshal(parseCredentialData.Credential)
 			if err != nil {
 				return nil, fmt.Errorf("marshal credential response: %w", err)
 			}
@@ -953,9 +952,9 @@ func (f *Flow) parseCredentialsResponse(
 				cslURL = u
 			}
 
-			i, ok := vcc.Status.CustomFields["statusListIndex"].(string)
+			sli, ok := vcc.Status.CustomFields["statusListIndex"].(string)
 			if ok {
-				statusListIndex = i
+				statusListIndex = sli
 			}
 		}
 
@@ -973,10 +972,9 @@ func (f *Flow) parseCredentialsResponse(
 		)
 
 		credentials = append(credentials, parsedVC)
-		notificationIDs = append(notificationIDs, lo.FromPtr(parseCredentialData.notificationID))
 	}
 
-	if err := f.handleIssuanceAck(ctx, wellKnown, notificationIDs, token); err != nil {
+	if err := f.handleIssuanceAck(ctx, wellKnown, credentialEndpointResponse.NotificationId, len(credentials), token); err != nil {
 		return nil, fmt.Errorf("handleIssuanceAck: %w", err)
 	}
 
@@ -1152,10 +1150,11 @@ func (f *Flow) getCredentialFiltersFromCredentialConfigurationIDs(
 func (f *Flow) handleIssuanceAck(
 	ctx context.Context,
 	wellKnown *issuerv1.WellKnownOpenIDIssuerConfiguration,
-	notificationIDs []string,
+	notificationID string,
+	credentialAmount int,
 	token *oauth2.Token,
 ) error {
-	if wellKnown == nil || len(notificationIDs) == 0 {
+	if wellKnown == nil || notificationID == "" {
 		return nil
 	}
 
@@ -1169,55 +1168,44 @@ func (f *Flow) handleIssuanceAck(
 		f.perfInfo.CredentialsAck = time.Since(start)
 	}()
 
-	slog.Info("Sending wallet notification",
-		"notification_ids", notificationIDs,
-		"endpoint", notificationEndpoint,
-	)
+	for i := 0; i < credentialAmount; i++ {
+		slog.Info("Sending wallet notification", "notification_id", notificationID, "endpoint", notificationEndpoint)
 
-	ackRequest := oidc4civ1.AckRequest{
-		Credentials: []oidc4civ1.AckRequestItem{},
-		InteractionDetails: lo.ToPtr(map[string]interface{}{
-			"notification_ids": notificationIDs,
-		}),
-	}
-
-	for _, notificationID := range notificationIDs {
-		if notificationID == "" {
-			continue
-		}
-
-		ackRequest.Credentials = append(ackRequest.Credentials, oidc4civ1.AckRequestItem{
+		ackRequest := oidc4civ1.AckRequest{
 			Event:            "credential_accepted",
 			EventDescription: nil,
 			IssuerIdentifier: wellKnown.CredentialIssuer,
-			NotificationId:   notificationID,
-		})
-	}
+			InteractionDetails: lo.ToPtr(map[string]interface{}{
+				"notification_id": notificationID,
+			}),
+			NotificationId: notificationID, //todo test without required field
+		}
 
-	b, err := json.Marshal(ackRequest)
-	if err != nil {
-		return err
-	}
+		b, err := json.Marshal(ackRequest)
+		if err != nil {
+			return err
+		}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, notificationEndpoint, bytes.NewBuffer(b))
-	if err != nil {
-		return fmt.Errorf("ack credential request: %w", err)
-	}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, notificationEndpoint, bytes.NewBuffer(b))
+		if err != nil {
+			return fmt.Errorf("ack credential request: %w", err)
+		}
 
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("authorization", "Bearer "+token.AccessToken)
+		req.Header.Add("content-type", "application/json")
+		req.Header.Add("authorization", "Bearer "+token.AccessToken)
 
-	resp, err := f.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
+		resp, err := f.httpClient.Do(req)
+		if err != nil {
+			return err
+		}
 
-	slog.Info(fmt.Sprintf("Wallet ACK sent with status code %v", resp.StatusCode))
+		slog.Info(fmt.Sprintf("Wallet ACK sent with status code %v", resp.StatusCode))
 
-	b, _ = io.ReadAll(resp.Body) // nolint
-	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("expected to receive status code %d but got status code %d with response body %s",
-			http.StatusNoContent, resp.StatusCode, string(b))
+		b, _ = io.ReadAll(resp.Body) // nolint
+		if resp.StatusCode != http.StatusNoContent {
+			return fmt.Errorf("expected to receive status code %d but got status code %d with response body %s",
+				http.StatusNoContent, resp.StatusCode, string(b))
+		}
 	}
 
 	return nil

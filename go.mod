@@ -24,6 +24,7 @@ require (
 	github.com/getkin/kin-openapi v0.127.0
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/golang/mock v1.6.0
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jinzhu/copier v0.3.5

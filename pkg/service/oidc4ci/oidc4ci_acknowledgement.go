@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
@@ -43,25 +41,79 @@ func NewAckService(
 func (s *AckService) CreateAck(
 	ctx context.Context,
 	ack *Ack,
-) (*string, error) {
+) (string, error) {
 	if s.cfg.AckStore == nil {
-		return nil, nil //nolint:nilnil
+		return "", nil //nolint:nilnil
 	}
 
 	profile, err := s.cfg.ProfileSvc.GetProfile(ack.ProfileID, ack.ProfileVersion)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	id, err := s.cfg.AckStore.Create(ctx, profile.DataConfig.OIDC4CIAckDataTTL, ack)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &id, nil
+	return id, nil
 }
 
-func (s *AckService) HandleAckNotFound(
+// Ack acknowledges the interaction.
+func (s *AckService) Ack(
+	ctx context.Context,
+	req AckRemote,
+) error {
+	if s.cfg.AckStore == nil {
+		return nil
+	}
+
+	ack, err := s.cfg.AckStore.Get(ctx, string(req.TxID))
+	if err != nil {
+		if errors.Is(err, ErrDataNotFound) {
+			return s.handleAckNotFound(ctx, req)
+		}
+		return err
+	}
+
+	if ack.HashedToken != req.HashedToken {
+		return errors.New("invalid token")
+	}
+
+	eventPayload := &EventPayload{
+		WebHook:            ack.WebHookURL,
+		ProfileID:          ack.ProfileID,
+		ProfileVersion:     ack.ProfileVersion,
+		OrgID:              ack.OrgID,
+		ErrorComponent:     "wallet",
+		Error:              req.EventDescription,
+		ErrorCode:          req.Event,
+		InteractionDetails: req.InteractionDetails,
+	}
+
+	err = s.sendEvent(ctx, s.AckEventMap(req.Event), ack.TxID, eventPayload)
+	if err != nil {
+		return err
+	}
+
+	ack.CredentialsIssued-- // decrement counter of issued credentials.
+
+	if ack.CredentialsIssued > 0 {
+		if err = s.cfg.AckStore.Update(ctx, string(req.TxID), ack); err != nil { // not critical
+			logger.Errorc(ctx, fmt.Sprintf("failed to update ack with id[%s]: %s", req.TxID, err.Error()))
+		}
+
+		return nil
+	}
+
+	if err = s.cfg.AckStore.Delete(ctx, string(req.TxID)); err != nil { // not critical
+		logger.Errorc(ctx, fmt.Sprintf("failed to delete ack with id[%s]: %s", req.TxID, err.Error()))
+	}
+
+	return nil
+}
+
+func (s *AckService) handleAckNotFound(
 	ctx context.Context,
 	req AckRemote,
 ) error {
@@ -95,56 +147,12 @@ func (s *AckService) HandleAckNotFound(
 		eventPayload.Error = req.EventDescription
 	}
 
-	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, extractTransactionID(req.ID), eventPayload)
+	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, req.TxID, eventPayload)
 	if err != nil {
 		return err
 	}
 
 	return ErrAckExpired
-}
-
-// Ack acknowledges the interaction.
-func (s *AckService) Ack(
-	ctx context.Context,
-	req AckRemote,
-) error {
-	if s.cfg.AckStore == nil {
-		return nil
-	}
-
-	ack, err := s.cfg.AckStore.Get(ctx, req.ID)
-	if err != nil {
-		if errors.Is(err, ErrDataNotFound) {
-			return s.HandleAckNotFound(ctx, req)
-		}
-		return err
-	}
-
-	if ack.HashedToken != req.HashedToken {
-		return errors.New("invalid token")
-	}
-
-	eventPayload := &EventPayload{
-		WebHook:            ack.WebHookURL,
-		ProfileID:          ack.ProfileID,
-		ProfileVersion:     ack.ProfileVersion,
-		OrgID:              ack.OrgID,
-		ErrorComponent:     "wallet",
-		Error:              req.EventDescription,
-		ErrorCode:          req.Event,
-		InteractionDetails: req.InteractionDetails,
-	}
-
-	err = s.sendEvent(ctx, s.AckEventMap(req.Event), extractTransactionID(ack.TxID), eventPayload)
-	if err != nil {
-		return err
-	}
-
-	if err = s.cfg.AckStore.Delete(ctx, req.ID); err != nil { // not critical
-		logger.Errorc(ctx, fmt.Sprintf("failed to delete ack with id[%s]: %s", req.ID, err.Error()))
-	}
-
-	return nil
 }
 
 func (s *AckService) sendEvent(
@@ -170,12 +178,4 @@ func (s *AckService) AckEventMap(status string) spi.EventType {
 	}
 
 	return spi.IssuerOIDCInteractionAckRejected
-}
-
-func extractTransactionID(ackTxID string) issuecredential.TxID {
-	return issuecredential.TxID(strings.Split(ackTxID, "_")[0])
-}
-
-func generateAckTxID(transactionID issuecredential.TxID) string {
-	return fmt.Sprintf("%s_%s", transactionID, strings.Split(uuid.NewString(), "-")[0])
 }

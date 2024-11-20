@@ -144,3 +144,14 @@ components:
           description: 'An object containing a list of name/value pairs, where each name identifies a claim offered in the Credential. The value can be another such object (nested data structures), or an array of such objects.'
       required:
         - type
+    CredentialResponseCredentialObject:
+      title: CredentialResponseCredentialObject
+      type: object
+      description: Model for credentials field from credential response.
+      properties:
+        credential:
+          oneOf:
+            - type: string
+            - type: object
+      required:
+        - credential

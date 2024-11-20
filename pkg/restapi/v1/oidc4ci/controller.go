@@ -55,6 +55,7 @@ import (
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	"github.com/trustbloc/vcs/pkg/service/clientmanager"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -645,15 +646,37 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	//	return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
 	// }
 
+	ctx := req.Context()
+	hashedToken := hashToken(token)
+	interactionDetails := lo.FromPtr(body.InteractionDetails)
+
 	var finalErr error
-	for _, r := range body.Credentials {
-		if err := c.ackService.Ack(req.Context(), oidc4ci.AckRemote{
-			HashedToken:        hashToken(token),
-			ID:                 r.NotificationId,
+
+	// todo: according to the spec those 2 fields are required, so condition is redundant.
+	//  Should be removed during endpoint update to the latest spec.
+	if body.NotificationId != "" && body.Event != "" {
+		if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
+			TxID:               issuecredential.TxID(body.NotificationId),
+			Event:              body.Event,
+			HashedToken:        hashedToken,
+			EventDescription:   lo.FromPtr(body.EventDescription),
+			IssuerIdentifier:   lo.FromPtr(body.IssuerIdentifier),
+			InteractionDetails: interactionDetails,
+		}); err != nil {
+			finalErr = errors.Join(finalErr, err)
+		}
+	}
+
+	// todo: backward compatability code.
+	//  Should be removed during endpoint update to the latest spec.
+	for _, r := range lo.FromPtr(body.Credentials) {
+		if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
+			TxID:               issuecredential.TxID(r.NotificationId),
 			Event:              r.Event,
+			HashedToken:        hashedToken,
 			EventDescription:   lo.FromPtr(r.EventDescription),
 			IssuerIdentifier:   lo.FromPtr(r.IssuerIdentifier),
-			InteractionDetails: lo.FromPtr(body.InteractionDetails),
+			InteractionDetails: interactionDetails,
 		}); err != nil {
 			finalErr = errors.Join(finalErr, err)
 		}
@@ -884,9 +907,9 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 		return finalErr
 	}
 
-	var result issuer.PrepareCredentialResult
+	var prepareCredentialResult issuer.PrepareCredentialResult
 
-	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&prepareCredentialResult); err != nil {
 		return fmt.Errorf("decode prepare credential result: %w", err)
 	}
 
@@ -896,11 +919,12 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
 	credentialResp := &CredentialResponse{
-		Credential:      result.Credential,
-		Format:          result.OidcFormat,
+		Credential:      prepareCredentialResult.Credential,
+		Format:          prepareCredentialResult.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
-		NotificationId:  result.NotificationId,
+		NotificationId:  prepareCredentialResult.NotificationId,
+		Credentials:     prepareCredentialResult.Credentials,
 	}
 
 	if credentialReq.CredentialResponseEncryption != nil {
@@ -962,6 +986,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 
 	prepareCredentialReq := issuer.PrepareBatchCredentialJSONBody{
 		TxId:               session.Extra[txIDKey].(string), //nolint:errcheck,
+		HashedToken:        hashToken(token),
 		CredentialRequests: make([]issuer.PrepareCredentialBase, 0, len(credentialReq.CredentialRequests)),
 	}
 
@@ -983,7 +1008,6 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 			AudienceClaim:                         aud,
 			Did:                                   &did,
 			Format:                                credentialRequest.Format,
-			HashedToken:                           hashToken(token),
 			Types:                                 credentialTypes,
 			RequestedCredentialResponseEncryption: nil,
 		}
@@ -1011,18 +1035,18 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 		return finalErr
 	}
 
-	var result []issuer.PrepareCredentialResult
+	var preparedCredentials []issuer.PrepareCredentialResult
 
-	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&preparedCredentials); err != nil {
 		return fmt.Errorf("decode prepare credential result: %w", err)
 	}
 
 	// A successful Batch Credential Response MUST contain all the requested Credentials.
-	if len(result) != len(credentialReq.CredentialRequests) {
+	if len(preparedCredentials) != len(credentialReq.CredentialRequests) {
 		return fmt.Errorf(
 			"credential amount mismatch, requested %d, got %d",
 			len(credentialReq.CredentialRequests),
-			len(result),
+			len(preparedCredentials),
 		)
 	}
 
@@ -1034,13 +1058,13 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 	credentialResponseBatch := BatchCredentialResponse{
 		CNonce:              lo.ToPtr(nonce),
 		CNonceExpiresIn:     lo.ToPtr(int(cNonceTTL.Seconds())),
-		CredentialResponses: make([]interface{}, 0, len(result)),
+		CredentialResponses: make([]interface{}, 0, len(preparedCredentials)),
 	}
 
-	for index, credentialData := range result {
+	for index, credentialData := range preparedCredentials {
 		credentialResponse := CredentialResponseBatchCredential{
 			Credential:     credentialData.Credential,
-			NotificationId: credentialData.NotificationId,
+			NotificationId: &credentialData.NotificationId,
 			TransactionId:  nil, // Deferred Issuance transaction is not supported for now.
 		}
 

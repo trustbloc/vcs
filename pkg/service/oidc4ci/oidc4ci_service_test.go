@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -4096,7 +4097,11 @@ func TestService_PrepareCredential(t *testing.T) {
 				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
 					ID: "txID",
 					TransactionData: issuecredential.TransactionData{
-						IssuerToken: "issuer-access-token",
+						IssuerToken:    "issuer-access-token",
+						ProfileID:      "bank_issuer1",
+						ProfileVersion: "v1.0",
+						WebHookURL:     "https://example.com/webhook",
+						OrgID:          "orgID",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -4120,10 +4125,25 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).Times(2).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						return lo.ToPtr("ackID"), nil
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
+						expected := &oidc4ci.Ack{
+							HashedToken:       "hashedToken",
+							ProfileID:         "bank_issuer1",
+							ProfileVersion:    "v1.0",
+							TxID:              "txID",
+							WebHookURL:        "https://example.com/webhook",
+							OrgID:             "orgID",
+							CredentialsIssued: 2,
+						}
+
+						diff := cmp.Diff(expected, ack)
+
+						assert.Empty(t, diff)
+
+						return "ackID", nil
 					})
+
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 
 				httpClient = &http.Client{
@@ -4159,15 +4179,16 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
+					TxID:        "txID",
+					HashedToken: "hashedToken",
 					CredentialRequests: []*oidc4ci.PrepareCredentialRequest{
 						{
-							AudienceClaim:    "/oidc/idp//",
+							AudienceClaim:    "/oidc/idp/bank_issuer1/v1.0",
 							CredentialFormat: vcsverifiable.JwtVCJsonLD,
 							CredentialTypes:  []string{"VerifiedEmployee"},
 						},
 						{
-							AudienceClaim:    "/oidc/idp//",
+							AudienceClaim:    "/oidc/idp/bank_issuer1/v1.0",
 							CredentialFormat: vcsverifiable.JwtVCJsonLD,
 							CredentialTypes:  []string{"PermanentResidentCard"},
 						},
@@ -4178,6 +4199,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
 
+				assert.Equal(t, "ackID", resp.NotificationID)
 				assert.Len(t, resp.Credentials, 2)
 				vc1 := resp.Credentials[0]
 
@@ -4186,7 +4208,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc1.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc1.OidcFormat)
 				assert.NotEmpty(t, vc1.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc1.NotificationID)
 
 				vc2 := resp.Credentials[1]
 				assert.NotEmpty(t, vc2.Credential)
@@ -4194,7 +4215,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc2.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc2.OidcFormat)
 				assert.NotEmpty(t, vc2.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc2.NotificationID)
 			},
 		},
 		{
@@ -4227,9 +4247,9 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).Times(2).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						return lo.ToPtr("ackID"), nil
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
+						return "ackID", nil
 					})
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 
@@ -4280,6 +4300,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.NotNil(t, resp)
 
 				assert.Len(t, resp.Credentials, 2)
+				assert.Equal(t, "ackID", resp.NotificationID)
+
 				vc1 := resp.Credentials[0]
 
 				assert.NotEmpty(t, vc1.Credential)
@@ -4287,7 +4309,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc1.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc1.OidcFormat)
 				assert.NotEmpty(t, vc1.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc1.NotificationID)
 
 				vc2 := resp.Credentials[1]
 				assert.NotEmpty(t, vc2.Credential)
@@ -4295,7 +4316,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc2.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc2.OidcFormat)
 				assert.NotEmpty(t, vc2.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc2.NotificationID)
 			},
 		},
 		{
@@ -4322,8 +4342,8 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						return lo.ToPtr("ackID"), nil
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
+						return "ackID", nil
 					})
 
 				httpClient = &http.Client{
@@ -4397,8 +4417,8 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						return lo.ToPtr("ackID"), nil
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
+						return "ackID", nil
 					})
 
 				httpClient = &http.Client{
@@ -4458,8 +4478,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					ID: "txID",
 					TransactionData: issuecredential.TransactionData{
 						IsPreAuthFlow: true,
-						OrgID:         "asdasd",
-						WebHookURL:    "aaaaa",
+						OrgID:         "orgID1",
+						WebHookURL:    "https://example.com/webhook",
 						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{
 							{
 								ID:                   uuid.NewString(),
@@ -4485,12 +4505,12 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).Times(2).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						assert.Equal(t, "asdasd", ack.OrgID)
-						assert.Equal(t, "aaaaa", ack.WebHookURL)
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
+						assert.Equal(t, "orgID1", ack.OrgID)
+						assert.Equal(t, "https://example.com/webhook", ack.WebHookURL)
 
-						return lo.ToPtr("ackID"), nil
+						return "ackID", nil
 					})
 
 				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -4542,6 +4562,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
 
+				assert.Equal(t, "ackID", resp.NotificationID)
 				assert.Len(t, resp.Credentials, 2)
 				vc1 := resp.Credentials[0]
 
@@ -4550,7 +4571,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc1.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc1.OidcFormat)
 				assert.NotEmpty(t, vc1.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc1.NotificationID)
 
 				vc2 := resp.Credentials[1]
 				assert.NotEmpty(t, vc2.Credential)
@@ -4558,7 +4578,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc2.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc2.OidcFormat)
 				assert.NotEmpty(t, vc2.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc2.NotificationID)
 			},
 		},
 		{
@@ -4606,12 +4625,12 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).Times(2).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
+				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						assert.Equal(t, "asdasd", ack.OrgID)
 						assert.Equal(t, "aaaaa", ack.WebHookURL)
 
-						return lo.ToPtr("ackID"), nil
+						return "ackID", nil
 					})
 
 				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -4699,6 +4718,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.NotNil(t, resp)
 
 				assert.Len(t, resp.Credentials, 2)
+				assert.Equal(t, "ackID", resp.NotificationID)
 				vc1 := resp.Credentials[0]
 
 				assert.NotEmpty(t, vc1.Credential)
@@ -4706,7 +4726,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc1.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc1.OidcFormat)
 				assert.NotEmpty(t, vc1.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc1.NotificationID)
 
 				vc2 := resp.Credentials[1]
 				assert.NotEmpty(t, vc2.Credential)
@@ -4714,7 +4733,45 @@ func TestService_PrepareCredential(t *testing.T) {
 				assert.Equal(t, vcsverifiable.Format("jwt"), vc2.Format)
 				assert.Equal(t, vcsverifiable.OIDCFormat("jwt_vc_json-ld"), vc2.OidcFormat)
 				assert.NotEmpty(t, vc2.CredentialTemplate)
-				assert.Equal(t, "ackID", *vc2.NotificationID)
+			},
+		},
+		{
+			name: "Success no credentials requested",
+			setup: func(m *mocks) {
+				m.transactionStore.EXPECT().Get(gomock.Any(), issuecredential.TxID("txID")).Return(&issuecredential.Transaction{
+					ID: "txID",
+					TransactionData: issuecredential.TransactionData{
+						IsPreAuthFlow:           true,
+						OrgID:                   "asdasd",
+						WebHookURL:              "aaaaa",
+						CredentialConfiguration: []*issuecredential.TxCredentialConfiguration{},
+					},
+				}, nil)
+
+				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return nil
+					})
+
+				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
+						assert.Equal(t, issuecredential.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+
+				assert.Len(t, resp.Credentials, 0)
+				assert.Empty(t, resp.NotificationID)
 			},
 		},
 		{
@@ -4744,7 +4801,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("can not create ack"))
+					Return("", errors.New("can not create ack"))
 
 				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -4789,7 +4846,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
-				assert.Nil(t, resp.Credentials[0].NotificationID)
+				assert.Empty(t, resp.NotificationID)
 			},
 		},
 		{
@@ -4867,7 +4924,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
-					Return(lo.ToPtr("123"), nil)
+					Return("123", nil)
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *issuecredential.Transaction) error {
@@ -4935,8 +4992,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (*string, error) {
-						return lo.ToPtr("ackID"), nil
+					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
+						return "ackID", nil
 					})
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).

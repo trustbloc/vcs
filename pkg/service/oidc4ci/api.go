@@ -107,6 +107,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 
 type PrepareCredential struct {
 	TxID               issuecredential.TxID
+	HashedToken        string
 	CredentialRequests []*PrepareCredentialRequest
 }
 
@@ -115,13 +116,13 @@ type PrepareCredentialRequest struct {
 	CredentialFormat vcsverifiable.OIDCFormat
 	DID              string
 	AudienceClaim    string
-	HashedToken      string
 }
 
 type PrepareCredentialResult struct {
 	ProfileID      profileapi.ID
 	ProfileVersion profileapi.Version
 	Credentials    []*PrepareCredentialResultData
+	NotificationID string
 }
 
 type PrepareCredentialResultData struct {
@@ -131,7 +132,6 @@ type PrepareCredentialResultData struct {
 	CredentialTemplate      *profileapi.CredentialTemplate
 	Retry                   bool
 	EnforceStrictValidation bool
-	NotificationID          *string
 }
 
 type AuthorizeState struct {
@@ -231,21 +231,22 @@ type ServiceInterface interface {
 }
 
 type Ack struct {
-	HashedToken    string `json:"hashed_token"`
-	ProfileID      string `json:"profile_id"`
-	ProfileVersion string `json:"profile_version"`
-	TxID           string `json:"tx_id"` // [tx ID]-[short uuid]
-	WebHookURL     string `json:"webhook_url"`
-	OrgID          string `json:"org_id"`
+	HashedToken       string               `json:"hashed_token"` // Hashed auth token
+	ProfileID         string               `json:"profile_id"`
+	ProfileVersion    string               `json:"profile_version"`
+	TxID              issuecredential.TxID `json:"tx_id"`
+	WebHookURL        string               `json:"webhook_url"`
+	OrgID             string               `json:"org_id"`
+	CredentialsIssued int                  `json:"credentials_issued"`
 }
 
 type AckRemote struct {
-	HashedToken        string                 `json:"hashed_token"`
-	ID                 string                 `json:"id"`
-	Event              string                 `json:"event"`
-	EventDescription   string                 `json:"event_description"`
-	IssuerIdentifier   string                 `json:"issuer_identifier"`
-	InteractionDetails map[string]interface{} `json:"interaction_details"`
+	HashedToken        string // Hashed auth token
+	TxID               issuecredential.TxID
+	Event              string
+	EventDescription   string
+	IssuerIdentifier   string
+	InteractionDetails map[string]interface{}
 }
 
 type ExchangeAuthorizationCodeResult struct {
