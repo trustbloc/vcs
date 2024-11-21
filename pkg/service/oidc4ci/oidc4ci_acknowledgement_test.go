@@ -10,25 +10,28 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
-func TestCreateAck(t *testing.T) {
+func TestUpsertAck(t *testing.T) {
 	t.Run("missing store", func(t *testing.T) {
 		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{})
-		id, err := srv.CreateAck(context.TODO(), &oidc4ci.Ack{})
+		id, err := srv.UpsertAck(context.TODO(), &oidc4ci.Ack{})
 		assert.NoError(t, err)
 		assert.Empty(t, id)
 	})
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success: new ack", func(t *testing.T) {
 		profileSvc := NewMockProfileService(gomock.NewController(t))
 		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
 			Return(&profile.Issuer{
@@ -41,16 +44,72 @@ func TestCreateAck(t *testing.T) {
 			AckStore:   store,
 		})
 
+		txID := uuid.NewString()
+
 		item := &oidc4ci.Ack{
+			TxID:           issuecredential.TxID(txID),
 			ProfileID:      "some_issuer",
 			ProfileVersion: "v1.0",
 		}
 
-		store.EXPECT().Create(gomock.Any(), int32(10), item).Return("id", nil)
-		id, err := srv.CreateAck(context.TODO(), item)
+		store.EXPECT().
+			Get(gomock.Any(), txID).
+			Return(nil, oidc4ci.ErrDataNotFound)
+
+		store.EXPECT().
+			Create(gomock.Any(), txID, int32(10), item).
+			Return(nil)
+
+		id, err := srv.UpsertAck(context.TODO(), item)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "id", id)
+		assert.Equal(t, txID, id)
+	})
+
+	t.Run("success: existing ack", func(t *testing.T) {
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(&profile.Issuer{
+				DataConfig: profile.IssuerDataConfig{OIDC4CIAckDataTTL: 10},
+			}, nil)
+
+		store := NewMockAckStore(gomock.NewController(t))
+		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
+			ProfileSvc: profileSvc,
+			AckStore:   store,
+		})
+
+		txID := uuid.NewString()
+
+		store.EXPECT().
+			Get(gomock.Any(), txID).
+			Return(&oidc4ci.Ack{
+				TxID:              issuecredential.TxID(txID),
+				ProfileID:         "some_issuer",
+				ProfileVersion:    "v1.0",
+				CredentialsIssued: 2,
+			}, nil)
+
+		store.EXPECT().
+			Update(gomock.Any(), txID, &oidc4ci.Ack{
+				TxID:              issuecredential.TxID(txID),
+				ProfileID:         "some_issuer",
+				ProfileVersion:    "v1.0",
+				CredentialsIssued: 3, // 2+1
+			}).
+			Return(nil)
+
+		item := &oidc4ci.Ack{
+			TxID:              issuecredential.TxID(txID),
+			ProfileID:         "some_issuer",
+			ProfileVersion:    "v1.0",
+			CredentialsIssued: 1,
+		}
+
+		id, err := srv.UpsertAck(context.TODO(), item)
+
+		assert.NoError(t, err)
+		assert.Equal(t, txID, id)
 	})
 
 	t.Run("profile srv err", func(t *testing.T) {
@@ -69,13 +128,13 @@ func TestCreateAck(t *testing.T) {
 			ProfileVersion: "v1.0",
 		}
 
-		id, err := srv.CreateAck(context.TODO(), item)
+		id, err := srv.UpsertAck(context.TODO(), item)
 
 		assert.Empty(t, id)
 		assert.ErrorContains(t, err, "some error")
 	})
 
-	t.Run("store err", func(t *testing.T) {
+	t.Run("success: get store error", func(t *testing.T) {
 		profileSvc := NewMockProfileService(gomock.NewController(t))
 		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
 			Return(&profile.Issuer{
@@ -88,15 +147,102 @@ func TestCreateAck(t *testing.T) {
 			AckStore:   store,
 		})
 
+		txID := uuid.NewString()
+
 		item := &oidc4ci.Ack{
+			TxID:           issuecredential.TxID(txID),
 			ProfileID:      "some_issuer",
 			ProfileVersion: "v1.0",
 		}
-		store.EXPECT().Create(gomock.Any(), int32(10), item).Return("", errors.New("some err"))
-		id, err := srv.CreateAck(context.TODO(), item)
 
+		store.EXPECT().
+			Get(gomock.Any(), txID).
+			Return(nil, errors.New("some error"))
+
+		id, err := srv.UpsertAck(context.TODO(), item)
+		assert.ErrorContains(t, err, "get existing ack: some error")
 		assert.Empty(t, id)
-		assert.ErrorContains(t, err, "some err")
+	})
+
+	t.Run("error: existing ack: udpate error", func(t *testing.T) {
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(&profile.Issuer{
+				DataConfig: profile.IssuerDataConfig{OIDC4CIAckDataTTL: 10},
+			}, nil)
+
+		store := NewMockAckStore(gomock.NewController(t))
+		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
+			ProfileSvc: profileSvc,
+			AckStore:   store,
+		})
+
+		txID := uuid.NewString()
+
+		store.EXPECT().
+			Get(gomock.Any(), txID).
+			Return(&oidc4ci.Ack{
+				TxID:              issuecredential.TxID(txID),
+				ProfileID:         "some_issuer",
+				ProfileVersion:    "v1.0",
+				CredentialsIssued: 2,
+			}, nil)
+
+		store.EXPECT().
+			Update(gomock.Any(), txID, &oidc4ci.Ack{
+				TxID:              issuecredential.TxID(txID),
+				ProfileID:         "some_issuer",
+				ProfileVersion:    "v1.0",
+				CredentialsIssued: 3, // 2+1
+			}).
+			Return(errors.New("some error"))
+
+		item := &oidc4ci.Ack{
+			TxID:              issuecredential.TxID(txID),
+			ProfileID:         "some_issuer",
+			ProfileVersion:    "v1.0",
+			CredentialsIssued: 1,
+		}
+
+		id, err := srv.UpsertAck(context.TODO(), item)
+
+		assert.ErrorContains(t, err, fmt.Sprintf("update ack with id[%s]: some error", txID))
+		assert.Empty(t, id)
+	})
+
+	t.Run("error: new ack: create error", func(t *testing.T) {
+		profileSvc := NewMockProfileService(gomock.NewController(t))
+		profileSvc.EXPECT().GetProfile("some_issuer", "v1.0").
+			Return(&profile.Issuer{
+				DataConfig: profile.IssuerDataConfig{OIDC4CIAckDataTTL: 10},
+			}, nil)
+
+		store := NewMockAckStore(gomock.NewController(t))
+		srv := oidc4ci.NewAckService(&oidc4ci.AckServiceConfig{
+			ProfileSvc: profileSvc,
+			AckStore:   store,
+		})
+
+		txID := uuid.NewString()
+
+		item := &oidc4ci.Ack{
+			TxID:           issuecredential.TxID(txID),
+			ProfileID:      "some_issuer",
+			ProfileVersion: "v1.0",
+		}
+
+		store.EXPECT().
+			Get(gomock.Any(), txID).
+			Return(nil, oidc4ci.ErrDataNotFound)
+
+		store.EXPECT().
+			Create(gomock.Any(), txID, int32(10), item).
+			Return(errors.New("some error"))
+
+		id, err := srv.UpsertAck(context.TODO(), item)
+
+		assert.ErrorContains(t, err, "create ack: some error")
+		assert.Empty(t, id)
 	})
 }
 

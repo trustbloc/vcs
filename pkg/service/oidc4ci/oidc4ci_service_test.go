@@ -4125,7 +4125,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						expected := &oidc4ci.Ack{
 							HashedToken:       "hashedToken",
@@ -4247,7 +4247,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						return "ackID", nil
 					})
@@ -4341,7 +4341,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						return "ackID", nil
 					})
@@ -4416,7 +4416,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						return "ackID", nil
 					})
@@ -4505,7 +4505,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						assert.Equal(t, "orgID1", ack.OrgID)
 						assert.Equal(t, "https://example.com/webhook", ack.WebHookURL)
@@ -4625,7 +4625,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						assert.Equal(t, "asdasd", ack.OrgID)
 						assert.Equal(t, "aaaaa", ack.WebHookURL)
@@ -4800,7 +4800,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					Return("", errors.New("can not create ack"))
 
 				m.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -4923,7 +4923,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					Return("123", nil)
 
 				m.transactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
@@ -4991,7 +4991,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				m.ackService.EXPECT().CreateAck(gomock.Any(), gomock.Any()).
+				m.ackService.EXPECT().UpsertAck(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, ack *oidc4ci.Ack) (string, error) {
 						return "ackID", nil
 					})

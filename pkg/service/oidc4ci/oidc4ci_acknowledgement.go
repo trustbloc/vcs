@@ -37,8 +37,9 @@ func NewAckService(
 	}
 }
 
-// CreateAck creates an acknowledgement.
-func (s *AckService) CreateAck(
+// UpsertAck creates an acknowledgement if it does not exist in store, and updates in case it exists.
+// Designed to be able to count amount of possible /ack request for given transaction.
+func (s *AckService) UpsertAck(
 	ctx context.Context,
 	ack *Ack,
 ) (string, error) {
@@ -51,9 +52,30 @@ func (s *AckService) CreateAck(
 		return "", err
 	}
 
-	id, err := s.cfg.AckStore.Create(ctx, profile.DataConfig.OIDC4CIAckDataTTL, ack)
-	if err != nil {
-		return "", err
+	// id (AKA notification_id) should be the same as txID
+	// in order to be able to sent spi.IssuerOIDCInteractionAckExpired event with proper txID.
+	// But, txID value might also be extracted from token.
+	id := string(ack.TxID)
+
+	var existingAck *Ack
+	existingAck, err = s.cfg.AckStore.Get(ctx, id)
+	if err != nil && !errors.Is(err, ErrDataNotFound) {
+		return "", fmt.Errorf("get existing ack: %w", err)
+	}
+
+	// If ack is ready exists.
+	if existingAck != nil {
+		ack.CredentialsIssued += existingAck.CredentialsIssued
+
+		if err = s.cfg.AckStore.Update(ctx, id, ack); err != nil { // not critical
+			return "", fmt.Errorf("update ack with id[%s]: %s", id, err.Error())
+		}
+
+		return id, nil
+	}
+
+	if err = s.cfg.AckStore.Create(ctx, id, profile.DataConfig.OIDC4CIAckDataTTL, ack); err != nil {
+		return "", fmt.Errorf("create ack: %w", err)
 	}
 
 	return id, nil

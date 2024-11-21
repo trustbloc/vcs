@@ -133,14 +133,14 @@ type trustRegistry interface {
 }
 
 type ackStore interface {
-	Create(ctx context.Context, profileAckDataTTL int32, data *Ack) (string, error)
+	Create(ctx context.Context, id string, profileAckDataTTL int32, data *Ack) error
 	Get(ctx context.Context, id string) (*Ack, error)
 	Delete(ctx context.Context, id string) error
 	Update(ctx context.Context, id string, ack *Ack) error
 }
 
 type ackService interface {
-	CreateAck(ctx context.Context, ack *Ack) (string, error)
+	UpsertAck(ctx context.Context, ack *Ack) (string, error)
 }
 
 // DocumentLoader knows how to load remote documents.
@@ -802,7 +802,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	}
 
 	if credentialsIssued := len(prepareCredentialResult.Credentials); credentialsIssued > 0 {
-		prepareCredentialResult.NotificationID, err = s.ackService.CreateAck(ctx, &Ack{
+		prepareCredentialResult.NotificationID, err = s.ackService.UpsertAck(ctx, &Ack{
 			TxID:              tx.ID,
 			HashedToken:       req.HashedToken,
 			ProfileID:         tx.ProfileID,

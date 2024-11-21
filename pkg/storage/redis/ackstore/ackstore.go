@@ -38,16 +38,13 @@ func New(redisClient redisClient, ttlSec int32) *Store {
 
 func (s *Store) Create(
 	ctx context.Context,
+	id string,
 	profileAckDataTTL int32,
 	ack *oidc4ci.Ack,
-) (string, error) {
-	// id (AKA notification_id) should be the same as txID
-	// in order to be able to sent spi.IssuerOIDCInteractionAckExpired event with proper txID.
-	id := string(ack.TxID)
-
+) error {
 	b, err := json.Marshal(ack)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	ttl := s.defaultTTL
@@ -56,10 +53,10 @@ func (s *Store) Create(
 	}
 
 	if err = s.redisClient.API().Set(ctx, s.resolveRedisKey(id), string(b), ttl).Err(); err != nil {
-		return "", fmt.Errorf("redis create ack: %w", err)
+		return fmt.Errorf("redis create ack: %w", err)
 	}
 
-	return id, nil
+	return nil
 }
 
 func (s *Store) Update(
