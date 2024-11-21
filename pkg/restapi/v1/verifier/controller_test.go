@@ -9,6 +9,8 @@ package verifier
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -24,10 +26,16 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/presexch"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/verifiable/lddocument"
 	nooptracer "go.opentelemetry.io/otel/trace/noop"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -54,14 +62,16 @@ const (
 )
 
 var (
-	//go:embed testdata/sample_vc.jsonld
-	sampleVCJsonLD string
-	//go:embed testdata/sample_vc.jwt
-	sampleVCJWT string
+	//go:embed testdata/sample_vc_jsonld_request.json
+	sampleVCJsonLDReq string
+	//go:embed testdata/sample_vc_jwt_request.json
+	sampleVCJWTReq string
+	//go:embed testdata/sample_vp_jsonld_request.json
+	sampleVPJsonLDReq string
 	//go:embed testdata/sample_vp.jsonld
-	sampleVPJsonLD string
+	sampleVPJsonLD []byte
 	//go:embed testdata/sample_vp.jwt
-	sampleVPJWT string
+	sampleVPJWT []byte
 )
 
 //nolint:gochecknoglobals
@@ -147,13 +157,13 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVCJsonLD))
+		c := createContextWithBody([]byte(sampleVCJsonLDReq))
 		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVCJWT))
+		c := createContextWithBody([]byte(sampleVCJWTReq))
 		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 
 		assert.NoError(t, err)
@@ -193,7 +203,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVCJsonLD))
+		c := createContextWithBody([]byte(sampleVCJsonLDReq))
 
 		var body VerifyCredentialData
 
@@ -206,7 +216,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVCJWT))
+		c := createContextWithBody([]byte(sampleVCJWTReq))
 
 		var body VerifyCredentialData
 
@@ -228,7 +238,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 			{
 				name: "Profile service error",
 				getCtx: func() echo.Context {
-					return createContextWithBody([]byte(sampleVCJsonLD))
+					return createContextWithBody([]byte(sampleVCJsonLDReq))
 				},
 				getProfileSvc: func() profileService {
 					failedMockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -255,7 +265,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 			{
 				name: "Verify credential error",
 				getCtx: func() echo.Context {
-					return createContextWithBody([]byte(sampleVCJsonLD))
+					return createContextWithBody([]byte(sampleVCJsonLDReq))
 				},
 				getProfileSvc: func() profileService {
 					return mockProfileSvc
@@ -310,33 +320,121 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 			Checks:         verificationChecks,
 		}, nil)
 
+	didDoc, pubKey := createDIDDoc(t)
+
+	mockVDR := &vdrmock.VDRegistry{
+		CreateValue: didDoc,
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if didID == didDoc.ID {
+				return &did.DocResolution{DIDDocument: didDoc}, nil
+			}
+
+			return nil, fmt.Errorf("fail to resolve did %s", didID)
+		},
+	}
+
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t,
+		[]*testsupport.SigningKey{
+			{Type: kms.ED25519Type, PublicKeyID: didDoc.VerificationMethod[0].ID, PublicKey: pubKey},
+		},
+	)
+
 	controller := NewController(&Config{
 		VerifyPresentationSvc: mockVerifyPresSvc,
 		ProfileSvc:            mockProfileSvc,
 		DocumentLoader:        testutil.DocumentLoader(t),
-		VDR:                   &vdrmock.VDRegistry{},
+		VDR:                   mockVDR,
+		ProofChecker:          proofChecker,
 		Tracer:                nooptracer.NewTracerProvider().Tracer(""),
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVPJsonLD))
-		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
+		vp := createVP(t, sampleVPJsonLD, proofCreators[0], didDoc.VerificationMethod[0].ID)
+
+		body, err := json.Marshal(&VerifyPresentationData{VerifiablePresentation: vp})
+		require.NoError(t, err)
+
+		err = controller.PostVerifyPresentation(createContextWithBody(body), profileID, profileVersion)
 		assert.NoError(t, err)
 	})
-
 	t.Run("Success JWT", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVPJWT))
-		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
+		vp := createVP(t, sampleVPJsonLD, proofCreators[0], didDoc.VerificationMethod[0].ID)
 
+		body, err := json.Marshal(&VerifyPresentationData{VerifiablePresentation: vp})
+		require.NoError(t, err)
+
+		err = controller.PostVerifyPresentation(createContextWithBody(body), profileID, profileVersion)
 		assert.NoError(t, err)
 	})
-
 	t.Run("Failed", func(t *testing.T) {
 		c := createContextWithBody([]byte("abc"))
 		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
 
 		assert.Error(t, err)
 	})
+}
+
+func createDIDDoc(t *testing.T) (*did.Doc, ed25519.PublicKey) {
+	t.Helper()
+
+	const (
+		didContext = "https://w3id.org/did/v1"
+		didID      = "did:local:abc"
+		creator    = didID + "#key-1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	verMethod := did.VerificationMethod{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:            []string{didContext},
+		ID:                 didID,
+		VerificationMethod: []did.VerificationMethod{verMethod},
+		Created:            &createdTime,
+	}, pubKey
+}
+
+func createVP(
+	t *testing.T,
+	vpData []byte,
+	proofCreator lddocument.ProofCreator,
+	verMethod string,
+) *verifiable.Presentation {
+	t.Helper()
+
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		KeyType:                 kms.ED25519Type,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		ProofCreator:            proofCreator,
+		VerificationMethod:      verMethod,
+	}
+
+	vp, err := verifiable.ParsePresentation(vpData,
+		verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+		verifiable.WithPresDisabledProofCheck(),
+	)
+	require.NoError(t, err)
+
+	err = vp.Credentials()[0].AddLinkedDataProof(ldpContext,
+		ldprocessor.WithDocumentLoader(testutil.DocumentLoader(t)))
+	require.NoError(t, err)
+
+	err = vp.AddLinkedDataProof(ldpContext,
+		ldprocessor.WithDocumentLoader(testutil.DocumentLoader(t)))
+	require.NoError(t, err)
+
+	return vp
 }
 
 func TestController_VerifyPresentation(t *testing.T) {
@@ -363,19 +461,44 @@ func TestController_VerifyPresentation(t *testing.T) {
 			Checks:         verificationChecks,
 		}, nil)
 
+	didDoc, pubKey := createDIDDoc(t)
+
+	mockVDR := &vdrmock.VDRegistry{
+		CreateValue: didDoc,
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if didID == didDoc.ID {
+				return &did.DocResolution{DIDDocument: didDoc}, nil
+			}
+
+			return nil, fmt.Errorf("fail to resolve did %s", didID)
+		},
+	}
+
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t,
+		[]*testsupport.SigningKey{
+			{Type: kms.ED25519Type, PublicKeyID: didDoc.VerificationMethod[0].ID, PublicKey: pubKey},
+		},
+	)
+
 	controller := NewController(&Config{
 		VerifyPresentationSvc: mockVerifyPresentationSvc,
 		ProfileSvc:            mockProfileSvc,
 		DocumentLoader:        testutil.DocumentLoader(t),
-		VDR:                   &vdrmock.VDRegistry{},
+		VDR:                   mockVDR,
+		ProofChecker:          proofChecker,
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVPJsonLD))
+		vp := createVP(t, sampleVPJsonLD, proofCreators[0], didDoc.VerificationMethod[0].ID)
+
+		b, err := json.Marshal(&VerifyPresentationData{VerifiablePresentation: vp})
+		require.NoError(t, err)
+
+		c := createContextWithBody(b)
 
 		var body VerifyPresentationData
 
-		err := util.ReadBody(c, &body)
+		err = util.ReadBody(c, &body)
 		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
@@ -386,11 +509,16 @@ func TestController_VerifyPresentation(t *testing.T) {
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
-		c := createContextWithBody([]byte(sampleVPJWT))
+		vp := createVP(t, sampleVPJWT, proofCreators[0], didDoc.VerificationMethod[0].ID)
+
+		b, err := json.Marshal(&VerifyPresentationData{VerifiablePresentation: vp})
+		require.NoError(t, err)
+
+		c := createContextWithBody(b)
 
 		var body VerifyPresentationData
 
-		err := util.ReadBody(c, &body)
+		err = util.ReadBody(c, &body)
 		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
@@ -411,7 +539,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 			{
 				name: "Profile service error",
 				getCtx: func() echo.Context {
-					return createContextWithBody([]byte(sampleVPJsonLD))
+					return createContextWithBody([]byte(sampleVPJsonLDReq))
 				},
 				getProfileSvc: func() profileService {
 					failedMockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -438,7 +566,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 			{
 				name: "Verify credential error",
 				getCtx: func() echo.Context {
-					return createContextWithBody([]byte(sampleVPJsonLD))
+					return createContextWithBody([]byte(sampleVPJsonLDReq))
 				},
 				getProfileSvc: func() profileService {
 					return mockProfileSvc
