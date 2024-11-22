@@ -25,7 +25,7 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/tidwall/gjson v1.17.3
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/did-go v1.3.1-0.20241028131019-014935534038
+	github.com/trustbloc/did-go v1.3.1-0.20241120144542-0c5631a174a4
 	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104

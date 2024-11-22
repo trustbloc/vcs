@@ -20,7 +20,7 @@ GOPROXY ?= https://proxy.golang.org
 
 VC_FRAMEWORK_VERSION				= cd6765414b2bc16d7e0edb93388f2a76dd4ee5d9
 KMS_FRAMEWORK_VERSION 				= 8d9510c6bb88df0666fa45c55c0ace699a675b12
-DID_GO_VERSION						= 014935534038f28666c4b61b16c2059be9423c33
+DID_GO_VERSION						= 0c5631a174a40092c73f4d794f1454837820301f
 SIDE_TREE_VERSION							= f4260aff710479ba5fa3f0c61b51d451d9041225
 
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
@@ -251,7 +251,7 @@ update-did:
 		dir_path=$$(dirname "$$gomod_path"); \
 		if grep -q "github.com/trustbloc/did-go" "$$gomod_path"; then \
 			echo "Executing 'updating vc' in directory: $$dir_path"; \
-			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/did-go@$(DID_GO_VERSION) && go mod tidy) || exit 1; \
+			(cd "$$dir_path" && GOPROXY=$(GOPROXY) go get github.com/trustbloc/did-go@$(DID_GO_VERSION) && go mod tidy -x -v) || exit 1; \
 		fi; \
 	done
 

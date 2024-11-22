@@ -8,6 +8,11 @@ package ld_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
@@ -15,6 +20,7 @@ import (
 	"github.com/golang/mock/gomock"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -27,6 +33,49 @@ const (
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
 )
+
+func Test2(t *testing.T) {
+	resourceURL := "https://w3c.github.io/vc-data-model/related-resource.json"
+	expectedDigest := "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+
+	// Fetch the resource
+	resp, err := http.Get(resourceURL)
+	if err != nil {
+		fmt.Println("Error fetching resource:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+
+	//encoded := base64.StdEncoding.EncodeToString(data)
+
+	// Calculate the SHA-256 hash of the resource
+	//hasher := sha256.New()
+	//if _, err := io.Copy(hasher, resp.Body); err != nil {
+	//	fmt.Println("Error reading resource:", err)
+	//	return
+	//}
+
+	decodedSign, err := base64.StdEncoding.DecodeString("ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356")
+	assert.NoError(t, err)
+
+	hasher := sha256.New()
+	hasher.Write([]byte(data))
+
+	computedHash := hasher.Sum(nil)
+	computedDigest := fmt.Sprintf("%x", computedHash)
+
+	fmt.Println(decodedSign)
+	// Validate the digest
+	if computedDigest == expectedDigest {
+		fmt.Println("Digest validation successful!")
+	} else {
+		fmt.Println("Digest validation failed.")
+		fmt.Printf("Expected: %s\n", expectedDigest)
+		fmt.Printf("Computed: %s\n", computedDigest)
+	}
+}
 
 func TestNewStoreProvider(t *testing.T) {
 	connectionString := "mongodb://localhost:27029"

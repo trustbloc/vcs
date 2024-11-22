@@ -1083,19 +1083,22 @@
         "vcConfig": {
           "model": "w3c-vc-2.0",
           "refreshServiceEnabled": false,
-          "signingAlgorithm": "JsonWebSignature2020",
+          "signingAlgorithm": "Ed25519Signature2020",
           "signatureRepresentation": 0,
-          "keyType": "ECDSAP384DER",
+          "keyType": "ED25519",
           "format": "ldp",
           "didMethod": "key",
           "status": {
-            "type": "BitstringStatusListEntry",
+            "type": "StatusList2021Entry",
             "disable": true
           },
           "dataIntegrityProof": {
             "enable": true,
             "suiteType": "ecdsa-rdfc-2019"
           }
+        },
+        "kmsConfig" : {
+          "kmsType" : "local"
         },
         "oidcConfig": {
           "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
