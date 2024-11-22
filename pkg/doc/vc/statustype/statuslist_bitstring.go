@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/multiformats/go-multibase"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -38,11 +39,18 @@ const (
 
 // BitstringStatusListProcessor implements the Bitstring Status List Entry.
 // Spec: https://www.w3.org/TR/vc-bitstring-status-list/
-type BitstringStatusListProcessor struct{}
+type BitstringStatusListProcessor struct {
+	*statusListProcessor
+}
 
 // NewBitstringStatusListProcessor returns new BitstringStatusListProcessor.
 func NewBitstringStatusListProcessor() *BitstringStatusListProcessor {
-	return &BitstringStatusListProcessor{}
+	return &BitstringStatusListProcessor{
+		statusListProcessor: &statusListProcessor{
+			statusType:        StatusListBitstringVCSubjectType,
+			multibaseEncoding: multibase.Base64url,
+		},
+	}
 }
 
 // GetStatusVCURI returns the ID (URL) of status VC.
@@ -177,7 +185,7 @@ func (s *BitstringStatusListProcessor) CreateVC(vcID string, listSize int,
 		size = bitStringSize
 	}
 
-	encodeBits, err := bitstring.NewBitString(size).EncodeBits()
+	encodeBits, err := bitstring.NewBitString(size, bitstring.WithMultibaseEncoding(multibase.Base64url)).EncodeBits()
 	if err != nil {
 		return nil, err
 	}

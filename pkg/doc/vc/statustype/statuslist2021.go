@@ -35,11 +35,17 @@ const (
 
 // statusList2021Processor implements f Status List 2021.
 // Spec: https://w3c-ccg.github.io/vc-status-list-2021/#statuslist2021credential
-type statusList2021Processor struct{}
+type statusList2021Processor struct {
+	*statusListProcessor
+}
 
 // NewStatusList2021Processor returns new statusList2021Processor.
 func NewStatusList2021Processor() *statusList2021Processor { //nolint:revive
-	return &statusList2021Processor{}
+	return &statusList2021Processor{
+		statusListProcessor: &statusListProcessor{
+			statusType: StatusList2021VCSubjectType,
+		},
+	}
 }
 
 // GetStatusVCURI returns the ID (URL) of status VC.

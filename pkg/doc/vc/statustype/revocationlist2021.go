@@ -31,11 +31,17 @@ const (
 
 // revocationList2021Processor implements version 0.0.1 of Status list 2021.
 // Release: https://github.com/w3c-ccg/vc-status-list-2021/releases/tag/v0.0.1
-type revocationList2021Processor struct{}
+type revocationList2021Processor struct {
+	*statusListProcessor
+}
 
 // NewRevocationList2021Processor returns new revocationList2021Processor.
 func NewRevocationList2021Processor() *revocationList2021Processor { //nolint:revive
-	return &revocationList2021Processor{}
+	return &revocationList2021Processor{
+		statusListProcessor: &statusListProcessor{
+			statusType: revocationList2021VCSubjectType,
+		},
+	}
 }
 
 // GetStatusVCURI returns the ID (URL) of status VC.

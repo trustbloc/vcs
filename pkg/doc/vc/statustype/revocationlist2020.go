@@ -37,11 +37,17 @@ const (
 
 // revocationList2020Processor implements Revocation List 2020.
 // Spec: https://w3c-ccg.github.io/vc-status-rl-2020/
-type revocationList2020Processor struct{}
+type revocationList2020Processor struct {
+	*statusListProcessor
+}
 
 // NewRevocationList2020Processor returns new revocationList2020Processor.
 func NewRevocationList2020Processor() *revocationList2020Processor { //nolint:revive
-	return &revocationList2020Processor{}
+	return &revocationList2020Processor{
+		statusListProcessor: &statusListProcessor{
+			statusType: revocationList2020VCSubjectType,
+		},
+	}
 }
 
 // GetStatusVCURI returns the ID (URL) of status VC.

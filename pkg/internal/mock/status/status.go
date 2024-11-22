@@ -31,6 +31,8 @@ type MockVCStatusProcessor struct {
 	CreateVCErr           error
 	VCStatus              *verifiable.TypedID
 	VCContext             string
+	Set                   bool
+	IsSetErr              error
 }
 
 func (m *MockVCStatusProcessor) ValidateStatus(_ *verifiable.TypedID) error {
@@ -55,4 +57,12 @@ func (m *MockVCStatusProcessor) CreateVCStatus(string, string, string, ...vc.Fie
 
 func (m *MockVCStatusProcessor) GetVCContext() string {
 	return m.VCContext
+}
+
+func (m *MockVCStatusProcessor) UpdateStatus(*verifiable.Credential, bool, ...int) (*verifiable.Credential, error) {
+	panic("not implemented")
+}
+
+func (m *MockVCStatusProcessor) IsSet(*verifiable.Credential, int) (bool, error) {
+	return m.Set, m.IsSetErr
 }

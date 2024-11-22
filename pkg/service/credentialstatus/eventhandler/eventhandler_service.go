@@ -19,8 +19,8 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
-	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
@@ -35,6 +35,7 @@ const (
 	jsonKeyProofPurpose       = "proofPurpose"
 	jsonKeyVerificationMethod = "verificationMethod"
 	jsonKeySignatureOfType    = "type"
+	jsonStatusListType        = "type"
 )
 
 var logger = log.New("credentialstatus-eventhandler")
@@ -109,21 +110,20 @@ func (s *Service) handleEventPayload(
 
 	cs := clsWrapper.VC.Contents().Subject
 
-	bitString, err := bitstring.DecodeBits(cs[0].CustomFields["encodedList"].(string))
+	statusType, err := getStringValue(jsonStatusListType, cs[0].CustomFields)
 	if err != nil {
-		return fmt.Errorf("get encodedList from CSL customFields failed: %w", err)
+		return fmt.Errorf("failed to get status list type: %w", err)
 	}
 
-	if errSet := bitString.Set(payload.Index, payload.Status); errSet != nil {
-		return fmt.Errorf("bitString.Set failed: %w", errSet)
-	}
-
-	cs[0].CustomFields["encodedList"], err = bitString.EncodeBits()
+	processor, err := statustype.GetVCStatusProcessor(vc.StatusType(statusType))
 	if err != nil {
-		return fmt.Errorf("bitString.EncodeBits failed: %w", err)
+		return fmt.Errorf("failed to get VCStatusProcessor: %w", err)
 	}
 
-	clsWrapper.VC = clsWrapper.VC.WithModifiedSubject(cs)
+	clsWrapper.VC, err = processor.UpdateStatus(clsWrapper.VC, payload.Status, payload.Index)
+	if err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
 
 	signedCredentialBytes, err := s.signCSL(payload.ProfileID, payload.ProfileVersion, clsWrapper.VC)
 	if err != nil {

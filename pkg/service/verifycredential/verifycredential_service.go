@@ -26,7 +26,6 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
-	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -264,19 +263,9 @@ func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 		return fmt.Errorf("issuer of the credential do not match status list vc issuer")
 	}
 
-	credSubject := statusListVCC.Subject
-	if len(credSubject) == 0 {
-		return fmt.Errorf("invalid subject field structure")
-	}
-
-	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	bitSet, err := vcStatusProcessor.IsSet(statusListVC, statusListIndex)
 	if err != nil {
-		return fmt.Errorf("failed to decode bits: %w", err)
-	}
-
-	bitSet, err := bitString.Get(statusListIndex)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if bit is set: %w", err)
 	}
 
 	if bitSet {

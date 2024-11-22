@@ -9,6 +9,7 @@ package statustype
 import (
 	"testing"
 
+	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -281,7 +282,8 @@ func Test_BitstringStatusListProcessor_CreateVC(t *testing.T) {
 		"https://w3id.org/security/suites/ed25519-2018/v1"}, vcc.Context)
 	require.Equal(t, []string{vcType, StatusListBitstringVCType}, vcc.Types)
 	require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
-	encodeBits, err := bitstring.NewBitString(bitStringSize).EncodeBits()
+	encodeBits, err := bitstring.NewBitString(bitStringSize,
+		bitstring.WithMultibaseEncoding(multibase.Base64url)).EncodeBits()
 	require.NotEmpty(t, vc.ToRawClaimsMap()["validFrom"])
 	require.NoError(t, err)
 	require.Equal(t, []verifiable.Subject{{
@@ -402,3 +404,42 @@ func Test_BitstringStatusListProcessor_GetVCContext(t *testing.T) {
 
 	require.Equal(t, "https://www.w3.org/ns/credentials/v2", s.GetVCContext())
 }
+
+func Test_BitstringStatusList_IsSet(t *testing.T) {
+	vc, err := verifiable.ParseCredential([]byte(bitstringCSLVC),
+		verifiable.WithCredDisableValidation(),
+		verifiable.WithDisabledProofCheck(),
+	)
+	require.NoError(t, err)
+
+	s := NewBitstringStatusListProcessor()
+
+	set, err := s.IsSet(vc, 1000)
+	require.NoError(t, err)
+	require.False(t, set)
+}
+
+const bitstringCSLVC = `{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2"
+  ],
+  "id": "https://dhs-svip.github.io/ns/uscis/status/3",
+  "type": [
+    "VerifiableCredential",
+    "BitstringStatusListCredential"
+  ],
+  "credentialSubject": {
+    "id": "https://dhs-svip.github.io/ns/uscis/status/3#list",
+    "type": "BitstringStatusList",
+    "encodedList": "uH4sIAAAAAAAAA-3OMQEAAAgDoEU3ugEWwENIQMI3cx0AAAAAAAAAAAAAAAAAAACgLGiNcIEAQAAA",
+    "statusPurpose": "revocation"
+  },
+  "issuer": "did:web:dhs-svip.github.io:ns:uscis:oidp",
+  "proof": {
+    "type": "DataIntegrityProof",
+    "verificationMethod": "did:web:dhs-svip.github.io:ns:uscis:oidp#zDnaekqKLkVN1HqzBxy1Ti8niyCRxWkKr6cxDvX6P4qXDBATd",
+    "cryptosuite": "ecdsa-rdfc-2019",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "zLLLMLuL6feiYZ1vDU7AVaJGRpmbbi1bf8Xv9JL15sW6aZTVzrfJqb9UFPWmgPD3Mnk5C3EpN3eKvzC27fdVM3Y6"
+  }
+}`
