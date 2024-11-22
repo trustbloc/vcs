@@ -30,6 +30,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.17.9
 	github.com/labstack/echo/v4 v4.12.0
+	github.com/multiformats/go-multibase v0.2.0
 	github.com/ory/dockertest/v3 v3.10.1-0.20240704115616-d229e74b748d
 	github.com/ory/fosite v0.47.0
 	github.com/ory/x v0.0.655
@@ -179,7 +180,6 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
-	github.com/multiformats/go-multibase v0.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect

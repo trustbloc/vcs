@@ -50,6 +50,8 @@ type StatusProcessor interface {
 	CreateVC(vcID string, listSize int, profile *Signer) (*verifiable.Credential, error)
 	CreateVCStatus(index, vcID, purpose string, additionalFields ...Field) *verifiable.TypedID
 	GetVCContext() string
+	UpdateStatus(vc *verifiable.Credential, status bool, indexes ...int) (*verifiable.Credential, error)
+	IsSet(vc *verifiable.Credential, index int) (bool, error)
 }
 
 type StatusProcessorGetter func(vcStatusListType StatusType) (StatusProcessor, error)

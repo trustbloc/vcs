@@ -21,20 +21,19 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/kms-go/spi/kms"
-	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
-
-	"github.com/trustbloc/vcs/internal/mock/vcskms"
-
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	vdr2 "github.com/trustbloc/did-go/vdr"
 	vdr "github.com/trustbloc/did-go/vdr/api"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/kms-go/spi/kms"
+	longform "github.com/trustbloc/sidetree-go/pkg/vdr/sidetreelongform"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/component/credentialstatus/internal/testutil"
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 	"github.com/trustbloc/vcs/pkg/cslmanager"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -121,7 +120,8 @@ func validateBitstringStatusListEntry(
 	require.Equal(t, statustype.StatusListBitstringVCSubjectType, credSubject[0].CustomFields["type"].(string))
 	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
-	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string),
+		bitstring.WithMultibaseEncoding(multibase.Base64url))
 	require.NoError(t, err)
 
 	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string))

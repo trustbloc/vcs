@@ -11,6 +11,8 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"fmt"
+
+	"github.com/multiformats/go-multibase"
 )
 
 const (
@@ -20,21 +22,70 @@ const (
 
 // BitString struct.
 type BitString struct {
-	bits    []byte
-	numBits int
+	bits              []byte
+	numBits           int
+	multibaseEncoding multibase.Encoding
+}
+
+type Opt func(*options)
+
+type options struct {
+	multibaseEncoding multibase.Encoding
+}
+
+// WithMultibaseEncoding sets the multibase encoding.
+func WithMultibaseEncoding(value multibase.Encoding) Opt {
+	return func(options *options) {
+		options.multibaseEncoding = value
+	}
 }
 
 // NewBitString return bitstring.
-func NewBitString(length int) *BitString {
+func NewBitString(length int, opts ...Opt) *BitString {
+	options := &options{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	size := 1 + ((length - 1) / bitsPerByte)
-	return &BitString{bits: make([]byte, size), numBits: length}
+
+	return &BitString{
+		bits:              make([]byte, size),
+		numBits:           length,
+		multibaseEncoding: options.multibaseEncoding,
+	}
 }
 
 // DecodeBits decode bits.
-func DecodeBits(encodedBits string) (*BitString, error) {
-	decodedBits, err := base64.RawURLEncoding.DecodeString(encodedBits)
-	if err != nil {
-		return nil, err
+func DecodeBits(encodedBits string, opts ...Opt) (*BitString, error) {
+	options := &options{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	var decodedBits []byte
+
+	if options.multibaseEncoding != multibase.Encoding(0) {
+		var encoding multibase.Encoding
+		var err error
+
+		encoding, decodedBits, err = multibase.Decode(encodedBits)
+		if err != nil {
+			return nil, err
+		}
+
+		if encoding != options.multibaseEncoding {
+			return nil, fmt.Errorf("encoding not supported: %d", encoding)
+		}
+	} else {
+		var err error
+
+		decodedBits, err = base64.RawURLEncoding.DecodeString(encodedBits)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	b := bytes.NewReader(decodedBits)
@@ -49,7 +100,10 @@ func DecodeBits(encodedBits string) (*BitString, error) {
 		return nil, err
 	}
 
-	return &BitString{bits: buf.Bytes()}, nil
+	return &BitString{
+		bits:              buf.Bytes(),
+		multibaseEncoding: options.multibaseEncoding,
+	}, nil
 }
 
 // Set bit.
@@ -99,5 +153,9 @@ func (b *BitString) EncodeBits() (string, error) {
 		return "", err
 	}
 
-	return base64.RawURLEncoding.EncodeToString(buf.Bytes()), nil
+	if b.multibaseEncoding == multibase.Encoding(0) {
+		return base64.RawURLEncoding.EncodeToString(buf.Bytes()), nil
+	}
+
+	return multibase.Encode(b.multibaseEncoding, buf.Bytes())
 }

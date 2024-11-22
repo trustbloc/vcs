@@ -11,6 +11,7 @@ toolchain go1.22.4
 require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
+	github.com/multiformats/go-multibase v0.2.0
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
@@ -94,7 +95,6 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
-	github.com/multiformats/go-multibase v0.2.0 // indirect
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
