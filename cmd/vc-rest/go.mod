@@ -22,10 +22,10 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.1-0.20241120144542-0c5631a174a4
+	github.com/trustbloc/did-go v1.3.1-0.20241122115441-c010226da580
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.2.1-0.20241113205754-cd6765414b2b
+	github.com/trustbloc/vc-go v1.2.1-0.20241122170326-cb8385b93255
 	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
