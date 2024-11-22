@@ -321,7 +321,7 @@ func TestService_handleEventPayload(t *testing.T) {
 
 		err = s.handleEventPayload(ctx, eventPayload)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "get encodedList from CSL customFields failed")
+		require.ErrorContains(t, err, "failed to update status: failed to decode encodedList")
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
