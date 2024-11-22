@@ -42,9 +42,11 @@ func TestCreate(t *testing.T) {
 
 				return &redisapi.StatusCmd{}
 			})
-		id, err := store.Create(context.TODO(), 0, obj)
+
+		id := string(obj.TxID)
+
+		err := store.Create(context.TODO(), id, 0, obj)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, id)
 		assert.EqualValues(t, id, obj.TxID)
 
 		// Profile expiration.
@@ -58,9 +60,9 @@ func TestCreate(t *testing.T) {
 
 				return &redisapi.StatusCmd{}
 			})
-		id, err = store.Create(context.TODO(), 20, obj)
+
+		err = store.Create(context.TODO(), id, 20, obj)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, id)
 		assert.EqualValues(t, id, obj.TxID)
 	})
 
@@ -79,8 +81,7 @@ func TestCreate(t *testing.T) {
 		api.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(redisapi.NewStatusResult("", errors.New("unexpected err")))
 
-		id, err := store.Create(context.TODO(), 0, obj)
-		assert.Empty(t, id)
+		err := store.Create(context.TODO(), uuid.NewString(), 0, obj)
 		assert.ErrorContains(t, err, "unexpected err")
 	})
 }
