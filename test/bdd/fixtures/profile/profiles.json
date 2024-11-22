@@ -4580,6 +4580,40 @@
     },
     {
       "verifier": {
+        "id": "dhs-verifier",
+        "version": "v1.0",
+        "name": "dhs-verifier",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "ldp"
+            ],
+            "proof": true,
+            "status": true
+          },
+          "presentation": {
+            "format": [
+              "ldp"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        },
+        "presentationDefinitions": []
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
         "id": "v_myprofile_jwt_no_strict",
         "version": "v1.0",
         "name": "v_myprofile_jwt_no_strict",
