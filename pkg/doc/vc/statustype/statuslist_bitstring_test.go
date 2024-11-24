@@ -414,9 +414,9 @@ func Test_BitstringStatusList_IsSet(t *testing.T) {
 
 	s := NewBitstringStatusListProcessor()
 
-	set, err := s.IsSet(vc, 1000)
+	set, err := s.IsSet(vc, 4000)
 	require.NoError(t, err)
-	require.False(t, set)
+	require.True(t, set)
 }
 
 const bitstringCSLVC = `{
