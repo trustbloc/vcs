@@ -332,6 +332,7 @@ func (c *Controller) verifyPresentation(
 		verifiable.WithPresProofChecker(c.proofChecker),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 		verifiable.WithPresDataIntegrityVerifier(dataVerifier),
+		verifiable.WithPresHolderCheck(true),
 	}
 
 	if body.Options != nil {

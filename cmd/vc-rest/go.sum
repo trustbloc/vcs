@@ -676,8 +676,8 @@ github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e h1:r0AVM5IL
 github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e/go.mod h1:AuHbwVcx1Rl6KNG2oFvlUR79egmDM8urblUaJ24p85A=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4muaGvhjJ4OkG6/PQG3DGf5POWxlA1wwEYsxWQ+4=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
-github.com/trustbloc/vc-go v1.2.1-0.20241125132044-693669b7593f h1:vhaouZTvV/lFuq6zs49Bfgnbl0iT8uMKVK+0g0v8/Ek=
-github.com/trustbloc/vc-go v1.2.1-0.20241125132044-693669b7593f/go.mod h1:bBE54VGTHhLpFW4guWqxsnz2gmCDq1QkTeIRHc2olO4=
+github.com/trustbloc/vc-go v1.2.1-0.20241125142751-c33f1ff65382 h1:+A9r9mKaofDng9dVPu4SV896o6as6Ux9M0PQkRW8EHQ=
+github.com/trustbloc/vc-go v1.2.1-0.20241125142751-c33f1ff65382/go.mod h1:bBE54VGTHhLpFW4guWqxsnz2gmCDq1QkTeIRHc2olO4=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=

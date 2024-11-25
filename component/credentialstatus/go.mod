@@ -19,7 +19,7 @@ require (
 	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.2.1-0.20241125132044-693669b7593f
+	github.com/trustbloc/vc-go v1.2.1-0.20241125142751-c33f1ff65382
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 
