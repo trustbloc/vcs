@@ -18,6 +18,7 @@ import (
 const (
 	bitsPerByte = 8
 	one         = 0x1
+	bitOffset   = 7
 )
 
 // BitString struct.
@@ -109,7 +110,7 @@ func DecodeBits(encodedBits string, opts ...Opt) (*BitString, error) {
 // Set bit.
 func (b *BitString) Set(position int, bitSet bool) error {
 	nByte := position / bitsPerByte
-	nBit := position % bitsPerByte
+	nBit := bitOffset - (position % bitsPerByte)
 
 	if position < 0 || nByte > len(b.bits)-1 {
 		return fmt.Errorf("position is invalid")
@@ -129,7 +130,7 @@ func (b *BitString) Set(position int, bitSet bool) error {
 // Get bit.
 func (b *BitString) Get(position int) (bool, error) {
 	nByte := position / bitsPerByte
-	nBit := position % bitsPerByte
+	nBit := bitOffset - (position % bitsPerByte)
 
 	if position < 0 || nByte > len(b.bits)-1 {
 		return false, fmt.Errorf("position is invalid")
