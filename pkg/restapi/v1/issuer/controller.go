@@ -199,6 +199,11 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 
 	credential, err := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
 	if err != nil {
+		var customError *resterr.CustomError
+		if errors.As(err, &customError) {
+			return err
+		}
+
 		return resterr.NewValidationError(resterr.BadRequest, "body", err)
 	}
 
@@ -411,13 +416,13 @@ func (c *Controller) validateRelatedResources(cred *verifiable.Credential) error
 			return errors.New("relatedResource must have an id")
 		}
 
-		mappedId := fmt.Sprint(idObj)
+		mappedID := fmt.Sprint(idObj)
 
-		if _, ok = ids[mappedId]; ok {
+		if _, ok = ids[mappedID]; ok {
 			return errors.New("relatedResource must have unique ids")
 		}
 
-		ids[mappedId] = struct{}{}
+		ids[mappedID] = struct{}{}
 
 		_, hasDigest := relatedResourceMap["digestSRI"]
 		_, hasMultiBase := relatedResourceMap["digestMultibase"]

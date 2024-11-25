@@ -134,7 +134,8 @@
         }
       },
       "createDID": true
-    },{
+    },
+    {
       "issuer": {
         "id": "playground_issuer",
         "version": "v1.0",
@@ -2275,9 +2276,9 @@
         "vcConfig": {
           "model": "w3c-vc-2.0",
           "refreshServiceEnabled": false,
-          "signingAlgorithm": "Ed25519Signature2018",
+          "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
-          "keyType": "ED25519",
+          "keyType": "ECDSAP256DER",
           "format": "ldp",
           "didMethod": "ion",
           "status": {
@@ -3981,6 +3982,60 @@
         }
       },
       "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "ecdsa-test-suite-issuer",
+        "version": "v1.0",
+        "groupID": "ecdsa-test-suite-issuer",
+        "name": "ecdsa-test-suite-issuer",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "active": true,
+        "vcConfig": {
+          "model": "w3c-vc-2.0",
+          "refreshServiceEnabled": false,
+          "signingAlgorithm": "ES384",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSAP384DER",
+          "format": "ldp",
+          "didMethod": "key",
+          "status": {
+            "type": "StatusList2021Entry",
+            "disable": true
+          },
+          "dataIntegrityProof": {
+            "enable": true,
+            "suiteType": "ecdsa-rdfc-2019"
+          }
+        },
+        "oidcConfig": {
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration",
+          "scopes_supported": [
+            "openid",
+            "profile"
+          ],
+          "grant_types_supported": [
+            "authorization_code",
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+          ],
+          "response_types_supported": [
+            "code"
+          ],
+          "token_endpoint_auth_methods_supported": [
+            "none"
+          ],
+          "enable_dynamic_client_registration": true,
+          "wallet_initiated_auth_flow_supported": true,
+          "pre-authorized_grant_anonymous_access_supported": true,
+          "claims_endpoint": "https://mock-login-consent.example.com:8099/claim-data?credentialType=PermanentResidentCard"
+        }
+      },
+      "createDID": true
     }
   ],
   "verifiers": [
@@ -5670,6 +5725,39 @@
             ]
           }
         ]
+      },
+      "createDID": true
+    },
+    {
+      "verifier": {
+        "id": "ecdsa-test-suite-verifier",
+        "version": "v1.0",
+        "name": "ecdsa-test-suite-verifier",
+        "organizationID": "00000000-0000-0000-0000-000000000001",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "ldp"
+            ],
+            "proof": true,
+            "status": false
+          },
+          "presentation": {
+            "format": [
+              "ldp"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        }
       },
       "createDID": true
     }
