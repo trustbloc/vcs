@@ -426,6 +426,7 @@ func createVP(
 	)
 	require.NoError(t, err)
 
+	vp.Holder = vp.Credentials()[0].Contents().Issuer.ID
 	err = vp.Credentials()[0].AddLinkedDataProof(ldpContext,
 		ldprocessor.WithDocumentLoader(testutil.DocumentLoader(t)))
 	require.NoError(t, err)

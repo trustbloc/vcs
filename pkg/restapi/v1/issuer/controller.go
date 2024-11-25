@@ -210,6 +210,7 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 	return util.WriteOutputWithCode(http.StatusCreated, e)(credential, nil)
 }
 
+// nolint:gocognit
 func (c *Controller) ValidateRawCredential(
 	finalCredentials map[string]interface{},
 	profile *profileapi.Issuer,

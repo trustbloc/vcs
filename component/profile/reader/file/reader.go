@@ -165,7 +165,7 @@ func (p *IssuerReader) GetProfile(
 		return nil, resterr.ErrProfileInactive
 	}
 
-	b, err := json.Marshal(profile)
+	b, err := json.Marshal(profile) // nolint:staticcheck
 	if err != nil {
 		return nil, fmt.Errorf("marshal profile: %w", err)
 	}
