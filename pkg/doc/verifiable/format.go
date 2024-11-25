@@ -39,6 +39,13 @@ const (
 func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 	strRep, isStr := data.(string)
 
+	if !isStr {
+		if mapped, ok := data.(*string); ok {
+			strRep = *mapped
+			isStr = true
+		}
+	}
+
 	var dataBytes []byte
 
 	if isStr {

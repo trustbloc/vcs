@@ -256,7 +256,7 @@ func (c *Controller) verifyCredential(
 
 	credential, err := vc.ValidateCredential(
 		ctx,
-		body.VerifiableCredential,
+		*body.VerifiableCredential,
 		profile.Checks.Credential.Format,
 		profile.Checks.Credential.CredentialExpiry,
 		profile.Checks.Credential.Strict,
