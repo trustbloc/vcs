@@ -255,9 +255,19 @@ func (c *Controller) ValidateRawCredential(
 		}
 	}
 
-	if _, credSubOk := finalCredentials["credentialSubject"].(map[string]interface{}); !credSubOk {
+	credSubjectKind := reflect.TypeOf(finalCredentials["credentialSubject"]).Kind()
+	if credSubjectKind != reflect.Map && credSubjectKind != reflect.Array && credSubjectKind != reflect.Slice {
 		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-			errors.New("credential_subject must be an object"))
+			errors.New("credential_subject must be an object or an array of objects"))
+	}
+
+	if subjects, subjectsOk := finalCredentials["credentialSubject"].([]interface{}); subjectsOk {
+		for _, subject := range subjects {
+			if mappedSubject, ok := subject.(map[string]interface{}); !ok || len(mappedSubject) == 0 {
+				return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
+					errors.New("each credential_subject must have properties"))
+			}
+		}
 	}
 
 	return nil
@@ -300,7 +310,6 @@ func (c *Controller) issueCredential(
 				}
 			}
 		}
-
 	} else {
 		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
 		if tmplErr != nil {

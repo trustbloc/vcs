@@ -3387,6 +3387,30 @@ func Test_sendFailedEvent(t *testing.T) {
 	})
 }
 
+func TestValidateRawCredential(t *testing.T) {
+	c := &Controller{}
+
+	t.Run("validate credentialSubjectType", func(t *testing.T) {
+		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
+			"@context": []any{
+				"https://www.w3.org/ns/credentials/v2",
+			},
+			"credentialSubject": 1234,
+		}, &profileapi.Issuer{}), "credential_subject must be an object or an array of objects")
+	})
+
+	t.Run("validate credentialSubject properties", func(t *testing.T) {
+		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
+			"@context": []interface{}{
+				"https://www.w3.org/ns/credentials/v2",
+			},
+			"credentialSubject": []any{
+				map[string]any{},
+			},
+		}, &profileapi.Issuer{}), "each credential_subject must have properties")
+	})
+}
+
 type options struct {
 	tenantID       string
 	requestBody    []byte

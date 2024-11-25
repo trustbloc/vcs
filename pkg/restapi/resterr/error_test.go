@@ -71,6 +71,17 @@ func TestNewValidationError(t *testing.T) {
 		requireMessage(t, resp, "some error")
 	})
 
+	t.Run("bad request", func(t *testing.T) {
+		err := NewValidationError(BadRequest, "test.value1", errors.New("some error"))
+		require.Equal(t, "bad-request[test.value1]: some error", err.Error())
+
+		httpCode, resp := err.HTTPCodeMsg()
+
+		require.Equal(t, http.StatusBadRequest, httpCode)
+		requireCode(t, resp, BadRequest.Name())
+		requireMessage(t, resp, "some error")
+	})
+
 	t.Run("Condition not met error", func(t *testing.T) {
 		err := NewValidationError(ConditionNotMet, "test.value1", errors.New("some error"))
 		require.Equal(t, "condition-not-met[test.value1]: some error", err.Error())
