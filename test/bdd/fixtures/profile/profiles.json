@@ -4893,7 +4893,8 @@
         "checks": {
           "credential": {
             "format": [
-              "jwt"
+              "jwt",
+              "ldp"
             ],
             "proof": true,
             "status": true,
@@ -4901,7 +4902,8 @@
           },
           "presentation": {
             "format": [
-              "jwt"
+              "jwt",
+              "ldp"
             ],
             "vcSubject": true,
             "proof": true

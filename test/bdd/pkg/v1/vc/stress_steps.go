@@ -8,6 +8,7 @@ package vc
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -172,7 +173,9 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	startTime = time.Now()
 
 	res, err := r.steps.getVerificationResult(
-		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion)
+		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion, []int{
+			http.StatusOK,
+		})
 	if err != nil {
 		return credentialID, nil, err
 	}

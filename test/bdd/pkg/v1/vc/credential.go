@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -159,7 +160,9 @@ func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat vcsv
 func (e *Steps) verifyVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
+		http.StatusOK,
+	})
 	if err != nil {
 		return err
 	}
@@ -174,7 +177,9 @@ func (e *Steps) verifyVC(profileVersionedID string) error {
 func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
+		http.StatusBadRequest,
+	})
 	if err != nil {
 		return err
 	}
@@ -197,7 +202,9 @@ func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 func (e *Steps) verifyVCWithExpectedError(verifierProfileVersionedID, errorMsg string) error {
 	chunks := strings.Split(verifierProfileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
+		http.StatusBadRequest,
+	})
 	if result != nil {
 		return fmt.Errorf("verification result should be nil")
 	}
@@ -286,6 +293,7 @@ func (e *Steps) getVerificationResult(
 	verifyCredentialURL,
 	profileID,
 	profileVersion string,
+	expectedCodes []int,
 ) (*model.VerifyCredentialResponse, error) {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
@@ -325,8 +333,8 @@ func (e *Steps) getVerificationResult(
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	if !lo.Contains(expectedCodes, resp.StatusCode) {
+		return nil, bddutil.ExpectedStatusCodeError(expectedCodes[0], resp.StatusCode, respBytes)
 	}
 
 	payload := &model.VerifyCredentialResponse{}
