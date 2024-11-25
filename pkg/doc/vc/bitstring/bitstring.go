@@ -24,8 +24,8 @@ const (
 // BitString struct.
 type BitString struct {
 	bits              []byte
-	numBits           int
 	multibaseEncoding multibase.Encoding
+	bitPosition       func(position int) int
 }
 
 type Opt func(*options)
@@ -43,19 +43,38 @@ func WithMultibaseEncoding(value multibase.Encoding) Opt {
 
 // NewBitString return bitstring.
 func NewBitString(length int, opts ...Opt) *BitString {
+	size := 1 + ((length - 1) / bitsPerByte)
+
+	return newBitString(make([]byte, size), opts)
+}
+
+func newBitString(bits []byte, opts []Opt) *BitString {
 	options := &options{}
 
 	for _, opt := range opts {
 		opt(options)
 	}
 
-	size := 1 + ((length - 1) / bitsPerByte)
-
-	return &BitString{
-		bits:              make([]byte, size),
-		numBits:           length,
+	b := &BitString{
+		bits:              bits,
 		multibaseEncoding: options.multibaseEncoding,
 	}
+
+	if options.multibaseEncoding != multibase.Encoding(0) {
+		// VC DM2.0 BitstringStatusList uses multibase encoding and requires bits
+		// to be set left-to-right.
+		b.bitPosition = func(position int) int {
+			return bitOffset - (position % bitsPerByte)
+		}
+	} else {
+		// Maintain backward compatibility with the previous implementation,
+		// which sets bits right-to-left.
+		b.bitPosition = func(position int) int {
+			return position % bitsPerByte
+		}
+	}
+
+	return b
 }
 
 // DecodeBits decode bits.
@@ -101,16 +120,13 @@ func DecodeBits(encodedBits string, opts ...Opt) (*BitString, error) {
 		return nil, err
 	}
 
-	return &BitString{
-		bits:              buf.Bytes(),
-		multibaseEncoding: options.multibaseEncoding,
-	}, nil
+	return newBitString(buf.Bytes(), opts), nil
 }
 
 // Set bit.
 func (b *BitString) Set(position int, bitSet bool) error {
 	nByte := position / bitsPerByte
-	nBit := bitOffset - (position % bitsPerByte)
+	nBit := b.bitPosition(position)
 
 	if position < 0 || nByte > len(b.bits)-1 {
 		return fmt.Errorf("position is invalid")
@@ -130,7 +146,7 @@ func (b *BitString) Set(position int, bitSet bool) error {
 // Get bit.
 func (b *BitString) Get(position int) (bool, error) {
 	nByte := position / bitsPerByte
-	nBit := bitOffset - (position % bitsPerByte)
+	nBit := b.bitPosition(position)
 
 	if position < 0 || nByte > len(b.bits)-1 {
 		return false, fmt.Errorf("position is invalid")

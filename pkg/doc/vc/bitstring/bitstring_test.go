@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bitstring
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/multiformats/go-multibase"
@@ -53,6 +54,14 @@ func TestBitString(t *testing.T) {
 		err := bitString.Set(1, true)
 		require.NoError(t, err)
 
+		err = bitString.Set(14, true)
+		require.NoError(t, err)
+
+		err = bitString.Set(17, true)
+		require.NoError(t, err)
+
+		logBits(t, bitString)
+
 		bitSet, err := bitString.Get(1)
 		require.NoError(t, err)
 		require.True(t, bitSet)
@@ -89,6 +98,14 @@ func TestBitString(t *testing.T) {
 		err := bitString.Set(1, true)
 		require.NoError(t, err)
 
+		err = bitString.Set(14, true)
+		require.NoError(t, err)
+
+		err = bitString.Set(17, true)
+		require.NoError(t, err)
+
+		logBits(t, bitString)
+
 		bitSet, err := bitString.Get(1)
 		require.NoError(t, err)
 		require.True(t, bitSet)
@@ -117,5 +134,27 @@ func TestBitString(t *testing.T) {
 		bitSet, err = bitStr.Get(1)
 		require.NoError(t, err)
 		require.False(t, bitSet)
+
+		bitSet, err = bitStr.Get(14)
+		require.NoError(t, err)
+		require.True(t, bitSet)
+
+		bitSet, err = bitStr.Get(17)
+		require.NoError(t, err)
+		require.True(t, bitSet)
+
+		logBits(t, bitStr)
 	})
+}
+
+func logBits(t *testing.T, b *BitString) {
+	t.Helper()
+
+	var str string
+
+	for _, x := range b.bits {
+		str += fmt.Sprintf("%08b ", x)
+	}
+
+	t.Logf("BitString: %s", str)
 }
