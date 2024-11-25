@@ -3411,6 +3411,61 @@ func TestValidateRawCredential(t *testing.T) {
 	})
 }
 
+func TestValidateRelatedResources(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.NoError(t, c.ValidateRelatedResources([]any{
+			map[string]any{
+				"id":        "https://example.com/credential",
+				"digestSRI": "sha256-1234",
+			},
+			map[string]any{
+				"id":        "https://example.com/credential1",
+				"digestSRI": "xxx",
+			},
+		}))
+	})
+
+	t.Run("duplicate", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.ErrorContains(t, c.ValidateRelatedResources([]any{
+			map[string]any{
+				"id":        "https://example.com/credential",
+				"digestSRI": "sha256-1234",
+			},
+			map[string]any{
+				"id":        "https://example.com/credential",
+				"digestSRI": "xxx",
+			},
+		}), "relatedResource must have unique ids")
+	})
+
+	t.Run("duplicate", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.ErrorContains(t, c.ValidateRelatedResources([]any{
+			map[string]any{
+				"id": "https://example.com/credential",
+			},
+		}), "digestMultibase or digestSRI")
+	})
+
+	t.Run("wrong type", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.ErrorContains(t, c.ValidateRelatedResources(1234),
+			"relatedResource must be an array")
+	})
+
+	t.Run("no records", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.NoError(t, c.ValidateRelatedResources(nil))
+	})
+}
+
 type options struct {
 	tenantID       string
 	requestBody    []byte

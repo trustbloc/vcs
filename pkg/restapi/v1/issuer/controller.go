@@ -342,7 +342,7 @@ func (c *Controller) issueCredential(
 			errors.New("id must be a valid URL"))
 	}
 
-	if err = c.validateRelatedResources(credentialParsed); err != nil {
+	if err = c.ValidateRelatedResources(credentialParsed.CustomField("relatedResource")); err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.relatedResources", err)
 	}
 
@@ -402,8 +402,9 @@ func (c *Controller) validateCredentialSchemas(cred *verifiable.Credential) erro
 	return nil
 }
 
-func (c *Controller) validateRelatedResources(cred *verifiable.Credential) error {
-	relatedResources := cred.CustomField("relatedResource")
+func (c *Controller) ValidateRelatedResources(
+	relatedResources any,
+) error {
 	if relatedResources == nil {
 		return nil
 	}
