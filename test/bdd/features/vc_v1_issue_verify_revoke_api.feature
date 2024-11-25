@@ -21,12 +21,12 @@ Feature: Using VC REST API
     And   V1 revoked credential is unable to be verified under "<verifierProfile>" profile
 
     Examples:
-      | issuerProfile                     | verifierProfile      | credential                      |
-      | i_myprofile_cmtr_p256_ldp/v1.0    | v_myprofile_ldp/v1.0 | certified_mill_test_report.json |
-      | i_myprofile_ud_es256k_jwt/v1.0    | v_myprofile_jwt/v1.0 | permanent_resident_card.json    |
-      | i_myprofile_ud_es256k_sdjwt/v1.0  | v_myprofile_jwt/v1.0 | crude_product.json              |
-      | i_myprofile_ud_di_ecdsa-2019/v1.0 | v_myprofile_ldp/v1.0 | crude_product.json              |
-      | i_myprofile_cmtr_p256_ldp_v2/v1.0 | v_myprofile_ldp/v1.0 | crude_product_vcdm2.json        |
+      | issuerProfile                     | verifierProfile                | credential                      |
+      | i_myprofile_cmtr_p256_ldp/v1.0    | v_myprofile_ldp/v1.0           | certified_mill_test_report.json |
+      | i_myprofile_ud_es256k_jwt/v1.0    | v_myprofile_jwt/v1.0           | permanent_resident_card.json    |
+      | i_myprofile_ud_es256k_sdjwt/v1.0  | v_myprofile_jwt_no_strict/v1.0 | crude_product.json              |
+      | i_myprofile_ud_di_ecdsa-2019/v1.0 | v_myprofile_ldp/v1.0           | crude_product.json              |
+      | i_myprofile_cmtr_p256_ldp_v2/v1.0 | v_myprofile_ldp/v1.0           | crude_product_vcdm2.json        |
 
   @e2e_ldp_jwt_sdjwt_revoke_err
   Scenario Outline: Unsuccessful attempt to revoke credential from wrong issuer (LDP, JWT, SD-JWT).
@@ -41,10 +41,10 @@ Feature: Using VC REST API
     And   V1 verifiable credential is verified under "<verifierProfile>" profile
 
     Examples:
-      | issuerProfile                    | wrongIssuerProfile              | verifierProfile      | credential                      |
-      | i_myprofile_ud_P256k1/v1.0       | i_myprofile_ud_es256_jwt/v1.0   | v_myprofile_ldp/v1.0 | certified_mill_test_report.json |
-      | i_myprofile_ud_es256k_jwt/v1.0   | i_myprofile_ud_es256_sdjwt/v1.0 | v_myprofile_jwt/v1.0 | permanent_resident_card.json    |
-      | i_myprofile_ud_es256k_sdjwt/v1.0 | i_myprofile_ud_P256k1/v1.0      | v_myprofile_jwt/v1.0 | crude_product.json              |
+      | issuerProfile                    | wrongIssuerProfile              | verifierProfile                | credential                      |
+      | i_myprofile_ud_P256k1/v1.0       | i_myprofile_ud_es256_jwt/v1.0   | v_myprofile_ldp/v1.0           | certified_mill_test_report.json |
+      | i_myprofile_ud_es256k_jwt/v1.0   | i_myprofile_ud_es256_sdjwt/v1.0 | v_myprofile_jwt/v1.0           | permanent_resident_card.json    |
+      | i_myprofile_ud_es256k_sdjwt/v1.0 | i_myprofile_ud_P256k1/v1.0      | v_myprofile_jwt_no_strict/v1.0 | crude_product.json              |
 
   @e2e_ldp_jwt_sdjwt_verify_format_err
   Scenario Outline: Credential verification failed due to unsupported credential format by verifier (LDP, JWT, SD-JWT).
