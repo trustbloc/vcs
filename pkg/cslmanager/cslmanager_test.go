@@ -20,17 +20,16 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
-	"github.com/trustbloc/kms-go/spi/kms"
-
-	"github.com/trustbloc/vcs/internal/mock/vcskms"
-
+	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/require"
-
 	"github.com/trustbloc/did-go/doc/did"
 	model "github.com/trustbloc/did-go/doc/did/endpoint"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/verifiable"
 
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -53,10 +52,11 @@ const (
 )
 
 func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
-	testProfile := getTestProfile()
 	loader := testutil.DocumentLoader(t)
 
 	t.Run("test success", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil)
@@ -87,11 +87,11 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, listID)
+		validateVCStatus(t, cslVCStore, statusID, listID, testProfile)
 
 		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, listID)
+		validateVCStatus(t, cslVCStore, statusID, listID, testProfile)
 
 		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
 		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
@@ -100,11 +100,11 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, updatedListID)
+		validateVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
 
 		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, updatedListID)
+		validateVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
 
 		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
 		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
@@ -114,10 +114,79 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, updatedListIDSecond)
+		validateVCStatus(t, cslVCStore, statusID, updatedListIDSecond, testProfile)
+	})
+
+	t.Run("BitsringStatusList -> success", func(t *testing.T) {
+		testProfile := getTestProfile(vc.BitstringStatusList)
+		testProfile.VCConfig.DataIntegrityProof = vc.DataIntegrityProofConfig{
+			Enable:    true,
+			SuiteType: eddsa2022.SuiteType,
+		}
+
+		ctrl := gomock.NewController(t)
+		mockKMSRegistry := NewMockKMSRegistry(ctrl)
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil)
+		ctx := context.Background()
+
+		cslIndexStore := newMockCSLIndexStore()
+		cslVCStore := newMockCSLVCStore()
+
+		mockVCStatusStore := NewMockVCStatusStore(ctrl)
+		mockVCStatusStore.EXPECT().
+			Put(gomock.Any(), testProfileID, testProfileVersion, credID, gomock.Any()).
+			Times(5).Return(nil)
+
+		listID, err := cslIndexStore.GetLatestListID(context.Background())
+		require.NoError(t, err)
+
+		s, err := New(&Config{
+			CSLIndexStore: cslIndexStore,
+			CSLVCStore:    cslVCStore,
+			VCStatusStore: mockVCStatusStore,
+			ListSize:      2,
+			KMSRegistry:   mockKMSRegistry,
+			ExternalURL:   "https://localhost:8080",
+			Crypto: vccrypto.New(
+				&vdrmock.VDRegistry{ResolveValue: createDIDDoc()}, loader),
+		})
+		require.NoError(t, err)
+
+		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID)
+		require.NoError(t, err)
+		validateBitstringVCStatus(t, cslVCStore, statusID, listID, testProfile)
+
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		require.NoError(t, err)
+		validateBitstringVCStatus(t, cslVCStore, statusID, listID, testProfile)
+
+		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
+		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
+		require.NoError(t, err)
+		require.NotEqual(t, updatedListID, listID)
+
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		require.NoError(t, err)
+		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
+
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		require.NoError(t, err)
+		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
+
+		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
+		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
+		require.NoError(t, err)
+		require.NotEqual(t, updatedListID, updatedListIDSecond)
+		require.NotEqual(t, listID, updatedListIDSecond)
+
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		require.NoError(t, err)
+		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListIDSecond, testProfile)
 	})
 
 	t.Run("test error get key manager", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
@@ -145,7 +214,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 	t.Run("test error get status processor", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		profile := getTestProfile()
+		profile := getTestProfile(vc.StatusList2021VCStatus)
 		profile.VCConfig.Status.Type = "undefined"
 
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
@@ -177,6 +246,8 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error from get latest list id from store", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
 
@@ -200,6 +271,8 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error from put latest list id to store", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
 
@@ -224,7 +297,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error create CSL wrapper URL", func(t *testing.T) {
-		profile := getTestProfile()
+		profile := getTestProfile(vc.StatusList2021VCStatus)
 
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 
@@ -247,6 +320,8 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error from CSL VC store", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
 		ctx := context.Background()
@@ -278,6 +353,8 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error put typedID to store - list size too small", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&vcskms.MockKMS{}, nil)
 
@@ -299,7 +376,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error put typedID to store - no available unused indexes", func(t *testing.T) {
-		profile := getTestProfile()
+		profile := getTestProfile(vc.StatusList2021VCStatus)
 
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 
@@ -341,13 +418,15 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), profile, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
 	})
 
 	t.Run("test error from store csl list in store", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&vcskms.MockKMS{}, nil)
 
@@ -372,6 +451,8 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error update latest list id", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&vcskms.MockKMS{}, nil)
 
@@ -396,6 +477,8 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 
 	t.Run("test error put typedID to store", func(t *testing.T) {
+		testProfile := getTestProfile(vc.StatusList2021VCStatus)
+
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&vcskms.MockKMS{}, nil)
@@ -425,7 +508,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 	})
 }
 
-func getTestProfile() *profileapi.Issuer {
+func getTestProfile(statusType vc.StatusType) *profileapi.Issuer {
 	return &profileapi.Issuer{
 		ID:      testProfileID,
 		Version: testProfileVersion,
@@ -436,7 +519,7 @@ func getTestProfile() *profileapi.Issuer {
 			SigningAlgorithm: "Ed25519Signature2018",
 			KeyType:          kms.ED25519Type,
 			Status: profileapi.StatusConfig{
-				Type: vc.StatusList2021VCStatus,
+				Type: statusType,
 			},
 		},
 		SigningDID: &profileapi.SigningDID{
@@ -712,10 +795,10 @@ func createDIDDoc() *did.Doc {
 }
 
 func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *credentialstatus.StatusListEntry,
-	expectedListID credentialstatus.ListID) {
+	expectedListID credentialstatus.ListID, profile *profileapi.Issuer) {
 	t.Helper()
 
-	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.TypedID.Type)
+	require.Equal(t, string(profile.VCConfig.Status.Type), statusID.TypedID.Type)
 	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
 
 	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
@@ -725,7 +808,7 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 	existingStatusVCListID := chunks[len(chunks)-1]
 	require.Equal(t, string(expectedListID), existingStatusVCListID)
 
-	cslURL, err := cslVCStore.GetCSLURL("https://localhost:8080", getTestProfile().GroupID, expectedListID)
+	cslURL, err := cslVCStore.GetCSLURL("https://localhost:8080", profile.GroupID, expectedListID)
 	require.NoError(t, err)
 
 	vcWrapper, err := cslVCStore.Get(context.Background(), cslURL)
@@ -758,4 +841,58 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 	bitSet, err := bitString.Get(revocationListIndex)
 	require.NoError(t, err)
 	require.False(t, bitSet)
+}
+
+func validateBitstringVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *credentialstatus.StatusListEntry,
+	expectedListID credentialstatus.ListID, profile *profileapi.Issuer) {
+	t.Helper()
+
+	require.Equal(t, string(vc.BitstringStatusList), statusID.TypedID.Type)
+	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
+
+	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
+	require.True(t, ok)
+
+	chunks := strings.Split(existingStatusListVCID, "/")
+	existingStatusVCListID := chunks[len(chunks)-1]
+	require.Equal(t, string(expectedListID), existingStatusVCListID)
+
+	cslURL, err := cslVCStore.GetCSLURL("https://localhost:8080", profile.GroupID, expectedListID)
+	require.NoError(t, err)
+
+	vcWrapper, err := cslVCStore.Get(context.Background(), cslURL)
+	require.NoError(t, err)
+
+	loader := testutil.DocumentLoader(t)
+
+	statusListVC, err := verifiable.ParseCredential(vcWrapper.VCByte,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
+	require.NoError(t, err)
+
+	statusListVCC := statusListVC.Contents()
+
+	require.Equal(t, existingStatusListVCID, statusListVCC.ID)
+	require.Equal(t, "did:test:abc", statusListVCC.Issuer.ID)
+	require.Equal(t, verifiable.V2ContextURI, statusListVCC.Context[0])
+	credSubject := statusListVCC.Subject
+
+	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
+	require.Equal(t, statustype.StatusListBitstringVCSubjectType, credSubject[0].CustomFields["type"].(string))
+	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
+	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string),
+		bitstring.WithMultibaseEncoding(multibase.Base64url))
+	require.NoError(t, err)
+
+	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string))
+	require.NoError(t, err)
+	bitSet, err := bitString.Get(revocationListIndex)
+	require.NoError(t, err)
+	require.False(t, bitSet)
+
+	require.Len(t, statusListVC.Proofs(), 1)
+
+	proof := statusListVC.Proofs()[0]
+	require.Equal(t, "DataIntegrityProof", proof["type"])
 }

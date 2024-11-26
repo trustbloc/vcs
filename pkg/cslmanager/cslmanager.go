@@ -243,6 +243,7 @@ func (s *Manager) createNewVCAndCSLIndexWrapper(ctx context.Context,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
 		VCStatusListType:        profile.VCConfig.Status.Type,
 		SDJWT:                   vc.SDJWT{Enable: false},
+		DataIntegrityProof:      profile.VCConfig.DataIntegrityProof,
 	}
 
 	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, profile.GroupID, listID)
