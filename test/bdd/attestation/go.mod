@@ -14,7 +14,7 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.3.1-0.20241122115441-c010226da580
-	github.com/trustbloc/vc-go v1.2.1-0.20241122170326-cb8385b93255
+	github.com/trustbloc/vc-go v1.2.1-0.20241125142751-c33f1ff65382
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 

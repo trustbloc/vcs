@@ -9,6 +9,8 @@ package verifiable
 import (
 	"reflect"
 	"testing"
+
+	"github.com/samber/lo"
 )
 
 func TestValidateFormat(t *testing.T) {
@@ -26,6 +28,15 @@ func TestValidateFormat(t *testing.T) {
 			name: "OK JWT",
 			args: args{
 				data:    "some data",
+				formats: []Format{Jwt},
+			},
+			want:    []byte("some data"),
+			wantErr: false,
+		},
+		{
+			name: "OK JWT (PTR)",
+			args: args{
+				data:    lo.ToPtr("some data"),
 				formats: []Format{Jwt},
 			},
 			want:    []byte("some data"),

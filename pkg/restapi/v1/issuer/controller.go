@@ -199,12 +199,18 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 
 	credential, err := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
 	if err != nil {
-		return err
+		var customError *resterr.CustomError
+		if errors.As(err, &customError) {
+			return err
+		}
+
+		return resterr.NewValidationError(resterr.BadRequest, "body", err)
 	}
 
 	return util.WriteOutputWithCode(http.StatusCreated, e)(credential, nil)
 }
 
+// nolint:gocognit
 func (c *Controller) ValidateRawCredential(
 	finalCredentials map[string]interface{},
 	profile *profileapi.Issuer,
@@ -250,9 +256,19 @@ func (c *Controller) ValidateRawCredential(
 		}
 	}
 
-	if _, credSubOk := finalCredentials["credentialSubject"].(map[string]interface{}); !credSubOk {
+	credSubjectKind := reflect.TypeOf(finalCredentials["credentialSubject"]).Kind()
+	if credSubjectKind != reflect.Map && credSubjectKind != reflect.Array && credSubjectKind != reflect.Slice {
 		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-			errors.New("credential_subject must be an object"))
+			errors.New("credential_subject must be an object or an array of objects"))
+	}
+
+	if subjects, subjectsOk := finalCredentials["credentialSubject"].([]interface{}); subjectsOk {
+		for _, subject := range subjects {
+			if mappedSubject, ok := subject.(map[string]interface{}); !ok || len(mappedSubject) == 0 {
+				return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
+					errors.New("each credential_subject must have properties"))
+			}
+		}
 	}
 
 	return nil
@@ -288,6 +304,12 @@ func (c *Controller) issueCredential(
 			if validationErr := c.ValidateRawCredential(v, profile); validationErr != nil {
 				return nil, validationErr
 			}
+
+			if profile.VCConfig.Model == vcsverifiable.V1_1 {
+				if _, dateOk := v["issuanceDate"]; !dateOk {
+					v["issuanceDate"] = utiltime.NewTime(time.Now().UTC()).FormatToString() // vc-api-verifier-test-suite
+				}
+			}
 		}
 	} else {
 		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
@@ -320,12 +342,12 @@ func (c *Controller) issueCredential(
 			errors.New("id must be a valid URL"))
 	}
 
-	if err = c.validateRelatedResources(credentialParsed); err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	if err = c.ValidateRelatedResources(credentialParsed.CustomField("relatedResource")); err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.relatedResources", err)
 	}
 
 	if err = c.validateCredentialSchemas(credentialParsed); err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.schemas", err)
 	}
 
 	content := credentialParsed.Contents()
@@ -380,8 +402,9 @@ func (c *Controller) validateCredentialSchemas(cred *verifiable.Credential) erro
 	return nil
 }
 
-func (c *Controller) validateRelatedResources(cred *verifiable.Credential) error {
-	relatedResources := cred.CustomField("relatedResource")
+func (c *Controller) ValidateRelatedResources(
+	relatedResources any,
+) error {
 	if relatedResources == nil {
 		return nil
 	}
@@ -391,16 +414,26 @@ func (c *Controller) validateRelatedResources(cred *verifiable.Credential) error
 		return errors.New("relatedResource must be an array")
 	}
 
+	ids := map[string]struct{}{}
+
 	for _, relatedResource := range relatedResourcesArray {
 		relatedResourceMap, itemMapOk := relatedResource.(map[string]interface{})
 		if !itemMapOk {
 			return errors.New("relatedResource must be a map")
 		}
 
-		_, ok = relatedResourceMap["id"]
-		if !ok {
+		idObj, idOk := relatedResourceMap["id"]
+		if !idOk {
 			return errors.New("relatedResource must have an id")
 		}
+
+		mappedID := fmt.Sprint(idObj)
+
+		if _, ok = ids[mappedID]; ok {
+			return errors.New("relatedResource must have unique ids")
+		}
+
+		ids[mappedID] = struct{}{}
 
 		_, hasDigest := relatedResourceMap["digestSRI"]
 		_, hasMultiBase := relatedResourceMap["digestMultibase"]
@@ -545,7 +578,7 @@ func validateIssueCredOptions(
 		return signingOpts, nil
 	}
 
-	if options.CredentialStatus.Type != "" &&
+	if options.CredentialStatus != nil && options.CredentialStatus.Type != "" &&
 		options.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
 			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))

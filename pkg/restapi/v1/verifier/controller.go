@@ -216,6 +216,20 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 		return err
 	}
 
+	hasErrors := false
+	if resp.Checks != nil {
+		for _, check := range *resp.Checks {
+			if check.Error != "" {
+				hasErrors = true
+				break
+			}
+		}
+	}
+
+	if hasErrors {
+		return util.WriteOutputWithCode(http.StatusBadRequest, e)(resp, nil)
+	}
+
 	return util.WriteOutput(e)(resp, nil)
 }
 
@@ -230,6 +244,11 @@ func (c *Controller) verifyCredential(
 		body.VerifiableCredential = body.Credential
 	}
 
+	if body.VerifiableCredential == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
+			errors.New("missing credential"))
+	}
+
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
@@ -237,7 +256,7 @@ func (c *Controller) verifyCredential(
 
 	credential, err := vc.ValidateCredential(
 		ctx,
-		body.VerifiableCredential,
+		*body.VerifiableCredential,
 		profile.Checks.Credential.Format,
 		profile.Checks.Credential.CredentialExpiry,
 		profile.Checks.Credential.Strict,
@@ -313,6 +332,7 @@ func (c *Controller) verifyPresentation(
 		verifiable.WithPresProofChecker(c.proofChecker),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 		verifiable.WithPresDataIntegrityVerifier(dataVerifier),
+		verifiable.WithPresHolderCheck(true),
 	}
 
 	if body.Options != nil {

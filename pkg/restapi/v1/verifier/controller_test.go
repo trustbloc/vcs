@@ -177,6 +177,43 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 	})
 }
 
+func TestController_PostVerifyCredentialsErr(t *testing.T) {
+	t.Run("HasError", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockVerifyCredentialSvc := NewMockVerifyCredentialService(gomock.NewController(t))
+
+		mockVerifyCredentialSvc.EXPECT().
+			VerifyCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			AnyTimes().
+			Return([]verifycredential.CredentialsVerificationCheckResult{
+				{
+					Error: "error",
+				},
+			}, nil)
+
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
+			Return(&profileapi.Verifier{
+				ID:             profileID,
+				Version:        profileVersion,
+				OrganizationID: "orgID1",
+				Checks:         verificationChecks,
+			}, nil)
+
+		controller := NewController(&Config{
+			VerifyCredentialSvc: mockVerifyCredentialSvc,
+			ProfileSvc:          mockProfileSvc,
+			DocumentLoader:      testutil.DocumentLoader(t),
+			VDR:                 &vdrmock.VDRegistry{},
+			Tracer:              nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		c := createContextWithBody([]byte(sampleVCJsonLDReq))
+		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
+		assert.NoError(t, err)
+		assert.EqualValues(t, c.Response().Status, http.StatusBadRequest)
+	})
+}
+
 func TestController_VerifyCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	verificationResult := []verifycredential.CredentialsVerificationCheckResult{{}}
@@ -213,6 +250,22 @@ func TestController_VerifyCredentials(t *testing.T) {
 		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 		assert.NoError(t, err)
 		assert.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
+	})
+
+	t.Run("Missing credential", func(t *testing.T) {
+		c := createContextWithBody([]byte(sampleVCJsonLDReq))
+
+		var body VerifyCredentialData
+
+		err := util.ReadBody(c, &body)
+		assert.NoError(t, err)
+
+		body.VerifiableCredential = nil
+		body.Credential = nil
+
+		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
+		assert.ErrorContains(t, err, "missing credential")
+		assert.Nil(t, rsp)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
@@ -426,6 +479,7 @@ func createVP(
 	)
 	require.NoError(t, err)
 
+	vp.Holder = vp.Credentials()[0].Contents().Issuer.ID
 	err = vp.Credentials()[0].AddLinkedDataProof(ldpContext,
 		ldprocessor.WithDocumentLoader(testutil.DocumentLoader(t)))
 	require.NoError(t, err)

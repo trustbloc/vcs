@@ -3387,6 +3387,85 @@ func Test_sendFailedEvent(t *testing.T) {
 	})
 }
 
+func TestValidateRawCredential(t *testing.T) {
+	c := &Controller{}
+
+	t.Run("validate credentialSubjectType", func(t *testing.T) {
+		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
+			"@context": []any{
+				"https://www.w3.org/ns/credentials/v2",
+			},
+			"credentialSubject": 1234,
+		}, &profileapi.Issuer{}), "credential_subject must be an object or an array of objects")
+	})
+
+	t.Run("validate credentialSubject properties", func(t *testing.T) {
+		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
+			"@context": []interface{}{
+				"https://www.w3.org/ns/credentials/v2",
+			},
+			"credentialSubject": []any{
+				map[string]any{},
+			},
+		}, &profileapi.Issuer{}), "each credential_subject must have properties")
+	})
+}
+
+func TestValidateRelatedResources(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.NoError(t, c.ValidateRelatedResources([]any{
+			map[string]any{
+				"id":        "https://example.com/credential",
+				"digestSRI": "sha256-1234",
+			},
+			map[string]any{
+				"id":        "https://example.com/credential1",
+				"digestSRI": "xxx",
+			},
+		}))
+	})
+
+	t.Run("duplicate", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.ErrorContains(t, c.ValidateRelatedResources([]any{
+			map[string]any{
+				"id":        "https://example.com/credential",
+				"digestSRI": "sha256-1234",
+			},
+			map[string]any{
+				"id":        "https://example.com/credential",
+				"digestSRI": "xxx",
+			},
+		}), "relatedResource must have unique ids")
+	})
+
+	t.Run("duplicate", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.ErrorContains(t, c.ValidateRelatedResources([]any{
+			map[string]any{
+				"id": "https://example.com/credential",
+			},
+		}), "digestMultibase or digestSRI")
+	})
+
+	t.Run("wrong type", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.ErrorContains(t, c.ValidateRelatedResources(1234),
+			"relatedResource must be an array")
+	})
+
+	t.Run("no records", func(t *testing.T) {
+		c := &Controller{}
+
+		assert.NoError(t, c.ValidateRelatedResources(nil))
+	})
+}
+
 type options struct {
 	tenantID       string
 	requestBody    []byte

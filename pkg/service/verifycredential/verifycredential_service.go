@@ -92,7 +92,7 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 			opts.Challenge,
 			opts.Domain,
 			false,
-			!credential.IsJWT() && !credential.IsCWT())
+			checks.Strict)
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "proof",

@@ -70,7 +70,7 @@ type VerifyCredentialData struct {
 	Options *VerifyCredentialOptions `json:"options,omitempty"`
 
 	// Credential in jws(string) or jsonld(object) formats.
-	VerifiableCredential interface{} `json:"verifiableCredential"`
+	VerifiableCredential *interface{} `json:"verifiableCredential,omitempty"`
 }
 
 // Options for verify credential.

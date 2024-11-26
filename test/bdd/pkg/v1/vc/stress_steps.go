@@ -6,8 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 var logger = log.New("vc-steps")
@@ -171,13 +174,22 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 
 	startTime = time.Now()
 
-	res, err := r.steps.getVerificationResult(
-		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion)
+	respBytes, err := r.steps.getVerificationResult(
+		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion, []int{
+			http.StatusOK,
+		})
 	if err != nil {
 		return credentialID, nil, err
 	}
 
-	if res.Checks != nil {
+	payload := &model.VerifyCredentialResponse{}
+
+	err = json.Unmarshal(respBytes, &payload)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if payload.Checks != nil {
 		return credentialID, nil, fmt.Errorf("credential verification failed")
 	}
 

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/trustbloc/vc-go/verifiable"
 
@@ -159,7 +160,16 @@ func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat vcsv
 func (e *Steps) verifyVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
+	respBytes, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
+		http.StatusOK,
+	})
+	if err != nil {
+		return err
+	}
+
+	result := &model.VerifyCredentialResponse{}
+
+	err = json.Unmarshal(respBytes, &result)
 	if err != nil {
 		return err
 	}
@@ -174,7 +184,16 @@ func (e *Steps) verifyVC(profileVersionedID string) error {
 func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
+	respBytes, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
+		http.StatusBadRequest,
+	})
+	if err != nil {
+		return err
+	}
+
+	result := &model.VerifyCredentialResponse{}
+
+	err = json.Unmarshal(respBytes, &result)
 	if err != nil {
 		return err
 	}
@@ -197,16 +216,11 @@ func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 func (e *Steps) verifyVCWithExpectedError(verifierProfileVersionedID, errorMsg string) error {
 	chunks := strings.Split(verifierProfileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
-	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion)
-	if result != nil {
-		return fmt.Errorf("verification result should be nil")
-	}
+	bytesResp, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
+		http.StatusBadRequest,
+	})
 
-	if err == nil {
-		return fmt.Errorf("error expected, but got nil")
-	}
-
-	if !strings.Contains(err.Error(), errorMsg) {
+	if !strings.Contains(string(bytesResp), errorMsg) {
 		return fmt.Errorf("unexpected error %s should contain %s", err.Error(), errorMsg)
 	}
 
@@ -286,7 +300,8 @@ func (e *Steps) getVerificationResult(
 	verifyCredentialURL,
 	profileID,
 	profileVersion string,
-) (*model.VerifyCredentialResponse, error) {
+	expectedCodes []int,
+) ([]byte, error) {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return nil, err
@@ -325,18 +340,11 @@ func (e *Steps) getVerificationResult(
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	if !lo.Contains(expectedCodes, resp.StatusCode) {
+		return nil, bddutil.ExpectedStatusCodeError(expectedCodes[0], resp.StatusCode, respBytes)
 	}
 
-	payload := &model.VerifyCredentialResponse{}
-
-	err = json.Unmarshal(respBytes, &payload)
-	if err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+	return respBytes, nil
 }
 
 func (e *Steps) checkVC(vcBytes []byte, profileVersionedID string, checkProof bool) error {
