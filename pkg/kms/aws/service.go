@@ -91,6 +91,9 @@ var kmsKeyTypes = map[types.SigningAlgorithmSpec]arieskms.KeyType{
 // nolint: gochecknoglobals
 var keySpecToCurve = map[types.KeySpec]elliptic.Curve{
 	types.KeySpecEccSecgP256k1: btcec.S256(),
+	types.KeySpecEccNistP256:   elliptic.P256(),
+	types.KeySpecEccNistP384:   elliptic.P384(),
+	types.KeySpecEccNistP521:   elliptic.P521(),
 }
 
 const (
