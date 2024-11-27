@@ -15,13 +15,14 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/verifiable"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -163,6 +164,7 @@ func (s *Service) signCSL(profileID, profileVersion string, csl *verifiable.Cred
 		SignatureRepresentation: issuerProfile.VCConfig.SignatureRepresentation,
 		VCStatusListType:        issuerProfile.VCConfig.Status.Type,
 		SDJWT:                   vc.SDJWT{Enable: false},
+		DataIntegrityProof:      issuerProfile.VCConfig.DataIntegrityProof,
 	}
 
 	signOpts, err := prepareSigningOpts(signer, csl.Proofs())
@@ -236,7 +238,7 @@ func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccryp
 		return nil, err
 	}
 
-	if signTypeName != "" {
+	if signTypeName != "" && signTypeName != models.DataIntegrityProof {
 		signType, err := vcsverifiable.GetSignatureTypeByName(signTypeName)
 		if err != nil {
 			return nil, err

@@ -21,12 +21,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vcs/internal/mock/vcskms"
-
+	"github.com/multiformats/go-multibase"
 	"github.com/trustbloc/did-go/doc/did"
 	vdrmock "github.com/trustbloc/did-go/vdr/mock"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/verifiable"
 
+	"github.com/trustbloc/vcs/internal/mock/vcskms"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -109,10 +110,40 @@ const (
     }
   }
 }`
+	//nolint:lll
+	cslWrapperBitstringBytes = `{
+  "vc": {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://w3id.org/security/suites/ed25519-2020/v1"
+    ],
+    "credentialSubject": {
+      "encodedList": "uH4sIAAAAAAAA_-zAgQAAAACAoP2pF6kAAAAAAAAAAAAAAAAAAACgOgAA__-N53xXgD4AAA",
+      "id": "https://localhost:8080/issuer/profiles/externalID/credentials/status/05bd0c2e-5a06-4393-849c-42330f02a3f7#list",
+      "statusPurpose": "revocation",
+      "type": "BitstringStatusList"
+    },
+    "id": "https://localhost:8080/issuer/profiles/externalID/credentials/status/05bd0c2e-5a06-4393-849c-42330f02a3f7",
+    "issuer": "did:test:abc",
+    "proof": {
+      "created": "2024-11-26T13:46:18-05:00",
+      "cryptosuite": "eddsa-rdfc-2022",
+      "proofPurpose": "assertionMethod",
+      "proofValue": "z",
+      "type": "DataIntegrityProof",
+      "verificationMethod": "did:test:abc#key1"
+    },
+    "type": [
+      "VerifiableCredential",
+      "BitstringStatusListCredential"
+    ],
+    "validFrom": "2024-11-26T18:46:18.403867Z"
+  }
+}`
 )
 
 func TestService_HandleEvent(t *testing.T) {
-	profile := getTestProfile()
+	profile := getTestProfile(vc.StatusList2021VCStatus)
 	loader := testutil.DocumentLoader(t)
 	ctx := context.Background()
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -217,7 +248,7 @@ func TestService_HandleEvent(t *testing.T) {
 }
 
 func TestService_handleEventPayload(t *testing.T) {
-	profile := getTestProfile()
+	profile := getTestProfile(vc.StatusList2021VCStatus)
 	loader := testutil.DocumentLoader(t)
 	ctx := context.Background()
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -438,21 +469,58 @@ func TestService_handleEventPayload(t *testing.T) {
 }
 
 func TestService_signCSL(t *testing.T) {
-	profile := getTestProfile()
 	loader := testutil.DocumentLoader(t)
 	ctx := context.Background()
-	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
 	crypto := vccrypto.New(
 		&vdrmock.VDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
 	t.Run("OK", func(t *testing.T) {
+		profile := getTestProfile(vc.StatusList2021VCStatus)
+
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
+
 		cslStore := newMockCSLVCStore()
 
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper.VC.Contents().ID, cslWrapper)
+		require.NoError(t, err)
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLVCStore:     cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedCSL)
+		cslWrapper.VC = getVerifiedCSL(t, signedCSL, loader, statusBytePositionIndex, false)
+		require.NotEmpty(t, cslWrapper.VC.Proofs)
+	})
+
+	t.Run("BitstringStatusList -> OK", func(t *testing.T) {
+		profile := getTestProfile(vc.BitstringStatusList)
+		profile.VCConfig.DataIntegrityProof = vc.DataIntegrityProofConfig{
+			Enable:    true,
+			SuiteType: eddsa2022.SuiteType,
+		}
+
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
+
+		cslStore := newMockCSLVCStore()
+
+		var cslWrapper *credentialstatus.CSLVCWrapper
+		err := json.Unmarshal([]byte(cslWrapperBitstringBytes), &cslWrapper)
 		require.NoError(t, err)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
@@ -488,6 +556,11 @@ func TestService_signCSL(t *testing.T) {
 	})
 
 	t.Run("Error failed to get KMS", func(t *testing.T) {
+		profile := getTestProfile(vc.StatusList2021VCStatus)
+
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
+
 		mockKMSRegistryErr := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistryErr.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s := New(&Config{
@@ -502,6 +575,11 @@ func TestService_signCSL(t *testing.T) {
 	})
 
 	t.Run("Error prepareSigningOpts failed", func(t *testing.T) {
+		profile := getTestProfile(vc.StatusList2021VCStatus)
+
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
+
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytesInvalidProof), &cslWrapper)
 		require.NoError(t, err)
@@ -524,6 +602,11 @@ func TestService_signCSL(t *testing.T) {
 	})
 
 	t.Run("Error sign CSL failed", func(t *testing.T) {
+		profile := getTestProfile(vc.StatusList2021VCStatus)
+
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
+
 		cryptoErr := vccrypto.New(
 			&vdrmock.VDRegistry{ResolveErr: errors.New("some error")}, loader)
 		var cslWrapper *credentialstatus.CSLVCWrapper
@@ -677,7 +760,19 @@ func getVerifiedCSL(
 
 	credSubject := csl.Contents().Subject
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
-	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+
+	var bitString *bitstring.BitString
+
+	statusType, ok := credSubject[0].CustomFields["type"].(string)
+	require.True(t, ok)
+
+	if statusType == "BitstringStatusList" {
+		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string),
+			bitstring.WithMultibaseEncoding(multibase.Base64url))
+	} else {
+		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	}
+
 	require.NoError(t, err)
 	bitSet, err := bitString.Get(index)
 	require.NoError(t, err)
@@ -754,7 +849,7 @@ func (m *mockCSLVCStore) Get(_ context.Context, cslURL string) (*credentialstatu
 	return w, nil
 }
 
-func getTestProfile() *profileapi.Issuer {
+func getTestProfile(statusType vc.StatusType) *profileapi.Issuer {
 	return &profileapi.Issuer{
 		ID:      profileID,
 		Name:    "testprofile",
@@ -764,7 +859,7 @@ func getTestProfile() *profileapi.Issuer {
 			SigningAlgorithm: "Ed25519Signature2018",
 			KeyType:          kms.ED25519Type,
 			Status: profileapi.StatusConfig{
-				Type: vc.StatusList2021VCStatus,
+				Type: statusType,
 			},
 		},
 		SigningDID: &profileapi.SigningDID{
