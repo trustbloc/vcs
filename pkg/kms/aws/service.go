@@ -91,6 +91,9 @@ var kmsKeyTypes = map[types.SigningAlgorithmSpec]arieskms.KeyType{
 // nolint: gochecknoglobals
 var keySpecToCurve = map[types.KeySpec]elliptic.Curve{
 	types.KeySpecEccSecgP256k1: btcec.S256(),
+	types.KeySpecEccNistP256:   elliptic.P256(),
+	types.KeySpecEccNistP384:   elliptic.P384(),
+	types.KeySpecEccNistP521:   elliptic.P521(),
 }
 
 const (
@@ -251,9 +254,10 @@ func (s *Service) Sign(msg []byte, kh interface{}) ([]byte, error) { //nolint: f
 		return nil, err
 	}
 
-	if describeKey.KeyMetadata.KeySpec == types.KeySpecEccSecgP256k1 {
+	if describeKey.KeyMetadata.KeySpec == types.KeySpecEccSecgP256k1 ||
+		describeKey.KeyMetadata.KeySpec == types.KeySpecEccNistP384 ||
+		describeKey.KeyMetadata.KeySpec == types.KeySpecEccNistP256 {
 		signature := ecdsaSignature{}
-
 		_, err = asn1.Unmarshal(result.Signature, &signature)
 		if err != nil {
 			return nil, err
