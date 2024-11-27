@@ -63,10 +63,18 @@ func TestSign(t *testing.T) {
 				metric.EXPECT().SignCount()
 				metric.EXPECT().SignTime(gomock.Any())
 
+				sig := ecdsaSignature{
+					R: big.NewInt(12345),
+					S: big.NewInt(54321),
+				}
+
+				asnSig, err := asn1.Marshal(sig)
+				require.NoError(t, err)
+
 				client := NewMockawsClient(gomock.NewController(t))
 				client.EXPECT().Sign(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(&kms.SignOutput{
-						Signature: []byte("data"),
+						Signature: asnSig,
 					}, nil)
 
 				client.EXPECT().DescribeKey(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -85,7 +93,7 @@ func TestSign(t *testing.T) {
 				signature, err := suiteSigner.Sign([]byte("msg"), wrapKID(
 					"aws-kms://arn:aws:kms:ca-central-1:111122223333:alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147"))
 				require.NoError(t, err)
-				require.Contains(t, string(signature), "data")
+				require.Contains(t, string(signature), "\xd41")
 			})
 		}
 	})
