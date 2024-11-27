@@ -251,7 +251,9 @@ func (s *Service) Sign(msg []byte, kh interface{}) ([]byte, error) { //nolint: f
 		return nil, err
 	}
 
-	if describeKey.KeyMetadata.KeySpec == types.KeySpecEccSecgP256k1 {
+	if describeKey.KeyMetadata.KeySpec == types.KeySpecEccSecgP256k1 ||
+		describeKey.KeyMetadata.KeySpec == types.KeySpecEccNistP384 ||
+		describeKey.KeyMetadata.KeySpec == types.KeySpecEccNistP256 {
 		signature := ecdsaSignature{}
 
 		_, err = asn1.Unmarshal(result.Signature, &signature)
