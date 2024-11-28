@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/validator"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vc-go/vermethod"
@@ -36,15 +37,17 @@ type vcVerifier interface {
 }
 
 type Config struct {
-	VDR            vdrapi.Registry
-	DocumentLoader ld.DocumentLoader
-	VcVerifier     vcVerifier
+	VDR                   vdrapi.Registry
+	DocumentLoader        ld.DocumentLoader
+	VcVerifier            vcVerifier
+	DataIntegrityVerifier *dataintegrity.Verifier
 }
 
 type Service struct {
-	vdr            vdrapi.Registry
-	documentLoader ld.DocumentLoader
-	vcVerifier     vcVerifier
+	vdr                   vdrapi.Registry
+	documentLoader        ld.DocumentLoader
+	vcVerifier            vcVerifier
+	dataIntegrityVerifier *dataintegrity.Verifier
 }
 
 func New(config *Config) *Service {
@@ -300,12 +303,20 @@ func (s *Service) validatePresentationProof(targetPresentation interface{}, opts
 	case *verifiable.Presentation:
 		final = pres
 	case []byte:
-		vp, err := verifiable.ParsePresentation(
-			pres,
+		presOpts := []verifiable.PresentationOpt{
 			verifiable.WithPresProofChecker(
 				defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(s.vdr)),
 			),
 			verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
+		}
+
+		if s.dataIntegrityVerifier != nil {
+			presOpts = append(presOpts, verifiable.WithPresDataIntegrityVerifier(s.dataIntegrityVerifier))
+		}
+
+		vp, err := verifiable.ParsePresentation(
+			pres,
+			presOpts...,
 		)
 		if err != nil {
 			return fmt.Errorf("verifiable presentation proof validation error : %w", err)
