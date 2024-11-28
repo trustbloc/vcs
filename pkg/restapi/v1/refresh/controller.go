@@ -14,6 +14,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/trustbloc/vcs/internal/utils"
@@ -23,11 +24,12 @@ import (
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
 type Config struct {
-	RefreshService      CredentialRefreshService
-	ProfileService      ProfileService
-	ProofChecker        ProofChecker
-	DocumentLoader      ld.DocumentLoader
-	IssuerVCSPublicHost string
+	RefreshService        CredentialRefreshService
+	ProfileService        ProfileService
+	ProofChecker          ProofChecker
+	DocumentLoader        ld.DocumentLoader
+	IssuerVCSPublicHost   string
+	DataIntegrityVerifier *dataintegrity.Verifier
 }
 type Controller struct {
 	cfg *Config
@@ -51,9 +53,19 @@ func (c *Controller) GetRefreshedCredential(
 		return resterr.NewValidationError(resterr.InvalidValue, "request", err)
 	}
 
-	pres, err := verifiable.ParsePresentation(req.VerifiablePresentation,
+	opts := []verifiable.PresentationOpt{
 		verifiable.WithPresJSONLDDocumentLoader(c.cfg.DocumentLoader),
-		verifiable.WithPresProofChecker(c.cfg.ProofChecker))
+		verifiable.WithPresProofChecker(c.cfg.ProofChecker),
+	}
+
+	if c.cfg.DataIntegrityVerifier != nil {
+		opts = append(opts, verifiable.WithPresDataIntegrityVerifier(c.cfg.DataIntegrityVerifier))
+	}
+
+	pres, err := verifiable.ParsePresentation(
+		req.VerifiablePresentation,
+		opts...,
+	)
 	if err != nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "verifiable_presentation", err)
 	}

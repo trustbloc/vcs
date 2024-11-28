@@ -37,6 +37,9 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/logutil-go/pkg/otel/correlationidecho"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/vermethod"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -834,6 +837,17 @@ func buildEchoHandler(
 		TransactionStore: oidc4ciTransactionStore,
 	})
 
+	dataIntegrityVerifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: conf.VDR,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: documentLoader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: documentLoader,
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("new verifier: %w", err)
+	}
+
 	jweEncrypterCreator := func(jwk jose.JSONWebKey, alg jose.KeyAlgorithm, enc jose.ContentEncryption) (jose.Encrypter, error) { //nolint:lll
 		return jose.NewEncrypter(
 			enc,
@@ -848,9 +862,10 @@ func buildEchoHandler(
 	var verifyPresentationSvc verifypresentation.ServiceInterface
 
 	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
-		VcVerifier:     verifyCredentialSvc,
-		DocumentLoader: documentLoader,
-		VDR:            conf.VDR,
+		VcVerifier:            verifyCredentialSvc,
+		DocumentLoader:        documentLoader,
+		VDR:                   conf.VDR,
+		DataIntegrityVerifier: dataIntegrityVerifier,
 	})
 
 	if conf.IsTraceEnabled {
@@ -891,11 +906,12 @@ func buildEchoHandler(
 	}))
 
 	refresh.RegisterHandlers(e, refresh.NewController(&refresh.Config{
-		RefreshService:      refreshService,
-		ProfileService:      issuerProfileSvc,
-		ProofChecker:        proofChecker,
-		DocumentLoader:      documentLoader,
-		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
+		RefreshService:        refreshService,
+		ProfileService:        issuerProfileSvc,
+		ProofChecker:          proofChecker,
+		DocumentLoader:        documentLoader,
+		IssuerVCSPublicHost:   conf.StartupParameters.apiGatewayURL,
+		DataIntegrityVerifier: dataIntegrityVerifier,
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
@@ -1013,6 +1029,8 @@ func buildEchoHandler(
 		Tracer:                conf.Tracer,
 		EventSvc:              eventSvc,
 		EventTopic:            conf.StartupParameters.verifierEventTopic,
+		ProofChecker:          proofChecker,
+		DataIntegrityVerifier: dataIntegrityVerifier,
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)

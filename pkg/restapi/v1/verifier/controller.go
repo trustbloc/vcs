@@ -27,8 +27,6 @@ import (
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/dataintegrity"
-	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
-	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/proof/defaults"
@@ -138,6 +136,7 @@ type Config struct {
 	Tracer                trace.Tracer
 	EventSvc              eventService
 	EventTopic            string
+	DataIntegrityVerifier *dataintegrity.Verifier
 }
 
 type metricsProvider interface {
@@ -158,6 +157,7 @@ type Controller struct {
 	eventSvc              eventService
 	eventTopic            string
 	vdr                   vdrapi.Registry
+	dataIntegrityVerifier *dataintegrity.Verifier
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
@@ -185,6 +185,7 @@ func NewController(config *Config) *Controller {
 		eventSvc:              config.EventSvc,
 		eventTopic:            config.EventTopic,
 		vdr:                   config.VDR,
+		dataIntegrityVerifier: config.DataIntegrityVerifier,
 	}
 }
 
@@ -322,17 +323,14 @@ func (c *Controller) verifyPresentation(
 		return nil, err
 	}
 
-	dataVerifier, err := c.getDataIntegrityVerifier()
-	if err != nil {
-		return nil, resterr.NewSystemError(resterr.VerifierPresentationVerifierComponent,
-			"VerifyPresentation", err)
-	}
-
 	opts := []verifiable.PresentationOpt{
 		verifiable.WithPresProofChecker(c.proofChecker),
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-		verifiable.WithPresDataIntegrityVerifier(dataVerifier),
 		verifiable.WithPresHolderCheck(true),
+	}
+
+	if c.dataIntegrityVerifier != nil {
+		opts = append(opts, verifiable.WithPresDataIntegrityVerifier(c.dataIntegrityVerifier))
 	}
 
 	if body.Options != nil {
@@ -367,21 +365,6 @@ func (c *Controller) verifyPresentation(
 	logger.Debugc(ctx, "PostVerifyPresentation completed")
 
 	return mapVerifyPresentationChecks(verRes, presentation), nil
-}
-
-func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error) {
-	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
-		DIDResolver: c.vdr,
-	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
-		LDDocumentLoader: c.documentLoader,
-	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		LDDocumentLoader: c.documentLoader,
-	}))
-	if err != nil {
-		return nil, fmt.Errorf("new verifier: %w", err)
-	}
-
-	return verifier, nil
 }
 
 // InitiateOidcInteraction initiates OpenID presentation flow through VCS.
@@ -847,9 +830,18 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 			fmt.Errorf("token expired"))
 	}
 
-	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
+	opts := []verifiable.PresentationOpt{
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 		verifiable.WithPresProofChecker(c.proofChecker),
+	}
+
+	if c.dataIntegrityVerifier != nil {
+		opts = append(opts, verifiable.WithPresDataIntegrityVerifier(c.dataIntegrityVerifier))
+	}
+
+	presentation, err := verifiable.ParsePresentation(
+		[]byte(vpToken),
+		opts...,
 	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
@@ -893,9 +885,18 @@ func (c *Controller) validateVPTokenCWT(
 }
 
 func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
-	presentation, err := verifiable.ParsePresentation([]byte(vpToken),
+	opts := []verifiable.PresentationOpt{
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 		verifiable.WithPresProofChecker(c.proofChecker),
+	}
+
+	if c.dataIntegrityVerifier != nil {
+		opts = append(opts, verifiable.WithPresDataIntegrityVerifier(c.dataIntegrityVerifier))
+	}
+
+	presentation, err := verifiable.ParsePresentation(
+		[]byte(vpToken),
+		opts...,
 	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
