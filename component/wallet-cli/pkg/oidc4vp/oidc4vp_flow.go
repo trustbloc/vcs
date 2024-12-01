@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +19,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
@@ -163,7 +164,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		f.perfInfo.VcsVPFlowDuration = time.Since(totalFlowStart)
 	}()
 
-	slog.Info("Running OIDC4VP flow",
+	slog.Debug("Running OIDC4VP flow",
 		"wallet_did", f.walletDID.String(),
 		"request_uri", f.requestURI,
 		"enable_linked_domain_verification", f.enableLinkedDomainVerification,
@@ -176,7 +177,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("set correlation ID: %w", err)
 	}
 
-	logger.Infoc(ctx, "Running OIDC4VP flow", zap.String("correlation_id", correlationID))
+	logger.Debugc(ctx, "Running OIDC4VP flow", zap.String("correlation_id", correlationID))
 
 	ctx = correlationCtx
 
@@ -280,7 +281,7 @@ func (f *Flow) Run(ctx context.Context) error {
 }
 
 func (f *Flow) fetchRequestObject(ctx context.Context) (*RequestObject, error) {
-	slog.Info("Fetching request object",
+	slog.Debug("Fetching request object",
 		"uri", f.requestURI,
 	)
 
@@ -348,7 +349,7 @@ type serviceEndpoint struct {
 }
 
 func (f *Flow) runLinkedDomainVerification(clientDID string) error {
-	slog.Info("Running linked domain verification",
+	slog.Debug("Running linked domain verification",
 		"did", clientDID,
 	)
 
@@ -415,7 +416,7 @@ func (f *Flow) queryWallet(
 	pd *presexch.PresentationDefinition,
 	vpFormat *presexch.Format,
 ) ([]*verifiable.Presentation, *presexch.PresentationSubmission, error) {
-	slog.Info("Querying wallet")
+	slog.Debug("Querying wallet")
 
 	start := time.Now()
 	defer func() {
@@ -458,7 +459,7 @@ func (f *Flow) sendAuthorizationResponse(
 	presentationSubmission *presexch.PresentationSubmission,
 	attestationRequired bool,
 ) error {
-	slog.Info("Sending authorization response",
+	slog.Debug("Sending authorization response",
 		"response_uri", requestObject.ResponseURI,
 	)
 
@@ -614,7 +615,7 @@ func extractCustomScopeClaims(requestObjectScope string) (map[string]Claims, err
 }
 
 func (f *Flow) postAuthorizationResponse(ctx context.Context, responseURI string, body []byte) error {
-	slog.Info("Sending authorization response",
+	slog.Debug("Sending authorization response",
 		"response_uri", responseURI,
 	)
 
@@ -655,7 +656,7 @@ func (f *Flow) postAuthorizationResponse(ctx context.Context, responseURI string
 		)
 	}
 
-	slog.Info("Credential presented successfully")
+	slog.Debug("Credential presented successfully")
 
 	return nil
 }

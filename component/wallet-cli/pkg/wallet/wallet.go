@@ -305,7 +305,7 @@ func (w *Wallet) Add(vc json.RawMessage, key string) error {
 		}
 	}
 
-	slog.Info("Add vc to store", "keyID", key)
+	slog.Debug("Add vc to store", "keyID", key)
 
 	w.mu.Lock()
 	defer w.mu.Unlock()

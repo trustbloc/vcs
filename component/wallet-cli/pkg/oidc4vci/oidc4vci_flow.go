@@ -246,7 +246,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 		f.perfInfo.VcsCIFlowDuration = time.Since(totalFlowStart)
 	}()
 
-	slog.Info("Running OIDC4VCI flow",
+	slog.Debug("Running OIDC4VCI flow",
 		"flow_type", f.flowType,
 		"credential_offer_uri", f.credentialOffer,
 		"credential_filters", f.credentialFilters,
@@ -260,7 +260,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 
 	ctx = correlationCtx
 
-	logger.Infoc(ctx, "Running OIDC4VCI flow", zap.String("correlation_id", correlationID))
+	logger.Debugc(ctx, "Running OIDC4VCI flow", zap.String("correlation_id", correlationID))
 
 	var (
 		credentialIssuer        string
@@ -329,7 +329,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 			return nil, err
 		}
 	} else if f.flowType == FlowTypePreAuthorizedCode {
-		slog.Info("Getting access token",
+		slog.Debug("Getting access token",
 			"grant_type", preAuthorizedCodeGrantType,
 			"client_id", f.clientID,
 			"pre-authorized_code", preAuthorizationGrant.PreAuthorizedCode,
@@ -464,7 +464,7 @@ func (f *Flow) Signer() jose.Signer {
 }
 
 func (f *Flow) parseCredentialOfferURI(uri string) (*oidc4ci.CredentialOfferResponse, error) {
-	slog.Info("Parsing credential offer URI",
+	slog.Debug("Parsing credential offer URI",
 		"uri", uri,
 	)
 
@@ -485,7 +485,7 @@ func (f *Flow) getAuthorizationCode(
 	oauthClient *oauth2.Config,
 	issuerState string,
 ) (string, error) {
-	slog.Info("Getting authorization code",
+	slog.Debug("Getting authorization code",
 		"client_id", oauthClient.ClientID,
 		"scopes", oauthClient.Scopes,
 		"filters", f.credentialFilters,
@@ -642,7 +642,7 @@ func (f *Flow) exchangeAuthorizationCodeForAccessToken(
 	oauthClient *oauth2.Config,
 	authCode string,
 ) (*oauth2.Token, error) {
-	slog.Info("Exchanging authorization code for access token",
+	slog.Debug("Exchanging authorization code for access token",
 		"grant_type", "authorization_code",
 		"client_id", oauthClient.ClientID,
 		"auth_code", authCode,
@@ -768,7 +768,7 @@ func (f *Flow) receiveVC(
 			return nil, errors.New("BatchCredentialEndpoint is not enalbed for given profile")
 		}
 
-		slog.Info("Getting batch credential",
+		slog.Debug("Getting batch credential",
 			"batch_credential_endpoint", batchCredentialEndpoint,
 			"credential_issuer", credentialIssuer,
 		)
@@ -785,7 +785,7 @@ func (f *Flow) receiveVC(
 		}
 	} else {
 		credentialEndpoint := lo.FromPtr(wellKnown.CredentialEndpoint)
-		slog.Info("Getting credential",
+		slog.Debug("Getting credential",
 			"credential_endpoint", credentialEndpoint,
 			"credential_issuer", credentialIssuer,
 		)
@@ -962,7 +962,7 @@ func (f *Flow) parseCredentialsResponse(
 			return !strings.EqualFold(item, "VerifiableCredential")
 		}
 
-		slog.Info("credential added to wallet",
+		slog.Debug("credential added to wallet",
 			"credential_id", parsedVC.Contents().ID,
 			"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
 			"issuer_id", parsedVC.Contents().Issuer.ID,
@@ -1169,7 +1169,7 @@ func (f *Flow) handleIssuanceAck(
 	}()
 
 	for i := 0; i < credentialAmount; i++ {
-		slog.Info("Sending wallet notification", "notification_id", notificationID, "endpoint", notificationEndpoint)
+		slog.Debug("Sending wallet notification", "notification_id", notificationID, "endpoint", notificationEndpoint)
 
 		ackRequest := oidc4civ1.AckRequest{
 			Event:            lo.ToPtr("credential_accepted"),
@@ -1199,7 +1199,7 @@ func (f *Flow) handleIssuanceAck(
 			return err
 		}
 
-		slog.Info(fmt.Sprintf("Wallet ACK sent with status code %v", resp.StatusCode))
+		slog.Debug(fmt.Sprintf("Wallet ACK sent with status code %v", resp.StatusCode))
 
 		b, _ = io.ReadAll(resp.Body) // nolint
 		if resp.StatusCode != http.StatusNoContent {
