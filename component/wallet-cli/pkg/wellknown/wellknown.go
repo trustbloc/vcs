@@ -10,10 +10,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/samber/lo"
 	"io"
 	"log/slog"
 	"net/http"
+
+	"github.com/samber/lo"
 
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/vc-go/jwt"
@@ -35,7 +36,7 @@ func (s *Service) GetWellKnownOpenIDConfiguration(
 	ctx context.Context,
 	issuerURL string,
 ) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
-	slog.Info("Getting OpenID credential issuer configuration",
+	slog.Debug("Getting OpenID credential issuer configuration",
 		"url", issuerURL+"/.well-known/openid-credential-issuer",
 	)
 

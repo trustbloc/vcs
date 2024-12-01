@@ -60,7 +60,7 @@ func NewCreateWalletCommand() *cobra.Command {
 				keyCreator:      keyCreator,
 			}
 
-			slog.Info("creating wallet",
+			slog.Debug("creating wallet",
 				"did_key_type", flags.didKeyType,
 				"did_method", flags.didMethod,
 			)
@@ -83,7 +83,7 @@ func NewCreateWalletCommand() *cobra.Command {
 				dids = append(dids, fmt.Sprintf("%d", i), did.ID)
 			}
 
-			slog.Info("wallet created successfully",
+			slog.Debug("wallet created successfully",
 				"name", w.Name(),
 				"version", w.Version(),
 				"authentication_method", w.WalletType(),

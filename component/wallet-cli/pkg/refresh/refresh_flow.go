@@ -12,11 +12,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/did"
@@ -140,7 +141,7 @@ func (f *Flow) Run(ctx context.Context) error {
 		return fmt.Errorf("set correlation ID: %w", err)
 	}
 
-	logger.Infoc(ctx, "Running Refresh flow", zap.String("correlation_id", correlationID))
+	logger.Debugc(ctx, "Running Refresh flow", zap.String("correlation_id", correlationID))
 
 	ctx = correlationCtx
 
@@ -187,7 +188,7 @@ func (f *Flow) Run(ctx context.Context) error {
 			NewCredential: updatedParsedCred,
 		}
 
-		slog.Info(fmt.Sprintf("credential with key %v updated", v))
+		slog.Debug(fmt.Sprintf("credential with key %v updated", v))
 	}
 
 	return finalErr
@@ -198,7 +199,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 	refreshService := parsedCred.Contents().RefreshService
 
 	if refreshService == nil {
-		slog.Info(fmt.Sprintf("no refresh service found for credential %s", credID))
+		slog.Debug(fmt.Sprintf("no refresh service found for credential %s", credID))
 		return nil, nil, nil
 	}
 
@@ -211,7 +212,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		return nil, nil, fmt.Errorf("refresh service endpoint is not set")
 	}
 
-	slog.Info(fmt.Sprintf("fetching update for credential %s from %s", credID, refreshService.ID))
+	slog.Debug(fmt.Sprintf("fetching update for credential %s from %s", credID, refreshService.ID))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, refreshService.ID, nil)
 	if err != nil {
@@ -224,7 +225,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 	}
 
 	if resp.StatusCode == http.StatusNoContent {
-		slog.Info(fmt.Sprintf("no update available for credential %s", credID))
+		slog.Debug(fmt.Sprintf("no update available for credential %s", credID))
 		return nil, nil, nil
 	}
 
@@ -248,7 +249,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 
 	interactEndpoint := parsed.VerifiablePresentationRequest.Interact.Service[0].ServiceEndpoint
 
-	slog.Info(fmt.Sprintf("update available for credential %s: %s", credID, credID))
+	slog.Debug(fmt.Sprintf("update available for credential %s: %s", credID, credID))
 
 	presDef, err := json.Marshal(parsed.VerifiablePresentationRequest.Query)
 	if err != nil {
@@ -286,7 +287,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		return nil, nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	slog.Info(fmt.Sprintf("sending request to interact endpoint %s", interactEndpoint))
+	slog.Debug(fmt.Sprintf("sending request to interact endpoint %s", interactEndpoint))
 
 	req, err = http.NewRequestWithContext(ctx, http.MethodPost,
 		interactEndpoint,
@@ -336,7 +337,7 @@ func (f *Flow) fetchUpdateForCred(ctx context.Context, parsedCred *verifiable.Cr
 		return nil, nil, fmt.Errorf("failed to parse updated credential: %w", err)
 	}
 
-	slog.Info(fmt.Sprintf("received updated credential. old id : %v new id: %v", credID,
+	slog.Debug(fmt.Sprintf("received updated credential. old id : %v new id: %v", credID,
 		newParsedCred.Contents().ID))
 
 	return rawUpdatedCred, newParsedCred, nil

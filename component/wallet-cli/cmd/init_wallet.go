@@ -110,7 +110,7 @@ func initServices(
 		return nil, fmt.Errorf("either --leveldb-path or --mongodb-connection-string must be specified")
 	}
 
-	slog.Info("initializing storage provider",
+	slog.Debug("initializing storage provider",
 		"storage_type", storageType,
 	)
 
