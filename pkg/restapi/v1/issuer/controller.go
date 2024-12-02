@@ -330,11 +330,12 @@ func (c *Controller) issueCredential(
 		return nil, err
 	}
 
-	issuer := credentialParsed.Contents().Issuer
-	if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
-			errors.New("issuer must be a DID"))
-	}
+	// not sure why we need this, but this breaks vc-data-model-2.0-test-suite
+	// issuer := credentialParsed.Contents().Issuer
+	// if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
+	//	return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
+	//		errors.New("issuer must be a DID"))
+	//}
 
 	// maybe implement some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
 	if strings.Contains(credentialParsed.Contents().ID, " ") {
