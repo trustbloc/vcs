@@ -331,8 +331,8 @@ func (c *Controller) issueCredential(
 	}
 
 	// not sure why we need this, but this breaks vc-data-model-2.0-test-suite
-	//issuer := credentialParsed.Contents().Issuer
-	//if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
+	// issuer := credentialParsed.Contents().Issuer
+	// if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
 	//	return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
 	//		errors.New("issuer must be a DID"))
 	//}
