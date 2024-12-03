@@ -11,20 +11,14 @@ import (
 	"crypto/tls"
 	"sync"
 
-	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/trustbloc/vc-go/verifiable"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
-	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/lifecycle"
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
 )
 
 var logger = log.New("event-bus")
@@ -33,30 +27,13 @@ const (
 	defaultBufferSize = 250
 )
 
-type profileService interface {
-	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
-}
-
-type kmsRegistry interface {
-	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
-}
-
-type vcCrypto interface {
-	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
-		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
-}
-
 // Config holds the configuration for the publisher/subscriber.
 type Config struct {
 	TLSConfig      *tls.Config
 	CMD            *cobra.Command
-	CSLVCStore     credentialstatus.CSLVCStore
-	ProfileService profileService
-	KMSRegistry    kmsRegistry
-	Crypto         vcCrypto
 	Tracer         trace.Tracer
 	IsTraceEnabled bool
-	DocumentLoader ld.DocumentLoader
+	CSLService     eventhandler.CSLService
 }
 
 // Bus implements a publisher/subscriber using Go channels. This implementation

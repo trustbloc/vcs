@@ -91,6 +91,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/clientidscheme"
 	clientmanagersvc "github.com/trustbloc/vcs/pkg/service/clientmanager"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus/cslservice"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -580,17 +581,21 @@ func buildEchoHandler(
 		return nil, err
 	}
 
+	cslService := cslservice.New(&cslservice.Config{
+		CSLStore:       cslVCStore,
+		ProfileService: issuerProfileSvc,
+		KMSRegistry:    kmsRegistry,
+		Crypto:         vcCrypto,
+		DocumentLoader: documentLoader,
+	})
+
 	// Create event service
 	eventSvc, err := event.Initialize(event.Config{
 		TLSConfig:      tlsConfig,
 		CMD:            cmd,
-		CSLVCStore:     cslVCStore,
-		ProfileService: issuerProfileSvc,
-		KMSRegistry:    kmsRegistry,
-		Crypto:         vcCrypto,
 		Tracer:         conf.Tracer,
 		IsTraceEnabled: conf.IsTraceEnabled,
-		DocumentLoader: documentLoader,
+		CSLService:     cslService,
 	})
 	if err != nil {
 		return nil, err
@@ -606,6 +611,7 @@ func buildEchoHandler(
 		RequestTokens:                  conf.StartupParameters.requestTokens,
 		DocumentLoader:                 documentLoader,
 		CSLVCStore:                     cslVCStore,
+		CSLIndexStore:                  cslIndexStore,
 		CSLManager:                     cslManager,
 		VCStatusStore:                  vcStatusStore,
 		ProfileService:                 issuerProfileSvc,

@@ -44,6 +44,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus/cslservice"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
 )
 
@@ -387,13 +388,17 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			})
 		require.NoError(t, err)
 
+		cslService := cslservice.New(&cslservice.Config{
+			CSLStore:       cslVCStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+			DocumentLoader: loader,
+		})
+
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
-				CSLVCStore:     cslVCStore,
-				ProfileService: mockProfileSrv,
-				KMSRegistry:    mockKMSRegistry,
-				Crypto:         crypto,
-				DocumentLoader: loader,
+				CSLService: cslService,
 			}),
 		}
 
@@ -820,13 +825,17 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		require.NoError(t, err)
 
+		cslService := cslservice.New(&cslservice.Config{
+			CSLStore:       cslVCStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+			DocumentLoader: loader,
+		})
+
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
-				CSLVCStore:     cslVCStore,
-				ProfileService: mockProfileSrv,
-				KMSRegistry:    mockKMSRegistry,
-				Crypto:         crypto,
-				DocumentLoader: loader,
+				CSLService: cslService,
 			}),
 		}
 
