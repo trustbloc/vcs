@@ -185,6 +185,28 @@ func TestNewAWSKeyManager(t *testing.T) {
 	})
 }
 
+func TestSecretManager(t *testing.T) {
+	t.Run("Success env", func(t *testing.T) {
+		pool, mongoDBResource := startMongoDBContainer(t)
+
+		defer func() {
+			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		}()
+
+		km, err := kms.NewAriesKeyManager(&kms.Config{
+			KMSType:           kms.Local,
+			SecretLockKeyPath: secretLockKeyFile,
+			DBType:            "secretsmanager",
+			DBURL:             mongoDBConnString,
+			DBName:            "prefix1234/xx",
+			MasterKey:         "00kIMo3wwfp1r8OOR8QMSkyIByY8ZHBKJy4l0u2i9f4=",
+		}, nil)
+
+		require.NoError(t, err)
+		require.NotNil(t, km)
+	})
+}
+
 func TestMain(m *testing.M) {
 	file, closeFunc := createSecretLockKeyFile()
 	secretLockKeyFile = file

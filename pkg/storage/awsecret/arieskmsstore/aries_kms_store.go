@@ -29,7 +29,7 @@ func NewStore(
 	client Client,
 	keyPrefix string,
 ) *Store {
-	logger.Info("creating new aries-kms-secret-store", logfields.WithIDToken(keyPrefix)))
+	logger.Info("creating new aries-kms-secret-store", logfields.WithIDToken(keyPrefix))
 
 	return &Store{
 		client: client,
