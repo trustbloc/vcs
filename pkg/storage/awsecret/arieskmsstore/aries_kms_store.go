@@ -13,7 +13,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/logfields"
 )
+
+var logger = log.New("aries-kms-secret-store")
 
 type Store struct {
 	client Client
@@ -24,6 +29,8 @@ func NewStore(
 	client Client,
 	keyPrefix string,
 ) *Store {
+	logger.Info("creating new aries-kms-secret-store", logfields.WithIDToken(keyPrefix)))
+
 	return &Store{
 		client: client,
 		prefix: keyPrefix,
