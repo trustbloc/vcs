@@ -13,7 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/trustbloc/did-go/legacy/mem"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	arieskms "github.com/trustbloc/kms-go/kms"
@@ -25,6 +26,7 @@ import (
 	"github.com/trustbloc/kms-go/wrapper/websuite"
 
 	awssvc "github.com/trustbloc/vcs/pkg/kms/aws"
+	secretmanagerstore "github.com/trustbloc/vcs/pkg/storage/awsecret/arieskmsstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/arieskmsstore"
 
@@ -56,6 +58,7 @@ const (
 	keystoreLocalPrimaryKeyURI = "local-lock://keystorekms"
 	storageTypeMemOption       = "mem"
 	storageTypeMongoDBOption   = "mongodb"
+	storageTypeSecretsManager  = "secretsmanager"
 )
 
 type metricsProvider interface {
@@ -96,7 +99,7 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			suite:   websuite.NewWebCryptoSuite(cfg.Endpoint, cfg.HTTPClient),
 		}, nil
 	case AWS:
-		awsConfig, err := config.LoadDefaultConfig(
+		awsConfig, err := awsconfig.LoadDefaultConfig(
 			context.Background(),
 		)
 		if err != nil {
@@ -134,7 +137,7 @@ func createLocalKMS(cfg *Config) (api.Suite, error) {
 		return nil, err
 	}
 
-	kmsStore, err := createStore(cfg.DBType, cfg.DBURL, cfg.DBName)
+	kmsStore, err := createStore(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -218,18 +221,33 @@ func createLocalSecretLock(
 	return secretLock, nil
 }
 
-func createStore(typ, url, prefix string) (kmsapi.Store, error) {
+func createStore(cfg *Config) (kmsapi.Store, error) {
 	switch {
-	case strings.EqualFold(typ, storageTypeMemOption):
+	case strings.EqualFold(cfg.DBType, storageTypeMemOption):
 		return arieskms.NewAriesProviderWrapper(mem.NewProvider())
-	case strings.EqualFold(typ, storageTypeMongoDBOption):
-		mongoClient, err := mongodb.New(url, prefix)
+	case strings.EqualFold(cfg.DBType, storageTypeMongoDBOption):
+		mongoClient, err := mongodb.New(cfg.DBURL, cfg.DBName)
 		if err != nil {
 			return nil, err
 		}
 
 		return arieskmsstore.NewStore(mongoClient), nil
+	case strings.EqualFold(cfg.DBType, storageTypeSecretsManager):
+		client, err := createSecretManagerClient()
+		if err != nil {
+			return nil, err
+		}
+
+		return secretmanagerstore.NewStore(client, cfg.DBName), nil
 	default:
-		return nil, fmt.Errorf("not supported database type: %s", typ)
+		return nil, fmt.Errorf("not supported database type: %s", cfg.DBType)
 	}
+}
+func createSecretManagerClient() (*secretsmanager.Client, error) {
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return secretsmanager.NewFromConfig(cfg), nil
 }
