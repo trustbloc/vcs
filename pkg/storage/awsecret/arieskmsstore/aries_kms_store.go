@@ -10,11 +10,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"path"
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/aws/smithy-go"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/samber/lo"
 	"github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -75,9 +74,8 @@ func (s *Store) Get(keysetID string) ([]byte, error) {
 		SecretId: lo.ToPtr(s.GetPath(keysetID)),
 	})
 
-	var smErr smithy.APIError
+	var smErr *types.ResourceNotFoundException
 	if errors.As(err, &smErr) {
-		fmt.Print(smErr)
 		return nil, kms.ErrKeyNotFound
 	}
 
