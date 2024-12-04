@@ -9,10 +9,13 @@ package arieskmsstore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/samber/lo"
+	"github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
@@ -70,6 +73,12 @@ func (s *Store) Get(keysetID string) ([]byte, error) {
 	out, err := s.client.GetSecretValue(context.Background(), &secretsmanager.GetSecretValueInput{
 		SecretId: lo.ToPtr(s.GetPath(keysetID)),
 	})
+
+	var smErr *types.ResourceNotFoundException
+	if errors.As(err, &smErr) {
+		return nil, kms.ErrKeyNotFound
+	}
+
 	if err != nil {
 		return nil, err
 	}
