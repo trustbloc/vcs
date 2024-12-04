@@ -15,17 +15,18 @@ import (
 )
 
 type Client interface {
-	PutSecretValue(
+	CreateSecret(
 		ctx context.Context,
-		params *secretsmanager.PutSecretValueInput,
+		params *secretsmanager.CreateSecretInput,
 		optFns ...func(*secretsmanager.Options),
-	) (*secretsmanager.PutSecretValueOutput, error)
+	) (*secretsmanager.CreateSecretOutput, error)
 
 	GetSecretValue(
 		ctx context.Context,
 		params *secretsmanager.GetSecretValueInput,
 		optFns ...func(*secretsmanager.Options),
 	) (*secretsmanager.GetSecretValueOutput, error)
+
 	DeleteSecret(
 		ctx context.Context,
 		params *secretsmanager.DeleteSecretInput,

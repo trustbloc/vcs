@@ -22,13 +22,13 @@ func TestPut(t *testing.T) {
 		prefix,
 	)
 
-	cl.EXPECT().PutSecretValue(gomock.Any(), gomock.Any()).
+	cl.EXPECT().CreateSecret(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
 			ctx context.Context,
-			input *secretsmanager.PutSecretValueInput,
+			input *secretsmanager.CreateSecretInput,
 			f ...func(*secretsmanager.Options),
-		) (*secretsmanager.PutSecretValueOutput, error) {
-			assert.EqualValues(t, prefix+"someId", *input.SecretId)
+		) (*secretsmanager.CreateSecretOutput, error) {
+			assert.EqualValues(t, prefix+"someId", *input.Name)
 
 			var parsed arieskmsstore.DataWrapper
 			if err := json.Unmarshal(input.SecretBinary, &parsed); err != nil {
@@ -37,7 +37,7 @@ func TestPut(t *testing.T) {
 
 			assert.EqualValues(t, []byte{0x1, 0x2}, parsed.Bin)
 
-			return &secretsmanager.PutSecretValueOutput{}, nil
+			return &secretsmanager.CreateSecretOutput{}, nil
 		})
 
 	assert.NoError(t, store.Put("someId", []byte{0x1, 0x2}))
