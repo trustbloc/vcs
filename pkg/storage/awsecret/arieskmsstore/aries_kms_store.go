@@ -57,8 +57,8 @@ func (s *Store) Put(keysetID string, key []byte) error {
 		return err
 	}
 
-	_, err = s.client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
-		SecretId:     lo.ToPtr(s.GetPath(keysetID)),
+	_, err = s.client.CreateSecret(context.Background(), &secretsmanager.CreateSecretInput{
+		Name:         lo.ToPtr(s.GetPath(keysetID)),
 		SecretBinary: data,
 		SecretString: nil,
 	})
