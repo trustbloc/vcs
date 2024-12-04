@@ -466,7 +466,7 @@ func buildEchoHandler(
 		kmsDbType = conf.StartupParameters.dbParameters.databaseType
 	}
 
-	if strings.EqualFold(kmsDbType, "mongo") {
+	if strings.EqualFold(kmsDbType, "mongodb") {
 		if kmsDbUrl == "" {
 			kmsDbUrl = conf.StartupParameters.dbParameters.databaseURL
 		}
