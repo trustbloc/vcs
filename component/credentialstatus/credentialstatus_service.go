@@ -93,6 +93,7 @@ type Config struct {
 	RequestTokens                  map[string]string
 	VDR                            vdrapi.Registry
 	CSLVCStore                     credentialstatus.CSLVCStore
+	CSLIndexStore                  credentialstatus.CSLIndexStore
 	CSLManager                     cslManager
 	VCStatusStore                  vcStatusStore
 	Crypto                         vcCrypto
@@ -111,6 +112,7 @@ type Service struct {
 	requestTokens                  map[string]string
 	vdr                            vdrapi.Registry
 	cslVCStore                     credentialstatus.CSLVCStore
+	cslIndexStore                  credentialstatus.CSLIndexStore
 	cslMgr                         cslManager
 	vcStatusStore                  vcStatusStore
 	crypto                         vcCrypto
@@ -131,6 +133,7 @@ func New(config *Config) (*Service, error) {
 		requestTokens:                  config.RequestTokens,
 		vdr:                            config.VDR,
 		cslVCStore:                     config.CSLVCStore,
+		cslIndexStore:                  config.CSLIndexStore,
 		cslMgr:                         config.CSLManager,
 		vcStatusStore:                  config.VCStatusStore,
 		crypto:                         config.Crypto,
