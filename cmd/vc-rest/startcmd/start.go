@@ -458,15 +458,31 @@ func buildEchoHandler(
 	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}
 	mongoDbNameWithPrefix := conf.StartupParameters.dbParameters.databasePrefix + "vcs_db"
 
+	kmsDbType := conf.StartupParameters.kmsParameters.kmsSecretsDatabaseType
+	kmsDbUrl := conf.StartupParameters.kmsParameters.kmsSecretsDatabaseURL
+	kmsDbName := conf.StartupParameters.kmsParameters.kmsSecretsDatabasePrefix
+
+	if kmsDbType == "" {
+		kmsDbType = conf.StartupParameters.dbParameters.databaseType
+	}
+
+	if strings.EqualFold(kmsDbType, "mongodb") {
+		if kmsDbUrl == "" {
+			kmsDbUrl = conf.StartupParameters.dbParameters.databaseURL
+		}
+
+		kmsDbName = mongoDbNameWithPrefix
+	}
+
 	defaultKmsConfig := kms.Config{
 		KMSType:           conf.StartupParameters.kmsParameters.kmsType,
 		Endpoint:          conf.StartupParameters.kmsParameters.kmsEndpoint,
 		Region:            conf.StartupParameters.kmsParameters.kmsRegion,
 		HTTPClient:        http.DefaultClient, // TODO change to custom http client
 		SecretLockKeyPath: conf.StartupParameters.kmsParameters.secretLockKeyPath,
-		DBType:            conf.StartupParameters.dbParameters.databaseType,
-		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
-		DBName:            mongoDbNameWithPrefix,
+		DBType:            kmsDbType,
+		DBURL:             kmsDbUrl,
+		DBName:            kmsDbName,
 		AliasPrefix:       conf.StartupParameters.kmsParameters.aliasPrefix,
 		MasterKey:         conf.StartupParameters.kmsParameters.masterKey,
 	}
