@@ -45,10 +45,10 @@ require (
 	github.com/tidwall/gjson v1.17.3
 	github.com/tidwall/sjson v1.2.5
 	github.com/trustbloc/bbs-signature-go v1.0.2
-	github.com/trustbloc/did-go v1.3.1-0.20241122115441-c010226da580
-	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88
+	github.com/trustbloc/did-go v1.3.2-0.20241206132250-6ae560f13021
+	github.com/trustbloc/kms-go v1.2.0
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
-	github.com/trustbloc/vc-go v1.2.1-0.20241125142751-c33f1ff65382
+	github.com/trustbloc/vc-go v1.3.1-0.20241206135341-cb6ea1d75d15
 	github.com/valyala/fastjson v1.6.4
 	github.com/veraison/go-cose v1.3.0-rc.1
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -261,4 +261,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/trustbloc/json-gold v0.5.1
+replace github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8

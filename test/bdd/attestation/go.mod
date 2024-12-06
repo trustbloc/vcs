@@ -13,8 +13,8 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.1-0.20241122115441-c010226da580
-	github.com/trustbloc/vc-go v1.2.1-0.20241125142751-c33f1ff65382
+	github.com/trustbloc/did-go v1.3.2-0.20241206132250-6ae560f13021
+	github.com/trustbloc/vc-go v1.3.1-0.20241206135341-cb6ea1d75d15
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 
@@ -50,7 +50,7 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.4 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/kms-go v1.1.3-0.20241001141623-8d9510c6bb88 // indirect
+	github.com/trustbloc/kms-go v1.2.0 // indirect
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e // indirect
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -72,4 +72,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/trustbloc/json-gold v0.5.1
+replace github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8
