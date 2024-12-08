@@ -3399,6 +3399,14 @@ func TestValidateRawCredential(t *testing.T) {
 		}, &profileapi.Issuer{}), "credential_subject must be an object or an array of objects")
 	})
 
+	t.Run("validate credentialSubject exists", func(t *testing.T) {
+		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
+			"@context": []any{
+				"https://www.w3.org/ns/credentials/v2",
+			},
+		}, &profileapi.Issuer{}), "credential_subject must be specified")
+	})
+
 	t.Run("validate credentialSubject properties", func(t *testing.T) {
 		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
 			"@context": []interface{}{
@@ -3408,6 +3416,15 @@ func TestValidateRawCredential(t *testing.T) {
 				map[string]any{},
 			},
 		}, &profileapi.Issuer{}), "each credential_subject must have properties")
+	})
+
+	t.Run("validate credentialSubject at least one subject", func(t *testing.T) {
+		assert.ErrorContains(t, c.ValidateRawCredential(map[string]any{
+			"@context": []interface{}{
+				"https://www.w3.org/ns/credentials/v2",
+			},
+			"credentialSubject": []any{},
+		}, &profileapi.Issuer{}), "must have at least one subject")
 	})
 }
 

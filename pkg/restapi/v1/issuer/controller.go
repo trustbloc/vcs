@@ -256,13 +256,24 @@ func (c *Controller) ValidateRawCredential(
 		}
 	}
 
-	credSubjectKind := reflect.TypeOf(finalCredentials["credentialSubject"]).Kind()
+	credSubObj, credSubObjOk := finalCredentials["credentialSubject"]
+	if !credSubObjOk || credSubObj == nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
+			errors.New("credential_subject must be specified"))
+	}
+
+	credSubjectKind := reflect.TypeOf(credSubObj).Kind()
 	if credSubjectKind != reflect.Map && credSubjectKind != reflect.Array && credSubjectKind != reflect.Slice {
 		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
 			errors.New("credential_subject must be an object or an array of objects"))
 	}
 
-	if subjects, subjectsOk := finalCredentials["credentialSubject"].([]interface{}); subjectsOk {
+	if subjects, subjectsOk := credSubObj.([]interface{}); subjectsOk {
+		if len(subjects) == 0 {
+			return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
+				errors.New("credential_subject must have at least one subject"))
+		}
+		
 		for _, subject := range subjects {
 			if mappedSubject, ok := subject.(map[string]interface{}); !ok || len(mappedSubject) == 0 {
 				return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
@@ -330,12 +341,11 @@ func (c *Controller) issueCredential(
 		return nil, err
 	}
 
-	// not sure why we need this, but this breaks vc-data-model-2.0-test-suite
-	// issuer := credentialParsed.Contents().Issuer
-	// if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
-	//	return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
-	//		errors.New("issuer must be a DID"))
-	//}
+	issuer := credentialParsed.Contents().Issuer
+	if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
+			errors.New("issuer must be a DID"))
+	}
 
 	// maybe implement some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
 	if strings.Contains(credentialParsed.Contents().ID, " ") {
