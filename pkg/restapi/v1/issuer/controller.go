@@ -273,7 +273,7 @@ func (c *Controller) ValidateRawCredential(
 			return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
 				errors.New("credential_subject must have at least one subject"))
 		}
-		
+
 		for _, subject := range subjects {
 			if mappedSubject, ok := subject.(map[string]interface{}); !ok || len(mappedSubject) == 0 {
 				return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
