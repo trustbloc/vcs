@@ -23,10 +23,10 @@ type serviceEndpoint struct {
 	Origins []string `json:"origins"`
 }
 
-func (s *Service) ValidateLinkedDomain(_ context.Context, signingDID string) error {
-	didDocResolution, vdrErr := s.vdr.Resolve(signingDID)
+func (s *Service) ValidateLinkedDomain(_ context.Context, issuerSigningDID string) error {
+	didDocResolution, vdrErr := s.vdr.Resolve(issuerSigningDID)
 	if vdrErr != nil {
-		return fmt.Errorf("failed to resolve DID %s, err: %w", signingDID, vdrErr)
+		return fmt.Errorf("failed to resolve DID %s, err: %w", issuerSigningDID, vdrErr)
 	}
 
 	for _, service := range didDocResolution.DIDDocument.Service {
@@ -52,11 +52,11 @@ func (s *Service) ValidateLinkedDomain(_ context.Context, signingDID string) err
 			didconfig.WithHTTPClient(s.httpClient),
 		)
 
-		return didConfigurationClient.VerifyDIDAndDomain(signingDID,
+		return didConfigurationClient.VerifyDIDAndDomain(issuerSigningDID,
 			strings.TrimSuffix(serviceEndpoint.Origins[0], "/"))
 	}
 
-	return fmt.Errorf("no LinkedDomains service in DID %s", signingDID)
+	return fmt.Errorf("no LinkedDomains service in DID %s", issuerSigningDID)
 }
 
 func getServiceType(serviceType interface{}) string {

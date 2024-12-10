@@ -170,7 +170,8 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.LinkedDomain {
 		st := time.Now()
 
-		err := s.vcVerifier.ValidateLinkedDomain(ctx, profile.SigningDID.DID)
+		err := s.checkLinkedDomain(ctx, credentials)
+
 		result.Checks = append(result.Checks, &Check{
 			Check: "linkedDomain",
 			Error: err,
@@ -291,6 +292,22 @@ func (s *Service) checkIssuerTrustList(
 
 		if !lo.Contains(cfg.CredentialTypes, finalCredType) {
 			return fmt.Errorf("credential type: %v is not a member of trustlist configuration", finalCredType)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) checkLinkedDomain(ctx context.Context, credentials []*verifiable.Credential) error {
+	for _, cred := range credentials {
+		var issuerID string
+
+		if cred.Contents().Issuer != nil {
+			issuerID = cred.Contents().Issuer.ID
+		}
+
+		if err := s.vcVerifier.ValidateLinkedDomain(ctx, issuerID); err != nil {
+			return err
 		}
 	}
 
