@@ -78,7 +78,7 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 	var result []CredentialsVerificationCheckResult
 
 	if checks.LinkedDomain {
-		if err := s.ValidateLinkedDomain(ctx, profile.SigningDID.DID); err != nil {
+		if err := s.ValidateLinkedDomain(ctx, credential.Contents().Issuer.ID); err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "linkedDomain",
 				Error: err.Error(),

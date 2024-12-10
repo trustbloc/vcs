@@ -405,9 +405,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(got, tt.want) { //nolint:govet
-				t.Errorf("VerifyPresentation() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -993,6 +991,93 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				context.Background(),
 				tt.args.getCredentials(t)); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestService_checkLinkedDomain(t *testing.T) {
+	type fields struct {
+		getVcVerifier func(t *testing.T) vcVerifier
+	}
+	type args struct {
+		getCredentials func(t *testing.T) []*verifiable.Credential
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "OK",
+			fields: fields{
+				getVcVerifier: func(t *testing.T) vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateLinkedDomain(
+						context.Background(),
+						"IssuerID",
+					).Times(1).Return(nil)
+					return mockVerifier
+				},
+			},
+			args: args{
+				getCredentials: func(t *testing.T) []*verifiable.Credential {
+					credContent := verifiable.CredentialContents{
+						Types: []string{
+							"VerifiableCredential",
+							"UniversityDegreeCredential",
+						},
+						Issuer: &verifiable.Issuer{ID: "IssuerID"},
+					}
+
+					cred1, err := verifiable.CreateCredential(credContent, nil)
+					assert.NoError(t, err)
+
+					return []*verifiable.Credential{cred1}
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Error",
+			fields: fields{
+				getVcVerifier: func(t *testing.T) vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateLinkedDomain(
+						context.Background(),
+						"",
+					).Times(1).Return(errors.New("some error"))
+					return mockVerifier
+				},
+			},
+			args: args{
+				getCredentials: func(t *testing.T) []*verifiable.Credential {
+					credContent := verifiable.CredentialContents{
+						Types: []string{
+							"VerifiableCredential",
+							"UniversityDegreeCredential",
+						},
+					}
+
+					cred1, err := verifiable.CreateCredential(credContent, nil)
+					assert.NoError(t, err)
+
+					return []*verifiable.Credential{cred1}
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				vcVerifier: tt.fields.getVcVerifier(t),
+			}
+			if err := s.checkLinkedDomain(
+				context.Background(),
+				tt.args.getCredentials(t)); (err != nil) != tt.wantErr {
+				t.Errorf("checkLinkedDomain() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
