@@ -38,6 +38,8 @@ var (
 	revocationList2021 []byte
 	//go:embed contexts/data-integrity-v1.jsonld
 	dataIntegrityV1 []byte
+	//go:embed contexts/data-integrity-v2.jsonld
+	dataIntegrityV2 []byte
 )
 
 var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
@@ -75,6 +77,11 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://w3id.org/security/data-integrity/v1",
 		DocumentURL: "https://w3c.github.io/vc-data-integrity/contexts/data-integrity/v1.jsonld",
 		Content:     dataIntegrityV1,
+	},
+	{
+		URL:         "https://w3id.org/security/data-integrity/v2",
+		DocumentURL: "https://w3c.github.io/vc-data-integrity/contexts/data-integrity/v2.jsonld",
+		Content:     dataIntegrityV2,
 	},
 }
 
