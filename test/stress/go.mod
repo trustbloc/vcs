@@ -17,11 +17,11 @@ require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/samber/lo v1.47.0
-	github.com/trustbloc/did-go v1.3.2-0.20241206132250-6ae560f13021
+	github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed
 	github.com/trustbloc/kms-go v1.2.0
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.3.1-0.20241206135341-cb6ea1d75d15
+	github.com/trustbloc/vc-go v1.3.1-0.20241211120947-baaf18a111c1
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
 	github.com/trustbloc/vcs/test/bdd v0.0.0-00010101000000-000000000000
