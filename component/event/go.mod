@@ -119,7 +119,7 @@ require (
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
 	github.com/trustbloc/did-go v1.3.2-0.20241212145009-fd71069d9b40 // indirect
 	github.com/trustbloc/kms-go v1.2.0 // indirect
-	github.com/trustbloc/vc-go v1.3.1-0.20241212152202-168600dc243e // indirect
+	github.com/trustbloc/vc-go v1.3.1-0.20241212194506-d5f6b47d09c1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/veraison/go-cose v1.3.0-rc.1 // indirect
