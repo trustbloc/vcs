@@ -25,11 +25,11 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/tidwall/gjson v1.17.3
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed
+	github.com/trustbloc/did-go v1.3.2-0.20241212145009-fd71069d9b40
 	github.com/trustbloc/kms-go v1.2.0
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.3.1-0.20241211120947-baaf18a111c1
+	github.com/trustbloc/vc-go v1.3.1-0.20241212152202-168600dc243e
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20240103173902-7fbe030659b2
 	github.com/trustbloc/vcs/test/stress v0.0.0-00010101000000-000000000000
@@ -120,6 +120,7 @@ require (
 	github.com/hashicorp/go-memdb v1.3.3 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

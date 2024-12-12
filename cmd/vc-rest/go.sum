@@ -668,8 +668,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2 h1:gepEsbLiZHv/vva9FKG5gF38mGtOIyGe
 github.com/trustbloc/bbs-signature-go v1.0.2/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/cmdutil-go v1.0.0 h1:QCe7wVEIASWmy9ZDD0l0tsQCEsX6fx+kBFX5UqCVRdk=
 github.com/trustbloc/cmdutil-go v1.0.0/go.mod h1:o/v7C1z6d/5UrjaC6GAUc1hk0XVuE3M4tpyvsMMUw5k=
-github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed h1:QhmN9IUePEGCXcKsC/CdglpZMEfnEEqpcJFnLMMD0/I=
-github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
+github.com/trustbloc/did-go v1.3.2-0.20241212145009-fd71069d9b40 h1:WI+RD31dqiBHv2cKEgzyR1WLoov5mi2pHtITksuZ8Lg=
+github.com/trustbloc/did-go v1.3.2-0.20241212145009-fd71069d9b40/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8 h1:DomzdQu7D3CDBsMijT0E9uQl91iFcsIfYq1UKXmI/XQ=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/trustbloc/kms-go v1.2.0 h1:kM2mkK4vBT7MN18rE6cTEXtrnEo3Uc83F68UKakqeR4=
@@ -678,8 +678,8 @@ github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e h1:r0AVM5IL
 github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e/go.mod h1:AuHbwVcx1Rl6KNG2oFvlUR79egmDM8urblUaJ24p85A=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4muaGvhjJ4OkG6/PQG3DGf5POWxlA1wwEYsxWQ+4=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
-github.com/trustbloc/vc-go v1.3.1-0.20241211120947-baaf18a111c1 h1:8pHW04fPysOUka64ra/EVBm919iUsP0kL4Qq3/HWuZc=
-github.com/trustbloc/vc-go v1.3.1-0.20241211120947-baaf18a111c1/go.mod h1:IZDSZ8h6dj+RVzz1bIHJZ7bk7fjkhAkTK3IQE65hGDY=
+github.com/trustbloc/vc-go v1.3.1-0.20241212152202-168600dc243e h1:lpIczjlSfdhKr/PkeaIKK0/TguURZUj1EbVC0c4JRt4=
+github.com/trustbloc/vc-go v1.3.1-0.20241212152202-168600dc243e/go.mod h1:U8wywv3R5KJga6KDM5yuJUyjG5fY2yuPlr8a3PramXs=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
