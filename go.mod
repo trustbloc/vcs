@@ -45,10 +45,10 @@ require (
 	github.com/tidwall/gjson v1.17.3
 	github.com/tidwall/sjson v1.2.5
 	github.com/trustbloc/bbs-signature-go v1.0.2
-	github.com/trustbloc/did-go v1.3.2-0.20241212202325-9d68788945ff
+	github.com/trustbloc/did-go v1.3.2-0.20241212234638-3c3fc9094d0f
 	github.com/trustbloc/kms-go v1.2.0
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
-	github.com/trustbloc/vc-go v1.3.1-0.20241212202442-7127d886b1dc
+	github.com/trustbloc/vc-go v1.3.1-0.20241213105555-7d341e2fd88c
 	github.com/valyala/fastjson v1.6.4
 	github.com/veraison/go-cose v1.3.0-rc.1
 	github.com/xeipuuv/gojsonschema v1.2.0
