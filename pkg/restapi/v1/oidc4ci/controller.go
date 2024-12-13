@@ -804,7 +804,8 @@ func (c *Controller) HandleProof(
 			proofClaims.Nonce = v.(string) //nolint:errcheck
 		}
 		if v, ok := proof["created"]; ok {
-			t, timeErr := time.Parse(time.RFC3339, v.(string))
+
+			t, timeErr := time.Parse(time.RFC3339, v.(string)) //nolint:errcheck
 			if timeErr != nil {
 				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", timeErr))
 			}

@@ -54,7 +54,7 @@ func TestController_OidcPresent(t *testing.T) {
 					errors.New("do request error"),
 				)
 			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+			check: func(t *testing.T, _ *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err, "failed to send request")
 			},
 		},
@@ -68,7 +68,7 @@ func TestController_OidcPresent(t *testing.T) {
 					}, nil,
 				)
 			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+			check: func(t *testing.T, _ *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err, "failed to read response body")
 			},
 		},

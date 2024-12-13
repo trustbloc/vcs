@@ -59,7 +59,7 @@ func TestManager_Create(t *testing.T) {
 					RedirectURIs:            []string{"https://example.com/redirect"},
 				}
 			},
-			check: func(t *testing.T, client *oauth2client.Client, err error) {
+			check: func(t *testing.T, _ *oauth2client.Client, err error) {
 				require.NoError(t, err)
 			},
 		},
@@ -73,7 +73,7 @@ func TestManager_Create(t *testing.T) {
 
 				data = &clientmanager.ClientMetadata{}
 			},
-			check: func(t *testing.T, client *oauth2client.Client, err error) {
+			check: func(t *testing.T, _ *oauth2client.Client, err error) {
 				require.ErrorContains(t, err, "get profile:")
 			},
 		},
@@ -87,7 +87,7 @@ func TestManager_Create(t *testing.T) {
 
 				data = &clientmanager.ClientMetadata{}
 			},
-			check: func(t *testing.T, client *oauth2client.Client, err error) {
+			check: func(t *testing.T, _ *oauth2client.Client, err error) {
 				require.ErrorContains(t, err, "oidc config not set for profile")
 			},
 		},

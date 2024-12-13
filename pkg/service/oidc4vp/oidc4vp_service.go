@@ -584,7 +584,7 @@ func (s *Service) RetrieveClaims(
 		// issuer and subject into credential. It has complicated logic like serialize as just string if issuer
 		// have only id. Any changes or extension of how vc works will affect some internal code, that should be
 		// isolated from this kind of changes.
-		subject := lo.Map(credContents.Subject, func(subj verifiable.Subject, index int) verifiable.JSONObject {
+		subject := lo.Map(credContents.Subject, func(subj verifiable.Subject, _ int) verifiable.JSONObject {
 			return verifiable.SubjectToJSON(subj)
 		})
 

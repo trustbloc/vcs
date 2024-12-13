@@ -536,7 +536,7 @@ func (s *Service) prepareCredentialOffer(
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "oidc/idp", tx.ProfileID, tx.ProfileVersion)
 
 	credentialConfigurationIDs := lo.Map(tx.CredentialConfiguration,
-		func(item *issuecredential.TxCredentialConfiguration, index int) string {
+		func(item *issuecredential.TxCredentialConfiguration, _ int) string {
 			return item.CredentialConfigurationID
 		})
 

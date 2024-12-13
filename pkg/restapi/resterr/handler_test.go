@@ -98,7 +98,7 @@ func TestHTTPErrorHandler(t *testing.T) {
 
 		mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
 		mockFositeErrWriter.EXPECT().WriteIntrospectionError(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, rw http.ResponseWriter, err error) {
+			func(_ context.Context, rw http.ResponseWriter, _ error) {
 				rw.WriteHeader(http.StatusInternalServerError)
 			})
 		err := NewFositeError(FositeIntrospectionError, ctx, mockFositeErrWriter, errors.New("some error"))

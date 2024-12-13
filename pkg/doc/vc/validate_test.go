@@ -66,7 +66,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "OK JWT",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCJWT
 				},
 				format: vcsverifiable.Jwt,
@@ -149,7 +149,7 @@ func TestValidateCredential(t *testing.T) {
 				documentLoader:          testutil.DocumentLoader(t),
 				enforceStrictValidation: true,
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
@@ -177,7 +177,7 @@ func TestValidateCredential(t *testing.T) {
 				format: vcsverifiable.Ldp,
 				opts:   []verifiable.CredentialOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
@@ -205,7 +205,7 @@ func TestValidateCredential(t *testing.T) {
 				format: vcsverifiable.Ldp,
 				opts:   []verifiable.CredentialOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
@@ -254,7 +254,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "OK JWT with strict validation",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCJWT
 				},
 				format:                  vcsverifiable.Jwt,
@@ -326,7 +326,7 @@ func TestValidateCredential(t *testing.T) {
 					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 				},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
@@ -334,7 +334,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "OK SDJWT with strict validation",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCSDJWT
 				},
 				format:                  vcsverifiable.Jwt,
@@ -377,7 +377,7 @@ func TestValidateCredential(t *testing.T) {
 					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 				},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,

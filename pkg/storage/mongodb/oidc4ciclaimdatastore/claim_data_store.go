@@ -86,7 +86,7 @@ func (s *Store) Create(
 		return "", fmt.Errorf("insert claim data: %w", err)
 	}
 
-	return result.InsertedID.(primitive.ObjectID).Hex(), nil
+	return result.InsertedID.(primitive.ObjectID).Hex(), nil // nolint
 }
 
 func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*issuecredential.ClaimData, error) {

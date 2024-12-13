@@ -90,7 +90,7 @@ func (s *Store) Create(claims *oidc4vp.ClaimData, profileReceivedClaimsDataTTL i
 		return "", fmt.Errorf("insert received claims data: %w", err)
 	}
 
-	return result.InsertedID.(primitive.ObjectID).Hex(), nil
+	return result.InsertedID.(primitive.ObjectID).Hex(), nil // nolint
 }
 
 func (s *Store) Get(claimDataID string) (*oidc4vp.ClaimData, error) {
