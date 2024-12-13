@@ -155,7 +155,12 @@ func (s *Service) Decrypt(cipher, _, _ []byte, kh interface{}) ([]byte, error) {
 		s.metrics.DecryptCount()
 	}
 
-	keyID, err := s.getKeyID(kh.(string))
+	khStr, ok := kh.(string)
+	if !ok {
+		return nil, fmt.Errorf("key handle is not a string")
+	}
+
+	keyID, err := s.getKeyID(khStr)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +197,12 @@ func (s *Service) Encrypt(
 		s.metrics.EncryptCount()
 	}
 
-	keyID, err := s.getKeyID(kh.(string))
+	khStr, ok := kh.(string)
+	if !ok {
+		return nil, nil, fmt.Errorf("key handle is not a string")
+	}
+
+	keyID, err := s.getKeyID(khStr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -225,7 +235,12 @@ func (s *Service) Sign(msg []byte, kh interface{}) ([]byte, error) { //nolint: f
 		s.metrics.SignCount()
 	}
 
-	keyID, err := s.getKeyID(kh.(string))
+	khStr, ok := kh.(string)
+	if !ok {
+		return nil, fmt.Errorf("key handle is not a string")
+	}
+
+	keyID, err := s.getKeyID(khStr)
 	if err != nil {
 		return nil, err
 	}
