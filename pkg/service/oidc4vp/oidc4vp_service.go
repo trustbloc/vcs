@@ -693,7 +693,7 @@ func (s *Service) extractClaimData(
 	if len(presentations) > 1 {
 		opts = append(opts,
 			presexch.WithMergedSubmissionMap(
-				presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})),
+				presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})), // nolint
 		)
 	}
 

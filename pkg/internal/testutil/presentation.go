@@ -100,7 +100,7 @@ func proveVP(
 	return &SignedPresentationResult{
 		Presentation: presentation,
 		VDR: &vdrmock.VDRegistry{
-			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			ResolveFunc: func(_ string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},

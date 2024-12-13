@@ -140,7 +140,7 @@ func proveVC(
 	}
 
 	return credential, &vdrmock.VDRegistry{
-		ResolveFunc: func(_ string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+		ResolveFunc: func(_ string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			return &did.DocResolution{DIDDocument: didDoc}, nil
 		},
 	}
