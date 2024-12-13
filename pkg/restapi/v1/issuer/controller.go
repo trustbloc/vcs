@@ -233,7 +233,7 @@ func (c *Controller) ValidateRawCredential(
 	}
 
 	// required by interop ed25519 signature suite
-	if len(contexts) > 0 && contexts[0].(string) == verifiable.V1ContextURI {
+	if len(contexts) > 0 && fmt.Sprint(contexts[0]) == verifiable.V1ContextURI {
 		profile.VCConfig.Model = vcsverifiable.V1_1
 	}
 

@@ -24,7 +24,7 @@ const (
 func GetDIDFromVerificationMethod(creator string) (string, error) {
 	idSplit := strings.Split(creator, "#")
 	if len(idSplit) != creatorParts {
-		return "", fmt.Errorf(fmt.Sprintf(invalidFormatErrMsgFmt, creator))
+		return "", fmt.Errorf(invalidFormatErrMsgFmt, creator)
 	}
 
 	return idSplit[0], nil
@@ -34,7 +34,7 @@ func GetDIDFromVerificationMethod(creator string) (string, error) {
 func GetKeyIDFromVerificationMethod(creator string) (string, error) {
 	idSplit := strings.Split(creator, "#")
 	if len(idSplit) != creatorParts {
-		return "", fmt.Errorf(fmt.Sprintf(invalidFormatErrMsgFmt, creator))
+		return "", fmt.Errorf(invalidFormatErrMsgFmt, creator)
 	}
 
 	return idSplit[1], nil

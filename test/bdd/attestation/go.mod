@@ -13,8 +13,8 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.2-0.20241206132250-6ae560f13021
-	github.com/trustbloc/vc-go v1.3.1-0.20241206135341-cb6ea1d75d15
+	github.com/trustbloc/did-go v1.3.2-0.20241212234638-3c3fc9094d0f
+	github.com/trustbloc/vc-go v1.3.1-0.20241213105555-7d341e2fd88c
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 
@@ -33,6 +33,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

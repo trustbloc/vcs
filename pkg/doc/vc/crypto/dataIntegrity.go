@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	dataIntegrityProofContext = "https://w3id.org/security/data-integrity/v1"
+	dataIntegrityProofContext = "https://w3id.org/security/data-integrity/v2"
 )
 
 // signCredentialLDP adds verifiable.DataIntegrityProofContext to the VC.

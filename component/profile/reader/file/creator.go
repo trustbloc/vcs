@@ -97,7 +97,7 @@ func (c *Creator) createDID(
 	km KeysCreator,
 	_, _ string,
 ) (*createResult, error) { //nolint: unparam
-	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
+	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:mnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
 	}

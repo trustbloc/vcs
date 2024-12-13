@@ -65,7 +65,12 @@ func (s *BitstringStatusListProcessor) GetStatusVCURI(vcStatus *verifiable.Typed
 
 // GetStatusListIndex returns the bit position of the status value of the VC.
 func (s *BitstringStatusListProcessor) GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error) {
-	revocationListIndex, err := strconv.Atoi(vcStatus.CustomFields[StatusListIndex].(string))
+	index, ok := vcStatus.CustomFields[StatusListIndex].(string)
+	if !ok {
+		return -1, fmt.Errorf("failed to cast statusListIndex")
+	}
+
+	revocationListIndex, err := strconv.Atoi(index)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get statusListIndex: %w", err)
 	}
@@ -209,7 +214,7 @@ func validateStatusMessage(fields *statusFields) error {
 			return fmt.Errorf("unable to get statusSize: %w", err)
 		}
 
-		size = int(math.Pow(2, float64(intSize))) //nolint:gomnd
+		size = int(math.Pow(2, float64(intSize))) //nolint:mnd
 	}
 
 	if len(fields.StatusMessage) != size {

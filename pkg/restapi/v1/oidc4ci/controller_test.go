@@ -291,7 +291,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State) //nolint
 
 						return &fosite.AuthorizeResponse{}, nil
 					},
@@ -480,7 +480,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
+						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State) //nolint
 
 						return &fosite.AuthorizeResponse{}, nil
 					},

@@ -62,7 +62,12 @@ func (s *revocationList2020Processor) GetStatusVCURI(vcStatus *verifiable.TypedI
 
 // GetStatusListIndex returns the bit position of the status value of the VC.
 func (s *revocationList2020Processor) GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error) {
-	revocationListIndex, err := strconv.Atoi(vcStatus.CustomFields[RevocationListIndex].(string))
+	index, ok := vcStatus.CustomFields[RevocationListIndex].(string)
+	if !ok {
+		return -1, fmt.Errorf("failed to cast statusListIndex")
+	}
+
+	revocationListIndex, err := strconv.Atoi(index)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get revocationListIndex: %w", err)
 	}

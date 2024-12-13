@@ -125,9 +125,9 @@ func (c *PreAuthorizeGrantHandler) getExpiresIn(
 // OAuth2PreAuthorizeFactory creates an OAuth2 pre-authorize code grant handler.
 func OAuth2PreAuthorizeFactory(config fosite.Configurator, storage interface{}, strategy interface{}) interface{} {
 	return &PreAuthorizeGrantHandler{
-		AccessTokenStrategy:  strategy.(oauth2.AccessTokenStrategy),
-		RefreshTokenStrategy: strategy.(oauth2.RefreshTokenStrategy),
-		CoreStorage:          storage.(oauth2.CoreStorage),
+		AccessTokenStrategy:  strategy.(oauth2.AccessTokenStrategy),  // nolint
+		RefreshTokenStrategy: strategy.(oauth2.RefreshTokenStrategy), // nolint
+		CoreStorage:          storage.(oauth2.CoreStorage),           // nolint
 		Config:               config,
 	}
 }

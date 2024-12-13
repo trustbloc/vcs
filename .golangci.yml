@@ -12,7 +12,7 @@ run:
   # Define the Go version limit.
   # Mainly related to generics support in go1.18.
   # Default: use Go version from the go.mod file, fallback on the env var `GOVERSION`, fallback on 1.17
-  go: "1.17" # TODO: change to 1.18 when most linters support it, see https://github.com/golangci/golangci-lint/issues/2649
+  go: "1.22" # TODO: change to 1.18 when most linters support it, see https://github.com/golangci/golangci-lint/issues/2649
 
 
 # All possible options can be found here: https://github.com/golangci/golangci-lint/blob/master/.golangci.reference.yml
@@ -61,7 +61,7 @@ linters-settings:
         # Default: true
         skipRecvDeref: false
 
-  gomnd:
+  mnd:
     # List of function patterns to exclude from analysis.
     # Values always ignored: `time.Date`
     # Default: []
@@ -171,9 +171,8 @@ linters:
     - durationcheck # check for two durations multiplied together
     - errname # Checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error.
     - errorlint # errorlint is a linter for that can be used to find code that will cause problems with the error wrapping scheme introduced in Go 1.13.
-    - execinquery # execinquery is a linter about query string checker in Query function which reads your Go src files and warning it finds
     - exhaustive # check exhaustiveness of enum switch statements
-    - exportloopref # checks for pointers to enclosing loop variables
+    - copyloopvar # checks for pointers to enclosing loop variables
     - forbidigo # Forbids identifiers
     - funlen # Tool for detection of long functions
     - gochecknoglobals # check that no global variables exist
@@ -184,7 +183,7 @@ linters:
     - gocyclo # Computes and checks the cyclomatic complexity of functions
     - godot # Check if comments end in a period
     - goimports # In addition to fixing imports, goimports also formats your code in the same style as gofmt.
-    - gomnd # An analyzer to detect magic numbers.
+    - mnd # An analyzer to detect magic numbers.
     - gomodguard # Allow and block list linter for direct Go module dependencies. This is different from depguard where there are different block types for example version constraints and module recommendations.
     - goprintffuncname # Checks that printf-like functions are named with f at the end
     - gosec # Inspects source code for security problems

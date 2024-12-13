@@ -57,7 +57,7 @@ func TestGet(t *testing.T) {
 		DoAndReturn(func(
 			ctx context.Context,
 			input *secretsmanager.GetSecretValueInput,
-			f ...func(*secretsmanager.Options),
+			_ ...func(*secretsmanager.Options),
 		) (*secretsmanager.GetSecretValueOutput, error) {
 			assert.EqualValues(t, "someprefix/dev1/someId", *input.SecretId)
 
@@ -91,7 +91,7 @@ func TestDelete(t *testing.T) {
 		DoAndReturn(func(
 			ctx context.Context,
 			input *secretsmanager.DeleteSecretInput,
-			f ...func(*secretsmanager.Options),
+			_ ...func(*secretsmanager.Options),
 		) (*secretsmanager.DeleteSecretOutput, error) {
 			assert.EqualValues(t, "someprefix/dev1/someId", *input.SecretId)
 

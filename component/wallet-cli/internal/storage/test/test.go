@@ -1578,10 +1578,10 @@ func doPutThenUpdateThenGetTestWithJSONFormattedObject(t *testing.T, provider st
 
 	storedTestData.String = "Some new string here"
 	storedTestData.Test1Bool = true
-	storedTestData.BigNegativeInt32 = -12345 //nolint:gomnd // Test file
+	storedTestData.BigNegativeInt32 = -12345 //nolint:mnd // Test file
 	storedTestData.BigPositiveInt64 = 90000004
 	storedTestData.Test3Float32 = 7.42
-	storedTestData.Test3Float64 = -72.4208 //nolint:gomnd // Test file
+	storedTestData.Test3Float64 = -72.4208 //nolint:mnd // Test file
 
 	testDataBytes, err := json.Marshal(storedTestData)
 	require.NoError(t, err)
@@ -1605,28 +1605,28 @@ func storeTestJSONData(t *testing.T, store storage.Store, key string) testStruct
 		BigNegativeInt32:   -2147483648,
 		SmallNegativeInt32: -3,
 		ZeroInt32:          0,
-		SmallPositiveInt32: 3,          //nolint:gomnd // Test file
-		BigPositiveInt32:   2147483647, //nolint:gomnd // Test file
+		SmallPositiveInt32: 3,          //nolint:mnd // Test file
+		BigPositiveInt32:   2147483647, //nolint:mnd // Test file
 
 		BigNegativeInt64:   -9223372036854775808,
 		SmallNegativeInt64: -3,
 		ZeroInt64:          0,
-		SmallPositiveInt64: 3,                   //nolint:gomnd // Test file
-		BigPositiveInt64:   9223372036854775807, //nolint:gomnd // Test file
+		SmallPositiveInt64: 3,                   //nolint:mnd // Test file
+		BigPositiveInt64:   9223372036854775807, //nolint:mnd // Test file
 
 		Test1Float32: 1.3,
-		Test2Float32: 16, //nolint:gomnd // Test file
+		Test2Float32: 16, //nolint:mnd // Test file
 		Test3Float32: 1.5869797,
-		Test4Float32: 239.902, //nolint:gomnd // Test file
+		Test4Float32: 239.902, //nolint:mnd // Test file
 		Test5Float32: -239.902,
-		ZeroFloat32:  0.00, //nolint:gomnd // Test file
+		ZeroFloat32:  0.00, //nolint:mnd // Test file
 
-		Test1Float64: 0.12345678912345678, //nolint:gomnd // Test file
+		Test1Float64: 0.12345678912345678, //nolint:mnd // Test file
 		Test2Float64: -478.875321,
-		Test3Float64: 123456789, //nolint:gomnd // Test file
+		Test3Float64: 123456789, //nolint:mnd // Test file
 		Test4Float64: 1.00000004,
 		Test5Float64: -239.902,
-		ZeroFloat64:  0.0000, //nolint:gomnd // Test file
+		ZeroFloat64:  0.0000, //nolint:mnd // Test file
 	}
 
 	testDataBytes, err := json.Marshal(testData)
@@ -1736,7 +1736,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 
 			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			//nolint:gomnd // Test file
+			//nolint:mnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(2))
 			require.NoError(t, err)
 
@@ -1787,7 +1787,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 
 			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			//nolint:gomnd // Test file
+			//nolint:mnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(100))
 			require.NoError(t, err)
 
@@ -1852,7 +1852,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 
 			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			//nolint:gomnd // Test file
+			//nolint:mnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(2))
 			require.NoError(t, err)
 
@@ -1903,7 +1903,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 
 			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			//nolint:gomnd // Test file
+			//nolint:mnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(100))
 			require.NoError(t, err)
 
@@ -1972,7 +1972,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 
 			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			//nolint:gomnd // Test file
+			//nolint:mnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(2))
 			require.NoError(t, err)
 
@@ -2023,7 +2023,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 
 			PutData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			//nolint:gomnd // Test file
+			//nolint:mnd // Test file
 			iterator, err := store.Query(queryExpression, storage.WithPageSize(100))
 			require.NoError(t, err)
 

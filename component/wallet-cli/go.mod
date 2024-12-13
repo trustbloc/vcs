@@ -23,11 +23,11 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/trustbloc/did-go v1.3.2-0.20241206132250-6ae560f13021
+	github.com/trustbloc/did-go v1.3.2-0.20241212234638-3c3fc9094d0f
 	github.com/trustbloc/kms-go v1.2.0
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.3.1-0.20241206135341-cb6ea1d75d15
+	github.com/trustbloc/vc-go v1.3.1-0.20241213105555-7d341e2fd88c
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/valyala/fastjson v1.6.4
 	github.com/veraison/go-cose v1.3.0-rc.1
@@ -125,6 +125,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

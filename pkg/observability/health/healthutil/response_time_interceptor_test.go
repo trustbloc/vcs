@@ -36,7 +36,7 @@ type mockInterceptor struct {
 }
 
 func (m *mockInterceptor) InterceptorFunc() health.InterceptorFunc {
-	return func(ctx context.Context, name string, state health.CheckState) health.CheckState {
+	return func(_ context.Context, _ string, state health.CheckState) health.CheckState {
 		m.Called = true
 		return state
 	}

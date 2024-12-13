@@ -343,7 +343,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	}
 
 	if params.State != nil {
-		ar.(*fosite.AuthorizeRequest).State = *params.State
+		ar.(*fosite.AuthorizeRequest).State = *params.State // nolint
 	}
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
@@ -353,7 +353,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
-		int32(claimDataAuth.ProfileAuthStateTtl),
+		int32(claimDataAuth.ProfileAuthStateTtl), //nolint:gosec
 		lo.FromPtr(params.IssuerState),
 		&oidc4ci.AuthorizeState{
 			RedirectURI:         ar.GetRedirectURI(),
@@ -540,7 +540,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		exchangeResp, errExchange := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
 			issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
-				OpState:             ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
+				OpState:             ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string), // nolint
 				ClientId:            lo.ToPtr(ar.GetClient().GetID()),
 				ClientAssertionType: lo.ToPtr(e.FormValue("client_assertion_type")),
 				ClientAssertion:     lo.ToPtr(e.FormValue("client_assertion")),
@@ -804,7 +804,7 @@ func (c *Controller) HandleProof(
 			proofClaims.Nonce = v.(string) //nolint:errcheck
 		}
 		if v, ok := proof["created"]; ok {
-			t, timeErr := time.Parse(time.RFC3339, v.(string))
+			t, timeErr := time.Parse(time.RFC3339, v.(string)) //nolint:errcheck
 			if timeErr != nil {
 				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", timeErr))
 			}
@@ -1064,7 +1064,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 	for index, credentialData := range preparedCredentials {
 		credentialResponse := CredentialResponseBatchCredential{
 			Credential:     credentialData.Credential,
-			NotificationId: &credentialData.NotificationId,
+			NotificationId: &preparedCredentials[index].NotificationId,
 			TransactionId:  nil, // Deferred Issuance transaction is not supported for now.
 		}
 

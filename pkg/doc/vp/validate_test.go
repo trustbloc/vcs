@@ -92,7 +92,7 @@ func TestValidatePresentation(t *testing.T) {
 				format: vcsverifiable.Jwt,
 				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Presentation {
+			want: func(_ *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -100,7 +100,7 @@ func TestValidatePresentation(t *testing.T) {
 		{
 			name: "Error invalid format JSON-LD",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVPJsonLD
 				},
 				format: vcsverifiable.Ldp,

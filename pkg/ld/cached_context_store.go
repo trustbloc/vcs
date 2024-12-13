@@ -42,7 +42,7 @@ func NewCachedContextStore(cacheImpl Cache, contextStore ContextStore) *CachedCo
 
 func (s *CachedContextStore) Get(u string) (*jsonld.RemoteDocument, error) {
 	if doc, ok := s.cache.Get(u); ok {
-		return doc.(*jsonld.RemoteDocument), nil
+		return doc.(*jsonld.RemoteDocument), nil // nolint
 	}
 
 	doc, err := s.contextStore.Get(u)

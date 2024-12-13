@@ -684,7 +684,7 @@ func TestSignCredential(t *testing.T) {
 
 		c := New(
 			&vdrmock.VDRegistry{
-				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				ResolveFunc: func(_ string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 				}},
 			testutil.DocumentLoader(t),
