@@ -301,9 +301,6 @@ func (s *Service) attestationComplete(
 		zap.String("attestationVC", resp.WalletAttestationVC),
 	)
 
-	fmt.Println("got attestation")
-	fmt.Println(resp.WalletAttestationVC)
-
 	return &resp, nil
 }
 
