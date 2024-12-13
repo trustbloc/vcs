@@ -57,7 +57,7 @@ func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.
 			}
 
 			fmt.Printf("did %s not found will retry %d of %d\n", did, i, maxRetry)
-			time.Sleep(3 * time.Second) //nolint:gomnd
+			time.Sleep(3 * time.Second) //nolint:mnd
 
 			continue
 		}
@@ -69,7 +69,7 @@ func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.
 			split := strings.Split(docResolution.DIDDocument.AssertionMethod[0].VerificationMethod.ID, "#")
 			if strings.Contains(docResolution.DIDDocument.ID, split[1]) {
 				fmt.Printf("v1 did %s not register yet will retry %d of %d\n", did, i, maxRetry)
-				time.Sleep(3 * time.Second) //nolint:gomnd
+				time.Sleep(3 * time.Second) //nolint:mnd
 
 				continue
 			}

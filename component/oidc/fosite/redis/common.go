@@ -41,7 +41,7 @@ func (s *Store) createSession(
 		RequestedAudience: requester.GetRequestedAudience(),
 		GrantedAudience:   requester.GetGrantedAudience(),
 		ClientID:          requester.GetClient().GetID(),
-		SessionExtra:      requester.GetSession().(*fosite.DefaultSession).Extra,
+		SessionExtra:      requester.GetSession().(*fosite.DefaultSession).Extra, // nolint:errcheck
 	}
 
 	switch mapped := requester.(type) {

@@ -39,7 +39,7 @@ func ResponseTimeInterceptor(m map[string]ResponseTimeState) health.Interceptor 
 			} else {
 				m[name] = ResponseTimeState{
 					LastResponseTime:    elapsed,
-					AverageResponseTime: (m[name].AverageResponseTime + elapsed) / 2, //nolint:gomnd
+					AverageResponseTime: (m[name].AverageResponseTime + elapsed) / 2, //nolint:mnd
 				}
 			}
 

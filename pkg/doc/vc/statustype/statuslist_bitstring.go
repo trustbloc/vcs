@@ -214,7 +214,7 @@ func validateStatusMessage(fields *statusFields) error {
 			return fmt.Errorf("unable to get statusSize: %w", err)
 		}
 
-		size = int(math.Pow(2, float64(intSize))) //nolint:gomnd
+		size = int(math.Pow(2, float64(intSize))) //nolint:mnd
 	}
 
 	if len(fields.StatusMessage) != size {
