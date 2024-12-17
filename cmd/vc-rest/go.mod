@@ -20,20 +20,14 @@ require (
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/sevenNt/echo-pprof v0.1.1-0.20230131020615-4dd36891e14b
 	github.com/spf13/cobra v1.8.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.2-0.20241212234638-3c3fc9094d0f
+	github.com/trustbloc/did-go v1.3.2
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.3.1-0.20241213105555-7d341e2fd88c
-	github.com/trustbloc/vcs v0.0.0
-	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vc-go v1.3.1
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/component/healthchecks v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-20230724110323-79c5330617d6
 	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0-00010101000000-000000000000
 	go.mongodb.org/mongo-driver v1.16.1
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.42.0
 	// Use otelecho v0.41.0-rc.2 to avoid a breaking change in v0.41.0 (and greater). This commit
@@ -44,6 +38,15 @@ require (
 	go.opentelemetry.io/otel v1.29.0
 	go.opentelemetry.io/otel/trace v1.29.0
 	golang.org/x/net v0.29.0
+)
+
+require (
+	github.com/trustbloc/vcs v0.0.0
+	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/healthchecks v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -86,7 +89,7 @@ require (
 	github.com/aws/smithy-go v1.22.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.14.3 // indirect
+	github.com/bits-and-blooms/bitset v1.17.0 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
@@ -96,7 +99,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
-	github.com/consensys/bavard v0.1.15 // indirect
+	github.com/consensys/bavard v0.1.22 // indirect
 	github.com/consensys/gnark-crypto v0.14.0 // indirect
 	github.com/containerd/continuity v0.4.3 // indirect
 	github.com/cristalhq/jwt/v4 v4.0.2 // indirect
@@ -229,7 +232,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/kms-go v1.2.0 // indirect
+	github.com/trustbloc/kms-go v1.2.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -263,19 +266,19 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.10.0 // indirect
-	golang.org/x/crypto v0.27.0 // indirect
+	golang.org/x/crypto v0.29.0 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/sync v0.9.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	golang.org/x/tools v0.25.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.66.1 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
