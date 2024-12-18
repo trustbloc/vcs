@@ -4598,15 +4598,24 @@ func TestController_Ack(t *testing.T) {
 				return nil
 			})
 
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"credentials" : [{"notification_id" : "tx_id", "event" : "credential_accepted", "event_description" : "err_txt"}],
-			"interaction_details": {"userId": "userId", "transactionId": "transactionId"}
-		}`)))
+		b, err := json.Marshal(oidc4ci.AckRequest{
+			NotificationId:   lo.ToPtr("tx_id"),
+			Event:            lo.ToPtr("credential_accepted"),
+			EventDescription: lo.ToPtr("err_txt"),
+			InteractionDetails: lo.ToPtr(map[string]any{
+				"userId":        "userId",
+				"transactionId": "transactionId",
+			}),
+		})
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer xxxx")
 		rec := httptest.NewRecorder()
 
-		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		err = controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusNoContent, rec.Code)
 	})
@@ -4667,20 +4676,25 @@ func TestController_Ack(t *testing.T) {
 		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
 			Return(errors.New("some error"))
 
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
-		}`)))
+		b, err := json.Marshal(oidc4ci.AckRequest{
+			NotificationId:   lo.ToPtr("tx_id"),
+			Event:            lo.ToPtr("credential_accepted"),
+			EventDescription: lo.ToPtr("err_txt"),
+		})
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer xxxx")
 
 		rec := httptest.NewRecorder()
 
-		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		err = controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 		var bd oidc4ci.AckErrorResponse
-		b, _ := io.ReadAll(rec.Body)
+		b, _ = io.ReadAll(rec.Body)
 
 		assert.NoError(t, json.Unmarshal(b, &bd))
 		assert.Equal(t, "some error", bd.Error)
@@ -4754,20 +4768,29 @@ func TestController_Ack(t *testing.T) {
 		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
 			Return(oidc4cisrv.ErrAckExpired)
 
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"credentials" : [{"ack_id" : "tx_id", "status" : "status", "error_description" : "err_txt"}]
-		}`)))
+		b, err := json.Marshal(oidc4ci.AckRequest{
+			NotificationId:   lo.ToPtr("tx_id"),
+			Event:            lo.ToPtr("credential_accepted"),
+			EventDescription: lo.ToPtr("err_txt"),
+			InteractionDetails: lo.ToPtr(map[string]any{
+				"userId":        "userId",
+				"transactionId": "transactionId",
+			}),
+		})
+		require.NoError(t, err)
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer xxxx")
 
 		rec := httptest.NewRecorder()
 
-		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		err = controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 		var bd oidc4ci.AckErrorResponse
-		b, _ := io.ReadAll(rec.Body)
+		b, _ = io.ReadAll(rec.Body)
 
 		assert.NoError(t, json.Unmarshal(b, &bd))
 		assert.Equal(t, "expired_ack_id", bd.Error)
