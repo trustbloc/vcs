@@ -130,24 +130,6 @@ type CredentialStatusOpt struct {
 	Type string `json:"type"`
 }
 
-// Deprecated. Use /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-compose. Model for composing OIDC4CI credential.
-type DeprecatedComposeOIDC4CICredential struct {
-	// Raw Complete credential for sign and customization
-	Credential *map[string]interface{} `json:"credential,omitempty"`
-
-	// ID of the credential template.
-	IdTemplate *string `json:"id_template"`
-
-	// Override issuer.
-	OverrideIssuer *bool `json:"override_issuer"`
-
-	// Override credential subject did.
-	OverrideSubjectDid *bool `json:"override_subject_did"`
-
-	// Perform strict validation.
-	PerformStrictValidation *bool `json:"perform_strict_validation"`
-}
-
 // Model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeRequest struct {
 	// The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.
@@ -174,9 +156,6 @@ type InitiateIssuanceCredentialConfiguration struct {
 
 	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint"`
-
-	// Deprecated. Use /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc-compose. Model for composing OIDC4CI credential.
-	Compose *DeprecatedComposeOIDC4CICredential `json:"compose,omitempty"`
 
 	// Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
@@ -253,12 +232,6 @@ type InitiateOIDC4CIRequest struct {
 	// Customizes what kind of access Issuer wants to give to VCS.
 	AuthorizationDetails *string `json:"authorization_details,omitempty"`
 
-	// Deprecated: Use CredentialConfiguration instead. Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
-	ClaimData *map[string]interface{} `json:"claim_data"`
-
-	// Deprecated: Use CredentialConfiguration instead. Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
-	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
-
 	// URL of the issuance initiation endpoint of a Wallet. Takes precedence over client_wellknown request parameter. If both client_initiate_issuance_url and client_wellknown are not provided then response initiate issuance URL will contain custom initiate issuance URL in format openid-initiate-issuance://.
 	ClientInitiateIssuanceUrl *string `json:"client_initiate_issuance_url,omitempty"`
 
@@ -267,18 +240,6 @@ type InitiateOIDC4CIRequest struct {
 
 	// An array of objects that describes specifics of the Multiple Credential Issuance.
 	CredentialConfiguration *[]InitiateIssuanceCredentialConfiguration `json:"credential_configuration,omitempty"`
-
-	// Deprecated: Use CredentialConfiguration instead. Credential description
-	CredentialDescription *string `json:"credential_description,omitempty"`
-
-	// Deprecated: Use CredentialConfiguration instead. Date when credentials should be consider as expired.
-	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
-
-	// Deprecated: Use CredentialConfiguration instead. Credential name
-	CredentialName *string `json:"credential_name,omitempty"`
-
-	// Deprecated: Use CredentialConfiguration instead. Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
-	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 
 	// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
 	GrantType *InitiateOIDC4CIRequestGrantType `json:"grant_type,omitempty"`
