@@ -652,8 +652,6 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 
 	var finalErr error
 
-	// todo: according to the spec those 2 fields are required, so condition is redundant.
-	//  Should be removed during endpoint update to the latest spec.
 	if body.NotificationId != nil && body.Event != nil {
 		if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
 			TxID:               issuecredential.TxID(lo.FromPtr(body.NotificationId)),
@@ -661,21 +659,6 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 			HashedToken:        hashedToken,
 			EventDescription:   lo.FromPtr(body.EventDescription),
 			IssuerIdentifier:   lo.FromPtr(body.IssuerIdentifier),
-			InteractionDetails: interactionDetails,
-		}); err != nil {
-			finalErr = errors.Join(finalErr, err)
-		}
-	}
-
-	// todo: backward compatability code.
-	//  Should be removed during endpoint update to the latest spec.
-	for _, r := range lo.FromPtr(body.Credentials) {
-		if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
-			TxID:               issuecredential.TxID(r.NotificationId),
-			Event:              r.Event,
-			HashedToken:        hashedToken,
-			EventDescription:   lo.FromPtr(r.EventDescription),
-			IssuerIdentifier:   lo.FromPtr(r.IssuerIdentifier),
 			InteractionDetails: interactionDetails,
 		}); err != nil {
 			finalErr = errors.Join(finalErr, err)
@@ -920,7 +903,6 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 
 	credentialResp := &CredentialResponse{
 		Credential:      prepareCredentialResult.Credential,
-		Format:          prepareCredentialResult.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
 		NotificationId:  prepareCredentialResult.NotificationId,

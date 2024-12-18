@@ -47,36 +47,20 @@ type AckErrorResponse struct {
 
 // Ack request.
 type AckRequest struct {
-	// Deprecated. Ack request credentials data.
-	Credentials *[]AckRequestItem `json:"credentials,omitempty"`
-
-	// Type of the notification event.
+	// Type of the notification event. According to draft 13 spec.
 	Event *string `json:"event,omitempty"`
 
-	// Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
-	EventDescription   *string                 `json:"event_description,omitempty"`
-	InteractionDetails *map[string]interface{} `json:"interaction_details,omitempty"`
-
-	// Optional issuer identifier.
-	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
-
-	// Ack ID.
-	NotificationId *string `json:"notification_id,omitempty"`
-}
-
-// Deprecated. AckRequestItem
-type AckRequestItem struct {
-	// Deprecated. Type of the notification event.
-	Event string `json:"event"`
-
-	// Deprecated. Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.
+	// Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred. According to draft 13 spec.
 	EventDescription *string `json:"event_description,omitempty"`
 
-	// Deprecated. Optional issuer identifier.
+	// Proprietary interaction details.
+	InteractionDetails *map[string]interface{} `json:"interaction_details,omitempty"`
+
+	// Optional issuer identifier. Proprietary.
 	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
 
-	// Deprecated. Ack ID.
-	NotificationId string `json:"notification_id"`
+	// Ack ID. According to draft 13 spec.
+	NotificationId *string `json:"notification_id,omitempty"`
 }
 
 // Model for OIDC batch Credential request.
@@ -112,26 +96,23 @@ type CredentialRequest struct {
 
 // Model for OIDC Credential response.
 type CredentialResponse struct {
-	// Deprecated. A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
-	AcceptanceToken *string `json:"acceptance_token,omitempty"`
-
-	// Deprecated. JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential. According to draft 13 spec.
 	CNonce *string `json:"c_nonce,omitempty"`
 
-	// Deprecated. JSON integer denoting the lifetime in seconds of the c_nonce.
+	// JSON integer denoting the lifetime in seconds of the c_nonce. According to draft 13 spec.
 	CNonceExpiresIn *int `json:"c_nonce_expires_in,omitempty"`
 
-	// Deprecated. Credential value.
+	// Credential value. According to draft 13 spec.
 	Credential interface{} `json:"credential"`
 
-	// Contains an array of one or more issued Credentials.
+	// Contains an array of one or more issued Credentials. According to editor-draft spec.
 	Credentials []externalRef0.CredentialResponseCredentialObject `json:"credentials"`
-
-	// Deprecated. JSON string denoting the format of the issued Credential.
-	Format string `json:"format"`
 
 	// String identifying one or more Credentials issued in one Credential Response.
 	NotificationId string `json:"notification_id"`
+
+	// A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
+	TransactionId *string `json:"transaction_id,omitempty"`
 }
 
 // Credential element Batch Credential Response.

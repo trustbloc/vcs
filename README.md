@@ -18,7 +18,7 @@ the Issuer and Verifier role defined in the [W3C VC Specification](https://www.w
 The TrustBloc VCS implements following specifications.
 - W3C [Verifiable Credential Data Model (VCDM)](https://www.w3.org/TR/vc-data-model/)
 - W3C [Decentralized Identifier (DID)](https://www.w3.org/TR/did-core/)
-- OIDF [OpenID for Verifiable Credential Issuance](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html)
+- OIDF [OpenID for Verifiable Credential Issuance](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html)
     - Pre Authorization Code flow
     - Authorization Code low
 - OIDF [OpenID for Verifiable Presentation](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html)
