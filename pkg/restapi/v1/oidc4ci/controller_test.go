@@ -2989,11 +2989,9 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, json.Unmarshal(decrypted, &resp))
 
 				assert.Equal(t, resp, &oidc4ci.CredentialResponse{
-					AcceptanceToken: nil,
 					CNonce:          nil,
 					CNonceExpiresIn: nil,
 					Credential:      "credential1 in jwt format",
-					Format:          "",
 					NotificationId:  "notificationId",
 				})
 
