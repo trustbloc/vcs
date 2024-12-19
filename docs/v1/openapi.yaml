@@ -51,7 +51,6 @@ paths:
                 $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
       operationId: openid-credential-issuer-config
       description: Returns openid-config.
-      deprecated: true
       tags:
         - issuer
   '/oidc/idp/{profileID}/{profileVersion}/.well-known/openid-credential-issuer':
@@ -2273,19 +2272,16 @@ components:
       description: Model for Prepare Credential response.
       properties:
         credential:
-          deprecated: true
-          description: Deprecated. Credential value.
+          description: Credential value. According to draft 13 spec.
           oneOf:
             - type: string
             - type: object
         format:
-          deprecated: true
           type: string
-          description: Deprecated. Format of issued credential.
+          description: Format of issued credential. Internal use only.
         oidc_format:
-          deprecated: true
           type: string
-          description: Deprecated. OIDC credential format
+          description: OIDC credential format. Internal use only.
         credentials:
           type: array
           description:  Contains an array of one or more issued Credentials.
@@ -2296,13 +2292,12 @@ components:
           description: String identifying an issued Credential that the Wallet includes in the acknowledgement request.
         retry:
           type: boolean
-          deprecated: true
-          description: Deprecated. TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+          description: Boolean value indicating whether the Wallet should retry the issuance request. Internal Use. Used for deferred issuance.
       required:
         - credential
         - format
-        - oidc_format
         - retry
+        - oidc_format
         - notification_id
         - credentials
     CredentialRequest:
@@ -2385,43 +2380,21 @@ components:
       type: object
       description: Ack request.
       properties:
-        credentials:
-          description: Deprecated. Ack request credentials data.
-          deprecated: true
-          type: array
-          items:
-            $ref: '#/components/schemas/AckRequestItem'
         notification_id:
           type: string
-          description: Ack ID.
+          description: Ack ID. According to draft 13 spec.
         issuer_identifier:
           type: string
-          description: Optional issuer identifier.
+          description: Optional issuer identifier. Proprietary.
         event:
           type: string
-          description: Type of the notification event.
+          description: Type of the notification event. According to draft 13 spec.
         event_description:
           type: string
-          description: 'Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
+          description: 'Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred. According to draft 13 spec.'
         interaction_details:
           type: object
-    AckRequestItem:
-      deprecated: true
-      type: object
-      description: Deprecated. AckRequestItem
-      properties:
-        notification_id:
-          type: string
-          description: Deprecated. Ack ID.
-        event:
-          type: string
-          description: Deprecated. Type of the notification event.
-        issuer_identifier:
-          type: string
-          description: Deprecated. Optional issuer identifier.
-        event_description:
-          type: string
-          description: 'Deprecated. Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred.'
+          description: Proprietary interaction details.
       required:
         - notification_id
         - event
@@ -2444,38 +2417,29 @@ components:
       type: object
       description: Model for OIDC Credential response.
       properties:
-        format:
-          deprecated: true
-          type: string
-          description: Deprecated. JSON string denoting the format of the issued Credential.
         credential:
-          deprecated: true
-          description: Deprecated. Credential value.
+          description: Credential value. According to draft 13 spec.
           oneOf:
             - type: string
             - type: object
         credentials:
           type: array
-          description:  Contains an array of one or more issued Credentials.
+          description:  Contains an array of one or more issued Credentials. According to editor-draft spec.
           items:
             $ref: "./common.yaml#/components/schemas/CredentialResponseCredentialObject"
-        acceptance_token:
-          deprecated: true
+        transaction_id:
           type: string
-          description: Deprecated. A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
+          description: A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
         c_nonce:
-          deprecated: true
           type: string
-          description: Deprecated. JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+          description: JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential. According to draft 13 spec.
         c_nonce_expires_in:
-          deprecated: true
           type: integer
-          description: Deprecated. JSON integer denoting the lifetime in seconds of the c_nonce.
+          description: JSON integer denoting the lifetime in seconds of the c_nonce. According to draft 13 spec.
         notification_id:
           type: string
           description: String identifying one or more Credentials issued in one Credential Response.
       required:
-        - format
         - credential
         - credentials
         - notification_id

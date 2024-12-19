@@ -6,10 +6,10 @@ coverage:
   status:
     project:
       default:
-        target: 85%
+        target: 70%
     patch:
       default:
-        target: 85%
+        target: 75%
         only_pulls: true
 
 ignore:

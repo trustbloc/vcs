@@ -888,16 +888,6 @@ func (s *Service) createRequestObject(
 		RedirectURI:    s.responseURI,
 		State:          string(tx.ID),
 		Exp:            now.Add(tokenLifetime).Unix(),
-		Registration: RequestObjectRegistration{
-			ClientName:                  profile.Name,
-			SubjectSyntaxTypesSupported: []string{"did:ion"},
-			VPFormats:                   vpFormats,
-			ClientPurpose:               purpose,
-			LogoURI:                     profile.LogoURL,
-		},
-		Claims: RequestObjectClaims{VPToken: VPToken{
-			presentationDefinition,
-		}},
 		ClientMetadata: &ClientMetadata{
 			ClientName:                  profile.Name,
 			SubjectSyntaxTypesSupported: []string{"did:web", "did:jwk", "did:key", "did:ion"},
