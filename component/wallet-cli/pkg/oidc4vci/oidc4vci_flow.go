@@ -1172,13 +1172,13 @@ func (f *Flow) handleIssuanceAck(
 		slog.Debug("Sending wallet notification", "notification_id", notificationID, "endpoint", notificationEndpoint)
 
 		ackRequest := oidc4civ1.AckRequest{
-			Event:            lo.ToPtr("credential_accepted"),
+			Event:            "credential_accepted",
 			EventDescription: nil,
 			IssuerIdentifier: wellKnown.CredentialIssuer,
 			InteractionDetails: lo.ToPtr(map[string]interface{}{
 				"notification_id": notificationID,
 			}),
-			NotificationId: lo.ToPtr(notificationID),
+			NotificationId: notificationID,
 		}
 
 		b, err := json.Marshal(ackRequest)
