@@ -4599,8 +4599,8 @@ func TestController_Ack(t *testing.T) {
 			})
 
 		b, err := json.Marshal(oidc4ci.AckRequest{
-			NotificationId:   lo.ToPtr("tx_id"),
-			Event:            lo.ToPtr("credential_accepted"),
+			NotificationId:   "tx_id",
+			Event:            "credential_accepted",
 			EventDescription: lo.ToPtr("err_txt"),
 			InteractionDetails: lo.ToPtr(map[string]any{
 				"userId":        "userId",
@@ -4677,8 +4677,8 @@ func TestController_Ack(t *testing.T) {
 			Return(errors.New("some error"))
 
 		b, err := json.Marshal(oidc4ci.AckRequest{
-			NotificationId:   lo.ToPtr("tx_id"),
-			Event:            lo.ToPtr("credential_accepted"),
+			NotificationId:   "tx_id",
+			Event:            "credential_accepted",
 			EventDescription: lo.ToPtr("err_txt"),
 		})
 		require.NoError(t, err)
@@ -4769,8 +4769,8 @@ func TestController_Ack(t *testing.T) {
 			Return(oidc4cisrv.ErrAckExpired)
 
 		b, err := json.Marshal(oidc4ci.AckRequest{
-			NotificationId:   lo.ToPtr("tx_id"),
-			Event:            lo.ToPtr("credential_accepted"),
+			NotificationId:   "tx_id",
+			Event:            "credential_accepted",
 			EventDescription: lo.ToPtr("err_txt"),
 			InteractionDetails: lo.ToPtr(map[string]any{
 				"userId":        "userId",

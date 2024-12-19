@@ -21,7 +21,7 @@ The TrustBloc VCS implements following specifications.
 - OIDF [OpenID for Verifiable Credential Issuance](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html)
     - Pre Authorization Code flow
     - Authorization Code low
-- OIDF [OpenID for Verifiable Presentation](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html)
+- OIDF [OpenID for Verifiable Presentation](https://openid.net/specs/openid-4-verifiable-presentations-1_0-ID2.html)
 - DIF [Presentation Exchange](https://identity.foundation/presentation-exchange/)
 - DIF [Well Known DID Configuration](https://identity.foundation/.well-known/resources/did-configuration/)
 

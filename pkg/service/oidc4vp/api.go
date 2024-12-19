@@ -133,12 +133,13 @@ type RequestObject struct {
 	RedirectURI    string `json:"redirect_uri"`
 	State          string `json:"state"`
 	Exp            int64  `json:"exp"`
-	// Deprecated: Use client_metadata instead.
-	Registration RequestObjectRegistration `json:"registration"`
-	// Deprecated: Use top-level "presentation_definition" instead.
-	Claims                 RequestObjectClaims              `json:"claims"`
+
 	ClientMetadata         *ClientMetadata                  `json:"client_metadata"`
 	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition"`
+
+	// presentation_definition_uri not supported
+	// client_metadata_uri not supported
+	// client_id_scheme not supported
 }
 
 type RequestObjectRegistration struct {
