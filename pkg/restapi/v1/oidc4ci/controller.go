@@ -626,9 +626,6 @@ func mustGenerateNonce() string {
 func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	req := e.Request()
 
-	// ctx, span := c.tracer.Start(req.Context(), "OidcAcknowledgement")
-	// defer span.End()
-
 	var body AckRequest
 	if err := e.Bind(&body); err != nil {
 		return err
@@ -652,17 +649,15 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 
 	var finalErr error
 
-	if body.NotificationId != nil && body.Event != nil {
-		if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
-			TxID:               issuecredential.TxID(lo.FromPtr(body.NotificationId)),
-			Event:              lo.FromPtr(body.Event),
-			HashedToken:        hashedToken,
-			EventDescription:   lo.FromPtr(body.EventDescription),
-			IssuerIdentifier:   lo.FromPtr(body.IssuerIdentifier),
-			InteractionDetails: interactionDetails,
-		}); err != nil {
-			finalErr = errors.Join(finalErr, err)
-		}
+	if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
+		TxID:               issuecredential.TxID(body.NotificationId),
+		Event:              body.Event,
+		HashedToken:        hashedToken,
+		EventDescription:   lo.FromPtr(body.EventDescription),
+		IssuerIdentifier:   lo.FromPtr(body.IssuerIdentifier),
+		InteractionDetails: interactionDetails,
+	}); err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 
 	if finalErr != nil {

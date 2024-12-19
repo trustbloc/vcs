@@ -2395,6 +2395,9 @@ components:
         interaction_details:
           type: object
           description: Proprietary interaction details.
+      required:
+        - notification_id
+        - event
     AckErrorResponse:
       title: AckResponse
       x-tags:

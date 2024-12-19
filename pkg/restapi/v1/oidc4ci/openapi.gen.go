@@ -48,7 +48,7 @@ type AckErrorResponse struct {
 // Ack request.
 type AckRequest struct {
 	// Type of the notification event. According to draft 13 spec.
-	Event *string `json:"event,omitempty"`
+	Event string `json:"event"`
 
 	// Human-readable ASCII text providing additional information, used to assist the Credential Issuer developer in understanding the event that occurred. According to draft 13 spec.
 	EventDescription *string `json:"event_description,omitempty"`
@@ -60,7 +60,7 @@ type AckRequest struct {
 	IssuerIdentifier *string `json:"issuer_identifier,omitempty"`
 
 	// Ack ID. According to draft 13 spec.
-	NotificationId *string `json:"notification_id,omitempty"`
+	NotificationId string `json:"notification_id"`
 }
 
 // Model for OIDC batch Credential request.
