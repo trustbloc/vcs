@@ -1938,11 +1938,15 @@ func Test_GetSupportedVPFormats(t *testing.T) {
 					"Ed25519Signature2018",
 					"Ed25519Signature2020",
 					"JsonWebSignature2020",
+					"eddsa-rdfc-2022",
+					"eddsa-2022",
 				}},
 				LdpVP: &presexch.LdpType{ProofType: []string{
 					"Ed25519Signature2018",
 					"Ed25519Signature2020",
 					"JsonWebSignature2020",
+					"eddsa-rdfc-2022",
+					"eddsa-2022",
 				}},
 			},
 		},
@@ -1972,6 +1976,58 @@ func Test_GetSupportedVPFormats(t *testing.T) {
 					"JsonWebSignature2020",
 				}},
 				LdpVP: nil,
+			},
+		},
+		{
+			name: "Ldp VC and VP with ECDSA P-256",
+			args: args{
+				kmsSupportedKeyTypes: []kms.KeyType{
+					kms.ECDSAP256TypeIEEEP1363,
+				},
+				supportedVPFormats: []vcsverifiable.Format{
+					vcsverifiable.Ldp,
+				},
+				supportedVCFormats: []vcsverifiable.Format{
+					vcsverifiable.Ldp,
+				},
+			},
+			want: &presexch.Format{
+				JwtVC: nil,
+				JwtVP: nil,
+				LdpVC: &presexch.LdpType{ProofType: []string{
+					"ecdsa-2019",
+					"ecdsa-rdfc-2019",
+				}},
+				LdpVP: &presexch.LdpType{ProofType: []string{
+					"ecdsa-2019",
+					"ecdsa-rdfc-2019",
+				}},
+			},
+		},
+		{
+			name: "Ldp VC and VP with ECDSA P-384",
+			args: args{
+				kmsSupportedKeyTypes: []kms.KeyType{
+					kms.ECDSAP384TypeIEEEP1363,
+				},
+				supportedVPFormats: []vcsverifiable.Format{
+					vcsverifiable.Ldp,
+				},
+				supportedVCFormats: []vcsverifiable.Format{
+					vcsverifiable.Ldp,
+				},
+			},
+			want: &presexch.Format{
+				JwtVC: nil,
+				JwtVP: nil,
+				LdpVC: &presexch.LdpType{ProofType: []string{
+					"ecdsa-2019",
+					"ecdsa-rdfc-2019",
+				}},
+				LdpVP: &presexch.LdpType{ProofType: []string{
+					"ecdsa-2019",
+					"ecdsa-rdfc-2019",
+				}},
 			},
 		},
 	}

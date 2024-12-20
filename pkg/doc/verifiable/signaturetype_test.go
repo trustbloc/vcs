@@ -137,7 +137,7 @@ func TestGetSignatureTypesByKeyTypeFormat(t *testing.T) {
 	require.Equal(t, EdDSA, sigTypes[0])
 
 	sigTypes = GetSignatureTypesByKeyTypeFormat(kms.ED25519Type, Ldp)
-	require.Len(t, sigTypes, 3)
+	require.Len(t, sigTypes, 5)
 	require.Contains(t, sigTypes, Ed25519Signature2018)
 	require.Contains(t, sigTypes, Ed25519Signature2020)
 	require.Contains(t, sigTypes, JSONWebSignature2020)
