@@ -12,6 +12,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 )
 
 // SignatureType type of signature used to sign vc.
@@ -69,6 +71,11 @@ var signatureTypes = []signatureTypeDesc{
 		kms.ED25519Type, kms.X25519ECDHKWType, kms.ECDSASecp256k1DER,
 		kms.ECDSASecp256k1TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.RSAPS256Type,
 	}},
+
+	{ecdsa2019.SuiteType, Ldp, []kms.KeyType{kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363}},
+	{ecdsa2019.SuiteTypeNew, Ldp, []kms.KeyType{kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363}},
+	{eddsa2022.SuiteType, Ldp, []kms.KeyType{kms.ED25519Type}},
+	{eddsa2022.SuiteType2, Ldp, []kms.KeyType{kms.ED25519Type}},
 
 	{EdDSA, Jwt, []kms.KeyType{kms.ED25519Type}},
 	{ES256K, Jwt, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363,

@@ -414,22 +414,22 @@ type PrepareCredentialBase struct {
 
 // Model for Prepare Credential response.
 type PrepareCredentialResult struct {
-	// Deprecated. Credential value.
+	// Credential value. According to draft 13 spec.
 	Credential interface{} `json:"credential"`
 
 	// Contains an array of one or more issued Credentials.
 	Credentials []externalRef0.CredentialResponseCredentialObject `json:"credentials"`
 
-	// Deprecated. Format of issued credential.
+	// Format of issued credential. Internal use only.
 	Format string `json:"format"`
 
 	// String identifying an issued Credential that the Wallet includes in the acknowledgement request.
 	NotificationId string `json:"notification_id"`
 
-	// Deprecated. OIDC credential format
+	// OIDC credential format. Internal use only.
 	OidcFormat string `json:"oidc_format"`
 
-	// Deprecated. TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+	// Boolean value indicating whether the Wallet should retry the issuance request. Internal Use. Used for deferred issuance.
 	Retry bool `json:"retry"`
 }
 
