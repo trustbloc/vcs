@@ -1004,7 +1004,6 @@ func buildEchoHandler(
 		return nil, err
 	}
 
-	// TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.apiGatewayURL + "/request-object/"
 	oidc4vpTxManager := oidc4vp.NewTxManager(
 		oidc4vpNonceStore,
