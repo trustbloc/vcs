@@ -185,42 +185,41 @@ func (s *Service) ValidateCredentialProof(
 		return errors.New("verifiable credential doesn't contains proof")
 	}
 
-	// TODO https://github.com/trustbloc/vcs/issues/412 figure out the process when vc has more than one proof
-	proof := credential.Proofs()[0]
+	for _, proof := range credential.Proofs() {
+		if !vcInVPValidation {
+			// validate challenge
+			if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, proofChallenge); validateErr != nil {
+				return validateErr
+			}
 
-	if !vcInVPValidation {
-		// validate challenge
-		if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, proofChallenge); validateErr != nil {
-			return validateErr
+			// validate domain
+			if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, proofDomain); validateErr != nil {
+				return validateErr
+			}
 		}
 
-		// validate domain
-		if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, proofDomain); validateErr != nil {
-			return validateErr
+		// get the verification method
+		verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
+		if err != nil {
+			return err
 		}
-	}
 
-	// get the verification method
-	verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
-	if err != nil {
-		return err
-	}
+		// get the did doc from verification method
+		didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
+		if err != nil {
+			return err
+		}
 
-	// get the did doc from verification method
-	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
-	if err != nil {
-		return err
-	}
+		credentialContents := credential.Contents()
+		// validate if issuer matches the controller of verification method
+		if credentialContents.Issuer == nil || credentialContents.Issuer.ID != didDoc.ID {
+			return fmt.Errorf("controller of verification method doesn't match the issuer")
+		}
 
-	credentialContents := credential.Contents()
-	// validate if issuer matches the controller of verification method
-	if credentialContents.Issuer == nil || credentialContents.Issuer.ID != didDoc.ID {
-		return fmt.Errorf("controller of verification method doesn't match the issuer")
-	}
-
-	// validate proof purpose
-	if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
-		return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
+		// validate proof purpose
+		if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
+			return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
+		}
 	}
 
 	return nil
