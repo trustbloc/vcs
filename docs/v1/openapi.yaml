@@ -1148,6 +1148,7 @@ components:
         options:
           $ref: '#/components/schemas/VerifyCredentialOptions'
         verifiableCredential:
+          x-go-type: any
           oneOf:
             - type: string
             - type: object
@@ -1158,6 +1159,7 @@ components:
             - type: object
           description: Credential in jws(string) or jsonld(object) formats. Backward compatibility, use verifiableCredential.
           deprecated: true
+          x-go-type: any
     CredentialDisplay:
       title: CredentialDisplay
       x-tag:
@@ -1711,9 +1713,8 @@ components:
       description: Model for getting refreshed credential.
       properties:
         verifiable_credential:
-          type: string
-          anyOf:
-            - { }
+          type: object
+          x-go-type: any
         issuerURI:
           type: string
       x-tags:
@@ -2273,6 +2274,7 @@ components:
       properties:
         credential:
           description: Credential value. According to draft 13 spec.
+          x-go-type: any
           oneOf:
             - type: string
             - type: object
@@ -2419,6 +2421,7 @@ components:
       properties:
         credential:
           description: Credential value. According to draft 13 spec.
+          x-go-type: any
           oneOf:
             - type: string
             - type: object
@@ -2453,6 +2456,7 @@ components:
         credential_responses:
           type: array
           items:
+            x-go-type: any
             oneOf:
               - type: string
               - $ref: '#/components/schemas/CredentialResponseBatchCredential'
@@ -2473,6 +2477,7 @@ components:
       properties:
         credential:
           description: Contains issued Credential.
+          x-go-type: any
           oneOf:
             - type: string
             - type: object
