@@ -186,40 +186,47 @@ func (s *Service) ValidateCredentialProof(
 	}
 
 	for _, proof := range credential.Proofs() {
-		if !vcInVPValidation {
-			// validate challenge
-			if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, proofChallenge); validateErr != nil {
-				return validateErr
-			}
-
-			// validate domain
-			if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, proofDomain); validateErr != nil {
-				return validateErr
-			}
-		}
-
-		// get the verification method
-		verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
-		if err != nil {
+		if err = s.validateSingleProof(vcInVPValidation, proof, proofChallenge, proofDomain); err != nil {
 			return err
 		}
+	}
 
-		// get the did doc from verification method
-		didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
-		if err != nil {
-			return err
+	return nil
+}
+
+func (s *Service) validateSingleProof(
+	vcInVPValidation bool,
+	proof verifiable.Proof,
+	proofChallenge string,
+	proofDomain string,
+) error {
+	if !vcInVPValidation {
+		// validate challenge
+		if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, proofChallenge); validateErr != nil {
+			return validateErr
 		}
 
-		credentialContents := credential.Contents()
-		// validate if issuer matches the controller of verification method
-		if credentialContents.Issuer == nil || credentialContents.Issuer.ID != didDoc.ID {
-			return fmt.Errorf("controller of verification method doesn't match the issuer")
+		// validate domain
+		if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, proofDomain); validateErr != nil {
+			return validateErr
 		}
+	}
 
-		// validate proof purpose
-		if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
-			return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
-		}
+	// get the verification method
+	verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
+	if err != nil {
+		return err
+	}
+
+	// get the did doc from verification method
+	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
+	if err != nil {
+		return err
+	}
+
+	// validate proof purpose
+	if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
+		return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
 	}
 
 	return nil
