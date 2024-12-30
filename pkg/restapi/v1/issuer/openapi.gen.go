@@ -321,7 +321,7 @@ type IssueCredentialData struct {
 	Claims *map[string]interface{} `json:"claims,omitempty"`
 
 	// Credential Credential in jws(string) or jsonld(object) formats.
-	Credential *IssueCredentialData_Credential `json:"credential,omitempty"`
+	Credential *any `json:"credential,omitempty"`
 
 	// CredentialDescription Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
@@ -334,17 +334,6 @@ type IssueCredentialData struct {
 
 	// Options Options for issuing credential.
 	Options *IssueCredentialOptions `json:"options,omitempty"`
-}
-
-// IssueCredentialDataCredential0 defines model for .
-type IssueCredentialDataCredential0 = string
-
-// IssueCredentialDataCredential1 defines model for .
-type IssueCredentialDataCredential1 = map[string]interface{}
-
-// IssueCredentialData_Credential Credential in jws(string) or jsonld(object) formats.
-type IssueCredentialData_Credential struct {
-	union json.RawMessage
 }
 
 // IssueCredentialOptions Options for issuing credential.
@@ -682,68 +671,6 @@ type InitiateCredentialIssuanceJSONRequestBody = InitiateOIDC4CIRequest
 
 // SetCredentialRefreshStateJSONRequestBody defines body for SetCredentialRefreshState for application/json ContentType.
 type SetCredentialRefreshStateJSONRequestBody = SetCredentialRefreshStateRequest
-
-// AsIssueCredentialDataCredential0 returns the union data inside the IssueCredentialData_Credential as a IssueCredentialDataCredential0
-func (t IssueCredentialData_Credential) AsIssueCredentialDataCredential0() (IssueCredentialDataCredential0, error) {
-	var body IssueCredentialDataCredential0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIssueCredentialDataCredential0 overwrites any union data inside the IssueCredentialData_Credential as the provided IssueCredentialDataCredential0
-func (t *IssueCredentialData_Credential) FromIssueCredentialDataCredential0(v IssueCredentialDataCredential0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIssueCredentialDataCredential0 performs a merge with any union data inside the IssueCredentialData_Credential, using the provided IssueCredentialDataCredential0
-func (t *IssueCredentialData_Credential) MergeIssueCredentialDataCredential0(v IssueCredentialDataCredential0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsIssueCredentialDataCredential1 returns the union data inside the IssueCredentialData_Credential as a IssueCredentialDataCredential1
-func (t IssueCredentialData_Credential) AsIssueCredentialDataCredential1() (IssueCredentialDataCredential1, error) {
-	var body IssueCredentialDataCredential1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIssueCredentialDataCredential1 overwrites any union data inside the IssueCredentialData_Credential as the provided IssueCredentialDataCredential1
-func (t *IssueCredentialData_Credential) FromIssueCredentialDataCredential1(v IssueCredentialDataCredential1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIssueCredentialDataCredential1 performs a merge with any union data inside the IssueCredentialData_Credential, using the provided IssueCredentialDataCredential1
-func (t *IssueCredentialData_Credential) MergeIssueCredentialDataCredential1(v IssueCredentialDataCredential1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t IssueCredentialData_Credential) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *IssueCredentialData_Credential) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error

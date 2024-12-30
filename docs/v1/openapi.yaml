@@ -1356,6 +1356,7 @@ components:
             - type: string
             - type: object
           description: Credential in jws(string) or jsonld(object) formats.
+          x-go-type: any
         credential_name:
           type: string
           description: Credential name
