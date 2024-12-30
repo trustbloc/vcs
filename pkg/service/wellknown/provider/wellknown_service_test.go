@@ -210,9 +210,9 @@ func checkWellKnownOpenIDIssuerConfiguration(
 	assert.Nil(t, res.CredentialIdentifiersSupported)
 	assert.Nil(t, res.SignedMetadata)
 
-	assert.Len(t, res.CredentialConfigurationsSupported.AdditionalProperties, 1)
+	assert.Len(t, *res.CredentialConfigurationsSupported, 1)
 
-	for credentialType, credentialConfigurationSupported := range res.CredentialConfigurationsSupported.AdditionalProperties {
+	for credentialType, credentialConfigurationSupported := range *res.CredentialConfigurationsSupported {
 		assert.Equal(t, map[string]interface{}{
 			"org.iso.18013.5.1.aamva": map[string]interface{}{
 				"organ_donor": map[string]interface{}{},
@@ -248,11 +248,9 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, "ldp_vc", credentialConfigurationSupported.Format)
 		assert.Equal(t, []string{"claimName1", "claimName2", "claimName3"}, lo.FromPtr(credentialConfigurationSupported.Order))
 
-		expectedProofTypeSupported := issuer.CredentialConfigurationsSupported_ProofTypesSupported{
-			AdditionalProperties: map[string]issuer.ProofTypeSupported{
-				"jwt": {
-					ProofSigningAlgValuesSupported: []string{"ECDSASecp256k1DER"},
-				},
+		expectedProofTypeSupported := map[string]issuer.ProofTypeSupported{
+			"jwt": {
+				ProofSigningAlgValuesSupported: []string{"ECDSASecp256k1DER"},
 			},
 		}
 
@@ -342,11 +340,11 @@ func TestBuildWithDynamic(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 
-		assert.Len(t, resp.CredentialConfigurationsSupported.AdditionalProperties, 1)
+		assert.Len(t, *resp.CredentialConfigurationsSupported, 1)
 		assert.EqualValues(
 			t,
 			[]string{"SomeType"},
-			resp.CredentialConfigurationsSupported.AdditionalProperties["a"].CredentialDefinition.Type,
+			lo.FromPtr(resp.CredentialConfigurationsSupported)["a"].CredentialDefinition.Type,
 		)
 	})
 }
