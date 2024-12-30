@@ -1259,6 +1259,7 @@ components:
         options:
           $ref: '#/components/schemas/VerifyPresentationOptions'
         verifiablePresentation:
+          x-go-type: any
           oneOf:
             - type: string
             - type: object

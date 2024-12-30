@@ -4,7 +4,6 @@
 package verifier
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -95,18 +94,7 @@ type VerifyPresentationData struct {
 	Options *VerifyPresentationOptions `json:"options,omitempty"`
 
 	// VerifiablePresentation Presentation in jws(string) or jsonld(object) formats.
-	VerifiablePresentation VerifyPresentationData_VerifiablePresentation `json:"verifiablePresentation"`
-}
-
-// VerifyPresentationDataVerifiablePresentation0 defines model for .
-type VerifyPresentationDataVerifiablePresentation0 = string
-
-// VerifyPresentationDataVerifiablePresentation1 defines model for .
-type VerifyPresentationDataVerifiablePresentation1 = map[string]interface{}
-
-// VerifyPresentationData_VerifiablePresentation Presentation in jws(string) or jsonld(object) formats.
-type VerifyPresentationData_VerifiablePresentation struct {
-	union json.RawMessage
+	VerifiablePresentation any `json:"verifiablePresentation"`
 }
 
 // VerifyPresentationOptions Options for verify presentation.
@@ -162,68 +150,6 @@ type InitiateOidcInteractionJSONRequestBody = InitiateOIDC4VPData
 
 // PostVerifyPresentationJSONRequestBody defines body for PostVerifyPresentation for application/json ContentType.
 type PostVerifyPresentationJSONRequestBody = VerifyPresentationData
-
-// AsVerifyPresentationDataVerifiablePresentation0 returns the union data inside the VerifyPresentationData_VerifiablePresentation as a VerifyPresentationDataVerifiablePresentation0
-func (t VerifyPresentationData_VerifiablePresentation) AsVerifyPresentationDataVerifiablePresentation0() (VerifyPresentationDataVerifiablePresentation0, error) {
-	var body VerifyPresentationDataVerifiablePresentation0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromVerifyPresentationDataVerifiablePresentation0 overwrites any union data inside the VerifyPresentationData_VerifiablePresentation as the provided VerifyPresentationDataVerifiablePresentation0
-func (t *VerifyPresentationData_VerifiablePresentation) FromVerifyPresentationDataVerifiablePresentation0(v VerifyPresentationDataVerifiablePresentation0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeVerifyPresentationDataVerifiablePresentation0 performs a merge with any union data inside the VerifyPresentationData_VerifiablePresentation, using the provided VerifyPresentationDataVerifiablePresentation0
-func (t *VerifyPresentationData_VerifiablePresentation) MergeVerifyPresentationDataVerifiablePresentation0(v VerifyPresentationDataVerifiablePresentation0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsVerifyPresentationDataVerifiablePresentation1 returns the union data inside the VerifyPresentationData_VerifiablePresentation as a VerifyPresentationDataVerifiablePresentation1
-func (t VerifyPresentationData_VerifiablePresentation) AsVerifyPresentationDataVerifiablePresentation1() (VerifyPresentationDataVerifiablePresentation1, error) {
-	var body VerifyPresentationDataVerifiablePresentation1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromVerifyPresentationDataVerifiablePresentation1 overwrites any union data inside the VerifyPresentationData_VerifiablePresentation as the provided VerifyPresentationDataVerifiablePresentation1
-func (t *VerifyPresentationData_VerifiablePresentation) FromVerifyPresentationDataVerifiablePresentation1(v VerifyPresentationDataVerifiablePresentation1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeVerifyPresentationDataVerifiablePresentation1 performs a merge with any union data inside the VerifyPresentationData_VerifiablePresentation, using the provided VerifyPresentationDataVerifiablePresentation1
-func (t *VerifyPresentationData_VerifiablePresentation) MergeVerifyPresentationDataVerifiablePresentation1(v VerifyPresentationDataVerifiablePresentation1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t VerifyPresentationData_VerifiablePresentation) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *VerifyPresentationData_VerifiablePresentation) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
