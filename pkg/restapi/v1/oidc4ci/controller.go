@@ -961,7 +961,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	prepareCredentialReq := issuer.PrepareBatchCredentialJSONBody{
+	prepareCredentialReq := issuer.PrepareBatchCredential{
 		TxId:               session.Extra[txIDKey].(string), //nolint:errcheck,
 		HashedToken:        hashToken(token),
 		CredentialRequests: make([]issuer.PrepareCredentialBase, 0, len(credentialReq.CredentialRequests)),
@@ -1035,7 +1035,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 	credentialResponseBatch := BatchCredentialResponse{
 		CNonce:              lo.ToPtr(nonce),
 		CNonceExpiresIn:     lo.ToPtr(int(cNonceTTL.Seconds())),
-		CredentialResponses: make([]interface{}, 0, len(preparedCredentials)),
+		CredentialResponses: make([]any, 0, len(preparedCredentials)),
 	}
 
 	for index, credentialData := range preparedCredentials {

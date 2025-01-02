@@ -150,6 +150,7 @@ components:
       description: Model for credentials field from credential response.
       properties:
         credential:
+          x-go-type: any
           oneOf:
             - type: string
             - type: object

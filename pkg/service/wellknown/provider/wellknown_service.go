@@ -163,7 +163,7 @@ func (s *Service) getOpenIDIssuerConfig(
 		CredentialIdentifiersSupported:    nil,
 		SignedMetadata:                    nil,
 		Display:                           lo.ToPtr(credentialIssuerMetadataDisplay),
-		CredentialConfigurationsSupported: credentialsConfigurationSupported,
+		CredentialConfigurationsSupported: &credentialsConfigurationSupported,
 
 		NotificationEndpoint:   lo.ToPtr(fmt.Sprintf("%soidc/notification", host)),
 		TokenEndpoint:          lo.ToPtr(fmt.Sprintf("%soidc/token", host)),
@@ -262,8 +262,8 @@ func (s *Service) buildCredentialIssuerMetadataDisplay(
 
 func (s *Service) buildCredentialConfigurationsSupported(
 	issuerProfile *profileapi.Issuer,
-) *issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported {
-	credentialsConfigurationSupported := &issuer.WellKnownOpenIDIssuerConfiguration_CredentialConfigurationsSupported{}
+) map[string]issuer.CredentialConfigurationsSupported {
+	credentialsConfigurationSupported := map[string]issuer.CredentialConfigurationsSupported{}
 
 	var credentialConfSupported map[string]*profileapi.CredentialsConfigurationSupported
 	if issuerProfile.CredentialMetaData != nil {
@@ -281,15 +281,13 @@ func (s *Service) buildCredentialConfigurationsSupported(
 		display := s.buildCredentialConfigurationsSupportedDisplay(credentialSupported.Display)
 		credentialDefinition := s.buildCredentialDefinition(credentialSupported.CredentialDefinition)
 
-		proofTypeSupported := &issuer.CredentialConfigurationsSupported_ProofTypesSupported{
-			AdditionalProperties: map[string]issuer.ProofTypeSupported{
-				"jwt": {
-					ProofSigningAlgValuesSupported: []string{string(issuerProfile.VCConfig.KeyType)},
-				},
+		proofTypesSupported := map[string]issuer.ProofTypeSupported{
+			"jwt": {
+				ProofSigningAlgValuesSupported: []string{string(issuerProfile.VCConfig.KeyType)},
 			},
 		}
 
-		credentialsConfigurationSupported.Set(credentialConfigurationID, issuer.CredentialConfigurationsSupported{
+		credentialsConfigurationSupported[credentialConfigurationID] = issuer.CredentialConfigurationsSupported{
 			Claims:                               lo.ToPtr(credentialSupported.Claims),
 			CredentialDefinition:                 credentialDefinition,
 			CryptographicBindingMethodsSupported: lo.ToPtr(cryptographicBindingMethodsSupported),
@@ -298,10 +296,10 @@ func (s *Service) buildCredentialConfigurationsSupported(
 			Doctype:                              lo.ToPtr(credentialSupported.Doctype),
 			Format:                               string(credentialSupported.Format),
 			Order:                                lo.ToPtr(credentialSupported.Order),
-			ProofTypesSupported:                  proofTypeSupported,
+			ProofTypesSupported:                  &proofTypesSupported,
 			Scope:                                lo.ToPtr(credentialSupported.Scope),
 			Vct:                                  lo.ToPtr(credentialSupported.Vct),
-		})
+		}
 	}
 
 	return credentialsConfigurationSupported

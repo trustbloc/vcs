@@ -11,7 +11,7 @@ VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 COGNITO_AUTH_IMAGE_NAME				?= vcs/sample-cognito-auth
-OPENAPIGEN_VERSION 					?=v1.11.0
+OPENAPIGEN_VERSION 					?=v2.4.1
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
@@ -55,7 +55,7 @@ checks: license lint
 .PHONY: generate
 generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
-	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
+	@GOBIN=$(GOBIN_PATH) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...
 	@cd component/credentialstatus && go generate
 	@cd component/oidc/fosite && go generate ./...

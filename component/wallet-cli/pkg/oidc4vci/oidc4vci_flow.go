@@ -374,7 +374,7 @@ func (f *Flow) Run(ctx context.Context) ([]*verifiable.Credential, error) {
 			)
 
 			for _, configurationID := range credentialOfferResponse.CredentialConfigurationIDs {
-				credentialConfiguration := openIDConfig.CredentialConfigurationsSupported.AdditionalProperties[configurationID]
+				credentialConfiguration := lo.FromPtr(openIDConfig.CredentialConfigurationsSupported)[configurationID]
 
 				var credentialType string
 
@@ -1070,7 +1070,7 @@ func (f *Flow) getCredentialRequestOIDCCredentialFilters(
 		// scopes option available so take format from well-known configuration.
 		// Spec: https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-wg-draft.html#section-5.1.2
 		for _, scope := range f.scopes {
-			for _, credentialConfiguration := range wellKnown.CredentialConfigurationsSupported.AdditionalProperties {
+			for _, credentialConfiguration := range lo.FromPtr(wellKnown.CredentialConfigurationsSupported) {
 				if lo.FromPtr(credentialConfiguration.Scope) != scope {
 					continue
 				}
@@ -1114,7 +1114,7 @@ func (f *Flow) getCredentialFiltersFromCredentialConfigurationIDs(
 	var credentialFilters []*credentialFilter
 
 	for _, credentialConfigurationID := range credentialConfigurationIDs {
-		credentialConf := wellKnown.CredentialConfigurationsSupported.AdditionalProperties[credentialConfigurationID]
+		credentialConf := lo.FromPtr(wellKnown.CredentialConfigurationsSupported)[credentialConfigurationID]
 		format := credentialConf.Format
 		if format == "" {
 			return nil, fmt.Errorf(
