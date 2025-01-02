@@ -185,9 +185,21 @@ func (s *Service) ValidateCredentialProof(
 		return errors.New("verifiable credential doesn't contains proof")
 	}
 
-	// TODO https://github.com/trustbloc/vcs/issues/412 figure out the process when vc has more than one proof
-	proof := credential.Proofs()[0]
+	for _, proof := range credential.Proofs() {
+		if err = s.validateSingleProof(vcInVPValidation, proof, proofChallenge, proofDomain); err != nil {
+			return err
+		}
+	}
 
+	return nil
+}
+
+func (s *Service) validateSingleProof(
+	vcInVPValidation bool,
+	proof verifiable.Proof,
+	proofChallenge string,
+	proofDomain string,
+) error {
 	if !vcInVPValidation {
 		// validate challenge
 		if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, proofChallenge); validateErr != nil {
@@ -210,12 +222,6 @@ func (s *Service) ValidateCredentialProof(
 	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
 	if err != nil {
 		return err
-	}
-
-	credentialContents := credential.Contents()
-	// validate if issuer matches the controller of verification method
-	if credentialContents.Issuer == nil || credentialContents.Issuer.ID != didDoc.ID {
-		return fmt.Errorf("controller of verification method doesn't match the issuer")
 	}
 
 	// validate proof purpose
