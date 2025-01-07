@@ -101,6 +101,27 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
 	})
 
+	t.Run("Success with v1 migration", func(t *testing.T) {
+		unsignedVc = unsignedVc.WithModifiedContext(
+			append(unsignedVc.Contents().Context, dataIntegrityProofContextV1),
+		)
+
+		signedVC, err := c.signCredentialLDPDataIntegrity(testSigner, unsignedVc)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs()))
+
+		require.Equal(t, "DataIntegrityProof", signedVC.Proofs()[0]["type"])
+		require.Equal(t, "ecdsa-2019", signedVC.Proofs()[0]["cryptosuite"])
+		require.Equal(t, "#key1", signedVC.Proofs()[0]["verificationMethod"])
+		require.Equal(t, "assertionMethod", signedVC.Proofs()[0]["proofPurpose"])
+		require.Empty(t, signedVC.Proofs()[0]["challenge"])
+		require.Empty(t, signedVC.Proofs()[0]["domain"])
+		require.NotEmpty(t, signedVC.Proofs()[0]["proofValue"])
+
+		require.NotContains(t, signedVC.Contents().Context, dataIntegrityProofContextV1)
+		require.Contains(t, signedVC.Contents().Context, dataIntegrityProofContextV2)
+	})
+
 	t.Run("Success ecdsa-rdfc-2019", func(t *testing.T) {
 		legacySigner := getTestLDPDataIntegritySigner(
 			ecdsa2019.SuiteTypeNew,
