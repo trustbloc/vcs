@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	dataIntegrityProofContext = "https://w3id.org/security/data-integrity/v2"
+	dataIntegrityProofContextV1 = "https://w3id.org/security/data-integrity/v1"
+	dataIntegrityProofContextV2 = "https://w3id.org/security/data-integrity/v2"
 )
 
 // signCredentialLDP adds verifiable.DataIntegrityProofContext to the VC.
@@ -68,9 +69,16 @@ func (c *Crypto) signCredentialLDPDataIntegrity(signerData *vc.Signer,
 	}
 
 	// Update VC context for Data Integrity.
-	if !lo.Contains(vc.Contents().Context, verifiable.V2ContextURI) { // for v2 its already embedded
-		if !lo.Contains(vc.Contents().Context, dataIntegrityProofContext) {
-			vc = vc.WithModifiedContext(append(vc.Contents().Context, dataIntegrityProofContext))
+	contexts := vc.Contents().Context
+	if !lo.Contains(contexts, verifiable.V2ContextURI) { // for v2 its already embedded
+		if lo.Contains(contexts, dataIntegrityProofContextV1) { // backward compatibility. Migrate old creds to v2
+			contexts = lo.Filter(contexts, func(s string, _ int) bool {
+				return s != dataIntegrityProofContextV1
+			})
+		}
+
+		if !lo.Contains(contexts, dataIntegrityProofContextV2) {
+			vc = vc.WithModifiedContext(append(contexts, dataIntegrityProofContextV2))
 		}
 	}
 
