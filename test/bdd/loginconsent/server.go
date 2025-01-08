@@ -11,14 +11,17 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	client "github.com/ory/hydra-client-go"
+	"gopkg.in/square/go-jose.v2"
 )
 
 const (
@@ -346,8 +349,60 @@ func (s *server) completeConsent(w http.ResponseWriter, r *http.Request, request
 	log.Printf("user authorized; redirected to: %s", redirectURL)
 }
 
+func (s *server) parseJWTToken(
+	token string,
+) (map[string]interface{}, error) {
+	parsedToken, err := jose.ParseSigned(token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse idToken JWT: %v", err)
+	}
+
+	var payload []byte
+	payload = parsedToken.UnsafePayloadWithoutVerification()
+	var claims map[string]interface{}
+	if err = json.Unmarshal(payload, &claims); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal idToken payload: %v", err)
+	}
+
+	return claims, nil
+}
+
 func (s *server) claimDataHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("handling request: %s", r.URL.String())
+
+	authData := r.Header.Get("Authorization")
+
+	if authData != "" {
+		log.Printf("got header auth: %v", authData)
+		authData = strings.ReplaceAll(authData, "Bearer ", "")
+
+		parsedToken, err := s.parseJWTToken(authData)
+		if err != nil {
+			log.Printf("failed to parse token: %s", err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if fmt.Sprint(parsedToken["token_use"]) != "access" {
+			log.Printf("invalid token use: %v", parsedToken["token_use"])
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if fmt.Sprint(parsedToken["iss"]) != "https://cognito-idp.{region}.amazonaws.com/local_5a9GzRvB" {
+			log.Printf("invalid issuer: %v", parsedToken["iss"])
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if fmt.Sprint(parsedToken["client_id"]) == "" {
+			log.Printf("missing client_id")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		log.Print("token checked")
+	}
 
 	// TODO: Perform token introspection
 
