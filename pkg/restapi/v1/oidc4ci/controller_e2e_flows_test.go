@@ -497,13 +497,16 @@ func registerThirdPartyOIDCAuthorizeEndpoint(t *testing.T, e *echo.Echo) {
 	e.GET("/third-party/oidc/authorize", func(c echo.Context) error {
 		req := c.Request()
 
-		// TODO: Validate authorize request
+		queryData := req.URL.Query()
+		assert.EqualValues(t, "test-client", queryData.Get("client_id"))
+		assert.EqualValues(t, "code", queryData.Get("response_type"))
+		assert.EqualValues(t, "openid profile", queryData.Get("scope"))
 
 		q := &url.Values{}
 		q.Set("code", "foo")
-		q.Set("state", req.URL.Query().Get("state"))
+		q.Set("state", queryData.Get("state"))
 
-		redirectURI := req.URL.Query().Get("redirect_uri") + "?" + q.Encode()
+		redirectURI := queryData.Get("redirect_uri") + "?" + q.Encode()
 
 		return c.Redirect(http.StatusSeeOther, redirectURI)
 	})
