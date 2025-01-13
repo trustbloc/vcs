@@ -4,17 +4,17 @@
 
 module github.com/trustbloc/vcs/test/bdd/attestation
 
-go 1.22
+go 1.23
 
-toolchain go1.22.4
+toolchain go1.23.4
 
 require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.2
-	github.com/trustbloc/vc-go v1.3.1
+	github.com/trustbloc/did-go v1.3.3-0.20250110131606-76c309e63d32
+	github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
 
