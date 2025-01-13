@@ -4,9 +4,9 @@
 
 module github.com/trustbloc/vcs/component/healthchecks
 
-go 1.22.1
+go 1.23
 
-toolchain go1.22.4
+toolchain go1.23.4
 
 require (
 	github.com/alexliesenfeld/health v0.8.0
