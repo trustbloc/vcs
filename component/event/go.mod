@@ -3,9 +3,9 @@
 
 module github.com/trustbloc/vcs/component/event
 
-go 1.22.1
+go 1.23
 
-toolchain go1.22.4
+toolchain go1.23.4
 
 require (
 	github.com/spf13/cobra v1.8.1
@@ -19,7 +19,7 @@ require (
 require (
 	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da // indirect
 	github.com/PaesslerAG/gval v1.2.2 // indirect
-	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
+	github.com/PaesslerAG/jsonpath v0.1.2-0.20240726212847-3a740cf7976f // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.32.6 // indirect
@@ -112,14 +112,15 @@ require (
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
+	github.com/theory/jsonpath v0.3.0 // indirect
 	github.com/tidwall/gjson v1.17.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
-	github.com/trustbloc/did-go v1.3.2 // indirect
+	github.com/trustbloc/did-go v1.3.3-0.20250110131606-76c309e63d32 // indirect
 	github.com/trustbloc/kms-go v1.2.1 // indirect
-	github.com/trustbloc/vc-go v1.3.1 // indirect
+	github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/veraison/go-cose v1.3.0-rc.1 // indirect

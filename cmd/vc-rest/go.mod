@@ -22,10 +22,10 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/did-go v1.3.2
+	github.com/trustbloc/did-go v1.3.3-0.20250110131606-76c309e63d32
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.3.1
+	github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
 	go.mongodb.org/mongo-driver v1.16.1
@@ -56,7 +56,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/PaesslerAG/gval v1.2.2 // indirect
-	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
+	github.com/PaesslerAG/jsonpath v0.1.2-0.20240726212847-3a740cf7976f // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -189,6 +189,7 @@ require (
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
+	github.com/theory/jsonpath v0.3.0 // indirect
 	github.com/tidwall/gjson v1.17.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -253,6 +254,6 @@ replace (
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 
-go 1.22.1
+go 1.23
 
-toolchain go1.22.4
+toolchain go1.23.4

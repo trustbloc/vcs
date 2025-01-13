@@ -25,12 +25,11 @@ github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
-github.com/PaesslerAG/gval v1.0.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
 github.com/PaesslerAG/gval v1.2.2 h1:Y7iBzhgE09IGTt5QgGQ2IdaYYYOU134YGHBThD+wm9E=
 github.com/PaesslerAG/gval v1.2.2/go.mod h1:XRFLwvmkTEdYziLdaCeCa5ImcGVrfQbeNUbVR+C6xac=
 github.com/PaesslerAG/jsonpath v0.1.0/go.mod h1:4BzmtoM/PI8fPO4aQGIusjGxGir2BzcV0grWtFzq1Y8=
-github.com/PaesslerAG/jsonpath v0.1.1 h1:c1/AToHQMVsduPAa4Vh6xp2U0evy4t8SWp8imEsylIk=
-github.com/PaesslerAG/jsonpath v0.1.1/go.mod h1:lVboNxFGal/VwW6d9JzIy56bUsYAP6tH/x80vjnCseY=
+github.com/PaesslerAG/jsonpath v0.1.2-0.20240726212847-3a740cf7976f h1:TxDCeKRCgHea2hUiMOjWwqzWmrIGqSOZYkEPuClXzDo=
+github.com/PaesslerAG/jsonpath v0.1.2-0.20240726212847-3a740cf7976f/go.mod h1:zTyVtYhYjcHpfCtqnCMxejgp0pEEwb/xJzhn05NrkJk=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
 github.com/VictoriaMetrics/fastcache v1.12.2 h1:N0y9ASrJ0F6h0QaC3o6uJb3NIZ9VKLjCM7NQbSmF7WI=
 github.com/VictoriaMetrics/fastcache v1.12.2/go.mod h1:AmC+Nzz1+3G2eCPapF6UcsnkThDcMsQicp4xDukwJYI=
@@ -667,6 +666,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 h1:RBkacARv7qY5laaXGlF4wFB/tk5rnthhPb8oIBGoagY=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8/go.mod h1:9PdLyPiZIiW3UopXyRnPYyjUXSpiQNHRLu8fOsR3o8M=
+github.com/theory/jsonpath v0.3.0 h1:XFCAOLynMKKNosAv9sfcFEVYFRxQqQDE7Hyx1+atm/w=
+github.com/theory/jsonpath v0.3.0/go.mod h1:yv+crL58A+g3yxLr1sbOyn8H+L/6kS4AMXlXeVGOuNU=
 github.com/tidwall/gjson v1.14.2/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/gjson v1.17.3 h1:bwWLZU7icoKRG+C+0PNwIKC6FCJO/Q3p2pZvuP0jN94=
 github.com/tidwall/gjson v1.17.3/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
@@ -682,8 +683,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2 h1:gepEsbLiZHv/vva9FKG5gF38mGtOIyGe
 github.com/trustbloc/bbs-signature-go v1.0.2/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811 h1:0e1d1w9o662+e7ZnJvRYJH8yblcBXngme8qbsjTvhQc=
 github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811/go.mod h1:o/v7C1z6d/5UrjaC6GAUc1hk0XVuE3M4tpyvsMMUw5k=
-github.com/trustbloc/did-go v1.3.2 h1:ilYHT09hFuIW4QIgEo+MHPMtL8fGz0iBtyRnpfO5J/w=
-github.com/trustbloc/did-go v1.3.2/go.mod h1:bb8zEheJbCXvHGEzMGhbCcpiHEwcCZJ3Qua1G05WC4M=
+github.com/trustbloc/did-go v1.3.3-0.20250110131606-76c309e63d32 h1:aikcb3F09R4RFrayA/syZ/aLOutZn/DsdikQd2UWRh4=
+github.com/trustbloc/did-go v1.3.3-0.20250110131606-76c309e63d32/go.mod h1:bb8zEheJbCXvHGEzMGhbCcpiHEwcCZJ3Qua1G05WC4M=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8 h1:DomzdQu7D3CDBsMijT0E9uQl91iFcsIfYq1UKXmI/XQ=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/trustbloc/kms-go v1.2.1 h1:lwBv6/Xs2v/36xesaNeg9VpB5YFCwzqq8wS/8/zV4pw=
@@ -692,8 +693,8 @@ github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e h1:r0AVM5IL
 github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e/go.mod h1:AuHbwVcx1Rl6KNG2oFvlUR79egmDM8urblUaJ24p85A=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4muaGvhjJ4OkG6/PQG3DGf5POWxlA1wwEYsxWQ+4=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
-github.com/trustbloc/vc-go v1.3.1 h1:0RjNbxDwK9PRWi0T7YwFDAmfsWvfgOf8T6vWJQU8bjE=
-github.com/trustbloc/vc-go v1.3.1/go.mod h1:RwRcE1n7A5Xi3zwAnMjUD0KN8C+ROdvr+rQZ8rE+TBg=
+github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9 h1:BSOux3kbcsiVA5btDTdPSFLJjmM+RH2dGYRS/nOOPPM=
+github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9/go.mod h1:87gLnA9fo26rtnykebgk4V0H2yAAInrfdx6gaq5S7no=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=

@@ -18,7 +18,7 @@ ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 GOPROXY ?= https://proxy.golang.org
 
-VC_FRAMEWORK_VERSION				= v1.3.1
+VC_FRAMEWORK_VERSION				= c7c79ddcd8f916ad25ad56915d901844f0b739bb
 KMS_FRAMEWORK_VERSION 				= v1.2.1
 DID_GO_VERSION						= v1.3.2
 SIDE_TREE_VERSION					= f4260aff710479ba5fa3f0c61b51d451d9041225
@@ -35,9 +35,9 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 endif
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.18
-GO_ALPINE_VER ?= 3.18
-GO_VER ?= 1.22
+ALPINE_VER ?= 3.21
+GO_ALPINE_VER ?= 3.21
+GO_VER ?= 1.23
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))
