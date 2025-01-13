@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -41,8 +42,10 @@ import (
 )
 
 const (
-	cslRequestTokenName         = "csl"
-	credentialStatusEventSource = "source://vcs/status" //nolint:gosec
+	cslRequestTokenName                 = "csl"
+	credentialStatusEventSource         = "source://vcs/status" //nolint:gosec
+	credentialStatusClientRoleRevoker   = "revoker"
+	credentialStatusClientRoleActivator = "activator"
 )
 
 var logger = log.New("credentialstatus")
@@ -156,6 +159,15 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		logfields.WithProfileVersion(params.ProfileVersion),
 		logfields.WithCredentialID(params.CredentialID))
 
+	statusValue, err := strconv.ParseBool(params.DesiredStatus)
+	if err != nil {
+		return fmt.Errorf("strconv.ParseBool failed: %w", err)
+	}
+
+	if err = s.checkOAuthClientRole(params.OAuthClientRoles, statusValue); err != nil {
+		return err
+	}
+
 	profile, err := s.profileService.GetProfile(params.ProfileID, params.ProfileVersion)
 	if err != nil {
 		return fmt.Errorf("get profile: %w", err)
@@ -172,17 +184,26 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		return fmt.Errorf("vcStatusStore.Get failed: %w", err)
 	}
 
-	statusValue, err := strconv.ParseBool(params.DesiredStatus)
-	if err != nil {
-		return fmt.Errorf("strconv.ParseBool failed: %w", err)
-	}
-
 	err = s.updateVCStatus(ctx, typedID, profile.ID, profile.Version, profile.VCConfig.Status.Type, statusValue)
 	if err != nil {
 		return fmt.Errorf("updateVCStatus failed: %w", err)
 	}
 
 	logger.Debugc(ctx, "UpdateVCStatus success")
+
+	return nil
+}
+
+func (s *Service) checkOAuthClientRole(oAuthClientRoles []string, statusValue bool) error {
+	requiredRole := credentialStatusClientRoleActivator
+
+	if statusValue {
+		requiredRole = credentialStatusClientRoleRevoker
+	}
+
+	if !slices.Contains(oAuthClientRoles, requiredRole) {
+		return resterr.ErrActionForbidden
+	}
 
 	return nil
 }
@@ -375,8 +396,13 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 }
 
 // updateVCStatus updates StatusListCredential associated with typedID.
-func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedID, profileID, profileVersion string,
-	vcStatusType vc.StatusType, status bool) error {
+func (s *Service) updateVCStatus(
+	ctx context.Context,
+	typedID *verifiable.TypedID,
+	profileID, profileVersion string,
+	vcStatusType vc.StatusType,
+	status bool,
+) error {
 	vcStatusProcessor, err := statustype.GetVCStatusProcessor(vcStatusType)
 	if err != nil {
 		return fmt.Errorf("get VC status processor failed: %w", err)

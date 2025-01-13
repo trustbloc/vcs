@@ -43,6 +43,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/cslservice"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
@@ -422,11 +423,12 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:      profileID,
-			ProfileVersion: profileVersion,
-			CredentialID:   credID,
-			DesiredStatus:  "true",
-			StatusType:     profile.VCConfig.Status.Type,
+			OAuthClientRoles: []string{credentialStatusClientRoleRevoker},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "true",
+			StatusType:       profile.VCConfig.Status.Type,
 		}
 
 		require.NoError(t, s.UpdateVCStatus(ctx, params))
@@ -447,80 +449,11 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, bitSet)
 	})
-	t.Run("UpdateVCStatus profileService.GetProfile error", func(t *testing.T) {
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(nil, errors.New("some error"))
-		s, err := New(&Config{
-			ProfileService: mockProfileSrv,
-		})
-		require.NoError(t, err)
-
-		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:      profileID,
-			ProfileVersion: profileVersion,
-			CredentialID:   credID,
-			DesiredStatus:  "true",
-			StatusType:     vc.StatusList2021VCStatus,
-		}
-
-		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "get profile")
-	})
-	t.Run("UpdateVCStatus invalid vc status type error", func(t *testing.T) {
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
-		s, err := New(&Config{
-			ProfileService: mockProfileSrv,
-		})
-		require.NoError(t, err)
-
-		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:      profileID,
-			ProfileVersion: profileVersion,
-			CredentialID:   credID,
-			DesiredStatus:  "true",
-			StatusType:     vc.RevocationList2020VCStatus,
-		}
-
-		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err,
-			"vc status list version \"RevocationList2020Status\" is not supported by current profile")
-	})
-	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
-		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
-
-		s, err := New(&Config{
-			ProfileService: mockProfileSrv,
-			KMSRegistry:    mockKMSRegistry,
-			CSLVCStore:     newMockCSLVCStore(),
-			VCStatusStore:  newMockVCStatusStore(),
-		})
-		require.NoError(t, err)
-
-		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:      profileID,
-			ProfileVersion: profileVersion,
-			CredentialID:   credID,
-			DesiredStatus:  "true",
-			StatusType:     vc.StatusList2021VCStatus,
-		}
-
-		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "vcStatusStore.Get failed")
-	})
 	t.Run("UpdateVCStatus ParseBool error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		vcStore := newMockVCStatusStore()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -551,6 +484,117 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorContains(t, err, "strconv.ParseBool failed")
 	})
+	t.Run("UpdateVCStatus action forbidden error: revoker tries to activate", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+		})
+		require.NoError(t, err)
+
+		params := credentialstatus.UpdateVCStatusParams{
+			OAuthClientRoles: []string{credentialStatusClientRoleRevoker},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "false",
+			StatusType:       vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
+		require.Error(t, err)
+		require.ErrorIs(t, err, resterr.ErrActionForbidden)
+	})
+	t.Run("UpdateVCStatus action forbidden error: activator tries to revoke", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+		})
+		require.NoError(t, err)
+
+		params := credentialstatus.UpdateVCStatusParams{
+			OAuthClientRoles: []string{credentialStatusClientRoleActivator},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "true",
+			StatusType:       vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
+		require.Error(t, err)
+		require.ErrorIs(t, err, resterr.ErrActionForbidden)
+	})
+
+	t.Run("UpdateVCStatus profileService.GetProfile error", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(nil, errors.New("some error"))
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+		})
+		require.NoError(t, err)
+
+		params := credentialstatus.UpdateVCStatusParams{
+			OAuthClientRoles: []string{credentialStatusClientRoleRevoker},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "true",
+			StatusType:       vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "get profile")
+	})
+	t.Run("UpdateVCStatus invalid vc status type error", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+		})
+		require.NoError(t, err)
+
+		params := credentialstatus.UpdateVCStatusParams{
+			OAuthClientRoles: []string{credentialStatusClientRoleActivator},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "false",
+			StatusType:       vc.RevocationList2020VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
+		require.Error(t, err)
+		require.ErrorContains(t, err,
+			"vc status list version \"RevocationList2020Status\" is not supported by current profile")
+	})
+	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&vcskms.MockKMS{}, nil)
+
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			CSLVCStore:     newMockCSLVCStore(),
+			VCStatusStore:  newMockVCStatusStore(),
+		})
+		require.NoError(t, err)
+
+		params := credentialstatus.UpdateVCStatusParams{
+			OAuthClientRoles: []string{credentialStatusClientRoleRevoker},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "true",
+			StatusType:       vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "vcStatusStore.Get failed")
+	})
 	t.Run("UpdateVCStatus updateVCStatus error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		vcStore := newMockVCStatusStore()
@@ -576,11 +620,12 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:      profileID,
-			ProfileVersion: profileVersion,
-			CredentialID:   credID,
-			DesiredStatus:  "true",
-			StatusType:     vc.StatusList2021VCStatus,
+			OAuthClientRoles: []string{credentialStatusClientRoleRevoker},
+			ProfileID:        profileID,
+			ProfileVersion:   profileVersion,
+			CredentialID:     credID,
+			DesiredStatus:    "true",
+			StatusType:       vc.StatusList2021VCStatus,
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)

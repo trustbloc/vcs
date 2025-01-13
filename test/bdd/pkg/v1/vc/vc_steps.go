@@ -55,20 +55,15 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
-	s.Step(`^V1 New verifiable credential is issued from "([^"]*)" under "([^"]*)" profile$`,
-		e.issueVC)
-	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile$`,
-		e.verifyVC)
-	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to revoke credential$`,
-		e.revokeVCWithError)
-	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile$`,
-		e.revokeVC)
-	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile$`,
-		e.verifyRevokedVC)
-	s.Step(`^V1 verifiable credential is unable to be verified under "([^"]*)" profile error: "([^"]*)"$`,
-		e.verifyVCWithExpectedError)
-	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" using "([^"]*)" concurrent requests$`,
-		e.stressTestForMultipleUsers)
+	s.Step(`^V1 New verifiable credential is issued from "([^"]*)" under "([^"]*)" profile$`, e.issueVC)
+	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile$`, e.verifyVC)
+	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to revoke credential: "([^"]*)"$`, e.revokeVCWithError)
+	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to activate credential: "([^"]*)"$`, e.activateVCWithError)
+	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile$`, e.revokeVC)
+	s.Step(`^V1 verifiable credential is successfully activated under "([^"]*)" profile$`, e.activateVC)
+	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile$`, e.verifyRevokedVC)
+	s.Step(`^V1 verifiable credential is unable to be verified under "([^"]*)" profile error: "([^"]*)"$`, e.verifyVCWithExpectedError)
+	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" using "([^"]*)" concurrent requests$`, e.stressTestForMultipleUsers)
 
 	s.Step(`^New verifiable credentials is created from table:$`, e.createCredentialsFromTable)
 	s.Step(`^With AccessTokenUrlEnv "([^"]*)", new verifiable credentials is created from table:$`, e.createCredentialsFromTableWithEnv)
