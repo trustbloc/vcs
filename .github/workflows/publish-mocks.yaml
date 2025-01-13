@@ -51,7 +51,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
+            ALPINE_VER=3.21
             GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
@@ -92,7 +92,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
+            ALPINE_VER=3.21
             GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
@@ -134,7 +134,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
+            ALPINE_VER=3.21
             GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
@@ -175,7 +175,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
+            ALPINE_VER=3.21
             GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
@@ -224,7 +224,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
+            ALPINE_VER=3.21
             GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true

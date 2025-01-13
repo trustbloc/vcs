@@ -137,7 +137,7 @@ jobs:
           file: ./images/vc-rest/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |
-            ALPINE_VER=3.18
+            ALPINE_VER=3.21
             GO_VER=1.23
           push: true
           tags: |
