@@ -481,8 +481,8 @@ github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e h1:r0AVM5IL
 github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e/go.mod h1:AuHbwVcx1Rl6KNG2oFvlUR79egmDM8urblUaJ24p85A=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4muaGvhjJ4OkG6/PQG3DGf5POWxlA1wwEYsxWQ+4=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
-github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9 h1:BSOux3kbcsiVA5btDTdPSFLJjmM+RH2dGYRS/nOOPPM=
-github.com/trustbloc/vc-go v1.3.2-0.20250113144941-c7c79ddcd8f9/go.mod h1:87gLnA9fo26rtnykebgk4V0H2yAAInrfdx6gaq5S7no=
+github.com/trustbloc/vc-go v1.3.2-0.20250113164435-013fe7d53c87 h1:atzuLLhrimpykh1EA6MYwRgXJJIpE5r00CdNaWbljI8=
+github.com/trustbloc/vc-go v1.3.2-0.20250113164435-013fe7d53c87/go.mod h1:87gLnA9fo26rtnykebgk4V0H2yAAInrfdx6gaq5S7no=
 github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=
 github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
