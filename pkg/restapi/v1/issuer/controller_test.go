@@ -850,28 +850,41 @@ func Test_validateIssueCredOptions(t *testing.T) {
 
 func TestController_PostCredentialsStatus(t *testing.T) {
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().UpdateVCStatus(context.Background(), gomock.Any()).Return(nil)
 
 	t.Run("Success", func(t *testing.T) {
+		mockVCStatusManager.EXPECT().UpdateVCStatus(context.Background(), gomock.Any()).Times(1).Return(nil)
+
 		controller := NewController(&Config{
-			// KMSRegistry:     kmsRegistry,
-			DocumentLoader:  testutil.DocumentLoader(t),
 			VcStatusManager: mockVCStatusManager,
 		})
 
-		c := echoContext(withRequestBody(
-			[]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)))
+		c := echoContext(
+			withOAuthClientRoles("revoker"),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
 
 		err := controller.PostCredentialsStatus(c)
 		require.NoError(t, err)
 	})
 
-	t.Run("Failed", func(t *testing.T) {
+	t.Run("Failure: read body", func(t *testing.T) {
 		controller := NewController(&Config{})
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostCredentialsStatus(c)
 
 		requireValidationError(t, "invalid-value", "requestBody", err)
+	})
+
+	t.Run("Failure: missing role", func(t *testing.T) {
+		controller := NewController(&Config{})
+
+		c := echoContext(
+			withOAuthClientRoles(""),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
+
+		err := controller.PostCredentialsStatus(c)
+		requireAuthError(t, err)
 	})
 }
 
@@ -3484,9 +3497,10 @@ func TestValidateRelatedResources(t *testing.T) {
 }
 
 type options struct {
-	tenantID       string
-	requestBody    []byte
-	responseWriter http.ResponseWriter
+	tenantID         string
+	oAuthClientRoles string
+	requestBody      []byte
+	responseWriter   http.ResponseWriter
 }
 
 type contextOpt func(*options)
@@ -3500,6 +3514,12 @@ func withTenantID(tenantID string) contextOpt {
 func withRequestBody(body []byte) contextOpt {
 	return func(o *options) {
 		o.requestBody = body
+	}
+}
+
+func withOAuthClientRoles(roles string) contextOpt {
+	return func(o *options) {
+		o.oAuthClientRoles = roles
 	}
 }
 
@@ -3532,6 +3552,10 @@ func echoContext(opts ...contextOpt) echo.Context {
 
 	if o.tenantID != "" {
 		req.Header.Set("X-Tenant-ID", o.tenantID)
+	}
+
+	if o.oAuthClientRoles != "" {
+		req.Header.Set("X-Client-Roles", o.oAuthClientRoles)
 	}
 
 	return e.NewContext(req, o.responseWriter)

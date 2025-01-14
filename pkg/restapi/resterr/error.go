@@ -59,6 +59,7 @@ const (
 	InvalidIssuerURL                 ErrorCode = "invalid-issuer-url"
 	InvalidStateTransition           ErrorCode = "invalid-state-transition"
 	BadRequest                       ErrorCode = "bad-request"
+	Forbidden                        ErrorCode = "forbidden"
 )
 
 type Component = string
@@ -107,6 +108,7 @@ var (
 	ErrInvalidCredentialConfigurationID = NewCustomError(InvalidCredentialConfigurationID, errors.New("invalid credential configuration ID")) //nolint:lll
 	ErrVCOptionsNotConfigured           = NewCustomError(VCOptionsNotConfigured, errors.New("vc options not configured"))
 	ErrInvalidIssuerURL                 = NewCustomError(InvalidIssuerURL, errors.New("invalid issuer url"))
+	ErrActionForbidden                  = NewCustomError(Forbidden, errors.New("client is not allowed to perform the action")) //nolint:lll
 )
 
 func (c ErrorCode) Name() string {
@@ -201,6 +203,12 @@ func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 	case ProfileNotFound:
 		return http.StatusNotFound, map[string]interface{}{
 			"code":    ProfileNotFound.Name(),
+			"message": e.Err.Error(),
+		}
+
+	case Forbidden:
+		return http.StatusForbidden, map[string]interface{}{
+			"code":    Forbidden.Name(),
 			"message": e.Err.Error(),
 		}
 

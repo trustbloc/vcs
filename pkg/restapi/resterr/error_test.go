@@ -103,6 +103,17 @@ func TestNewValidationError(t *testing.T) {
 		requireCode(t, resp, ProfileNotFound.Name())
 		requireMessage(t, resp, "some error")
 	})
+
+	t.Run("action not allowed", func(t *testing.T) {
+		err := NewCustomError(Forbidden, errors.New("some error"))
+		require.Equal(t, "forbidden: some error", err.Error())
+
+		httpCode, resp := err.HTTPCodeMsg()
+
+		require.Equal(t, http.StatusForbidden, httpCode)
+		requireCode(t, resp, Forbidden.Name())
+		requireMessage(t, resp, "some error")
+	})
 }
 
 func TestGetErrorDetails(t *testing.T) {

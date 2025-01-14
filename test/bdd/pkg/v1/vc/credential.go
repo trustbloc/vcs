@@ -227,20 +227,41 @@ func (e *Steps) verifyVCWithExpectedError(verifierProfileVersionedID, errorMsg s
 	return nil
 }
 
-func (e *Steps) revokeVCWithError(profileVersionedID string) error {
+func (e *Steps) revokeVC(profileVersionedID string) error {
+	return e.updateVCStatus(profileVersionedID, "true")
+}
+
+func (e *Steps) revokeVCWithError(profileVersionedID, errorContains string) error {
 	err := e.revokeVC(profileVersionedID)
 	if err == nil {
 		return fmt.Errorf("error expected, but got nil")
 	}
 
-	if !strings.Contains(err.Error(), "no documents in result") {
+	if !strings.Contains(err.Error(), errorContains) {
 		return fmt.Errorf("unexpected error: %w", err)
 	}
 
 	return nil
 }
 
-func (e *Steps) revokeVC(profileVersionedID string) error {
+func (e *Steps) activateVC(profileVersionedID string) error {
+	return e.updateVCStatus(profileVersionedID, "false")
+}
+
+func (e *Steps) activateVCWithError(profileVersionedID, errorContains string) error {
+	err := e.activateVC(profileVersionedID)
+	if err == nil {
+		return fmt.Errorf("error expected, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), errorContains) {
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+
+	return nil
+}
+
+func (e *Steps) updateVCStatus(profileVersionedID, desiredStatus string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	loader, err := bddutil.DocumentLoader()
@@ -263,7 +284,7 @@ func (e *Steps) revokeVC(profileVersionedID string) error {
 		ProfileVersion: profileVersion,
 		CredentialID:   cred.Contents().ID,
 		CredentialStatus: model.CredentialStatus{
-			Status: "true",
+			Status: desiredStatus,
 			Type:   string(e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type),
 		},
 	}

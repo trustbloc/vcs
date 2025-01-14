@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/bin/bash
 
 function generate_krakend_config() {
   env=$1

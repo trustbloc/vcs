@@ -53,6 +53,8 @@ type CSLVCWrapper struct {
 }
 
 type UpdateVCStatusParams struct {
+	// Client roles from oAuth provider.
+	OAuthClientRoles []string
 	// Issuer Profile ID.
 	ProfileID profileapi.ID
 	// Issuer Profile Version.

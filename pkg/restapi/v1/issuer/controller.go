@@ -46,6 +46,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/refresh"
 )
 
+const (
+	clientRoleHeader = "X-Client-Roles"
+)
+
 var logger = log.New("restapi-issuer")
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -635,14 +639,20 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 		return err
 	}
 
-	if err := c.vcStatusManager.UpdateVCStatus(
+	oAuthClientRoles, err := getOAuthClientRolesFromRequest(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err = c.vcStatusManager.UpdateVCStatus(
 		ctx.Request().Context(),
 		credentialstatus.UpdateVCStatusParams{
-			ProfileID:      body.ProfileID,
-			ProfileVersion: body.ProfileVersion,
-			CredentialID:   body.CredentialID,
-			DesiredStatus:  body.CredentialStatus.Status,
-			StatusType:     vc.StatusType(body.CredentialStatus.Type),
+			OAuthClientRoles: oAuthClientRoles,
+			ProfileID:        body.ProfileID,
+			ProfileVersion:   body.ProfileVersion,
+			CredentialID:     body.CredentialID,
+			DesiredStatus:    body.CredentialStatus.Status,
+			StatusType:       vc.StatusType(body.CredentialStatus.Type),
 		},
 	); err != nil {
 		return err
@@ -1595,4 +1605,13 @@ func getJSONSchema(config *profileapi.VCConfig) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported VC model: %s", config.Model)
 	}
+}
+
+func getOAuthClientRolesFromRequest(e echo.Context) ([]string, error) {
+	rawRoles := e.Request().Header.Get(clientRoleHeader)
+	if rawRoles == "" {
+		return nil, resterr.NewUnauthorizedError(errors.New("missing role"))
+	}
+
+	return strings.Split(rawRoles, " "), nil
 }
