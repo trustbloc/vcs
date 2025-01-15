@@ -27,6 +27,7 @@ Feature: Using VC REST API
     # Attempt to activate credential with "revoker" role
     And V1 "<issuerProfile>" did unsuccessful attempt to activate credential: "client is not allowed to perform the action"
     # Verify that credential is still revoked
+    Then we wait 3 seconds
     And V1 revoked credential is unable to be verified under "<verifierProfile>" profile
     # Login with username & password that has role "activator"
     Then Profile "<issuerProfile>" issuer has been authorized with username "profile-user-activator-1" and password "profile-user-activator-1-pwd"
