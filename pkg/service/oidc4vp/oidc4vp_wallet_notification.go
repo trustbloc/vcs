@@ -107,6 +107,7 @@ func (s *Service) sendWalletNotificationEvent(
 	profile *profileapi.Verifier,
 	notification *WalletNotification,
 ) error {
+	// Send event only if notification.Error is known.
 	if _, isValidError := supportedAuthResponseErrTypes[notification.Error]; !isValidError {
 		logger.Infoc(ctx, "Ignoring unsupported error type", zap.String("error", notification.Error))
 		return nil
@@ -114,7 +115,14 @@ func (s *Service) sendWalletNotificationEvent(
 
 	ep := createBaseTxEventPayload(tx, profile)
 
-	ep.Error, ep.ErrorCode, ep.ErrorComponent = notification.ErrorDescription, notification.Error, errorComponentWallet
+	// error code, e.g. "access_denied".
+	// List: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-7.5
+	ep.ErrorCode = notification.Error
+
+	// error description, e.g. "no_consent", "no_match_found"
+	ep.Error = notification.ErrorDescription
+
+	ep.ErrorComponent = errorComponentWallet
 	ep.InteractionDetails = notification.InteractionDetails
 
 	spiEventType := s.getEventType(notification.Error, notification.ErrorDescription)
