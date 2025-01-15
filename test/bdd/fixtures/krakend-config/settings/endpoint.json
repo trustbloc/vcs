@@ -16,6 +16,7 @@
       "endpoint": "/issuer/credentials/status",
       "method": "POST",
       "protected": true,
+      "propagate_roles_header": true,
       "roles_to_validate": [
         "revoker",
         "activator"

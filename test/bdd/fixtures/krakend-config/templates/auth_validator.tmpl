@@ -11,11 +11,15 @@
     [
       "custom:tenant_id",
       "x-tenant-id"
-    ],
+    ]
+  {{ if .propagate_roles_header }}
+  ,
     [
       "custom:roles",
       "x-client-roles"
     ]
+
+  {{ end }}
   ]
   {{ if .roles_to_validate }}
   ,

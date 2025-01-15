@@ -538,7 +538,7 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 
 	if rawAuthResp.Error != "" {
 		// Error authorization response
-		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-6.4
+		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-7.5
 		return c.oidc4VPService.HandleWalletNotification(ctx, &oidc4vp.WalletNotification{
 			TxID:               oidc4vp.TxID(rawAuthResp.State),
 			Error:              rawAuthResp.Error,
