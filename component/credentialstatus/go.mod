@@ -15,11 +15,11 @@ require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
-	github.com/trustbloc/did-go v1.3.3-0.20250110150409-989a7364b77c
+	github.com/trustbloc/did-go v1.3.3
 	github.com/trustbloc/kms-go v1.2.1
 	github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
-	github.com/trustbloc/vc-go v1.3.2-0.20250127051935-c11d6ee3d412
+	github.com/trustbloc/vc-go v1.3.2
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 

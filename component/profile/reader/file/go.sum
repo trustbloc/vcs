@@ -471,8 +471,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2 h1:gepEsbLiZHv/vva9FKG5gF38mGtOIyGe
 github.com/trustbloc/bbs-signature-go v1.0.2/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/cmdutil-go v1.0.0 h1:QCe7wVEIASWmy9ZDD0l0tsQCEsX6fx+kBFX5UqCVRdk=
 github.com/trustbloc/cmdutil-go v1.0.0/go.mod h1:o/v7C1z6d/5UrjaC6GAUc1hk0XVuE3M4tpyvsMMUw5k=
-github.com/trustbloc/did-go v1.3.3-0.20250110150409-989a7364b77c h1:Gzb0MRUeAiTH+SBfjF0zhWIP5RRo8ozY1hTrXggY4lA=
-github.com/trustbloc/did-go v1.3.3-0.20250110150409-989a7364b77c/go.mod h1:bb8zEheJbCXvHGEzMGhbCcpiHEwcCZJ3Qua1G05WC4M=
+github.com/trustbloc/did-go v1.3.3 h1:B8Vapw0jNYGViBqcu/qlstpset8c6/JCkX6yIFCOmnc=
+github.com/trustbloc/did-go v1.3.3/go.mod h1:bb8zEheJbCXvHGEzMGhbCcpiHEwcCZJ3Qua1G05WC4M=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8 h1:DomzdQu7D3CDBsMijT0E9uQl91iFcsIfYq1UKXmI/XQ=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/trustbloc/kms-go v1.2.1 h1:lwBv6/Xs2v/36xesaNeg9VpB5YFCwzqq8wS/8/zV4pw=
@@ -481,8 +481,8 @@ github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e h1:r0AVM5IL
 github.com/trustbloc/logutil-go v1.0.1-0.20241105212510-19307a43016e/go.mod h1:AuHbwVcx1Rl6KNG2oFvlUR79egmDM8urblUaJ24p85A=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104 h1:0IW4muaGvhjJ4OkG6/PQG3DGf5POWxlA1wwEYsxWQ+4=
 github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104/go.mod h1:3yChjB5KOT7B9eZe0W1XaIx3MNUuC1Oe9nR/GCtI1W0=
-github.com/trustbloc/vc-go v1.3.2-0.20250127051935-c11d6ee3d412 h1:seGjGFvRrI0Rq8nLlYpgbyYleLsEw+YgI+fIZifH7GA=
-github.com/trustbloc/vc-go v1.3.2-0.20250127051935-c11d6ee3d412/go.mod h1:/sVRjCQy3mehG4CJiX34kETp1xBzaiqq1sku3jjDNUI=
+github.com/trustbloc/vc-go v1.3.2 h1:BOQnDZ4m1epJesm+2ORoDMGT7l9Q0sJj1VI7ro8Q9fY=
+github.com/trustbloc/vc-go v1.3.2/go.mod h1:/sVRjCQy3mehG4CJiX34kETp1xBzaiqq1sku3jjDNUI=
 github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=
 github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
