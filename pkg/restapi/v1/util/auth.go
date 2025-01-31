@@ -10,8 +10,6 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
-
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 const (
@@ -21,7 +19,7 @@ const (
 func GetTenantIDFromRequest(e echo.Context) (string, error) {
 	tenantID := e.Request().Header.Get(tenantIDHeader)
 	if tenantID == "" {
-		return "", resterr.NewUnauthorizedError(errors.New("missing authorization"))
+		return "", errors.New("missing authorization")
 	}
 
 	return tenantID, nil

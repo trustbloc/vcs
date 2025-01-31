@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
@@ -43,16 +44,19 @@ func TestController_GetOpenIDCredentialIssuerConfig(t *testing.T) {
 			name: "Success",
 			setup: func() {
 				mockTestIssuerProfile = loadProfile(t)
+				keyMgr := mocks.NewMockVCSKeyManager(gomock.NewController(t))
 
 				mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).
 					DoAndReturn(func(config *vcskms.Config) (vcskms.VCSKeyManager, error) {
 						assert.EqualValues(t, "local", config.KMSType)
 						assert.EqualValues(t, "https://example.com", config.Endpoint)
-						return nil, nil
+
+						return keyMgr, nil
 					})
 
 				mockCryptoJWTSigner.EXPECT().NewJWTSigned(gomock.Any(), &vc.Signer{
 					Creator:  "did:orb:bank_issuer#123",
+					KMS:      keyMgr,
 					KMSKeyID: "123",
 					KeyType:  "ECDSASecp256k1DER",
 				}).Return("aa.bb.cc", nil)

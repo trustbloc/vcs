@@ -16,7 +16,6 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 func ValidateCredential(
@@ -36,14 +35,13 @@ func ValidateCredential(
 	// validate the VC (ignore the proof and issuanceDate)
 	credential, err := verifiable.ParseCredential(vcBytes, opts...)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+		return nil, fmt.Errorf("parsing credential: %w", err)
 	}
 
 	credentialContents := credential.Contents()
 
 	if checkExpiration && credentialContents.Expired != nil && time.Now().UTC().After(credentialContents.Expired.Time) {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
-			errors.New("credential expired"))
+		return nil, errors.New("credential expired")
 	}
 
 	// Due to the current implementation in AFGO (func verifiable.ParseCredential()),

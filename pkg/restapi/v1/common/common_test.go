@@ -7,16 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
-	"errors"
 	"testing"
 
-	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 func TestController_MapToKMSConfigType(t *testing.T) {
@@ -37,107 +34,6 @@ func TestController_MapToKMSConfigType(t *testing.T) {
 	t.Run("Failed", func(t *testing.T) {
 		_, err := MapToKMSConfigType("incorrect")
 		require.Error(t, err)
-	})
-}
-
-func TestController_ValidateKMSConfig(t *testing.T) {
-	t.Run("Success (use default config)", func(t *testing.T) {
-		res, err := ValidateKMSConfig(nil)
-		require.NoError(t, err)
-		require.Nil(t, res)
-	})
-
-	t.Run("Success(type aws)", func(t *testing.T) {
-		config := &KMSConfig{
-			Endpoint: strPtr("aws://url"),
-			Type:     "aws",
-		}
-
-		_, err := ValidateKMSConfig(config)
-		require.NoError(t, err)
-	})
-
-	t.Run("Missed endpoint (type aws)", func(t *testing.T) {
-		config := &KMSConfig{
-			Type: "aws",
-		}
-
-		_, err := ValidateKMSConfig(config)
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.endpoint", err)
-	})
-
-	t.Run("Success(type web)", func(t *testing.T) {
-		config := &KMSConfig{
-			Endpoint: strPtr("aws://url"),
-			Type:     "web",
-		}
-
-		_, err := ValidateKMSConfig(config)
-		require.NoError(t, err)
-	})
-
-	t.Run("Missed endpoint (type web)", func(t *testing.T) {
-		config := &KMSConfig{
-			Type: "web",
-		}
-
-		_, err := ValidateKMSConfig(config)
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.endpoint", err)
-	})
-
-	t.Run("Success(type local)", func(t *testing.T) {
-		config := &KMSConfig{
-			DbPrefix:          strPtr("prefix"),
-			DbType:            strPtr("type"),
-			DbURL:             strPtr("url"),
-			SecretLockKeyPath: strPtr("path"),
-			Type:              "local",
-		}
-
-		_, err := ValidateKMSConfig(config)
-		require.NoError(t, err)
-	})
-
-	t.Run("Missed fields (type local)", func(t *testing.T) {
-		correct := &KMSConfig{
-			DbPrefix:          strPtr("prefix"),
-			DbType:            strPtr("type"),
-			DbURL:             strPtr("url"),
-			SecretLockKeyPath: strPtr("path"),
-			Type:              "local",
-		}
-
-		incorrect := &KMSConfig{}
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.DbPrefix = nil
-		_, err := ValidateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.dbPrefix", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.Type = "incorrect"
-		_, err = ValidateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.type", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.DbURL = nil
-		_, err = ValidateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.dbURL", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.DbType = nil
-		_, err = ValidateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.dbType", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.SecretLockKeyPath = nil
-		_, err = ValidateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.secretLockKeyPath", err)
 	})
 }
 
@@ -253,19 +149,4 @@ func TestValidateDIDMethod(t *testing.T) {
 
 	_, err = ValidateDIDMethod("invalid")
 	require.Error(t, err)
-}
-
-func strPtr(str string) *string {
-	return &str
-}
-
-// nolint: unparam
-func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
-
-	require.Equal(t, expectedCode, actualErr.Code)
-	require.Equal(t, incorrectValueName, actualErr.IncorrectValue)
-	require.Error(t, actualErr.Err)
 }

@@ -322,9 +322,9 @@ func TestCreate(t *testing.T) {
 		client := NewMockawsClient(gomock.NewController(t))
 		client.EXPECT().CreateKey(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
+				_ context.Context,
 				input *kms.CreateKeyInput,
-				f ...func(*kms.Options),
+				_ ...func(*kms.Options),
 			) (*kms.CreateKeyOutput, error) {
 				require.EqualValues(t, types.CustomerMasterKeySpecRsa2048, input.KeySpec)
 				return &kms.CreateKeyOutput{KeyMetadata: &types.KeyMetadata{KeyId: &keyID}}, nil
@@ -834,9 +834,9 @@ func TestEncrypt(t *testing.T) {
 
 		client.EXPECT().Encrypt(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
+				_ context.Context,
 				params *kms.EncryptInput,
-				optFns ...func(*kms.Options),
+				_ ...func(*kms.Options),
 			) (*kms.EncryptOutput, error) {
 				assert.Equal(t, "alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147", *params.KeyId)
 				assert.Equal(t, msg, params.Plaintext)
@@ -870,8 +870,8 @@ func TestEncrypt(t *testing.T) {
 
 		client.EXPECT().Encrypt(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
-				params *kms.EncryptInput,
+				_ context.Context,
+				_ *kms.EncryptInput,
 				optFns ...func(*kms.Options),
 			) (*kms.EncryptOutput, error) {
 				return nil, errors.New("encryption err")
@@ -929,9 +929,9 @@ func TestDecrypt(t *testing.T) {
 
 		client.EXPECT().Decrypt(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
+				_ context.Context,
 				params *kms.DecryptInput,
-				optFns ...func(*kms.Options),
+				_ ...func(*kms.Options),
 			) (*kms.DecryptOutput, error) {
 				assert.Equal(t, params.EncryptionAlgorithm, types.EncryptionAlgorithmSpec("RSAES_OAEP_SHA_256"))
 				assert.Equal(t, "alias/800d5768-3fd7-4edd-a4b8-4c81c3e4c147", *params.KeyId)
@@ -966,9 +966,9 @@ func TestDecrypt(t *testing.T) {
 
 		client.EXPECT().Decrypt(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
+				_ context.Context,
 				params *kms.DecryptInput,
-				optFns ...func(*kms.Options),
+				_ ...func(*kms.Options),
 			) (*kms.DecryptOutput, error) {
 				assert.Equal(t, params.EncryptionAlgorithm, types.EncryptionAlgorithmSpec("SYMMETRIC_DEFAULT"))
 

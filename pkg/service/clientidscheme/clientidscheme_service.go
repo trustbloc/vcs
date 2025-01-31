@@ -32,7 +32,7 @@ const (
 )
 
 type clientManager interface {
-	Create(ctx context.Context, profileID, profileVersion string, data *clientmanager.ClientMetadata) (*oauth2client.Client, error) //nolint:lll
+	Create(ctx context.Context, profileID, profileVersion string, data *clientmanager.ClientMetadata) (*oauth2client.Client, error) // nolint:lll // *rfc7591.Error
 	Get(ctx context.Context, id string) (fosite.Client, error)
 }
 

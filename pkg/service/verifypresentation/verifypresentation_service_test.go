@@ -87,7 +87,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 	}
 
 	type args struct {
-		getPresentation func(t *testing.T) *verifiable.Presentation
+		getPresentation func() *verifiable.Presentation
 		profile         *profileapi.Verifier
 		opts            *Options
 	}
@@ -126,7 +126,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 			},
 			args: args{
-				getPresentation: func(t *testing.T) *verifiable.Presentation {
+				getPresentation: func() *verifiable.Presentation {
 					return signedRequestedCredentialsVP.Presentation
 				},
 				profile: &profileapi.Verifier{
@@ -210,7 +210,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 			},
 			args: args{
-				getPresentation: func(t *testing.T) *verifiable.Presentation {
+				getPresentation: func() *verifiable.Presentation {
 					return signedRequestedCredentialsVP.Presentation
 				},
 				profile: &profileapi.Verifier{
@@ -279,12 +279,12 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getVDR: func() vdrapi.Registry {
 					return nil
 				},
-				getVcVerifier: func(t *testing.T) vcVerifier {
+				getVcVerifier: func(_ *testing.T) vcVerifier {
 					return nil
 				},
 			},
 			args: args{
-				getPresentation: func(t *testing.T) *verifiable.Presentation {
+				getPresentation: func() *verifiable.Presentation {
 					return nil
 				},
 				profile: &profileapi.Verifier{
@@ -333,7 +333,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 			},
 			args: args{
-				getPresentation: func(t *testing.T) *verifiable.Presentation {
+				getPresentation: func() *verifiable.Presentation {
 					return signedClientAttestationVP.Presentation
 				},
 				profile: &profileapi.Verifier{
@@ -399,7 +399,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				vcVerifier:     tt.fields.getVcVerifier(t),
 			}
 
-			got, _, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(t), tt.args.opts, tt.args.profile)
+			got, _, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(), tt.args.opts, tt.args.profile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1238,7 +1238,7 @@ func TestService_checkCredentialExpiry(t *testing.T) {
 
 				return []*verifiable.Credential{cred1}
 			},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, _ ...interface{}) bool {
 				return assert.ErrorContains(t, err, "credential expired")
 			},
 		},

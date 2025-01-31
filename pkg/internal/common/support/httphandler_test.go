@@ -18,7 +18,7 @@ func TestNewHTTPHandler(t *testing.T) {
 	path := "/sample-path"
 	method := "GET"
 	handled := make(chan bool)
-	handlerFn := func(w http.ResponseWriter, r *http.Request) {
+	handlerFn := func(_ http.ResponseWriter, _ *http.Request) {
 		// do nothing
 		handled <- true
 	}

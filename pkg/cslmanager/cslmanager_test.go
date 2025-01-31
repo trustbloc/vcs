@@ -799,7 +799,7 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 	t.Helper()
 
 	require.Equal(t, string(profile.VCConfig.Status.Type), statusID.TypedID.Type)
-	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
+	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose])
 
 	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
 	require.True(t, ok)
@@ -830,9 +830,9 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 	credSubject := statusListVCC.Subject
 
 	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
-	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"].(string))
-	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
-	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"])
+	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose])
+	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"])
 	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	require.NoError(t, err)
 
@@ -848,7 +848,7 @@ func validateBitstringVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusI
 	t.Helper()
 
 	require.Equal(t, string(vc.BitstringStatusList), statusID.TypedID.Type)
-	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
+	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose])
 
 	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
 	require.True(t, ok)
@@ -878,14 +878,14 @@ func validateBitstringVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusI
 	credSubject := statusListVCC.Subject
 
 	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
-	require.Equal(t, statustype.StatusListBitstringVCSubjectType, credSubject[0].CustomFields["type"].(string))
-	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
-	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
-	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string),
+	require.Equal(t, statustype.StatusListBitstringVCSubjectType, credSubject[0].CustomFields["type"])
+	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose])
+	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"])
+	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string), //nolint:errcheck
 		bitstring.WithMultibaseEncoding(multibase.Base64url))
 	require.NoError(t, err)
 
-	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string))
+	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string)) //nolint:errcheck
 	require.NoError(t, err)
 	bitSet, err := bitString.Get(revocationListIndex)
 	require.NoError(t, err)

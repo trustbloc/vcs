@@ -47,7 +47,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 
 	c := New(
 		&vdrmock.VDRegistry{
-			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			ResolveFunc: func(_ string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 			}},
 		testutil.DocumentLoader(t),
@@ -165,7 +165,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 	t.Run("Success with options", func(t *testing.T) {
 		testCrypto := New(
 			&vdrmock.VDRegistry{
-				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				ResolveFunc: func(_ string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 				}},
 			testutil.DocumentLoader(t),
@@ -233,7 +233,7 @@ func TestCrypto_SignCredentialLDPDataIntegrity(t *testing.T) { //nolint:gocognit
 
 		testCrypto := New(
 			&vdrmock.VDRegistry{
-				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				ResolveFunc: func(_ string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					return nil, errors.New("some error")
 				}},
 			testutil.DocumentLoader(t),

@@ -113,7 +113,7 @@ func TestService_HandleEvent(t *testing.T) {
 		cslService := NewMockCSLService(gomock.NewController(t))
 		cslService.EXPECT().GetCSLVCWrapper(gomock.Any(), cslURL).Return(cslWrapper, nil).AnyTimes()
 		cslService.EXPECT().SignCSL(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(profileID, profileVersion string, csl *verifiable.Credential) ([]byte, error) {
+			func(_, profileVersion string, csl *verifiable.Credential) ([]byte, error) {
 				cslBytes, e := json.Marshal(csl)
 				require.NoError(t, e)
 
@@ -192,7 +192,7 @@ func TestService_handleEventPayload(t *testing.T) {
 		cslService := NewMockCSLService(gomock.NewController(t))
 		cslService.EXPECT().GetCSLVCWrapper(gomock.Any(), cslURL).Return(cslWrapper, nil).AnyTimes()
 		cslService.EXPECT().SignCSL(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(profileID, profileVersion string, csl *verifiable.Credential) ([]byte, error) {
+			func(_, profileVersion string, csl *verifiable.Credential) ([]byte, error) {
 				cslBytes, e := json.Marshal(csl)
 				require.NoError(t, e)
 
@@ -362,7 +362,7 @@ func getVerifiedCSL(
 	require.NoError(t, err)
 
 	credSubject := csl.Contents().Subject
-	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"])
 
 	var bitString *bitstring.BitString
 
@@ -370,10 +370,10 @@ func getVerifiedCSL(
 	require.True(t, ok)
 
 	if statusType == "BitstringStatusList" {
-		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string),
+		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string), //nolint:errcheck
 			bitstring.WithMultibaseEncoding(multibase.Base64url))
 	} else {
-		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string)) //nolint:errcheck
 	}
 
 	require.NoError(t, err)

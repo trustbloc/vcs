@@ -376,7 +376,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				proofChecker = defaultProofChecker
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
-					func(req *http.Request) (*http.Response, error) {
+					func(_ *http.Request) (*http.Response, error) {
 						return &http.Response{
 							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBufferString(`{"allowed":true}`)),
@@ -500,7 +500,7 @@ func TestService_ValidatePresentation(t *testing.T) {
 				proofChecker = defaultProofChecker
 
 				httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(
-					func(req *http.Request) (*http.Response, error) {
+					func(_ *http.Request) (*http.Response, error) {
 						return &http.Response{
 							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBufferString(`{"allowed":false}`)),

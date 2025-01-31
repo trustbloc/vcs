@@ -39,12 +39,6 @@ type AccessTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
-// AckErrorResponse Ack response.
-type AckErrorResponse struct {
-	// Error Error description.
-	Error string `json:"error"`
-}
-
 // AckRequest Ack request.
 type AckRequest struct {
 	// Event Type of the notification event. According to draft 13 spec.
@@ -161,15 +155,6 @@ type PushedAuthorizationResponse struct {
 
 	// RequestUri The request URI corresponding to the authorization request posted. This URI is a single-use reference to the respective request data in the subsequent authorization request.
 	RequestUri string `json:"request_uri"`
-}
-
-// RegisterOAuthClientErrorResponse OAuth 2.0 client registration error response.
-type RegisterOAuthClientErrorResponse struct {
-	// Error Single ASCII error code string.
-	Error string `json:"error"`
-
-	// ErrorDescription Human-readable ASCII text description of the error used for debugging.
-	ErrorDescription *string `json:"error_description,omitempty"`
 }
 
 // RegisterOAuthClientRequest OAuth 2.0 client registration request.

@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/vcs/internal/utils"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -50,7 +51,7 @@ func (c *Controller) GetRefreshedCredential(
 ) error {
 	var req GetRefreshedCredentialReq
 	if err := ctx.Bind(&req); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "request", err)
+		return oidc4cierr.NewBadRequestError(err).WithOperation("read body")
 	}
 
 	opts := []verifiable.PresentationOpt{
@@ -67,19 +68,25 @@ func (c *Controller) GetRefreshedCredential(
 		opts...,
 	)
 	if err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "verifiable_presentation", err)
+		return oidc4cierr.NewBadRequestError(err).
+			WithOperation("read body").
+			WithIncorrectValue("verifiable_presentation")
 	}
 
 	targetIssuer, err := c.cfg.ProfileService.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return oidc4cierr.NewBadRequestError(err).
+			WithOperation("GetProfile").
+			WithComponent(resterr.IssuerProfileSvcComponent).
+			WithIncorrectValue("verifiable_presentation")
 	}
 
 	resp, err := c.cfg.RefreshService.GetRefreshedCredential(ctx.Request().Context(), pres, *targetIssuer)
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent,
-			"GetRefreshedCredential",
-			err)
+		return oidc4cierr.NewBadRequestError(err).
+			WithOperation("GetRefreshedCredential").
+			WithComponent(resterr.IssuerCredentialRefreshSvcComponent).
+			WithIncorrectValue("verifiable_presentation")
 	}
 
 	return ctx.JSON(http.StatusOK, GetRefreshedCredentialResp{
@@ -97,13 +104,16 @@ func (c *Controller) RequestRefreshStatus(
 ) error {
 	targetIssuer, err := c.cfg.ProfileService.GetProfile(issuerID, profileVersion)
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return oidc4cierr.NewBadRequestError(err).
+			WithOperation("GetProfile").
+			WithComponent(resterr.IssuerProfileSvcComponent)
 	}
 
 	resp, err := c.cfg.RefreshService.RequestRefreshStatus(ctx.Request().Context(), params.CredentialID, *targetIssuer)
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent, "RequestRefreshStatus",
-			err)
+		return oidc4cierr.NewBadRequestError(err).
+			WithOperation("RequestRefreshStatus").
+			WithComponent(resterr.IssuerCredentialRefreshSvcComponent)
 	}
 
 	if resp == nil {
@@ -112,8 +122,9 @@ func (c *Controller) RequestRefreshStatus(
 
 	query, err := utils.StructureToMap(resp.VerifiablePresentationRequest.Query)
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerCredentialRefreshSvcComponent, "RequestRefreshStatus",
-			err)
+		return oidc4cierr.NewBadRequestError(err).
+			WithOperation("StructureToMap").
+			WithComponent(resterr.IssuerCredentialRefreshSvcComponent)
 	}
 
 	return ctx.JSON(http.StatusOK, &CredentialRefreshAvailableResponse{

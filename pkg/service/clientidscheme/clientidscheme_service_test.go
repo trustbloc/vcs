@@ -51,8 +51,8 @@ func TestService_Register(t *testing.T) {
 
 				clientManager.EXPECT().Create(gomock.Any(), "profileID", "profileVersion", gomock.Any()).DoAndReturn(
 					func(
-						ctx context.Context,
-						profileID, profileVersion string,
+						_ context.Context,
+						_, _ string,
 						data *clientmanager.ClientMetadata,
 					) (*oauth2client.Client, error) {
 						require.Equal(t, "test-client", data.Name)

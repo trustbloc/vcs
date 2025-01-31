@@ -12,9 +12,10 @@ import (
 	"fmt"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
+
+//go:generate mockgen -source claims.go -destination claims_mocks_test.go -package claims_test
 
 type dataProtector interface {
 	Encrypt(ctx context.Context, msg []byte) (*dataprotect.EncryptedData, error)
@@ -33,7 +34,7 @@ func EncryptClaims(
 
 	encrypted, err := protector.Encrypt(ctx, bytesData)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.DataProtectorComponent, "Encrypt", err)
+		return nil, fmt.Errorf("encrypt claims: %w", err)
 	}
 
 	return &issuecredential.ClaimData{
@@ -48,7 +49,7 @@ func DecryptClaims(
 ) (map[string]interface{}, error) {
 	resp, err := protector.Decrypt(ctx, data.EncryptedData)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.DataProtectorComponent, "Decrypt", err)
+		return nil, fmt.Errorf("decrypt claims: %w", err)
 	}
 
 	finalMap := map[string]interface{}{}

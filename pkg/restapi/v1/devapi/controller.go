@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
@@ -76,25 +77,35 @@ func NewController(
 // DidConfig requests well-known DID config.
 // GET /{profileType}/profiles/{profileID}/{profileVersion}/well-known/did-config.
 func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID, profileVersion string) error {
-	return apiUtil.WriteOutput(ctx)(c.didConfigService.DidConfig(ctx.Request().Context(),
+	didConfig, err := c.didConfigService.DidConfig(ctx.Request().Context(),
 		didconfiguration.ProfileType(strings.ToLower(profileType)),
-		profileID, profileVersion))
+		profileID, profileVersion)
+	if err != nil {
+		return oidc4cierr.NewBadRequestError(err).
+			WithErrorPrefix("get did config").
+			UsePublicAPIResponse()
+	}
+
+	return apiUtil.WriteOutput(ctx)(didConfig, nil)
 }
 
 // RequestObjectByUuid Receive request object by uuid.
 // GET /request-object/{uuid}.
 func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { //nolint:stylecheck,revive
 	logger.Infoc(ctx.Request().Context(), "RequestObjectByUuid begin")
+
 	record, err := c.requestObjectStoreService.Get(ctx.Request().Context(), uuid)
-
-	if errors.Is(err, requestobject.ErrDataNotFound) {
-		ctx.Response().Status = http.StatusNotFound
-	}
-
 	if err != nil {
-		return err
+		oidc4ciErr := oidc4cierr.NewBadRequestError(err)
+
+		if errors.Is(err, requestobject.ErrDataNotFound) {
+			oidc4ciErr = oidc4cierr.NewNotFoundError(err)
+		}
+
+		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
 	logger.Infoc(ctx.Request().Context(), "RequestObjectByUuid end")
+
 	return ctx.String(http.StatusOK, record.Content)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
@@ -72,9 +73,12 @@ func TestRequestObjectByUUID(t *testing.T) {
 
 		ct := echoContext()
 		store.EXPECT().Get(gomock.Any(), "123").Return(nil, requestobject.ErrDataNotFound)
-		assert.ErrorContains(t, c.RequestObjectByUuid(ct, "123"), "data not found")
 
-		assert.Equal(t, http.StatusNotFound, ct.Response().Status)
+		err := c.RequestObjectByUuid(ct, "123")
+
+		var oidc4ciErr *oidc4cierr.Error
+		assert.ErrorAs(t, err, &oidc4ciErr)
+		assert.Equal(t, "not_found", oidc4ciErr.Code())
 	})
 }
 

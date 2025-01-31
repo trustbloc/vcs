@@ -156,3 +156,35 @@ components:
             - type: object
       required:
         - credential
+    PrivateAPIErrorResponse:
+      title: PrivateAPIErrorResponse
+      type: object
+      description: Model for private API error response.
+      properties:
+        error:
+          type: string
+          description: Error code.
+        component:
+          type: string
+        operation:
+          type: string
+        incorrect_value:
+          type: string
+        http_status:
+          type: integer
+        error_description:
+          type: string
+      required:
+        - error
+    PublicAPIErrorResponse:
+      title: PublicAPIErrorResponse
+      type: object
+      description: Model for public API error response.
+      properties:
+        error:
+          type: string
+          description: Error code.
+        error_description:
+          type: string
+      required:
+        - error

@@ -26,6 +26,10 @@ const (
 	collectionName = "oidc4authstate"
 )
 
+var (
+	ErrOpStateKeyDuplication = errors.New("op state key duplication")
+)
+
 type mongoDocument struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
 	ExpireAt time.Time          `bson:"expireAt"`
@@ -91,7 +95,7 @@ func (s *Store) SaveAuthorizeState(
 
 	_, err := collection.InsertOne(ctx, obj)
 	if err != nil && strings.Contains(err.Error(), "duplicate key error collection") {
-		return resterr.NewCustomError(resterr.OpStateKeyDuplication, resterr.ErrOpStateKeyDuplication)
+		return ErrOpStateKeyDuplication
 	}
 
 	return err
@@ -107,7 +111,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 	}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, err
@@ -115,7 +119,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+		return nil, resterr.ErrDataNotFound
 	}
 
 	return doc.State, nil

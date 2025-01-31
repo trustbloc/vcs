@@ -12,19 +12,20 @@ import (
 	"github.com/samber/lo"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 func ValidateAuthorizationDetails(
-	authorizationDetails []common.AuthorizationDetails) ([]*issuecredential.AuthorizationDetails, error) {
+	authorizationDetails []common.AuthorizationDetails,
+) ([]*issuecredential.AuthorizationDetails, error) { // *rfc6749.Error
 	var authorizationDetailsDomain []*issuecredential.AuthorizationDetails
 
 	for _, ad := range authorizationDetails {
 		if ad.Type != "openid_credential" {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
-				errors.New("type should be 'openid_credential'"))
+			return nil, rfc6749.NewInvalidRequestError(errors.New("type should be 'openid_credential'")).
+				WithIncorrectValue("authorization_details.type")
 		}
 
 		oidcCredentialFormat := lo.FromPtr(ad.Format)
@@ -44,14 +45,15 @@ func ValidateAuthorizationDetails(
 		case oidcCredentialFormat != "": // Priority 2. Based on credentialFormat.
 			_, err := common.ValidateVCFormat(common.VCFormat(oidcCredentialFormat))
 			if err != nil {
-				return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
+				return nil, rfc6749.NewInvalidRequestError(err).
+					WithIncorrectValue("authorization_details.format")
 			}
 
 			mapped.Format = vcsverifiable.OIDCFormat(oidcCredentialFormat)
 
 			if ad.CredentialDefinition == nil {
-				return nil, resterr.NewValidationError(resterr.InvalidValue,
-					"authorization_details.credential_definition", errors.New("not supplied"))
+				return nil, rfc6749.NewInvalidRequestError(errors.New("not supplied")).
+					WithIncorrectValue("authorization_details.credential_definition")
 			}
 
 			mapped.CredentialDefinition = &issuecredential.CredentialDefinition{
@@ -60,9 +62,9 @@ func ValidateAuthorizationDetails(
 				Type:              ad.CredentialDefinition.Type,
 			}
 		default:
-			return nil, resterr.NewValidationError(resterr.InvalidValue,
-				"authorization_details.credential_configuration_id",
-				errors.New("neither credentialFormat nor credentialConfigurationID supplied"))
+			return nil, rfc6749.NewInvalidRequestError(
+				errors.New("neither credentialFormat nor credentialConfigurationID supplied")).
+				WithIncorrectValue("authorization_details.credential_configuration_id")
 		}
 
 		authorizationDetailsDomain = append(authorizationDetailsDomain, mapped)

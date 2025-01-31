@@ -464,10 +464,10 @@ func getVerifiedCSL(
 	require.True(t, ok)
 
 	if statusType == "BitstringStatusList" {
-		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string),
+		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string), //nolint:errcheck
 			bitstring.WithMultibaseEncoding(multibase.Base64url))
 	} else {
-		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+		bitString, err = bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string)) //nolint:errcheck
 	}
 
 	require.NoError(t, err)

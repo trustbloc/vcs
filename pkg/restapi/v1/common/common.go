@@ -14,16 +14,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-)
-
-const (
-	kmsConfigType              = "kmsConfig.type"
-	kmsConfigSecretLockKeyPath = "kmsConfig.secretLockKeyPath" //nolint: gosec
-	kmsConfigEndpoint          = "kmsConfig.endpoint"
-	kmsConfigDBURL             = "kmsConfig.dbURL"
-	kmsConfigDBType            = "kmsConfig.dbType"
-	kmsConfigDBPrefix          = "kmsConfig.dbPrefix"
 )
 
 func ValidateVCFormat(format VCFormat) (vcsverifiable.Format, error) {
@@ -106,70 +96,6 @@ func MapToDIDMethod(method profileapi.Method) (DIDMethod, error) {
 	return "",
 		fmt.Errorf("did method missmatch %s, rest api supports only [%s, %s, %s]",
 			method, DIDMethodKey, DIDMethodWeb, DIDMethodOrb)
-}
-
-func ValidateKMSConfig(config *KMSConfig) (*kms.Config, error) {
-	if config == nil {
-		return nil, nil //nolint: nilnil
-	}
-
-	kmsType, err := ValidateKMSType(config.Type)
-	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigType, err)
-	}
-
-	if kmsType == kms.AWS || kmsType == kms.Web {
-		if config.Endpoint == nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigEndpoint,
-				fmt.Errorf("enpoint is required for %s kms", config.Type))
-		}
-		return &kms.Config{
-			KMSType:  kmsType,
-			Endpoint: *config.Endpoint,
-		}, nil
-	}
-
-	if config.SecretLockKeyPath == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigSecretLockKeyPath,
-			fmt.Errorf("secretLockKeyPath is required for %s kms", config.Type))
-	}
-
-	if config.DbType == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigDBType,
-			fmt.Errorf("dbType is required for %s kms", config.Type))
-	}
-
-	if config.DbURL == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigDBURL,
-			fmt.Errorf("dbURL is required for %s kms", config.Type))
-	}
-
-	if config.DbPrefix == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigDBPrefix,
-			fmt.Errorf("dbPrefix is required for %s kms", config.Type))
-	}
-
-	return &kms.Config{
-		KMSType:           kmsType,
-		SecretLockKeyPath: *config.SecretLockKeyPath,
-		DBType:            *config.DbType,
-		DBURL:             *config.DbURL,
-		DBName:            *config.DbPrefix,
-	}, nil
-}
-
-func ValidateKMSType(kmsType KMSConfigType) (kms.Type, error) {
-	switch kmsType {
-	case KMSConfigTypeAws:
-		return kms.AWS, nil
-	case KMSConfigTypeLocal:
-		return kms.Local, nil
-	case KMSConfigTypeWeb:
-		return kms.Web, nil
-	}
-
-	return "", fmt.Errorf("unsupported kms type %s, use one of next [%s, %s, %s]",
-		kmsType, KMSConfigTypeAws, KMSConfigTypeLocal, KMSConfigTypeWeb)
 }
 
 func MapToKMSConfigType(kmsType kms.Type) (KMSConfigType, error) {

@@ -12,7 +12,6 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -157,13 +156,13 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "Error invalid format JWT",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return []byte(sampleVCJWT)
 				},
 				format: vcsverifiable.Jwt,
 				opts:   []verifiable.CredentialOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
@@ -171,7 +170,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "Error invalid format JSON-LD",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCJsonLD
 				},
 				format: vcsverifiable.Ldp,
@@ -185,13 +184,13 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "Error validation JWT",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return ""
 				},
 				format: vcsverifiable.Jwt,
 				opts:   []verifiable.CredentialOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
@@ -199,7 +198,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "Error validation JSON-LD",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return map[string]interface{}{}
 				},
 				format: vcsverifiable.Ldp,
@@ -213,7 +212,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "expired credentials",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCJWTExpired
 				},
 				format: vcsverifiable.Jwt,
@@ -223,18 +222,18 @@ func TestValidateCredential(t *testing.T) {
 				},
 				checkExpiration: true,
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(_ *testing.T) *verifiable.Credential {
 				return nil
 			},
 			wantErr: true,
 			wantErrFn: func(t *testing.T, err error) {
-				assert.ErrorContains(t, err, "invalid-value[credential]: credential expired")
+				assert.ErrorContains(t, err, "credential expired")
 			},
 		},
 		{
 			name: "expired credentials (without expiration check)",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCJWTExpired
 				},
 				format: vcsverifiable.Jwt,
@@ -315,7 +314,7 @@ func TestValidateCredential(t *testing.T) {
 		{
 			name: "Error JWT with strict validation",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVCJWTInvalid
 				},
 				format:                  vcsverifiable.Jwt,
@@ -494,7 +493,7 @@ func Test_validateSDJWTCredential(t *testing.T) {
 			documentLoader := testutil.DocumentLoader(t)
 			got, err := validateSDJWTCredential(tt.args.getCredential(), documentLoader)
 			if (err != nil) != tt.wantErr {
-				t.Errorf(fmt.Sprintf("validateSDJWTCredential(%v, %v) err %s", credential, documentLoader, err.Error()))
+				t.Errorf("validateSDJWTCredential(%v, %v) err %s", credential, documentLoader, err.Error())
 			}
 
 			assert.Equalf(t, tt.wantCredential(), got, "validateSDJWTCredential(%v, %v)", credential, documentLoader)
