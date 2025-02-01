@@ -24,6 +24,10 @@ const (
 	keyPrefix = "oidc4authstate"
 )
 
+var (
+	ErrOpStateKeyDuplication = errors.New("op state key duplication")
+)
+
 // Store stores OIDC4CI authorize request/response state in redis.
 type Store struct {
 	defaultTTL  time.Duration
@@ -59,15 +63,15 @@ func (s *Store) SaveAuthorizeState(
 
 	b, err := clientAPI.Exists(ctx, key).Result()
 	if err != nil {
-		return resterr.NewSystemError(resterr.RedisComponent, "Exists", fmt.Errorf("exists: %w", err))
+		return fmt.Errorf("exists: %w", err)
 	}
 
 	if b > 0 {
-		return resterr.NewCustomError(resterr.OpStateKeyDuplication, resterr.ErrOpStateKeyDuplication)
+		return ErrOpStateKeyDuplication
 	}
 
 	if err = clientAPI.Set(ctx, key, doc, s.defaultTTL).Err(); err != nil {
-		return resterr.NewSystemError(resterr.RedisComponent, "Set", fmt.Errorf("saveAuthorizeState failed: %w", err))
+		return fmt.Errorf("saveAuthorizeState failed: %w", err)
 	}
 
 	return nil
@@ -79,7 +83,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 	b, err := s.redisClient.API().Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, fmt.Errorf("find: %w", err)
@@ -91,7 +95,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci
 	}
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
-		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+		return nil, resterr.ErrDataNotFound
 	}
 
 	return doc.State, nil

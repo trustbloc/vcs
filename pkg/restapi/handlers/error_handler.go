@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package resterr
+package handlers
 
 import (
 	"errors"
@@ -17,6 +17,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
+	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc7591"
 )
 
 var logger = log.New("rest-err")
@@ -26,7 +31,7 @@ func HTTPErrorHandler(tracer trace.Tracer) func(err error, c echo.Context) {
 		ctx, span := tracer.Start(c.Request().Context(), "HTTPErrorHandler")
 		defer span.End()
 
-		var fositeError *FositeError
+		var fositeError *resterr.FositeError
 		if errors.As(err, &fositeError) {
 			span.SetStatus(codes.Error, "fosite error")
 			span.RecordError(err)
@@ -68,10 +73,10 @@ func sendResponse(c echo.Context, code int, message interface{}) {
 }
 
 func processError(err error) (int, interface{}) {
-	switch v := err.(type) { //nolint: errorlint
-	case *echo.HTTPError:
-		code, message := v.Code, v.Message
-		if v.Internal != nil {
+	var echoHTTPError *echo.HTTPError
+	if errors.As(err, &echoHTTPError) {
+		code, message := echoHTTPError.Code, echoHTTPError.Message
+		if echoHTTPError.Internal != nil {
 			message = err.Error()
 		}
 
@@ -82,19 +87,30 @@ func processError(err error) (int, interface{}) {
 		}
 
 		return code, message
+	}
 
-	case *CustomError:
-		return v.HTTPCodeMsg()
-	case *RegistrationError:
-		// https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.2
-		return http.StatusBadRequest, map[string]interface{}{
-			"error":             v.Code,
-			"error_description": v.Error(),
-		}
-	default:
-		return http.StatusInternalServerError, map[string]interface{}{
-			"code":    "generic-error",
-			"message": err.Error(),
-		}
+	var oidc4ciError *oidc4cierr.Error
+	if errors.As(err, &oidc4ciError) {
+		return oidc4ciError.HTTPStatus, oidc4ciError
+	}
+
+	var oidc4vpError *oidc4vperr.Error
+	if errors.As(err, &oidc4vpError) {
+		return oidc4vpError.HTTPStatus, oidc4vpError
+	}
+
+	var rfc6749Error *rfc6749.Error
+	if errors.As(err, &rfc6749Error) {
+		return rfc6749Error.HTTPStatus, rfc6749Error
+	}
+
+	var rfc7591Error *rfc7591.Error
+	if errors.As(err, &rfc7591Error) {
+		return rfc7591Error.HTTPStatus, rfc7591Error
+	}
+
+	return http.StatusInternalServerError, map[string]interface{}{
+		"error":             "generic-error",
+		"error_description": err.Error(),
 	}
 }

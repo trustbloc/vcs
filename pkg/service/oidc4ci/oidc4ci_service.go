@@ -23,6 +23,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
+	"go.uber.org/zap"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -31,6 +32,8 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
@@ -229,25 +232,21 @@ func (s *Service) PushAuthorizationDetails(
 ) error {
 	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
-		return fmt.Errorf("find tx by op state: %w", err)
+		return rfc6749.NewInvalidGrantError(err).WithErrorPrefix("find tx by op state")
 	}
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return resterr.NewCustomError(resterr.ProfileNotFound, err)
-		}
-
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return rfc6749.NewInvalidRequestError(err).WithErrorPrefix("getProfile")
 	}
 
 	var requestedTxCredentialConfigurationsIDs map[string]struct{}
-	if requestedTxCredentialConfigurationsIDs, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
+	if requestedTxCredentialConfigurationsIDs, _, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
 		profile,
 		tx.CredentialConfiguration,
 		ad,
 	); err != nil {
-		return err
+		return rfc6749.NewInvalidRequestError(err)
 	}
 
 	var validTxCredentialConfiguration []*issuecredential.TxCredentialConfiguration
@@ -261,7 +260,7 @@ func (s *Service) PushAuthorizationDetails(
 	tx.CredentialConfiguration = validTxCredentialConfiguration
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		return resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+		return rfc6749.NewInvalidRequestError(err).WithErrorPrefix("update store")
 	}
 
 	return nil
@@ -289,7 +288,7 @@ func (s *Service) checkScopes(
 	// Check each request scope.
 	for _, reqScope := range reqScopes {
 		if !lo.Contains(txScope, reqScope) {
-			return nil, resterr.ErrInvalidScope
+			return nil, errors.New("invalid scope")
 		}
 
 		if !lo.Contains(profile.OIDCConfig.ScopesSupported, reqScope) {
@@ -358,7 +357,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 			req.Scope,
 			ExtractIssuerURL(req.OpState),
 		)
-		if walletFlowErr != nil && errors.Is(walletFlowErr, resterr.ErrInvalidIssuerURL) { // not wallet-initiated flow
+		if walletFlowErr != nil && errors.Is(walletFlowErr, ErrInvalidIssuerURL) { // not wallet-initiated flow
 			return nil, err
 		}
 
@@ -371,37 +370,37 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	newState := issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(
+			ctx, tx, err.Error(), resterr.InvalidStateTransition, resterr.IssuerOIDC4ciSvcComponent)
 		return nil, err
 	}
 
 	tx.State = newState
 
 	if req.ResponseType != tx.ResponseType {
-		return nil, resterr.ErrResponseTypeMismatch
+		return nil, ErrResponseTypeMismatch
 	}
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-				fmt.Errorf("update tx auth details: get profile: %w", err))
+			return nil, resterr.ErrProfileNotFound
 		}
 
-		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile",
-			fmt.Errorf("update tx auth details: get profile: %w", err))
+		return nil, fmt.Errorf("update tx auth details: get profile: %w", err)
 	}
 
 	authorizationDetailsSupplied := len(req.AuthorizationDetails) > 0
 	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
 	if authorizationDetailsSupplied {
-		if requestedTxCredentialConfigurationIDs, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails(
+		var eventErrCode resterr.EventErrorCode
+		if requestedTxCredentialConfigurationIDs, eventErrCode, err = s.enrichTxCredentialConfigurationsWithAuthorizationDetails( //nolint:lll
 			profile,
 			tx.CredentialConfiguration,
 			req.AuthorizationDetails,
 		); err != nil {
-			s.sendFailedTransactionEvent(ctx, tx, err)
+			s.sendFailedTransactionEvent(ctx, tx, err.Error(), eventErrCode, resterr.IssuerOIDC4ciSvcComponent)
 			return nil, err
 		}
 	}
@@ -409,9 +408,13 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	validScopes, err := s.checkScopes(
 		profile, req.Scope, tx.Scope, tx.CredentialConfiguration, requestedTxCredentialConfigurationIDs)
 	if err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
+		e := rfc6749.NewInvalidScopeError(err).
+			WithErrorPrefix("check scopes").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 
-		return nil, err
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), resterr.IssuerOIDC4ciSvcComponent)
+
+		return nil, e
 	}
 
 	tx.Scope = validScopes
@@ -427,9 +430,9 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	tx.CredentialConfiguration = validTxCredentialConfiguration
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+		e := fmt.Errorf("update store: %w", err)
 
-		s.sendFailedTransactionEvent(ctx, tx, e)
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), resterr.SystemError, resterr.TransactionStoreComponent)
 
 		return nil, e
 	}
@@ -459,7 +462,7 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	sp := strings.Split(issuerURL, "/")
 	if len(sp) < WalletInitFlowClaimExpectedMatchCount {
 		logger.Error("invalid issuer url for wallet initiated flow", log.WithURL(issuerURL))
-		return nil, resterr.ErrInvalidIssuerURL
+		return nil, ErrInvalidIssuerURL
 	}
 
 	profileID, profileVersion := sp[len(sp)-2], sp[len(sp)-1]
@@ -467,10 +470,10 @@ func (s *Service) prepareClaimDataAuthorizationRequestWalletInitiated(
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
+			return nil, resterr.ErrProfileNotFound
 		}
 
-		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	if profile.OIDCConfig == nil || !profile.OIDCConfig.WalletInitiatedAuthFlowSupported {
@@ -518,7 +521,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 	profile *profileapi.Issuer,
 	txCredentialConfigurations []*issuecredential.TxCredentialConfiguration,
 	authorizationDetails []*issuecredential.AuthorizationDetails,
-) (map[string]struct{}, error) {
+) (map[string]struct{}, resterr.EventErrorCode, error) {
 	requestedTxCredentialConfigurationIDs := make(map[string]struct{})
 
 	for _, ad := range authorizationDetails {
@@ -531,7 +534,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 
 			// Check if ad.CredentialConfigurationID exists in issuer metadata.
 			if metaCredentialsConfigurationSupported == nil {
-				return nil, resterr.ErrInvalidCredentialConfigurationID
+				return nil, resterr.InvalidCredentialConfigurationID, ErrInvalidCredentialConfigurationID
 			}
 
 			var atLeastOneFound bool
@@ -544,7 +547,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 				}
 
 				if metaCredentialsConfigurationSupported.Format != txCredentialConfiguration.OIDCCredentialFormat {
-					return nil, resterr.ErrCredentialFormatNotSupported
+					return nil, resterr.CredentialFormatNotSupported, ErrCredentialFormatNotSupported
 				}
 
 				var targetType string
@@ -553,7 +556,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 				}
 
 				if !strings.EqualFold(targetType, txCredentialConfiguration.CredentialTemplate.Type) {
-					return nil, resterr.ErrCredentialTypeNotSupported
+					return nil, resterr.CredentialTypeNotSupported, ErrCredentialTypeNotSupported
 				}
 
 				atLeastOneFound = true
@@ -562,7 +565,7 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 			}
 
 			if !atLeastOneFound {
-				return nil, resterr.ErrInvalidCredentialConfigurationID
+				return nil, resterr.InvalidCredentialConfigurationID, ErrInvalidCredentialConfigurationID
 			}
 		case ad.Format != "": // AuthorizationDetails contains Format.
 			var requestedCredentialFormatValid bool
@@ -585,18 +588,14 @@ func (s *Service) enrichTxCredentialConfigurationsWithAuthorizationDetails(
 			}
 
 			if !requestedCredentialFormatValid {
-				return nil, resterr.ErrCredentialFormatNotSupported
+				return nil, resterr.CredentialFormatNotSupported, ErrCredentialFormatNotSupported
 			}
 		default:
-			return nil, resterr.NewValidationError(
-				resterr.InvalidValue,
-				"authorization_details",
-				errors.New("neither credentialFormat nor credentialConfigurationID supplied"),
-			)
+			return nil, resterr.InvalidValue, errors.New("neither credentialFormat nor credentialConfigurationID supplied")
 		}
 	}
 
-	return requestedTxCredentialConfigurationIDs, nil
+	return requestedTxCredentialConfigurationIDs, "", nil
 }
 
 func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
@@ -609,62 +608,57 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 ) (*issuecredential.Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
-		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("find tx by op state: %w", err))
+		return nil, rfc6749.NewInvalidGrantError(err).WithErrorPrefix("find tx by op state")
 	}
 
 	if len(pin) > 0 && len(tx.UserPin) == 0 {
-		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeDoesNotExpectPin,
-			fmt.Errorf("server does not expect pin"))
+		return nil, rfc6749.NewInvalidRequestError(fmt.Errorf("server does not expect pin"))
 	}
 
 	if len(pin) == 0 && len(tx.UserPin) > 0 {
-		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeExpectPin,
-			fmt.Errorf("server expects user pin"))
+		return nil, rfc6749.NewInvalidRequestError(fmt.Errorf("server expects user pin"))
 	}
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
-		}
-
-		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return nil, rfc6749.NewInvalidRequestError(err).WithErrorPrefix("getProfile")
 	}
 
 	if clientID == "" { // check if anonymous access is allowed
 		// profile.OIDCConfig is not required for pre-auth flow, so no specific error for this case.
 		if profile.OIDCConfig != nil && !profile.OIDCConfig.PreAuthorizedGrantAnonymousAccessSupported {
-			return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidClientID,
+			return nil, rfc6749.NewInvalidClientError(
 				fmt.Errorf("issuer does not accept Token Request with a Pre-Authorized Code but without a client_id"))
 		}
 	}
 
 	newState := issuecredential.TransactionStatePreAuthCodeValidated
-	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		return nil, err
+	if validationError := s.validateStateTransition(tx.State, newState); validationError != nil {
+		return nil, rfc6749.NewInvalidRequestError(validationError)
 	}
+
 	tx.State = newState
 
 	for _, credentialConfiguration := range tx.CredentialConfiguration {
 		if credentialConfiguration.PreAuthCodeExpiresAt.UTC().Before(time.Now().UTC()) {
-			return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorization code"))
+			return nil, rfc6749.NewInvalidGrantError(fmt.Errorf("invalid pre-authorization code"))
 		}
 	}
 
 	if tx.PreAuthCode != preAuthorizedCode {
-		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorization code"))
+		return nil, rfc6749.NewInvalidGrantError(fmt.Errorf("invalid pre-authorization code"))
 	}
 
 	if len(tx.UserPin) > 0 && !s.pinGenerator.Validate(tx.UserPin, pin) {
-		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidPin, fmt.Errorf("invalid pin"))
+		return nil, rfc6749.NewInvalidGrantError(fmt.Errorf("invalid pin"))
 	}
 
 	if err = s.checkPolicy(ctx, profile, tx, clientAssertionType, clientAssertion); err != nil {
-		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		return nil, rfc6749.NewInvalidRequestError(err).WithErrorPrefix("check policy")
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		return nil, err
+		return nil, rfc6749.NewInvalidRequestError(err).WithErrorPrefix("update store")
 	}
 
 	if errSendEvent := s.sendTransactionEvent(
@@ -673,7 +667,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest( //nolint:gocognit,nolintlint
 		spi.IssuerOIDCInteractionQRScanned,
 		nil,
 	); errSendEvent != nil {
-		return nil, errSendEvent
+		return nil, rfc6749.NewInvalidRequestError(errSendEvent).WithErrorPrefix("send transaction event")
 	}
 
 	return tx, nil
@@ -711,7 +705,7 @@ func (s *Service) checkPolicy(
 				Nonce:           tx.PreAuthCode,
 			},
 		); err != nil {
-			return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+			return fmt.Errorf("validate issuance: %w", err)
 		}
 	}
 
@@ -720,18 +714,15 @@ func (s *Service) checkPolicy(
 
 func (s *Service) validateClientAssertionParams(clientAssertionType, clientAssertion string) error {
 	if clientAssertionType == "" {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
-			errors.New("no client assertion type specified"))
+		return errors.New("no client assertion type specified")
 	}
 
 	if clientAssertionType != attestJWTClientAuthType {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
-			errors.New("only supported client assertion type is attest_jwt_client_auth"))
+		return errors.New("only supported client assertion type is attest_jwt_client_auth")
 	}
 
 	if clientAssertion == "" {
-		return resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed,
-			errors.New("client_assertion is required"))
+		return errors.New("client_assertion is required")
 	}
 
 	return nil
@@ -741,9 +732,10 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	ctx context.Context,
 	req *PrepareCredential,
 ) (*PrepareCredentialResult, error) {
-	tx, err := s.store.Get(ctx, req.TxID)
-	if err != nil {
-		return nil, fmt.Errorf("get tx: %w", err)
+	tx, getTxErr := s.store.Get(ctx, req.TxID)
+	if getTxErr != nil {
+		return nil, oidc4cierr.NewInvalidCredentialRequestError(getTxErr).
+			WithErrorPrefix("get tx")
 	}
 
 	prepareCredentialResult := &PrepareCredentialResult{
@@ -757,33 +749,40 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	var credentialIDs []string
 
 	for _, requestedCredential := range req.CredentialRequests {
-		if err = s.validateRequestAudienceClaim(
-			tx.ProfileID, tx.ProfileVersion, requestedCredential.AudienceClaim); err != nil {
-			s.sendFailedTransactionEvent(ctx, tx, err)
+		if validationErr := s.validateRequestAudienceClaim(
+			tx.ProfileID, tx.ProfileVersion, requestedCredential.AudienceClaim); validationErr != nil {
+			s.sendFailedTransactionEvent(ctx, tx, validationErr.Error(), validationErr.Code(), validationErr.ErrorComponent)
 
-			return nil, err
+			return nil, validationErr
 		}
 
-		var txCredentialConfiguration *issuecredential.TxCredentialConfiguration
-		txCredentialConfiguration, err = s.findTxCredentialConfiguration(
+		txCredentialConfiguration, err := s.findTxCredentialConfiguration(
 			requestedTxCredentialConfigurationIDs,
 			tx.CredentialConfiguration,
 			requestedCredential.CredentialFormat,
 			requestedCredential.CredentialTypes,
 		)
 		if err != nil {
-			s.sendFailedTransactionEvent(ctx, tx, err)
+			e := oidc4cierr.NewInvalidCredentialRequestError(err).
+				WithErrorPrefix("find tx credential configuration").
+				WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 
-			return nil, err
+			s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
+
+			return nil, e
 		}
 
 		requestedTxCredentialConfigurationIDs[txCredentialConfiguration.ID] = struct{}{}
 
 		cred, prepareCredError := s.prepareCredential(ctx, tx, txCredentialConfiguration, requestedCredential)
 		if prepareCredError != nil {
-			s.sendFailedTransactionEvent(ctx, tx, prepareCredError)
+			e := oidc4cierr.NewInvalidCredentialRequestError(prepareCredError).
+				WithErrorPrefix("prepare credential").
+				WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 
-			return nil, prepareCredError
+			s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
+
+			return nil, e
 		}
 
 		vcFormat, _ := common.ValidateVCFormat(common.VCFormat(txCredentialConfiguration.OIDCCredentialFormat))
@@ -802,7 +801,9 @@ func (s *Service) PrepareCredential( //nolint:funlen
 	}
 
 	if credentialsIssued := len(prepareCredentialResult.Credentials); credentialsIssued > 0 {
-		prepareCredentialResult.NotificationID, err = s.ackService.UpsertAck(ctx, &Ack{
+		var upserErr error
+
+		prepareCredentialResult.NotificationID, upserErr = s.ackService.UpsertAck(ctx, &Ack{
 			TxID:              tx.ID,
 			HashedToken:       req.HashedToken,
 			ProfileID:         tx.ProfileID,
@@ -811,16 +812,18 @@ func (s *Service) PrepareCredential( //nolint:funlen
 			OrgID:             tx.OrgID,
 			CredentialsIssued: credentialsIssued,
 		})
-		if err != nil { // its not critical and should not break the flow
-			logger.Errorc(ctx, errors.Join(err, errors.New("can not create ack")).Error())
+		if upserErr != nil { // its not critical and should not break the flow
+			logger.Errorc(ctx, errors.Join(upserErr, errors.New("can not create ack")).Error())
 		}
 	}
 
 	tx.State = issuecredential.TransactionStateCredentialsIssued
-	if err = s.store.Update(ctx, tx); err != nil {
-		e := resterr.NewSystemError(resterr.TransactionStoreComponent, "Update", err)
+	if err := s.store.Update(ctx, tx); err != nil {
+		e := oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithOperation("Update").
+			WithComponent(resterr.TransactionStoreComponent)
 
-		s.sendFailedTransactionEvent(ctx, tx, e)
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
 
 		return nil, e
 	}
@@ -831,7 +834,7 @@ func (s *Service) PrepareCredential( //nolint:funlen
 		spi.IssuerOIDCInteractionSucceeded,
 		credentialIDs,
 	); errSendEvent != nil {
-		return nil, errSendEvent
+		return nil, oidc4cierr.NewInvalidCredentialRequestError(errSendEvent)
 	}
 
 	return prepareCredentialResult, nil
@@ -859,7 +862,7 @@ func (s *Service) prepareCredential( //nolint:funlen
 		RefreshServiceEnabled:   tx.RefreshServiceEnabled,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("prepare credential: %w", err)
+		return nil, fmt.Errorf("PrepareCredential: %w", err)
 	}
 
 	return finalCred, nil
@@ -882,7 +885,7 @@ func (s *Service) findTxCredentialConfiguration( //nolint:funlen
 		}
 
 		if credentialConfiguration.CredentialTemplate == nil {
-			return nil, resterr.ErrCredentialTemplateNotConfigured
+			return nil, errors.New("credential template not configured")
 		}
 
 		if lo.Contains(credentialTypes, credentialConfiguration.CredentialTemplate.Type) {
@@ -892,8 +895,7 @@ func (s *Service) findTxCredentialConfiguration( //nolint:funlen
 	}
 
 	if txCredentialConfiguration == nil {
-		return nil, resterr.NewCustomError(resterr.OIDCInvalidCredentialRequest,
-			fmt.Errorf("tx credential configuration not found"))
+		return nil, fmt.Errorf("tx credential configuration not found")
 	}
 
 	return txCredentialConfiguration, nil
@@ -903,12 +905,11 @@ func (s *Service) validateRequestAudienceClaim( //nolint:funlen
 	profileID profileapi.ID,
 	profileVersion profileapi.Version,
 	requestAudienceClaim string,
-) error {
+) *oidc4cierr.Error {
 	expectedAudience := fmt.Sprintf("%s/oidc/idp/%s/%s", s.issuerVCSPublicHost, profileID, profileVersion)
 
 	if requestAudienceClaim == "" || requestAudienceClaim != expectedAudience {
-		return resterr.NewValidationError(resterr.InvalidOrMissingProofOIDCErr, requestAudienceClaim,
-			errors.New("invalid aud"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid aud"))
 	}
 
 	return nil
@@ -922,7 +923,7 @@ func (s *Service) getClaimsData(
 	if !tx.IsPreAuthFlow {
 		claims, err := s.requestClaims(ctx, tx, txCredentialConfiguration)
 		if err != nil {
-			return nil, resterr.NewSystemError(resterr.IssuerSvcComponent, "RequestClaims", err)
+			return nil, fmt.Errorf("request claims: %w", err)
 		}
 
 		return claims, nil
@@ -930,7 +931,7 @@ func (s *Service) getClaimsData(
 
 	tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, txCredentialConfiguration.ClaimDataID)
 	if claimDataErr != nil {
-		return nil, resterr.NewSystemError(resterr.ClaimDataStoreComponent, "GetAndDelete", claimDataErr)
+		return nil, fmt.Errorf("get and delete: %w", claimDataErr)
 	}
 
 	decryptedClaims, decryptErr := s.DecryptClaims(ctx, tempClaimData)
@@ -1024,19 +1025,22 @@ func (s *Service) sendTransactionEvent(
 func (s *Service) sendFailedTransactionEvent(
 	ctx context.Context,
 	tx *issuecredential.Transaction,
-	e error,
+	errorStr string,
+	errorCode resterr.EventErrorCode,
+	component resterr.Component,
 ) {
 	ep := &EventPayload{
 		WebHook:        tx.WebHookURL,
 		ProfileID:      tx.ProfileID,
 		ProfileVersion: tx.ProfileVersion,
 		OrgID:          tx.OrgID,
+		Error:          errorStr,
+		ErrorCode:      errorCode,
+		ErrorComponent: string(component),
 	}
 
-	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
-
-	if e := s.sendEvent(ctx, spi.IssuerOIDCInteractionFailed, tx.ID, ep); e != nil {
-		logger.Warnc(ctx, "Failed to send OIDC issuer event. Ignoring..", log.WithError(e))
+	if err := s.sendEvent(ctx, spi.IssuerOIDCInteractionFailed, tx.ID, ep); err != nil {
+		logger.Warnc(ctx, "Failed to send OIDC issuer event. Ignoring..", zap.String("error", errorStr))
 	}
 }
 

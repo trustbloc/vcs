@@ -688,7 +688,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	require.NoError(t, err)
 
 	didResolver := &vdrmock.VDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+		ResolveFunc: func(_ string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 		}}
 

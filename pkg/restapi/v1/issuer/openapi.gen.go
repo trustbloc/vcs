@@ -2005,6 +2005,7 @@ type PostCredentialsStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *map[string]interface{}
+	JSON400      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2049,6 +2050,7 @@ type ExchangeAuthorizationCodeRequestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ExchangeAuthorizationCodeResponse
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2071,6 +2073,7 @@ type PrepareAuthorizationRequestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PrepareClaimDataAuthorizationResponse
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2093,6 +2096,7 @@ type PrepareCredentialResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PrepareCredentialResult
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2115,6 +2119,7 @@ type PrepareBatchCredentialResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]PrepareCredentialResult
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2136,6 +2141,7 @@ func (r PrepareBatchCredentialResponse) StatusCode() int {
 type PushAuthorizationDetailsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2158,6 +2164,7 @@ type StoreAuthorizationCodeRequestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *StoreAuthorizationCodeResponse
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2180,6 +2187,7 @@ type ValidatePreAuthorizedCodeRequestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ValidatePreAuthorizedCodeResponse
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2202,6 +2210,7 @@ type CredentialIssuanceHistoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]CredentialIssuanceHistoryData
+	JSON400      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2224,6 +2233,7 @@ type PostIssueCredentialsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *map[string]interface{}
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2246,6 +2256,7 @@ type InitiateCredentialComposeIssuanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *InitiateOIDC4CIComposeRequest
+	JSON400      *externalRef0.PrivateAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2268,6 +2279,7 @@ type InitiateCredentialIssuanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *InitiateOIDC4CIResponse
+	JSON400      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2290,6 +2302,7 @@ type SetCredentialRefreshStateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SetCredentialRefreshStateResult
+	JSON400      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2312,6 +2325,7 @@ type OpenidCredentialIssuerConfigResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WellKnownOpenIDIssuerConfiguration
+	JSON400      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2334,6 +2348,7 @@ type OpenidCredentialIssuerConfigV2Response struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WellKnownOpenIDIssuerConfiguration
+	JSON400      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2613,6 +2628,13 @@ func ParsePostCredentialsStatusResponse(rsp *http.Response) (*PostCredentialsSta
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2665,6 +2687,13 @@ func ParseExchangeAuthorizationCodeRequestResponse(rsp *http.Response) (*Exchang
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2690,6 +2719,13 @@ func ParsePrepareAuthorizationRequestResponse(rsp *http.Response) (*PrepareAutho
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -2717,6 +2753,13 @@ func ParsePrepareCredentialResponse(rsp *http.Response) (*PrepareCredentialRespo
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2743,6 +2786,13 @@ func ParsePrepareBatchCredentialResponse(rsp *http.Response) (*PrepareBatchCrede
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2759,6 +2809,16 @@ func ParsePushAuthorizationDetailsResponse(rsp *http.Response) (*PushAuthorizati
 	response := &PushAuthorizationDetailsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2784,6 +2844,13 @@ func ParseStoreAuthorizationCodeRequestResponse(rsp *http.Response) (*StoreAutho
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -2811,6 +2878,13 @@ func ParseValidatePreAuthorizedCodeRequestResponse(rsp *http.Response) (*Validat
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2836,6 +2910,13 @@ func ParseCredentialIssuanceHistoryResponse(rsp *http.Response) (*CredentialIssu
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -2863,6 +2944,13 @@ func ParsePostIssueCredentialsResponse(rsp *http.Response) (*PostIssueCredential
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2888,6 +2976,13 @@ func ParseInitiateCredentialComposeIssuanceResponse(rsp *http.Response) (*Initia
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PrivateAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -2915,6 +3010,13 @@ func ParseInitiateCredentialIssuanceResponse(rsp *http.Response) (*InitiateCrede
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2940,6 +3042,13 @@ func ParseSetCredentialRefreshStateResponse(rsp *http.Response) (*SetCredentialR
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -2967,6 +3076,13 @@ func ParseOpenidCredentialIssuerConfigResponse(rsp *http.Response) (*OpenidCrede
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -2992,6 +3108,13 @@ func ParseOpenidCredentialIssuerConfigV2Response(rsp *http.Response) (*OpenidCre
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 

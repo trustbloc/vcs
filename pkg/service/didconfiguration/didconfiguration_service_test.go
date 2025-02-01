@@ -174,7 +174,7 @@ func TestDidConfiguration(t *testing.T) {
 				func(
 					signer *vc.Signer,
 					credential *verifiable.Credential,
-					issuerSigningOpts ...crypto.SigningOpts,
+					_ ...crypto.SigningOpts,
 				) (*verifiable.Credential, error) {
 					assert.Equal(t, testCase.expectedSigner.DID, signer.DID)
 					assert.Equal(t, testCase.expectedSigner.Creator, signer.Creator)

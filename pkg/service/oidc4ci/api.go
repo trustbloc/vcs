@@ -29,6 +29,19 @@ const (
 	issuerIdentifierParts                                          = 2
 )
 
+var (
+	ErrInvalidCredentialConfigurationID = errors.New("invalid credential configuration ID")
+	ErrVCOptionsNotConfigured           = errors.New("vc options not configured")
+	ErrCredentialTemplateNotFound       = errors.New("credential template not found")
+	ErrCredentialTemplateNotConfigured  = errors.New("credential template not configured")
+	ErrCredentialTemplateIDRequired     = errors.New("credential template ID is required")
+	ErrAuthorizedCodeFlowNotSupported   = errors.New("authorized code flow not supported")
+	ErrResponseTypeMismatch             = errors.New("response type mismatch")
+	ErrCredentialTypeNotSupported       = errors.New("credential type not supported")
+	ErrCredentialFormatNotSupported     = errors.New("credential format not supported")
+	ErrInvalidIssuerURL                 = errors.New("invalid issuer url")
+)
+
 type ClaimDataStore claimDataStore
 
 type TransactionStore transactionStore
@@ -200,8 +213,11 @@ type ServiceInterface interface {
 		ctx context.Context,
 		req *InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
-	) (*InitiateIssuanceResponse, error)
-	PushAuthorizationDetails(ctx context.Context, opState string, ad []*issuecredential.AuthorizationDetails) error
+	) (*InitiateIssuanceResponse, error) // *oidc4cierr.Error
+	PushAuthorizationDetails(
+		ctx context.Context,
+		opState string,
+		ad []*issuecredential.AuthorizationDetails) error // *rfc6749.Error
 	PrepareClaimDataAuthorizationRequest(
 		ctx context.Context,
 		req *PrepareClaimDataAuthorizationRequest,
@@ -218,7 +234,7 @@ type ServiceInterface interface {
 		clientID,
 		clientAssertionType,
 		clientAssertion string,
-	) (*ExchangeAuthorizationCodeResult, error)
+	) (*ExchangeAuthorizationCodeResult, error) // *rfc6749.Error
 	ValidatePreAuthorizedCodeRequest(
 		ctx context.Context,
 		preAuthorizedCode,
@@ -226,8 +242,8 @@ type ServiceInterface interface {
 		clientID,
 		clientAssertionType,
 		clientAssertion string,
-	) (*issuecredential.Transaction, error)
-	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
+	) (*issuecredential.Transaction, error) // *rfc6749.Error
+	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error) // *oidc4cierr.Error
 }
 
 type Ack struct {

@@ -51,7 +51,7 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err1)
 
 		err2 := store.SaveAuthorizeState(context.Background(), 0, id, toInsert)
-		assert.ErrorIs(t, err2, resterr.ErrOpStateKeyDuplication)
+		assert.ErrorIs(t, err2, ErrOpStateKeyDuplication)
 	})
 
 	t.Run("test default expiration", func(t *testing.T) {

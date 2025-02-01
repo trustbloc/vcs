@@ -43,7 +43,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/cslservice"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
@@ -502,7 +501,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorIs(t, err, resterr.ErrActionForbidden)
+		require.ErrorIs(t, err, ErrActionForbidden)
 	})
 	t.Run("UpdateVCStatus action forbidden error: activator tries to revoke", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -522,7 +521,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorIs(t, err, resterr.ErrActionForbidden)
+		require.ErrorIs(t, err, ErrActionForbidden)
 	})
 
 	t.Run("UpdateVCStatus profileService.GetProfile error", func(t *testing.T) {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc7591"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/clientmanager"
 )
 
@@ -79,14 +80,18 @@ type ClientMetadata struct {
 }
 
 // Create creates an OAuth2 client and inserts it into the store.
-func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, data *ClientMetadata) (*oauth2client.Client, error) { // nolint:lll
+func (m *Manager) Create(
+	ctx context.Context,
+	profileID, profileVersion string,
+	data *ClientMetadata,
+) (*oauth2client.Client, error) { // *rfc7591.Error // nolint:lll
 	profile, err := m.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return nil, fmt.Errorf("get profile: %w", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithErrorPrefix("get profile")
 	}
 
 	if profile.OIDCConfig == nil {
-		return nil, fmt.Errorf("oidc config not set for profile")
+		return nil, rfc7591.NewInvalidClientMetadataError(fmt.Errorf("oidc config not set for profile"))
 	}
 
 	client := &oauth2client.Client{
@@ -109,15 +114,15 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 	}
 
 	if err = setScopes(client, profile.OIDCConfig.ScopesSupported, data.Scope); err != nil {
-		return nil, InvalidClientMetadataError("scope", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithIncorrectValue("scope")
 	}
 
 	if err = setGrantTypes(client, oauth2client.GrantTypesSupported(), data.GrantTypes); err != nil {
-		return nil, InvalidClientMetadataError("grant_types", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithIncorrectValue("grant_types")
 	}
 
 	if err = setResponseTypes(client, oauth2client.ResponseTypesSupported(), data.ResponseTypes); err != nil {
-		return nil, InvalidClientMetadataError("response_types", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithIncorrectValue("response_types")
 	}
 
 	if err = setTokenEndpointAuthMethod(
@@ -125,14 +130,14 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 		oauth2client.TokenEndpointAuthMethodsSupported(),
 		data.TokenEndpointAuthMethod,
 	); err != nil {
-		return nil, InvalidClientMetadataError("token_endpoint_auth_method", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithIncorrectValue("token_endpoint_auth_method")
 	}
 
 	if client.TokenEndpointAuthMethod != oauth2client.TokenEndpointAuthMethodNone {
 		var secret []byte
 
 		if secret, err = generateSecret(); err != nil {
-			return nil, err
+			return nil, rfc7591.NewInvalidClientMetadataError(err)
 		}
 
 		client.Secret = secret
@@ -140,15 +145,15 @@ func (m *Manager) Create(ctx context.Context, profileID, profileVersion string, 
 	}
 
 	if err = setJSONWebKeys(client, data.JSONWebKeys); err != nil {
-		return nil, InvalidClientMetadataError("jwks", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithIncorrectValue("jwks")
 	}
 
-	if err = validateClient(client); err != nil {
-		return nil, err
+	if rfcErr := validateClient(client); rfcErr != nil {
+		return nil, rfcErr.WithErrorPrefix("validate client")
 	}
 
 	if _, err = m.store.InsertClient(ctx, client); err != nil {
-		return nil, fmt.Errorf("insert client: %w", err)
+		return nil, rfc7591.NewInvalidClientMetadataError(err).WithErrorPrefix("insert client")
 	}
 
 	return client, nil
@@ -257,9 +262,9 @@ func generateSecret() ([]byte, error) {
 	return b, nil
 }
 
-func validateClient(client *oauth2client.Client) error {
+func validateClient(client *oauth2client.Client) *rfc7591.Error {
 	if client.JSONWebKeysURI != "" && client.JSONWebKeys != nil {
-		return InvalidClientMetadataError("", fmt.Errorf("jwks_uri and jwks cannot both be set"))
+		return rfc7591.NewInvalidClientMetadataError(fmt.Errorf("jwks_uri and jwks cannot both be set"))
 	}
 
 	if len(client.RedirectURIs) > 0 {
@@ -268,20 +273,15 @@ func validateClient(client *oauth2client.Client) error {
 				continue
 			}
 
-			return &RegistrationError{
-				Code:         ErrCodeInvalidRedirectURI,
-				InvalidValue: "redirect_uris",
-				Err:          fmt.Errorf("invalid redirect uri: %s", uri),
-			}
+			return rfc7591.NewInvalidRedirectURIError(fmt.Errorf("invalid redirect uri: %s", uri)).
+				WithIncorrectValue("redirect_uris")
 		}
 	}
 
 	if lo.Contains(client.GrantTypes, "authorization_code") && client.RedirectURIs == nil {
-		return &RegistrationError{
-			Code:         ErrCodeInvalidRedirectURI,
-			InvalidValue: "redirect_uris",
-			Err:          fmt.Errorf("redirect_uris must be set for authorization_code grant type"),
-		}
+		return rfc7591.NewInvalidRedirectURIError(
+			fmt.Errorf("redirect_uris must be set for authorization_code grant type")).
+			WithIncorrectValue("redirect_uris")
 	}
 
 	return nil

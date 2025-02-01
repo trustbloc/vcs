@@ -41,7 +41,7 @@ func TestValidatePresentation(t *testing.T) {
 		{
 			name: "OK JWT",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return sampleVPJWT
 				},
 				format: vcsverifiable.Jwt,
@@ -86,7 +86,7 @@ func TestValidatePresentation(t *testing.T) {
 		{
 			name: "Error invalid format JWT",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return []byte(sampleVPJWT)
 				},
 				format: vcsverifiable.Jwt,
@@ -106,7 +106,7 @@ func TestValidatePresentation(t *testing.T) {
 				format: vcsverifiable.Ldp,
 				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Presentation {
+			want: func(_ *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -114,13 +114,13 @@ func TestValidatePresentation(t *testing.T) {
 		{
 			name: "Error validation JWT",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return ""
 				},
 				format: vcsverifiable.Jwt,
 				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Presentation {
+			want: func(_ *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -128,13 +128,13 @@ func TestValidatePresentation(t *testing.T) {
 		{
 			name: "Error validation JSON-LD",
 			args: args{
-				cred: func(t *testing.T) interface{} {
+				cred: func(_ *testing.T) interface{} {
 					return map[string]interface{}{}
 				},
 				format: vcsverifiable.Ldp,
 				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Presentation {
+			want: func(_ *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,

@@ -48,10 +48,11 @@ import (
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc7591"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
-	"github.com/trustbloc/vcs/pkg/service/clientmanager"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -149,6 +150,9 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "par error")
+
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
 			},
 		},
 		{
@@ -161,7 +165,10 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 				q.Add("authorization_details", "invalid")
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "invalid-value[authorization_details]")
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrInvalidRequest)
 			},
 		},
 		{
@@ -174,7 +181,10 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 				q.Add("authorization_details", `[{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}]`)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "type should be 'openid_credential'")
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrInvalidRequest)
 			},
 		},
 		{
@@ -188,7 +198,10 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 				q.Add("authorization_details", authorizationDetailsFormatBased)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "push authorization details error")
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
 			},
 		},
 		{
@@ -207,7 +220,10 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 				q.Add("authorization_details", authorizationDetailsFormatBased)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "push authorization details: status code")
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
 			},
 		},
 		{
@@ -228,6 +244,9 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "new pushed authorize response error")
+
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
 			},
 		},
 	}
@@ -355,7 +374,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
+						fositeErr, ok := ar.(*fosite.AuthorizeRequest)
+						assert.True(t, ok)
+
+						assert.Equal(t, *params.State, fositeErr.State)
 
 						return &fosite.AuthorizeResponse{}, nil
 					},
@@ -419,7 +441,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 						ar fosite.AuthorizeRequester,
 						session fosite.Session,
 					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
+						fositeErr, ok := ar.(*fosite.AuthorizeRequest)
+						assert.True(t, ok)
+
+						assert.Equal(t, *params.State, fositeErr.State)
 
 						return &fosite.AuthorizeResponse{}, nil
 					},
@@ -589,6 +614,304 @@ func TestController_OidcAuthorize(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid authorize request",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
+				}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil,
+					errors.New("authorize error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				require.ErrorContains(t, err, "authorize error")
+			},
+		},
+		{
+			name: "invalid authorization_details payload",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(`{"key":"value"}`),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(
+					&fosite.AuthorizeRequest{
+						Request: fosite.Request{RequestedScope: scope},
+					}, nil,
+				)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrInvalidRequest)
+			},
+		},
+		{
+			name: "fail to validate authorization_details",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(`[{"type": "invalid"}]`),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrInvalidRequest)
+			},
+		},
+		{
+			name: "prepare claim data authorization",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return nil, errors.New("prepare claim data authorization error")
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
+			},
+		},
+		{
+			name: "invalid status code for prepare claim data authorization",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewBufferString(`{"code":"system-error","component":"OIDC4CIService","message":"unexpected transaction from 5 to 3","operation":"PrepareClaimDataAuthorizationRequest","incorrectValue":"state"}`)),
+						}, nil
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
+			},
+		},
+		{
+			name: "fail to decode claim data authorization response",
+			setup: func() {
+				state := "state"
+
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer([]byte(`[]`))),
+						}, nil
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
+			},
+		},
+		{
+			name: "fail to create authorize response",
+			setup: func() {
+				state := "state"
+
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						fositeErr, ok := ar.(*fosite.AuthorizeRequest)
+						assert.True(t, ok)
+
+						assert.Equal(t, *params.State, fositeErr.State)
+
+						return nil, errors.New("create authorize response error")
+					})
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				require.ErrorContains(t, err, "create authorize response error")
+			},
+		},
+		{
+			name: "fail to save authorize state",
+			setup: func() {
+				state := "state"
+
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					State:                &state,
+					IssuerState:          lo.ToPtr("opState"),
+					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						fositeErr, ok := ar.(*fosite.AuthorizeRequest)
+						assert.True(t, ok)
+
+						assert.Equal(t, *params.State, fositeErr.State)
+
+						return &fosite.AuthorizeResponse{}, nil
+					})
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, *params.IssuerState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), *params.IssuerState, gomock.Any()).Return(
+					errors.New("save state error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
+
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
+			},
+		},
+		{
 			name: "par error",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
@@ -644,241 +967,10 @@ func TestController_OidcAuthorize(t *testing.T) {
 					Return(nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "unexpected status code")
-			},
-		},
-		{
-			name: "invalid authorize request",
-			setup: func() {
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
-				}
+				var fositeErr *resterr.FositeError
+				assert.ErrorAs(t, err, &fositeErr)
 
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil,
-					errors.New("authorize error"))
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "authorize error")
-			},
-		},
-		{
-			name: "invalid authorization_details payload",
-			setup: func() {
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(`{"key":"value"}`),
-				}
-
-				scope := []string{"openid", "profile"}
-
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(
-					&fosite.AuthorizeRequest{
-						Request: fosite.Request{RequestedScope: scope},
-					}, nil,
-				)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "authorization_details")
-			},
-		},
-		{
-			name: "fail to validate authorization_details",
-			setup: func() {
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(`[{"type": "invalid"}]`),
-				}
-
-				scope := []string{"openid", "profile"}
-
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
-					Request: fosite.Request{RequestedScope: scope},
-				}, nil)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "type should be 'openid_credential'")
-			},
-		},
-		{
-			name: "prepare claim data authorization",
-			setup: func() {
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
-				}
-
-				scope := []string{"openid", "profile"}
-
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
-					Request: fosite.Request{RequestedScope: scope},
-				}, nil)
-
-				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						req issuer.PrepareAuthorizationRequestJSONRequestBody,
-						reqEditors ...issuer.RequestEditorFn,
-					) (*http.Response, error) {
-						assert.Equal(t, params.ResponseType, req.ResponseType)
-						assert.Equal(t, *params.IssuerState, req.OpState)
-						assert.Equal(t, lo.ToPtr(scope), req.Scope)
-
-						return nil, errors.New("prepare claim data authorization error")
-					})
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "prepare claim data authorization")
-			},
-		},
-		{
-			name: "invalid status code for prepare claim data authorization",
-			setup: func() {
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
-				}
-
-				scope := []string{"openid", "profile"}
-
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
-					Request: fosite.Request{RequestedScope: scope},
-				}, nil)
-
-				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						req issuer.PrepareAuthorizationRequestJSONRequestBody,
-						reqEditors ...issuer.RequestEditorFn,
-					) (*http.Response, error) {
-						assert.Equal(t, params.ResponseType, req.ResponseType)
-						assert.Equal(t, *params.IssuerState, req.OpState)
-						assert.Equal(t, lo.ToPtr(scope), req.Scope)
-
-						return &http.Response{
-							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(bytes.NewBufferString(`{"code":"system-error","component":"OIDC4CIService","message":"unexpected transaction from 5 to 3","operation":"PrepareClaimDataAuthorizationRequest","incorrectValue":"state"}`)),
-						}, nil
-					})
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "prepare claim data authorization: status code")
-			},
-		},
-		{
-			name: "fail to create authorize response",
-			setup: func() {
-				state := "state"
-
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					State:                &state,
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
-				}
-
-				scope := []string{"openid", "profile"}
-
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
-					Request: fosite.Request{RequestedScope: scope},
-				}, nil)
-
-				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						ar fosite.AuthorizeRequester,
-						session fosite.Session,
-					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
-
-						return nil, errors.New("create authorize response error")
-					})
-
-				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
-					AuthorizationRequest: issuer.OAuthParameters{},
-				})
-				require.NoError(t, err)
-
-				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						req issuer.PrepareAuthorizationRequestJSONRequestBody,
-						reqEditors ...issuer.RequestEditorFn,
-					) (*http.Response, error) {
-						assert.Equal(t, params.ResponseType, req.ResponseType)
-						assert.Equal(t, *params.IssuerState, req.OpState)
-						assert.Equal(t, lo.ToPtr(scope), req.Scope)
-
-						return &http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBuffer(b)),
-						}, nil
-					})
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "create authorize response error")
-			},
-		},
-		{
-			name: "fail to save authorize state",
-			setup: func() {
-				state := "state"
-
-				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType:         "code",
-					State:                &state,
-					IssuerState:          lo.ToPtr("opState"),
-					AuthorizationDetails: lo.ToPtr(authorizationDetailsFormatBased),
-				}
-
-				scope := []string{"openid", "profile"}
-
-				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
-					Request: fosite.Request{RequestedScope: scope},
-				}, nil)
-
-				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						ar fosite.AuthorizeRequester,
-						session fosite.Session,
-					) (fosite.AuthorizeResponder, error) {
-						assert.Equal(t, *params.State, ar.(*fosite.AuthorizeRequest).State)
-
-						return &fosite.AuthorizeResponse{}, nil
-					})
-
-				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
-					AuthorizationRequest: issuer.OAuthParameters{},
-				})
-				require.NoError(t, err)
-
-				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						req issuer.PrepareAuthorizationRequestJSONRequestBody,
-						reqEditors ...issuer.RequestEditorFn,
-					) (*http.Response, error) {
-						assert.Equal(t, params.ResponseType, req.ResponseType)
-						assert.Equal(t, *params.IssuerState, req.OpState)
-						assert.Equal(t, lo.ToPtr(scope), req.Scope)
-
-						return &http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBuffer(b)),
-						}, nil
-					})
-
-				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), int32(0), *params.IssuerState, gomock.Any()).Return(
-					errors.New("save state error"))
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "save authorize state")
+				assert.ErrorIs(t, err, fosite.ErrUnauthorizedClient)
 			},
 		},
 	}
@@ -1601,7 +1693,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "missing access token")
+				require.ErrorIs(t, err, fosite.ErrInvalidTokenFormat)
 			},
 		},
 		{
@@ -1620,7 +1712,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "introspect token")
+				require.ErrorIs(t, err, fosite.ErrInvalidTokenFormat)
 			},
 		},
 		{
@@ -1814,7 +1906,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						fosite.AccessToken, ar, nil)
 
-				responseBody := `{"code":"invalidor-missing-proof","incorrectValue":"badAud","message":"invalid aud"}`
+				responseBody := `{"error":"invalidor-missing-proof","incorrect_value":"badAud","error_description":"invalid aud"}`
 
 				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
 					Return(
@@ -2136,7 +2228,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-credential-format-not-supported"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "oidc-credential-format-not-supported"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -2148,8 +2240,7 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err,
-					"oidc-error: prepare credential: status code 500, "+
-						"code: oidc-credential-format-not-supported")
+					"oidc-credential-format-not-supported")
 			},
 		},
 		{
@@ -2184,7 +2275,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "prepare credential: status code 500, {")
+				require.ErrorContains(t, err, "invalid_credential_request")
 			},
 		},
 		{
@@ -2208,7 +2299,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-credential-type-not-supported"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "oidc-credential-type-not-supported"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -2220,8 +2311,7 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err,
-					"oidc-error: prepare credential: status code 500, "+
-						"code: oidc-credential-type-not-supported")
+					"oidc-credential-type-not-supported")
 			},
 		},
 		{
@@ -2245,7 +2335,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "random", "message": "awesome"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "random", "error_description": "awesome"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -2256,8 +2346,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err,
-					"prepare credential: status code 500, code: random; message: awesome")
+				require.ErrorContains(t, err, "random[]: awesome")
 			},
 		},
 		{
@@ -2281,7 +2370,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-invalid-encryption-parameters"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "oidc-invalid-encryption-parameters"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -2316,7 +2405,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_or_missing_proof", "message": "invalid or missing proof"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "invalid_or_missing_proof", "error_description": "invalid or missing proof"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -2327,13 +2416,13 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var customErr *resterr.CustomError
+				var customErr *oidc4cierr.Error
 
 				assert.ErrorAs(t, err, &customErr)
-				assert.ErrorContains(t, customErr, "oidc-error: invalid or missing proof")
-				assert.Equal(t, resterr.OIDCError, customErr.Code)
-				assert.Equal(t, "invalid_or_missing_proof", customErr.Component)
-				assert.Empty(t, customErr.FailedOperation)
+
+				assert.ErrorContains(t, customErr, "invalid_or_missing_proof[]: invalid or missing proof")
+				assert.Equal(t, "invalid_or_missing_proof", customErr.Code())
+				assert.Empty(t, customErr.Operation)
 			},
 		},
 		{
@@ -2357,7 +2446,7 @@ func TestController_OidcCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_credential_request"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "invalid_credential_request", "error_description": "some error"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -2368,13 +2457,13 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var customErr *resterr.CustomError
+				var customErr *oidc4cierr.Error
 
 				assert.ErrorAs(t, err, &customErr)
-				assert.ErrorContains(t, customErr, "oidc-error: prepare credential: status code 500, code: invalid_credential_request")
-				assert.Equal(t, resterr.OIDCError, customErr.Code)
-				assert.Equal(t, "invalid_credential_request", customErr.Component)
-				assert.Empty(t, customErr.FailedOperation)
+
+				assert.ErrorContains(t, customErr, "invalid_credential_request[]: some error")
+				assert.Equal(t, "invalid_credential_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
 			},
 		},
 		{
@@ -3153,7 +3242,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "missing access token")
+				require.ErrorIs(t, err, fosite.ErrInvalidTokenFormat)
 			},
 		},
 		{
@@ -3172,7 +3261,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "introspect token")
+				require.ErrorIs(t, err, fosite.ErrInvalidTokenFormat)
 			},
 		},
 		{
@@ -3374,7 +3463,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						fosite.AccessToken, ar, nil)
 
-				responseBody := `{"code":"invalidor-missing-proof","incorrectValue":"badAud","message":"invalid aud"}`
+				responseBody := `{"error":"invalidor-missing-proof","incorrect_value":"badAud","error_description":"invalid aud"}`
 
 				mockInteractionClient.EXPECT().PrepareBatchCredential(gomock.Any(), gomock.Any()).
 					Return(
@@ -3716,7 +3805,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-credential-format-not-supported"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "oidc-credential-format-not-supported"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -3727,9 +3816,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err,
-					"oidc-error: prepare credential: status code 500, "+
-						"code: oidc-credential-format-not-supported")
+				require.ErrorContains(t, err, "oidc-credential-format-not-supported")
 			},
 		},
 		{
@@ -3764,7 +3851,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "prepare credential: status code 500, {")
+				require.ErrorContains(t, err, "decode OIDC4CI error from body: {, err: unexpected end of JSON input")
 			},
 		},
 		{
@@ -3788,7 +3875,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-credential-type-not-supported"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "oidc-credential-type-not-supported"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -3800,8 +3887,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err,
-					"oidc-error: prepare credential: status code 500, "+
-						"code: oidc-credential-type-not-supported")
+					"oidc-credential-type-not-supported")
 			},
 		},
 		{
@@ -3825,7 +3911,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "random", "message": "awesome"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "random", "error_description": "awesome"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -3836,8 +3922,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err,
-					"prepare credential: status code 500, code: random; message: awesome")
+				require.ErrorContains(t, err, "random[]: awesome")
 			},
 		},
 		{
@@ -3861,7 +3946,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "oidc-invalid-encryption-parameters"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "oidc-invalid-encryption-parameters"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -3896,7 +3981,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_or_missing_proof", "message": "invalid or missing proof"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "invalid_or_missing_proof", "error_description": "invalid or missing proof"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -3907,13 +3992,12 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var customErr *resterr.CustomError
+				var customErr *oidc4cierr.Error
 
 				assert.ErrorAs(t, err, &customErr)
-				assert.ErrorContains(t, customErr, "oidc-error: invalid or missing proof")
-				assert.Equal(t, resterr.OIDCError, customErr.Code)
-				assert.Equal(t, "invalid_or_missing_proof", customErr.Component)
-				assert.Empty(t, customErr.FailedOperation)
+				assert.ErrorContains(t, customErr, "invalid_or_missing_proof[]: invalid or missing proof")
+				assert.Equal(t, "invalid_or_missing_proof", customErr.Code())
+				assert.Empty(t, customErr.Operation)
 			},
 		},
 		{
@@ -3937,7 +4021,7 @@ func TestController_OidcBatchCredential(t *testing.T) {
 					Return(
 						&http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(strings.NewReader(`{"code" : "invalid_credential_request"}`)),
+							Body:       io.NopCloser(strings.NewReader(`{"error" : "invalid_credential_request", "error_description" : "some err"}`)),
 						}, nil)
 
 				jweEncrypterCreator = defaultJWEEncrypterCreator
@@ -3948,13 +4032,12 @@ func TestController_OidcBatchCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var customErr *resterr.CustomError
+				var customErr *oidc4cierr.Error
 
 				assert.ErrorAs(t, err, &customErr)
-				assert.ErrorContains(t, customErr, "oidc-error: prepare credential: status code 500, code: invalid_credential_request")
-				assert.Equal(t, resterr.OIDCError, customErr.Code)
-				assert.Equal(t, "invalid_credential_request", customErr.Component)
-				assert.Empty(t, customErr.FailedOperation)
+				assert.ErrorContains(t, customErr, "invalid_credential_request[]: some err")
+				assert.Equal(t, "invalid_credential_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
 			},
 		},
 		{
@@ -4438,12 +4521,12 @@ func TestController_OidcToken_PreAuthorize(t *testing.T) {
 						ClientAssertionType: lo.ToPtr(""),
 						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
-					Body:       io.NopCloser(strings.NewReader("{}")),
+					Body:       io.NopCloser(strings.NewReader(`{}`)),
 					StatusCode: http.StatusBadRequest,
 				}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "validate pre-authorized code request: status code 400, code")
+				assert.ErrorContains(t, err, "[]: validate pre-authorized code request")
 			},
 		},
 		{
@@ -4468,77 +4551,12 @@ func TestController_OidcToken_PreAuthorize(t *testing.T) {
 						ClientAssertionType: lo.ToPtr(""),
 						ClientAssertion:     lo.ToPtr(""),
 					}).Return(&http.Response{
-					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-tx-not-found"}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"http_status":400, "error": "code"}`)),
 					StatusCode: http.StatusBadRequest,
 				}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err,
-					"oidc-error: validate pre-authorized code request: status code 400, "+
-						"code: oidc-tx-not-found")
-			},
-		},
-		{
-			name: "invalid expect pin pre authorize",
-			body: strings.NewReader(url.Values{
-				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-				"pre-authorized_code": {"321"},
-				"client_id":           {clientID},
-			}.Encode()),
-			setup: func() {
-				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(&fosite.AccessRequest{
-						Request: fosite.Request{
-							Session: &fosite.DefaultSession{},
-						},
-					}, nil)
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
-					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode:   "321",
-						UserPin:             lo.ToPtr(""),
-						ClientId:            lo.ToPtr(clientID),
-						ClientAssertionType: lo.ToPtr(""),
-						ClientAssertion:     lo.ToPtr(""),
-					}).Return(&http.Response{
-					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-expect-pin"}`)),
-					StatusCode: http.StatusBadRequest,
-				}, nil)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err,
-					"oidc-error: validate pre-authorized code request: status code 400, "+
-						"code: oidc-pre-authorize-expect-pin")
-			},
-		},
-		{
-			name: "invalid client id pre authorize",
-			body: strings.NewReader(url.Values{
-				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-				"pre-authorized_code": {"321"},
-			}.Encode()),
-			setup: func() {
-				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(&fosite.AccessRequest{
-						Request: fosite.Request{
-							Session: &fosite.DefaultSession{},
-						},
-					}, nil)
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
-					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-						PreAuthorizedCode:   "321",
-						UserPin:             lo.ToPtr(""),
-						ClientId:            lo.ToPtr(""),
-						ClientAssertionType: lo.ToPtr(""),
-						ClientAssertion:     lo.ToPtr(""),
-					}).Return(&http.Response{
-					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-invalid-client-id"}`)),
-					StatusCode: http.StatusBadRequest,
-				}, nil)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err,
-					"oidc-error: validate pre-authorized code request: status code 400, "+
-						"code: oidc-pre-authorize-invalid-client-id")
+				assert.ErrorContains(t, err, "code[http status: 400]: validate pre-authorized code request")
 			},
 		},
 	}
@@ -4570,57 +4588,7 @@ func TestController_Ack(t *testing.T) {
 		return hex.EncodeToString(hash[:])
 	}
 
-	t.Run("success: with Credentials array", func(t *testing.T) {
-		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
-
-		ackMock := NewMockAckService(gomock.NewController(t))
-		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&fosite.AccessRequest{}, nil).AnyTimes()
-		controller := oidc4ci.NewController(&oidc4ci.Config{
-			OAuth2Provider: mockOAuthProvider,
-			AckService:     ackMock,
-			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
-		})
-
-		expectedToken := "xxxx"
-
-		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, remote oidc4cisrv.AckRemote) error {
-				assert.Equal(t, hh(expectedToken), remote.HashedToken)
-				assert.Equal(t, "tx_id", string(remote.TxID))
-				assert.Equal(t, "credential_accepted", remote.Event)
-				assert.Equal(t, "err_txt", remote.EventDescription)
-				assert.Equal(t, map[string]interface{}{
-					"userId":        "userId",
-					"transactionId": "transactionId",
-				}, remote.InteractionDetails)
-
-				return nil
-			})
-
-		b, err := json.Marshal(oidc4ci.AckRequest{
-			NotificationId:   "tx_id",
-			Event:            "credential_accepted",
-			EventDescription: lo.ToPtr("err_txt"),
-			InteractionDetails: lo.ToPtr(map[string]any{
-				"userId":        "userId",
-				"transactionId": "transactionId",
-			}),
-		})
-		require.NoError(t, err)
-
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
-
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		req.Header.Set("Authorization", "Bearer xxxx")
-		rec := httptest.NewRecorder()
-
-		err = controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusNoContent, rec.Code)
-	})
-
-	t.Run("success: without Credentials array", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
 
 		ackMock := NewMockAckService(gomock.NewController(t))
@@ -4661,7 +4629,26 @@ func TestController_Ack(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, rec.Code)
 	})
 
-	t.Run("ack err: with Credentials array", func(t *testing.T) {
+	t.Run("token err 2", func(t *testing.T) {
+		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
+
+		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&fosite.AccessRequest{}, nil).AnyTimes()
+		controller := oidc4ci.NewController(&oidc4ci.Config{
+			OAuth2Provider: mockOAuthProvider,
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+		rec := httptest.NewRecorder()
+
+		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
+		assert.ErrorIs(t, err, fosite.ErrInvalidTokenFormat)
+	})
+
+	t.Run("failure: ack regular err", func(t *testing.T) {
 		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
 
 		ackMock := NewMockAckService(gomock.NewController(t))
@@ -4690,17 +4677,14 @@ func TestController_Ack(t *testing.T) {
 		rec := httptest.NewRecorder()
 
 		err = controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-		var bd oidc4ci.AckErrorResponse
-		b, _ = io.ReadAll(rec.Body)
+		var oidc4ciErr *oidc4cierr.Error
+		assert.ErrorAs(t, err, &oidc4ciErr)
 
-		assert.NoError(t, json.Unmarshal(b, &bd))
-		assert.Equal(t, "some error", bd.Error)
+		assert.Equal(t, "invalid_notification_request", oidc4ciErr.Code())
 	})
 
-	t.Run("ack err: without Credentials array", func(t *testing.T) {
+	t.Run("failure: ack oidc4cierr err", func(t *testing.T) {
 		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
 
 		ackMock := NewMockAckService(gomock.NewController(t))
@@ -4713,60 +4697,7 @@ func TestController_Ack(t *testing.T) {
 		})
 
 		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
-			Return(errors.New("some error"))
-
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{
-			"notification_id": "tx_id", "event": "credential_accepted","event_description": "err_txt"
-		}`)))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		req.Header.Set("Authorization", "Bearer xxxx")
-
-		rec := httptest.NewRecorder()
-
-		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusBadRequest, rec.Code)
-
-		var bd oidc4ci.AckErrorResponse
-		b, _ := io.ReadAll(rec.Body)
-
-		assert.NoError(t, json.Unmarshal(b, &bd))
-		assert.Equal(t, "some error", bd.Error)
-	})
-
-	t.Run("token err 2", func(t *testing.T) {
-		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
-
-		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&fosite.AccessRequest{}, nil).AnyTimes()
-		controller := oidc4ci.NewController(&oidc4ci.Config{
-			OAuth2Provider: mockOAuthProvider,
-			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
-		})
-
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{}`)))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-
-		rec := httptest.NewRecorder()
-
-		err := controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
-		assert.ErrorContains(t, err, "missing access token")
-	})
-
-	t.Run("ack expired", func(t *testing.T) {
-		mockOAuthProvider := NewMockOAuth2Provider(gomock.NewController(t))
-
-		ackMock := NewMockAckService(gomock.NewController(t))
-		mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&fosite.AccessRequest{}, nil).AnyTimes()
-		controller := oidc4ci.NewController(&oidc4ci.Config{
-			OAuth2Provider: mockOAuthProvider,
-			AckService:     ackMock,
-			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
-		})
-
-		ackMock.EXPECT().Ack(gomock.Any(), gomock.Any()).
-			Return(oidc4cisrv.ErrAckExpired)
+			Return(oidc4cierr.NewExpiredAckIDError(errors.New("some error")))
 
 		b, err := json.Marshal(oidc4ci.AckRequest{
 			NotificationId:   "tx_id",
@@ -4786,14 +4717,11 @@ func TestController_Ack(t *testing.T) {
 		rec := httptest.NewRecorder()
 
 		err = controller.OidcAcknowledgement(echo.New().NewContext(req, rec))
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-		var bd oidc4ci.AckErrorResponse
-		b, _ = io.ReadAll(rec.Body)
+		var oidc4ciErr *oidc4cierr.Error
+		assert.ErrorAs(t, err, &oidc4ciErr)
 
-		assert.NoError(t, json.Unmarshal(b, &bd))
-		assert.Equal(t, "expired_ack_id", bd.Error)
+		assert.Equal(t, "expired_ack_id", oidc4ciErr.Code())
 	})
 }
 
@@ -4895,13 +4823,14 @@ func TestController_OidcRegisterClient(t *testing.T) {
 				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var customErr *resterr.CustomError
+				var customErr *rfc7591.Error
 
 				assert.ErrorAs(t, err, &customErr)
 				assert.ErrorContains(t, customErr, "get profile error")
-				assert.Equal(t, resterr.SystemError, customErr.Code)
-				assert.Equal(t, "issuer.profile-service", customErr.Component)
-				assert.Equal(t, "GetProfile", customErr.FailedOperation)
+				assert.Equal(t, "invalid_client_metadata", customErr.Code())
+
+				assert.Equal(t, "issuer.profile-service", customErr.Component())
+				assert.Equal(t, "GetProfile", customErr.Operation)
 			},
 		},
 		{
@@ -4919,7 +4848,7 @@ func TestController_OidcRegisterClient(t *testing.T) {
 			},
 		},
 		{
-			name: "client registration error",
+			name: "client registration error rfc7591.Error",
 			setup: func() {
 				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
 					&profileapi.Issuer{
@@ -4927,22 +4856,23 @@ func TestController_OidcRegisterClient(t *testing.T) {
 					}, nil)
 
 				mockClientManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
-					&clientmanager.RegistrationError{
-						Code:         clientmanager.ErrCodeInvalidClientMetadata,
-						InvalidValue: "scope",
-						Err:          fmt.Errorf("scope invalid not supported"),
-					})
+					rfc7591.NewInvalidRedirectURIError(
+						fmt.Errorf("scope invalid not supported")).
+						WithIncorrectValue("scope"),
+				)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var regErr *resterr.RegistrationError
+				var regErr *rfc7591.Error
 
 				assert.ErrorAs(t, err, &regErr)
 				assert.ErrorContains(t, regErr.Err, "scope invalid not supported")
-				assert.Equal(t, "invalid_client_metadata", regErr.Code)
+				assert.Equal(t, "invalid_redirect_uri", regErr.Code())
+				assert.Equal(t, "client-manager", regErr.Component())
+				assert.Equal(t, "Create", regErr.Operation)
 			},
 		},
 		{
-			name: "create client error",
+			name: "create client regular error",
 			setup: func() {
 				mockProfileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(
 					&profileapi.Issuer{
@@ -4953,13 +4883,13 @@ func TestController_OidcRegisterClient(t *testing.T) {
 					fmt.Errorf("create client error"))
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				var customErr *resterr.CustomError
+				var customErr *rfc7591.Error
 
 				assert.ErrorAs(t, err, &customErr)
 				assert.ErrorContains(t, customErr, "create client error")
-				assert.Equal(t, resterr.SystemError, customErr.Code)
-				assert.Equal(t, "client-manager", customErr.Component)
-				assert.Equal(t, "Create", customErr.FailedOperation)
+				assert.Equal(t, "invalid_client_metadata", customErr.Code())
+				assert.Equal(t, "client-manager", customErr.Component())
+				assert.Equal(t, "Create", customErr.Operation)
 			},
 		},
 	}
@@ -5066,7 +4996,7 @@ func TestHandleLDPProof(t *testing.T) {
 				LdpVp:     &finalPres,
 			},
 		}, nil)
-		assert.ErrorContains(t, err, "oidc-error: parse created: parsing time")
+		assert.ErrorContains(t, err, "parse created")
 	})
 }
 

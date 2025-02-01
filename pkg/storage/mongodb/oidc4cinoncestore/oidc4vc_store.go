@@ -127,7 +127,7 @@ func (s *Store) createInternal(
 
 	result, err := collection.InsertOne(ctx, obj)
 	if err != nil && mongo.IsDuplicateKeyError(err) {
-		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+		return nil, resterr.ErrDataNotFound
 	}
 
 	if err != nil {
@@ -165,7 +165,7 @@ func (s *Store) findOne(ctx context.Context, filter interface{}) (*issuecredenti
 
 	if err := collection.FindOne(ctx, filter).Decode(&doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, err
@@ -173,7 +173,7 @@ func (s *Store) findOne(ctx context.Context, filter interface{}) (*issuecredenti
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+		return nil, resterr.ErrDataNotFound
 	}
 
 	return mapDocumentToTransaction(&doc), nil

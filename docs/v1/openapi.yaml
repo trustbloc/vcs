@@ -49,6 +49,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: openid-credential-issuer-config
       description: Returns openid-config.
       tags:
@@ -76,6 +82,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: openid-credential-issuer-config-v2
       description: Returns openid-config.
       tags:
@@ -112,6 +124,12 @@ paths:
                 description: JSON array containing a list of credentials metadata issued by given profile.
                 items:
                   $ref: '#/components/schemas/CredentialIssuanceHistoryData'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: credential-issuance-history
       description: Returns Credential Issuance history.
       tags:
@@ -146,6 +164,12 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: post-issue-credentials
       description: Issuer credentials.
   '/issuer/groups/{groupID}/credentials/status/{statusID}':
@@ -192,6 +216,12 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: post-credentials-status
       description: Updates credential status.
   /refresh/{profileID}/{profileVersion}:
@@ -289,6 +319,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SetCredentialRefreshStateResult'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: set-credential-refresh-state
       description: Used by issuer to refresh credential claims by credential id
       requestBody:
@@ -321,6 +357,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4CIResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: initiate-credential-issuance
       description: Used by the issuer to initiate OIDCI credential issuance interaction in VCS. The response contains initiate issuance URL which can be used to initiate the flow from issuer applications.
       requestBody:
@@ -353,6 +395,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4CIComposeRequest'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: initiate-credential-compose-issuance
       description: Used by the issuer to initiate OIDCI credential issuance interaction in VCS. The response contains initiate issuance URL which can be used to initiate the flow from issuer applications.
       requestBody:
@@ -370,6 +418,12 @@ paths:
       responses:
         '200':
           description: OK
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: push-authorization-details
       description: Used by VCS OIDC public PAR endpoint to update transaction with authorization details.
       requestBody:
@@ -387,6 +441,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PrepareClaimDataAuthorizationResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: prepare-authorization-request
       description: Prepares OAuth Authorization Request parameters for issuer OIDC provider.
       requestBody:
@@ -406,6 +466,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidatePreAuthorizedCodeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: validate-pre-authorized-code-request
       description: Validates pre-authorized code and user pin.
       requestBody:
@@ -425,6 +491,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StoreAuthorizationCodeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: store-authorization-code-request
       description: Stores authorization code from issuer oauth provider.
       requestBody:
@@ -444,6 +516,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExchangeAuthorizationCodeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: exchange-authorization-code-request
       description: Exchange authorization code from issuer oauth provider.
       requestBody:
@@ -465,6 +543,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PrepareCredentialResult'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: prepare-credential
       description: Used by VCS OIDC credential endpoint to request credential to conclude OIDC issuance flow.
       requestBody:
@@ -486,6 +570,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PrepareCredentialResult'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
       operationId: prepare-batch-credential
       description: Used by VCS OIDC credential endpoint to request batch of credential to conclude OIDC issuance flow.
       requestBody:
@@ -524,6 +614,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyCredentialResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
   '/verifier/profiles/{profileID}/{profileVersion}/presentations/verify':
     parameters:
       - schema:
@@ -555,6 +651,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyPresentationResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
   '/verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc':
     parameters:
       - schema:
@@ -586,6 +688,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4VPResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
   /verifier/interactions/authorization-response:
     post:
       summary: Used by verifier applications to initiate OpenID presentation flow through VCS
@@ -619,9 +727,13 @@ paths:
                   description: State from authorization request for correlation
       responses:
         '200':
-          description: Sucess
-        '500':
-          description: Failure
+          description: Success
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PrivateAPIErrorResponse"
   '/verifier/interactions/{txID}/claim':
     parameters:
       - schema:
@@ -643,6 +755,12 @@ paths:
               schema:
                 type: object
                 description: JSON claim containing credential subject
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
   '/oidc/{profileID}/{profileVersion}/register':
     post:
       summary: OIDC Register OAuth Client
@@ -658,7 +776,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterOAuthClientErrorResponse'
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: oidc-register-client
       description: Registers dynamically an OAuth 2.0 client with the VCS authorization server.
       requestBody:
@@ -693,6 +811,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PushedAuthorizationResponse'
+        '400':
+          description: Bad request
         '405':
           description: Method Not Allowed
         '413':
@@ -763,6 +883,12 @@ paths:
                   state:
                     type: string
                     description: REQUIRED if the "state" parameter was present in the client authorization request. The exact value received from the client.
+                  error:
+                      type: string
+                      description: A single ASCII error code.
+                  error_description:
+                      type: string
+                      description: Human-readable ASCII text providing additional information, used to assist the client developer in understanding the error that occurred.
                 required:
                   - code
       operationId: oidc-authorize
@@ -851,6 +977,10 @@ paths:
                 $ref: '#/components/schemas/AccessTokenResponse'
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -943,9 +1073,13 @@ paths:
                   description: State from authorization request for correlation
       responses:
         '200':
-          description: Sucess
-        '500':
-          description: Failure
+          description: Success
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
   /oidc/credential:
     post:
       summary: OIDC Credential
@@ -961,6 +1095,12 @@ paths:
             application/jwt:
               schema:
                 type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: oidc-credential
       description: Issues credentials in exchange for an authorization token.
       requestBody:
@@ -984,6 +1124,12 @@ paths:
             application/jwt:
               schema:
                 type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: oidc-batch-credential
       description: The Batch Credential Endpoint issues multiple Credentials in one Batch Credential Response as approved by the End-User upon presentation of a valid Access Token representing this approval.
       requestBody:
@@ -1005,7 +1151,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AckErrorResponse'
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: oidc-acknowledgement
       description: Issues credentials in exchange for an authorization token.
       requestBody:
@@ -2155,21 +2301,6 @@ components:
         - grant_types
       x-tags:
         - oidc4ci
-    RegisterOAuthClientErrorResponse:
-      title: RegisterOAuthClientErrorResponse
-      type: object
-      description: OAuth 2.0 client registration error response.
-      properties:
-        error:
-          type: string
-          description: Single ASCII error code string.
-        error_description:
-          type: string
-          description: Human-readable ASCII text description of the error used for debugging.
-      required:
-        - error
-      x-tags:
-        - oidc4ci
     PushAuthorizationDetailsRequest:
       title: PushAuthorizationDetailsRequest
       x-tags:
@@ -2402,18 +2533,6 @@ components:
       required:
         - notification_id
         - event
-    AckErrorResponse:
-      title: AckResponse
-      x-tags:
-        - oidc4ci
-      type: object
-      description: Ack response.
-      properties:
-        error:
-          type: string
-          description: Error description.
-      required:
-        - error
     CredentialResponse:
       title: CredentialResponse
       x-tags:

@@ -11,6 +11,7 @@ package credentialstatus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +38,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
@@ -48,7 +48,10 @@ const (
 	credentialStatusClientRoleActivator = "activator"
 )
 
-var logger = log.New("credentialstatus")
+var (
+	logger             = log.New("credentialstatus")
+	ErrActionForbidden = errors.New("client is not allowed to perform the action")
+)
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -174,9 +177,8 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 	}
 
 	if params.StatusType != profile.VCConfig.Status.Type {
-		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
-			fmt.Errorf(
-				"vc status list version \"%s\" is not supported by current profile", params.StatusType))
+		return fmt.Errorf(
+			"vc status list version \"%s\" is not supported by current profile", params.StatusType)
 	}
 
 	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, profile.Version, params.CredentialID)
@@ -202,7 +204,7 @@ func (s *Service) checkOAuthClientRole(oAuthClientRoles []string, statusValue bo
 	}
 
 	if !slices.Contains(oAuthClientRoles, requiredRole) {
-		return resterr.ErrActionForbidden
+		return ErrActionForbidden
 	}
 
 	return nil
