@@ -189,14 +189,14 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 				require.NotEmpty(t, signedVC.Proofs()[0]["created"])
 
 				if signedVC.Proofs()[0]["challenge"] != nil {
-					require.Equal(t, tc.responseChallenge, signedVC.Proofs()[0]["challenge"].(string))
+					require.Equal(t, tc.responseChallenge, signedVC.Proofs()[0]["challenge"].(string)) //nolint:errcheck
 				}
 
 				if signedVC.Proofs()[0]["domain"] != nil {
-					require.Equal(t, tc.responseDomain, signedVC.Proofs()[0]["domain"].(string))
+					require.Equal(t, tc.responseDomain, signedVC.Proofs()[0]["domain"].(string)) //nolint:errcheck
 				}
 
-				created, err := time.Parse(time.RFC3339, signedVC.Proofs()[0]["created"].(string))
+				created, err := time.Parse(time.RFC3339, signedVC.Proofs()[0]["created"].(string)) //nolint:errcheck
 				require.NoError(t, err)
 
 				responseTime := time.Now()
@@ -684,7 +684,7 @@ func TestSignCredential(t *testing.T) {
 
 		c := New(
 			&vdrmock.VDRegistry{
-				ResolveFunc: func(_ string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				ResolveFunc: func(_ string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					return makeMockDIDResolution(signingDID, verificationMethod, did.AssertionMethod), nil
 				}},
 			testutil.DocumentLoader(t),

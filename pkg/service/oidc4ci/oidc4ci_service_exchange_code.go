@@ -9,12 +9,11 @@ package oidc4ci
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
@@ -27,34 +26,35 @@ func (s *Service) ExchangeAuthorizationCode(
 ) (*ExchangeAuthorizationCodeResult, error) {
 	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
-		return nil, fmt.Errorf("get transaction by opstate: %w", err)
+		return nil, rfc6749.NewInvalidGrantError(fmt.Errorf("get transaction by opstate: %w", err))
 	}
 
 	newState := issuecredential.TransactionStateIssuerOIDCAuthorizationDone
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, err
+		e := rfc6749.NewInvalidRequestError(err).WithErrorPrefix("validateStateTransition")
+
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
+
+		return nil, e
 	}
+
 	tx.State = newState
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
-		var e error
+		e := rfc6749.NewInvalidRequestError(err).WithErrorPrefix("getProfile")
 
-		if strings.Contains(err.Error(), "not found") {
-			e = resterr.NewCustomError(resterr.ProfileNotFound, err)
-		} else {
-			e = resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
-		}
-
-		s.sendFailedTransactionEvent(ctx, tx, e)
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
 
 		return nil, e
 	}
 
 	if err = s.checkPolicy(ctx, profile, tx, clientAssertionType, clientAssertion); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, resterr.NewCustomError(resterr.OIDCClientAuthenticationFailed, err)
+		e := rfc6749.NewInvalidRequestError(err).WithErrorPrefix("check policy")
+
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
+
+		return nil, e
 	}
 
 	oauth2Client := oauth2.Config{
@@ -73,15 +73,21 @@ func (s *Service) ExchangeAuthorizationCode(
 
 	resp, err := oauth2Client.Exchange(ctx, tx.IssuerAuthCode)
 	if err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, err
+		e := rfc6749.NewInvalidGrantError(err).WithErrorPrefix("oauth2Client.Exchange")
+
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
+
+		return nil, e
 	}
 
 	tx.IssuerToken = resp.AccessToken
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
-		return nil, err
+		e := rfc6749.NewInvalidRequestError(err).WithErrorPrefix("update store")
+
+		s.sendFailedTransactionEvent(ctx, tx, e.Error(), e.Code(), e.ErrorComponent)
+
+		return nil, e
 	}
 
 	if err = s.sendTransactionEvent(
@@ -90,7 +96,7 @@ func (s *Service) ExchangeAuthorizationCode(
 		spi.IssuerOIDCInteractionAuthorizationCodeExchanged,
 		nil,
 	); err != nil {
-		return nil, err
+		return nil, rfc6749.NewInvalidRequestError(err).WithErrorPrefix("update store")
 	}
 
 	exchangeAuthorizationCodeResult := &ExchangeAuthorizationCodeResult{

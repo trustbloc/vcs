@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/profile"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -301,8 +302,11 @@ func TestAckFallback(t *testing.T) {
 				"key1": "value1",
 			},
 		})
-		assert.ErrorIs(t, err, oidc4ci.ErrAckExpired)
-		assert.Equal(t, err.Error(), "expired_ack_id") // do not change this error code. wallet-sdk.
+
+		var oidc4ciErr *oidc4cierr.Error
+		assert.ErrorAs(t, err, &oidc4ciErr)
+
+		assert.Equal(t, oidc4ciErr.Code(), "expired_ack_id") // do not change this error code. wallet-sdk.
 	})
 
 	t.Run("success with short identifier", func(t *testing.T) {

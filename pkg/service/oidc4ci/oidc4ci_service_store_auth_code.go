@@ -40,7 +40,9 @@ func (s *Service) StoreAuthorizationCode(
 
 	tx.IssuerAuthCode = code
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedTransactionEvent(ctx, tx, err)
+		s.sendFailedTransactionEvent(
+			ctx, tx, err.Error(), resterr.SystemError, resterr.TransactionStoreComponent)
+
 		return "", err
 	}
 
@@ -63,10 +65,10 @@ func (s *Service) initiateIssuanceWithWalletFlow(
 	profile, err := s.profileService.GetProfile(flowData.ProfileId, flowData.ProfileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return nil, resterr.NewCustomError(resterr.ProfileNotFound, err)
+			return nil, resterr.ErrProfileNotFound
 		}
 
-		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	profile.Version = flowData.ProfileVersion // wallet flow aud check should match

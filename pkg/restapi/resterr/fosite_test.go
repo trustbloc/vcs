@@ -9,16 +9,19 @@ package resterr
 import (
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewFositeError(t *testing.T) {
-	ctx, _ := createContext(http.MethodGet)
+	ctx, _ := createContext()
 	got := NewFositeError(
 		FositeIntrospectionError,
 		ctx,
@@ -61,7 +64,7 @@ func TestNewFositeError(t *testing.T) {
 
 func TestFositeError_Write(t *testing.T) {
 	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
-	ctx, rw := createContext(http.MethodGet)
+	ctx, rw := createContext()
 	type fields struct {
 		code      FositeErrorCode
 		getWriter func() fositeErrorWriter
@@ -142,4 +145,117 @@ func TestFositeError_Write(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createContext() (echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+	rec := httptest.NewRecorder()
+	return e.NewContext(req, rec), rec
+}
+
+func TestNewFositeUnauthorizedClientErr(t *testing.T) {
+	ctx, _ := createContext()
+	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+
+	got := NewFositeAuthUnauthorizedClientErr(ctx, mockFositeErrWriter)
+
+	want := &FositeError{
+		err:    fosite.ErrUnauthorizedClient,
+		code:   FositeAuthorizeError,
+		ctx:    ctx,
+		writer: mockFositeErrWriter,
+	}
+
+	require.Equal(t, want, got)
+}
+
+func TestNewFositePARUnauthorizedClientErr(t *testing.T) {
+	ctx, _ := createContext()
+	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+
+	got := NewFositePARUnauthorizedClientErr(ctx, mockFositeErrWriter)
+
+	want := &FositeError{
+		err:    fosite.ErrUnauthorizedClient,
+		code:   FositePARError,
+		ctx:    ctx,
+		writer: mockFositeErrWriter,
+	}
+
+	require.Equal(t, want, got)
+}
+
+func TestNewFositeAuthInvalidRequestErr(t *testing.T) {
+	ctx, _ := createContext()
+	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+
+	got := NewFositeAuthInvalidRequestErr(ctx, mockFositeErrWriter)
+
+	want := &FositeError{
+		err:    fosite.ErrInvalidRequest,
+		code:   FositeAuthorizeError,
+		ctx:    ctx,
+		writer: mockFositeErrWriter,
+	}
+
+	require.Equal(t, want, got)
+}
+
+func TestNewFositePARInvalidRequestErr(t *testing.T) {
+	ctx, _ := createContext()
+	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+
+	got := NewFositePARInvalidRequestErr(ctx, mockFositeErrWriter)
+
+	want := &FositeError{
+		err:    fosite.ErrInvalidRequest,
+		code:   FositePARError,
+		ctx:    ctx,
+		writer: mockFositeErrWriter,
+	}
+
+	require.Equal(t, want, got)
+}
+
+func TestNewFositeAccessTokenInvalidTokenErr(t *testing.T) {
+	ctx, _ := createContext()
+	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+
+	got := NewFositeAccessTokenInvalidTokenErr(ctx, mockFositeErrWriter)
+
+	want := &FositeError{
+		err:    fosite.ErrInvalidTokenFormat,
+		code:   FositeAccessError,
+		ctx:    ctx,
+		writer: mockFositeErrWriter,
+	}
+
+	require.Equal(t, want, got)
+}
+
+func TestNewFositeIntrospectTokenInvalidTokenErr(t *testing.T) {
+	ctx, _ := createContext()
+	mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+
+	got := NewFositeIntrospectTokenInvalidTokenErr(ctx, mockFositeErrWriter)
+
+	want := &FositeError{
+		err:    fosite.ErrInvalidTokenFormat,
+		code:   FositeIntrospectionError,
+		ctx:    ctx,
+		writer: mockFositeErrWriter,
+	}
+
+	require.Equal(t, want, got)
+}
+
+func TestFositeError_Unwrap(t *testing.T) {
+	err := errors.New("some error")
+	e := &FositeError{err: err}
+
+	assert.Equal(t, err, e.Unwrap())
 }

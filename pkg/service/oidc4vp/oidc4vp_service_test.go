@@ -260,7 +260,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "failed to publish request object: fail"))
+				assert.Contains(t, errorMsg, "publish request object: fail")
 			}),
 		)
 
@@ -304,7 +304,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				_, ok = epData["errorComponent"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "initiate oidc interaction: get key manager failed: fail"))
+				assert.Contains(t, errorMsg, "initiate oidc interaction: get key manager failed: fail")
 			}),
 		)
 
@@ -349,7 +349,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				_, ok = epData["errorComponent"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "initiate oidc interaction: get create signer failed"))
+				assert.Contains(t, errorMsg, "initiate oidc interaction: get create signer failed")
 			}),
 		)
 
@@ -386,7 +386,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				_, ok = epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "unsupported jwt key type invalid"))
+				assert.Contains(t, errorMsg, "unsupported jwt key type invalid")
 			}),
 		)
 
@@ -671,7 +671,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, errorMsg, "profile does not support ldp vp_token format")
+				assert.Contains(t, errorMsg, "profile does not support ldp vp_token format")
 
 				_, ok = epData["errorCode"].(string)
 				assert.True(t, ok)
@@ -765,12 +765,12 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, errorMsg, "duplicate presentation ID: ")
+				assert.Contains(t, errorMsg, "duplicate presentation ID: ")
 
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "duplicate-presentation-id", ec)
+				assert.Equal(t, "bad_request", ec)
 			}),
 		)
 
@@ -861,7 +861,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "invalid-value", ec)
+				assert.Equal(t, "bad_request", ec)
 			}),
 		)
 
@@ -1052,12 +1052,12 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "presentation verification failed: verification failed", errMsg)
+				assert.Contains(t, errMsg, "presentation verification failed: verification failed")
 
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "system-error", ec)
+				assert.Equal(t, "bad_request", ec)
 
 				errComponent, ok := epData["errorComponent"].(string)
 				assert.True(t, ok)
@@ -1107,15 +1107,15 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "presentation definition match: "+
-					"input verifiable presentation must have json-ld context "+
-					"https://identity.foundation/presentation-exchange/submission/v1 or "+
+				assert.Equal(t, "bad_request[component: verifier.presentation-verifier; http status: 400]: "+
+					"presentation definition match: input verifiable presentation must have json-ld "+
+					"context https://identity.foundation/presentation-exchange/submission/v1 or "+
 					"https://identity.foundation/credential-manifest/application/v1", errMsg)
 
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "presentation-definition-mismatch", ec)
+				assert.Equal(t, "bad_request", ec)
 			}),
 		)
 
@@ -1165,7 +1165,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "store error", errorMsg)
+				assert.Equal(t, "bad_request[component: verifier.txn-mgr; "+
+					"operation: store-received-claims; http status: 400]: store received claims: store error", errorMsg)
 			}),
 		)
 

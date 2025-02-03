@@ -145,7 +145,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 	})
 
 	client := &mockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(didCfg))),
@@ -173,7 +173,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return &vdrmock.VDRegistry{
-						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+						ResolveFunc: func(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
 							}
@@ -193,7 +193,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return &vdrmock.VDRegistry{
-						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+						ResolveFunc: func(_ string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							return nil, errors.New("some error")
 						},
 					}
@@ -209,7 +209,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return &vdrmock.VDRegistry{
-						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+						ResolveFunc: func(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
 							}
@@ -234,7 +234,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return &vdrmock.VDRegistry{
-						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+						ResolveFunc: func(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
 							}
@@ -268,7 +268,7 @@ func TestService_ValidateLinkedDomain(t *testing.T) {
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return &vdrmock.VDRegistry{
-						ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+						ResolveFunc: func(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 							if didID != testDID {
 								return nil, errors.New("some error")
 							}

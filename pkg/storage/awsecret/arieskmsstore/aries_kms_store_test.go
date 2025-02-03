@@ -24,9 +24,9 @@ func TestPut(t *testing.T) {
 
 	cl.EXPECT().CreateSecret(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
-			ctx context.Context,
+			_ context.Context,
 			input *secretsmanager.CreateSecretInput,
-			f ...func(*secretsmanager.Options),
+			_ ...func(*secretsmanager.Options),
 		) (*secretsmanager.CreateSecretOutput, error) {
 			assert.EqualValues(t, prefix+"someId", *input.Name)
 
@@ -55,7 +55,7 @@ func TestGet(t *testing.T) {
 
 	cl.EXPECT().GetSecretValue(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
-			ctx context.Context,
+			_ context.Context,
 			input *secretsmanager.GetSecretValueInput,
 			_ ...func(*secretsmanager.Options),
 		) (*secretsmanager.GetSecretValueOutput, error) {
@@ -89,7 +89,7 @@ func TestDelete(t *testing.T) {
 
 	cl.EXPECT().DeleteSecret(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
-			ctx context.Context,
+			_ context.Context,
 			input *secretsmanager.DeleteSecretInput,
 			_ ...func(*secretsmanager.Options),
 		) (*secretsmanager.DeleteSecretOutput, error) {

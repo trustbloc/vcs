@@ -28,6 +28,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/trustregistry"
@@ -252,13 +253,13 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				var customErr *resterr.CustomError
+				var customErr *rfc6749.Error
 				is := errors.As(err, &customErr)
 				assert.True(t, is)
 
-				assert.Equal(t, resterr.ProfileNotFound, customErr.Code)
-				assert.Empty(t, customErr.FailedOperation)
-				assert.Empty(t, customErr.Component)
+				assert.Equal(t, "invalid_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
+				assert.Empty(t, customErr.Component())
 				assert.ErrorContains(t, customErr.Err, "not found")
 			},
 		},
@@ -289,13 +290,11 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				var customErr *resterr.CustomError
+				var customErr *rfc6749.Error
 				is := errors.As(err, &customErr)
 				assert.True(t, is)
 
-				assert.Equal(t, resterr.SystemError, customErr.Code)
-				assert.Equal(t, "GetProfile", customErr.FailedOperation)
-				assert.Equal(t, "issuer.profile-service", customErr.Component)
+				assert.Equal(t, "invalid_request", customErr.Code())
 				assert.ErrorContains(t, customErr.Err, "some error")
 			},
 		},
@@ -329,13 +328,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				var customErr *resterr.CustomError
-				is := errors.As(err, &customErr)
-				assert.True(t, is)
+				var customErr *rfc6749.Error
+				assert.ErrorAs(t, err, &customErr)
 
-				assert.Equal(t, resterr.InvalidCredentialConfigurationID, customErr.Code)
-				assert.Empty(t, customErr.FailedOperation)
-				assert.Empty(t, customErr.Component)
+				assert.Equal(t, "invalid_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
+				assert.Empty(t, customErr.ErrorComponent)
 				assert.ErrorContains(t, customErr.Err, "invalid credential configuration ID")
 			},
 		},
@@ -381,13 +379,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				var customErr *resterr.CustomError
-				is := errors.As(err, &customErr)
-				assert.True(t, is)
+				var customErr *rfc6749.Error
+				assert.ErrorAs(t, err, &customErr)
 
-				assert.Equal(t, resterr.InvalidCredentialConfigurationID, customErr.Code)
-				assert.Empty(t, customErr.FailedOperation)
-				assert.Empty(t, customErr.Component)
+				assert.Equal(t, "invalid_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
+				assert.Empty(t, customErr.ErrorComponent)
 				assert.ErrorContains(t, customErr.Err, "invalid credential configuration ID")
 			},
 		},
@@ -432,13 +429,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				var customErr *resterr.CustomError
-				is := errors.As(err, &customErr)
-				assert.True(t, is)
+				var customErr *rfc6749.Error
+				assert.ErrorAs(t, err, &customErr)
 
-				assert.Equal(t, resterr.CredentialFormatNotSupported, customErr.Code)
-				assert.Empty(t, customErr.FailedOperation)
-				assert.Empty(t, customErr.Component)
+				assert.Equal(t, "invalid_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
+				assert.Empty(t, customErr.ErrorComponent)
 				assert.ErrorContains(t, customErr.Err, "credential format not supported")
 			},
 		},
@@ -483,13 +479,12 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				var customErr *resterr.CustomError
-				is := errors.As(err, &customErr)
-				assert.True(t, is)
+				var customErr *rfc6749.Error
+				assert.ErrorAs(t, err, &customErr)
 
-				assert.Equal(t, resterr.CredentialTypeNotSupported, customErr.Code)
-				assert.Empty(t, customErr.FailedOperation)
-				assert.Empty(t, customErr.Component)
+				assert.Equal(t, "invalid_request", customErr.Code())
+				assert.Empty(t, customErr.Operation)
+				assert.Empty(t, customErr.ErrorComponent)
 				assert.ErrorContains(t, customErr.Err, "credential type not supported")
 			},
 		},
@@ -537,7 +532,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, err error) {
-				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -2068,7 +2063,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					expectedPublishErrorEventFunc(t,
 						resterr.InvalidStateTransition,
 						"unexpected transition from 5 to 3",
-						"",
+						resterr.IssuerOIDC4ciSvcComponent,
 					),
 				)
 
@@ -2101,7 +2096,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				assert.ErrorIs(t, err, resterr.ErrResponseTypeMismatch)
+				assert.ErrorIs(t, err, oidc4ci.ErrResponseTypeMismatch)
 			},
 		},
 		{
@@ -2135,9 +2130,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(
 						expectedPublishErrorEventFunc(t,
-							resterr.InvalidScope,
+							"invalid_scope",
 							"invalid scope",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2147,7 +2142,10 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				assert.ErrorIs(t, err, resterr.ErrInvalidScope)
+				var rfc6749Err *rfc6749.Error
+				assert.ErrorAs(t, err, &rfc6749Err)
+
+				assert.Equal(t, "invalid_scope", rfc6749Err.Code())
 			},
 		},
 		{
@@ -2173,13 +2171,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-
-				var customError *resterr.CustomError
-				assert.ErrorAs(t, err, &customError)
-				assert.Equal(t, resterr.ProfileNotFound, customError.Code)
-				assert.Empty(t, customError.Component)
-				assert.Empty(t, customError.FailedOperation)
-				assert.ErrorContains(t, err, "get profile: not found")
+				assert.ErrorIs(t, err, resterr.ErrProfileNotFound)
 			},
 		},
 		{
@@ -2205,12 +2197,6 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-
-				var customError *resterr.CustomError
-				assert.ErrorAs(t, err, &customError)
-				assert.Equal(t, resterr.SystemError, customError.Code)
-				assert.Equal(t, "GetProfile", customError.FailedOperation)
-				assert.Equal(t, resterr.IssuerProfileSvcComponent, customError.Component)
 				assert.ErrorContains(t, err, "get profile: some error")
 			},
 		},
@@ -2244,7 +2230,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.InvalidCredentialConfigurationID,
 							"invalid credential configuration ID",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2260,7 +2246,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrInvalidCredentialConfigurationID)
+				assert.ErrorIs(t, err, oidc4ci.ErrInvalidCredentialConfigurationID)
 			},
 		},
 		{
@@ -2314,7 +2300,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.CredentialFormatNotSupported,
 							"credential format not supported",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2330,7 +2316,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -2380,7 +2366,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.CredentialTypeNotSupported,
 							"credential type not supported",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2396,7 +2382,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrCredentialTypeNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialTypeNotSupported)
 			},
 		},
 		{
@@ -2448,7 +2434,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.CredentialTypeNotSupported,
 							"credential type not supported",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2464,7 +2450,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrCredentialTypeNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialTypeNotSupported)
 			},
 		},
 
@@ -2518,7 +2504,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.InvalidCredentialConfigurationID,
 							"invalid credential configuration ID",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2534,7 +2520,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrInvalidCredentialConfigurationID)
+				assert.ErrorIs(t, err, oidc4ci.ErrInvalidCredentialConfigurationID)
 			},
 		},
 		{
@@ -2567,7 +2553,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.CredentialFormatNotSupported,
 							"credential format not supported",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2586,7 +2572,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -2629,7 +2615,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.CredentialFormatNotSupported,
 							"credential format not supported",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2648,7 +2634,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -2691,7 +2677,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.CredentialFormatNotSupported,
 							"credential format not supported",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2710,7 +2696,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.ErrorIs(t, err, resterr.ErrCredentialFormatNotSupported)
+				assert.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
 			},
 		},
 		{
@@ -2753,7 +2739,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						expectedPublishErrorEventFunc(t,
 							resterr.InvalidValue,
 							"neither credentialFormat nor credentialConfigurationID supplied",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2809,9 +2795,9 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				mocks.eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(
 						expectedPublishErrorEventFunc(t,
-							resterr.InvalidScope,
+							"invalid_scope",
 							"invalid scope",
-							"",
+							resterr.IssuerOIDC4ciSvcComponent,
 						))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -2823,7 +2809,11 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				assert.Nil(t, resp)
-				assert.Equal(t, resterr.ErrInvalidScope, err)
+
+				var rfc6749Err *rfc6749.Error
+				assert.ErrorAs(t, err, &rfc6749Err)
+
+				assert.Equal(t, "invalid_scope", rfc6749Err.Code())
 			},
 		},
 		// Rest errors.
@@ -2906,7 +2896,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					DoAndReturn(
 						expectedPublishErrorEventFunc(t,
 							resterr.SystemError,
-							"some error",
+							"update store: some error",
 							resterr.TransactionStoreComponent,
 						))
 
@@ -2922,14 +2912,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
-				var customErr *resterr.CustomError
-				is := errors.As(err, &customErr)
-				assert.True(t, is)
-
-				assert.Equal(t, resterr.SystemError, customErr.Code)
-				assert.Equal(t, "Update", customErr.FailedOperation)
-				assert.Equal(t, "transaction-store", customErr.Component)
-				assert.ErrorContains(t, customErr.Err, "some error")
+				assert.ErrorContains(t, err, "update store: some error")
 			},
 		},
 		{
@@ -3039,15 +3022,13 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		profileSvc.EXPECT().GetProfile(profileapi.ID("issuer"), "bank_issuer1").
-			Return(nil, errors.New("not found"))
-
 		mockTransactionStore.EXPECT().FindByOpState(gomock.Any(),
-			"https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1").
+			"api-gateway.trustbloc.local:5566").
 			Return(nil, resterr.ErrDataNotFound)
+
 		resp, err := svc.PrepareClaimDataAuthorizationRequest(context.TODO(),
 			&oidc4ci.PrepareClaimDataAuthorizationRequest{
-				OpState: "https://api-gateway.trustbloc.local:5566/issuer/bank_issuer1",
+				OpState: "api-gateway.trustbloc.local:5566",
 				Scope: []string{
 					"scope1",
 					"scope2",
@@ -3056,7 +3037,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 			},
 		)
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "profile-not-found: not found")
+		assert.ErrorContains(t, err, "data not found")
 	})
 
 	t.Run("profile not found", func(t *testing.T) {
@@ -3091,7 +3072,7 @@ func TestPrepareClaimDataAuthorizationForWalletFlow(t *testing.T) {
 		)
 
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "profile-not-found: not found")
+		assert.ErrorIs(t, err, resterr.ErrProfileNotFound)
 	})
 	t.Run("profile wallet flow not supported", func(t *testing.T) {
 		mockTransactionStore := NewMockTransactionStore(gomock.NewController(t))
@@ -3682,7 +3663,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567", "", "", "")
-		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin: server does not expect pin")
+		assert.ErrorContains(t, err, "server does not expect pin")
 		assert.Nil(t, resp)
 	})
 
@@ -3711,7 +3692,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "", "")
-		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin: server expects user pin")
+		assert.ErrorContains(t, err, "server expects user pin")
 		assert.Nil(t, resp)
 	})
 
@@ -3781,7 +3762,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
-		assert.ErrorContains(t, err, "oidc-pre-authorize-invalid-client-id: issuer does not accept "+
+		assert.ErrorContains(t, err, "issuer does not accept "+
 			"Token Request with a Pre-Authorized Code but without a client_id")
 		assert.Nil(t, resp)
 	})
@@ -3813,7 +3794,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
-		assert.ErrorContains(t, err, "oidc-tx-not-found: invalid pre-authorization code")
+		assert.ErrorContains(t, err, "invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
 
@@ -3844,7 +3825,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		}, nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123", "", "", "")
-		assert.ErrorContains(t, err, "oidc-tx-not-found: invalid pre-authorization code")
+		assert.ErrorContains(t, err, "invalid pre-authorization code")
 		assert.Nil(t, resp)
 	})
 
@@ -4074,7 +4055,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 			resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "", "", "attest_jwt_client_auth",
 				"attestation_vp_jwt")
-			assert.ErrorContains(t, err, "oidc-client-authentication-failed: validate issuance error")
+			assert.ErrorContains(t, err, "validate issuance error")
 			assert.Nil(t, resp)
 		})
 	})
@@ -5418,7 +5399,7 @@ func expectedPublishEventFunc(
 
 func expectedPublishErrorEventFunc(
 	t *testing.T,
-	errCode resterr.ErrorCode,
+	eventErrorCode resterr.EventErrorCode,
 	errMessage string,
 	errComponent resterr.Component,
 ) eventPublishFunc {
@@ -5435,8 +5416,8 @@ func expectedPublishErrorEventFunc(
 
 		assert.NoError(t, json.Unmarshal(jsonData, &ep))
 
-		assert.Equalf(t, string(errCode), ep.ErrorCode, "unexpected error code")
-		assert.Equalf(t, errComponent, ep.ErrorComponent, "unexpected error component")
+		assert.Equalf(t, eventErrorCode, ep.ErrorCode, "unexpected error code")
+		assert.Equalf(t, string(errComponent), ep.ErrorComponent, "unexpected error component")
 
 		if errMessage != "" {
 			assert.Containsf(t, ep.Error, errMessage, "unexpected error message")

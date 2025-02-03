@@ -78,7 +78,7 @@ import (
 	verifycredentialtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/verifycredential"
 	verifypresentationtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/verifypresentation"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/logapi"
@@ -423,7 +423,7 @@ func buildEchoHandler(
 ) (*echo.Echo, error) {
 	e := createEcho()
 
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler(conf.Tracer)
+	e.HTTPErrorHandler = handlers.HTTPErrorHandler(conf.Tracer)
 
 	metrics, err := NewMetrics(conf.StartupParameters, e, options)
 	if err != nil {

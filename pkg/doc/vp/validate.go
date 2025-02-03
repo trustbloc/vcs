@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package vp
 
 import (
+	"fmt"
+
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 func ValidatePresentation(pres interface{}, formats []vcsverifiable.Format,
@@ -22,7 +23,7 @@ func ValidatePresentation(pres interface{}, formats []vcsverifiable.Format,
 
 	presentation, err := verifiable.ParsePresentation(vpBytes, opts...)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation", err)
+		return nil, fmt.Errorf("parse presentation: %w", err)
 	}
 
 	return presentation, nil

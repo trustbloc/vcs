@@ -48,6 +48,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -199,8 +200,10 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 
 	var body VerifyCredentialData
 
-	if err := util.ReadBody(e, &body); err != nil {
-		return err
+	if err := e.Bind(&body); err != nil {
+		return oidc4vperr.NewBadRequestError(err).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			WithOperation("ReadBody")
 	}
 
 	if body.VerifiableCredential == nil && body.Credential != nil {
@@ -209,12 +212,12 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return err
+		return oidc4vperr.NewUnauthorizedError(err)
 	}
 
-	resp, err := c.verifyCredential(ctx, &body, profileID, profileVersion, tenantID)
-	if err != nil {
-		return err
+	resp, verifyErr := c.verifyCredential(ctx, &body, profileID, profileVersion, tenantID)
+	if verifyErr != nil {
+		return verifyErr.WithErrorPrefix("verifyCredential")
 	}
 
 	hasErrors := false
@@ -240,19 +243,21 @@ func (c *Controller) verifyCredential(
 	profileID string,
 	profileVersion string,
 	tenantID string,
-) (*VerifyCredentialResponse, error) {
+) (*VerifyCredentialResponse, *oidc4vperr.Error) {
 	if body.VerifiableCredential == nil && body.Credential != nil {
 		body.VerifiableCredential = body.Credential
 	}
 
 	if body.VerifiableCredential == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
-			errors.New("missing credential"))
+		return nil, oidc4vperr.
+			NewBadRequestError(errors.New("missing credential")).
+			WithComponent(resterr.VerifierVerifyCredentialSvcComponent).
+			WithIncorrectValue("credential")
 	}
 
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, oidc4vperr.NewUnauthorizedError(err).WithComponent(resterr.VerifierProfileSvcComponent)
 	}
 
 	credential, err := vc.ValidateCredential(
@@ -267,16 +272,20 @@ func (c *Controller) verifyCredential(
 	)
 
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+		return nil, oidc4vperr.
+			NewBadRequestError(err).
+			WithComponent(resterr.VerifierVerifyCredentialSvcComponent).
+			WithIncorrectValue("credential")
 	}
 
 	verRes, err := c.verifyCredentialSvc.VerifyCredential(ctx, credential,
 		getVerifyCredentialOptions(body.Options), profile)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.VerifierVerifyCredentialSvcComponent, "VerifyCredential", err)
+		return nil, oidc4vperr.NewBadRequestError(err).WithComponent(resterr.VerifierVerifyCredentialSvcComponent)
 	}
 
 	logger.Debugc(ctx, "PostVerifyCredentials success")
+
 	return mapVerifyCredentialChecks(verRes), nil
 }
 
@@ -290,18 +299,20 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVe
 
 	var body VerifyPresentationData
 
-	if err := util.ReadBody(e, &body); err != nil {
-		return err
+	if err := e.Bind(&body); err != nil {
+		return oidc4vperr.NewBadRequestError(err).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			WithOperation("ReadBody")
 	}
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return err
+		return oidc4vperr.NewUnauthorizedError(err)
 	}
 
-	resp, err := c.verifyPresentation(ctx, &body, profileID, profileVersion, tenantID)
-	if err != nil {
-		return err
+	resp, verifyVPErr := c.verifyPresentation(ctx, &body, profileID, profileVersion, tenantID)
+	if verifyVPErr != nil {
+		return verifyVPErr.WithErrorPrefix("verifyPresentation")
 	}
 
 	if len(lo.FromPtr(resp.Errors)) > 0 {
@@ -317,10 +328,10 @@ func (c *Controller) verifyPresentation(
 	profileID string,
 	profileVersion string,
 	tenantID string,
-) (*VerifyPresentationResponse, error) {
+) (*VerifyPresentationResponse, *oidc4vperr.Error) {
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, oidc4vperr.NewUnauthorizedError(err).WithComponent(resterr.VerifierProfileSvcComponent)
 	}
 
 	opts := []verifiable.PresentationOpt{
@@ -348,7 +359,10 @@ func (c *Controller) verifyPresentation(
 	)
 
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation", err)
+		return nil, oidc4vperr.
+			NewBadRequestError(err).
+			WithComponent(resterr.VerifierProfileSvcComponent).
+			WithIncorrectValue("presentation")
 	}
 
 	verRes, _, err := c.verifyPresentationSvc.VerifyPresentation(
@@ -359,7 +373,7 @@ func (c *Controller) verifyPresentation(
 	)
 
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.VerifierVerifyCredentialSvcComponent, "VerifyCredential", err)
+		return nil, oidc4vperr.NewBadRequestError(err).WithComponent(resterr.VerifierProfileSvcComponent)
 	}
 
 	logger.Debugc(ctx, "PostVerifyPresentation completed")
@@ -377,25 +391,30 @@ func (c *Controller) InitiateOidcInteraction(e echo.Context, profileID, profileV
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return err
+		return oidc4vperr.NewUnauthorizedError(err).UsePublicAPIResponse()
 	}
 
 	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
-		return err
+		return oidc4vperr.NewUnauthorizedError(err).
+			WithComponent(resterr.VerifierProfileSvcComponent).
+			UsePublicAPIResponse()
 	}
 
 	var body InitiateOIDC4VPData
 
 	if err = e.Bind(&body); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
+		return oidc4vperr.NewBadRequestError(err).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			WithOperation("ReadBody").
+			UsePublicAPIResponse()
 	}
 
 	span.SetAttributes(attributeutil.JSON("initiate_oidc_request", body))
 
-	resp, err := c.initiateOidcInteraction(ctx, &body, profile)
-	if err != nil {
-		return err
+	resp, initiateErr := c.initiateOidcInteraction(ctx, &body, profile)
+	if initiateErr != nil {
+		return initiateErr.UsePublicAPIResponse()
 	}
 
 	return util.WriteOutput(e)(resp, nil)
@@ -405,10 +424,12 @@ func (c *Controller) initiateOidcInteraction(
 	ctx context.Context,
 	data *InitiateOIDC4VPData,
 	profile *profileapi.Verifier,
-) (*InitiateOIDC4VPResponse, error) {
+) (*InitiateOIDC4VPResponse, *oidc4vperr.Error) {
 	if profile.OIDCConfig == nil {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.OIDCConfig",
-			errors.New("OIDC not configured"))
+		return nil, oidc4vperr.
+			NewBadRequestError(errors.New("OIDC not configured")).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			WithIncorrectValue("profile.OIDCConfig")
 	}
 
 	pd, err := findPresentationDefinition(
@@ -417,7 +438,10 @@ func (c *Controller) initiateOidcInteraction(
 		data,
 	)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
+		return nil, oidc4vperr.
+			NewBadRequestError(err).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			WithIncorrectValue("presentationDefinitionID")
 	}
 
 	logger.Debugc(ctx, "InitiateOidcInteraction pd find", logfields.WithPresDefID(pd.ID))
@@ -425,7 +449,10 @@ func (c *Controller) initiateOidcInteraction(
 	if data.PresentationDefinitionFilters != nil {
 		pd, err = applyPresentationDefinitionFilters(pd, data.PresentationDefinitionFilters)
 		if err != nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionFilters", err)
+			return nil, oidc4vperr.
+				NewBadRequestError(err).
+				WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+				WithIncorrectValue("presentationDefinitionFilters")
 		}
 
 		logger.Debugc(ctx, "InitiateOidcInteraction applied filters to pd", logfields.WithPresDefID(pd.ID))
@@ -434,14 +461,20 @@ func (c *Controller) initiateOidcInteraction(
 	result, err := c.oidc4VPService.InitiateOidcInteraction(
 		ctx, pd, lo.FromPtr(data.Purpose), lo.FromPtr(data.Scopes), lo.FromPtr(data.CustomURLScheme), profile)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.VerifierOIDC4vpSvcComponent, "InitiateOidcInteraction", err)
+		var oidc4vpErr *oidc4vperr.Error
+
+		if !errors.As(err, &oidc4vpErr) {
+			oidc4vpErr = oidc4vperr.NewBadRequestError(err)
+		}
+
+		return nil, oidc4vpErr
 	}
 
 	logger.Debugc(ctx, "InitiateOidcInteraction success", log.WithTxID(string(result.TxID)))
 	return &InitiateOIDC4VPResponse{
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxID:                 string(result.TxID),
-	}, err
+	}, nil
 }
 
 func applyPresentationDefinitionFilters(
@@ -516,7 +549,7 @@ func matchField(ids []string, target string) (string, bool, error) {
 	return "", false, nil
 }
 
-// CheckAuthorizationResponse is used by verifier applications to initiate OpenID presentation flow through VCS.
+// CheckAuthorizationResponse is used by verifier applications to verify credentials.
 // (POST /verifier/interactions/authorization-response).
 func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 	logger.Debugc(e.Request().Context(), "CheckAuthorizationResponse begin")
@@ -531,34 +564,52 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 			log.WithDuration(time.Since(startTime)))
 	}()
 
-	rawAuthResp, err := decodeAuthorizationResponse(e)
-	if err != nil {
-		return err
+	rawAuthResp, oidc4vpErr := decodeAuthorizationResponse(e)
+	if oidc4vpErr != nil {
+		return oidc4vpErr.WithComponent(resterr.VerifierOIDC4vpSvcComponent)
 	}
 
 	if rawAuthResp.Error != "" {
 		// Error authorization response
-		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-7.5
-		return c.oidc4VPService.HandleWalletNotification(ctx, &oidc4vp.WalletNotification{
+		// Spec: https://openid.net/specs/openid-4-verifiable-presentations-1_0-ID2.html#section-6.4
+		if err := c.oidc4VPService.HandleWalletNotification(ctx, &oidc4vp.WalletNotification{
 			TxID:               oidc4vp.TxID(rawAuthResp.State),
 			Error:              rawAuthResp.Error,
 			ErrorDescription:   rawAuthResp.ErrorDescription,
 			InteractionDetails: rawAuthResp.InteractionDetails,
-		})
-	}
+		}); err != nil {
+			var wannetNotifErr *oidc4vperr.Error
 
-	responseParsed, err := c.verifyAuthorizationResponseTokens(ctx, rawAuthResp)
-	if err != nil {
-		if tenantID, authErr := util.GetTenantIDFromRequest(e); authErr == nil {
-			c.sendFailedEvent(ctx, rawAuthResp.State, tenantID, "", "", err)
+			if !errors.As(err, &wannetNotifErr) {
+				wannetNotifErr = oidc4vperr.NewBadRequestError(err)
+			}
+
+			return wannetNotifErr.WithErrorPrefix("handle wallet notification")
 		}
 
-		return err
+		return nil
 	}
 
-	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(ctx, oidc4vp.TxID(rawAuthResp.State), responseParsed)
-	if err != nil {
-		return err
+	responseParsed, oidc4vpErr := c.verifyAuthorizationResponseTokens(ctx, rawAuthResp)
+	if oidc4vpErr != nil {
+		oidc4vpErr = oidc4vpErr.WithComponent(resterr.VerifierOIDC4vpSvcComponent)
+
+		if tenantID, authErr := util.GetTenantIDFromRequest(e); authErr == nil {
+			c.sendFailedEvent(ctx, rawAuthResp.State, tenantID, "", "", oidc4vpErr)
+		}
+
+		return oidc4vpErr
+	}
+
+	if err := c.oidc4VPService.
+		VerifyOIDCVerifiablePresentation(ctx, oidc4vp.TxID(rawAuthResp.State), responseParsed); err != nil {
+		var verifyVP *oidc4vperr.Error
+
+		if !errors.As(err, &verifyVP) {
+			verifyVP = oidc4vperr.NewBadRequestError(err)
+		}
+
+		return verifyVP
 	}
 
 	logger.Debugc(ctx, "CheckAuthorizationResponse succeed")
@@ -578,39 +629,45 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return err
+		return oidc4vperr.NewUnauthorizedError(err).UsePublicAPIResponse()
 	}
 
-	tx, err := c.accessOIDC4VPTx(ctx, txID)
-	if err != nil {
-		c.sendFailedEvent(ctx, txID, tenantID, "", "", err)
+	tx, oidc4vpErr := c.accessOIDC4VPTx(ctx, txID)
+	if oidc4vpErr != nil {
+		c.sendFailedEvent(ctx, txID, tenantID, "", "", oidc4vpErr)
 
-		return err
+		return oidc4vpErr.UsePublicAPIResponse()
 	}
 
 	profile, err := c.accessProfile(tx.ProfileID, tx.ProfileVersion, tenantID)
 	if err != nil {
-		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
+		oidc4vpErr = oidc4vperr.NewBadRequestError(err).UsePublicAPIResponse()
 
-		return err
+		c.sendFailedTxnEvent(ctx, tenantID, tx, oidc4vpErr)
+
+		return oidc4vpErr
 	}
 
 	if tx.ReceivedClaimsID == "" {
-		err = resterr.NewCustomError(resterr.ClaimsNotReceived,
-			fmt.Errorf("claims were not received for transaction '%s'", txID))
+		oidc4vpErr = oidc4vperr.
+			NewBadRequestError(fmt.Errorf("claims were not received for transaction '%s'", txID)).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			UsePublicAPIResponse()
 
-		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
+		c.sendFailedTxnEvent(ctx, tenantID, tx, oidc4vpErr)
 
-		return err
+		return oidc4vpErr
 	}
 
 	if tx.ReceivedClaims == nil {
-		err = resterr.NewCustomError(resterr.ClaimsNotFound,
-			fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID))
+		oidc4vpErr = oidc4vperr.
+			NewBadRequestError(fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID)).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent).
+			UsePublicAPIResponse()
 
-		c.sendFailedTxnEvent(ctx, tenantID, tx, err)
+		c.sendFailedTxnEvent(ctx, tenantID, tx, oidc4vpErr)
 
-		return err
+		return oidc4vpErr
 	}
 
 	claims := c.oidc4VPService.RetrieveClaims(ctx, tx, profile)
@@ -625,16 +682,20 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 	return util.WriteOutput(e)(claims, nil)
 }
 
-func (c *Controller) accessOIDC4VPTx(ctx context.Context, txID string) (*oidc4vp.Transaction, error) {
+func (c *Controller) accessOIDC4VPTx(
+	ctx context.Context, txID string) (*oidc4vp.Transaction, *oidc4vperr.Error) {
 	tx, err := c.oidc4VPService.GetTx(ctx, oidc4vp.TxID(txID))
 
 	if err != nil {
 		if errors.Is(err, oidc4vp.ErrDataNotFound) {
-			return nil, resterr.NewCustomError(resterr.TransactionNotFound,
-				fmt.Errorf("transaction with given id %s, doesn't exist", txID))
+			return nil, oidc4vperr.
+				NewBadRequestError(fmt.Errorf("transaction with given id %s, doesn't exist", txID)).
+				WithComponent(resterr.VerifierTxnMgrComponent)
 		}
 
-		return nil, resterr.NewSystemError(resterr.VerifierOIDC4vpSvcComponent, "GetTx", err)
+		return nil, oidc4vperr.
+			NewBadRequestError(err).
+			WithComponent(resterr.VerifierOIDC4vpSvcComponent)
 	}
 
 	logger.Debugc(ctx, "RetrieveInteractionsClaim tx found", log.WithTxID(string(tx.ID)))
@@ -645,7 +706,7 @@ func (c *Controller) accessOIDC4VPTx(ctx context.Context, txID string) (*oidc4vp
 func (c *Controller) verifyAuthorizationResponseTokens(
 	ctx context.Context,
 	authResp *rawAuthorizationResponse,
-) (*oidc4vp.AuthorizationResponseParsed, error) {
+) (*oidc4vp.AuthorizationResponseParsed, *oidc4vperr.Error) {
 	startTime := time.Now()
 	defer func() {
 		logger.Debugc(ctx, "validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
@@ -655,18 +716,20 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 
 	if authResp.PresentationSubmission != "" {
 		if err := json.Unmarshal([]byte(authResp.PresentationSubmission), &presentationSubmission); err != nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation_submission", err)
+			return nil, oidc4vperr.NewBadRequestError(err).
+				WithIncorrectValue("presentation_submission")
 		}
 	}
 
-	idTokenClaims, err := validateIDToken(authResp.IDToken, &presentationSubmission, c.proofChecker)
-	if err != nil {
-		return nil, err
+	idTokenClaims, oidc4vpErr := validateIDToken(authResp.IDToken, &presentationSubmission, c.proofChecker)
+	if oidc4vpErr != nil {
+		return nil, oidc4vpErr
 	}
 
 	if presentationSubmission == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation_submission",
-			fmt.Errorf("presentation_submission is missed"))
+		return nil, oidc4vperr.
+			NewBadRequestError(fmt.Errorf("presentation_submission is missed")).
+			WithIncorrectValue("presentation_submission")
 	}
 
 	logger.Debugc(ctx, "CheckAuthorizationResponse id_token verified")
@@ -676,22 +739,24 @@ func (c *Controller) verifyAuthorizationResponseTokens(
 	for _, vpToken := range authResp.VPToken {
 		var vpTokenClaims *VPTokenClaims
 
-		vpTokenClaims, err = c.validateRawVPToken(vpToken)
-		if err != nil {
-			return nil, err
+		vpTokenClaims, oidc4vpErr = c.validateRawVPToken(vpToken)
+		if oidc4vpErr != nil {
+			return nil, oidc4vpErr
 		}
 
 		logger.Debugc(ctx, "CheckAuthorizationResponse vp_token verified")
 
 		// todo: consider to apply this validation for JWT VP in verifypresentation.Service
 		if vpTokenClaims.Nonce != idTokenClaims.Nonce {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
-				errors.New("nonce should be the same for both id_token and vp_token"))
+			return nil, oidc4vperr.
+				NewBadRequestError(errors.New("nonce should be the same for both id_token and vp_token")).
+				WithIncorrectValue("nonce")
 		}
 
 		if vpTokenClaims.Aud != idTokenClaims.Aud {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "aud",
-				errors.New("aud should be the same for both id_token and vp_token"))
+			return nil, oidc4vperr.
+				NewBadRequestError(errors.New("aud should be the same for both id_token and vp_token")).
+				WithIncorrectValue("aud")
 		}
 
 		logger.Debugc(ctx, "CheckAuthorizationResponse vp validated")
@@ -734,7 +799,7 @@ func validateIDToken(
 	idTokenJWT string,
 	presentationSubmission *map[string]interface{},
 	verifier jwt.ProofChecker,
-) (*IDTokenClaims, error) {
+) (*IDTokenClaims, *oidc4vperr.Error) {
 	_, rawClaims, err := jwt.ParseAndCheckProof(
 		idTokenJWT,
 		verifier,
@@ -742,14 +807,17 @@ func validateIDToken(
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("id_token")
 	}
 
 	var parser fastjson.Parser
 
 	v, err := parser.ParseBytes(rawClaims)
 	if err != nil {
-		return nil, fmt.Errorf("decode id_token claims: %w", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("id_token").
+			WithErrorPrefix("decode id_token claims")
 	}
 
 	var customScopeClaims map[string]oidc4vp.Claims
@@ -760,7 +828,9 @@ func validateIDToken(
 		obj, err = val.Object()
 		if err == nil {
 			if err = json.Unmarshal(obj.MarshalTo([]byte{}), &customScopeClaims); err != nil {
-				return nil, fmt.Errorf("decode _scope: %w", err)
+				return nil, oidc4vperr.NewBadRequestError(err).
+					WithIncorrectValue("_scope").
+					WithErrorPrefix("decode _scope")
 			}
 		}
 	}
@@ -771,7 +841,9 @@ func validateIDToken(
 		obj, err = v.Get("_vp_token", "presentation_submission").Object()
 		if err == nil {
 			if err = json.Unmarshal(obj.MarshalTo([]byte{}), &presentationSubmission); err != nil {
-				return nil, fmt.Errorf("decode presentation_submission: %w", err)
+				return nil, oidc4vperr.NewBadRequestError(err).
+					WithIncorrectValue("presentation_submission").
+					WithErrorPrefix("decode presentation_submission")
 			}
 		}
 	}
@@ -796,13 +868,14 @@ func validateIDToken(
 	}
 
 	if idTokenClaims.Exp < time.Now().Unix() {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token.exp", fmt.Errorf("token expired"))
+		return nil, oidc4vperr.NewBadRequestError(fmt.Errorf("token expired")).
+			WithIncorrectValue("id_token.exp")
 	}
 
 	return idTokenClaims, nil
 }
 
-func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, error) {
+func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, *oidc4vperr.Error) {
 	if jwt.IsJWS(vpToken) {
 		return c.validateVPTokenJWT(vpToken)
 	}
@@ -810,24 +883,28 @@ func (c *Controller) validateRawVPToken(vpToken string) (*VPTokenClaims, error) 
 	return c.validateVPToken(vpToken)
 }
 
-func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) {
+func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, *oidc4vperr.Error) {
 	jsonWebToken, rawClaims, err := jwt.ParseAndCheckProof(vpToken,
 		c.proofChecker, true,
 		jwt.WithIgnoreClaimsMapDecoding(true))
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("vp_token").
+			WithErrorPrefix("parse and check proof")
 	}
 
 	var parser fastjson.Parser
 	v, err := parser.ParseBytes(rawClaims)
 	if err != nil {
-		return nil, fmt.Errorf("decode vp token claims: %w", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("vp_token").
+			WithErrorPrefix("decode vp token claims")
 	}
 
 	exp := v.GetInt64("exp")
 	if exp < time.Now().Unix() {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp",
-			fmt.Errorf("token expired"))
+		return nil, oidc4vperr.NewBadRequestError(fmt.Errorf("token expired")).
+			WithIncorrectValue("vp_token.exp")
 	}
 
 	opts := []verifiable.PresentationOpt{
@@ -844,7 +921,9 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 		opts...,
 	)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("vp_token.vp").
+			WithErrorPrefix("parse presentation")
 	}
 
 	// Do not need to check err since token has passed jwt.Parse().
@@ -861,18 +940,18 @@ func (c *Controller) validateVPTokenJWT(vpToken string) (*VPTokenClaims, error) 
 
 func (c *Controller) validateVPTokenCWT(
 	presentation *verifiable.Presentation,
-) (*VPTokenClaims, error) {
+) (*VPTokenClaims, *oidc4vperr.Error) {
 	if presentation.CWT == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp",
-			errors.New("cwt presentation is missed"))
+		return nil, oidc4vperr.NewBadRequestError(errors.New("cwt presentation is missed")).
+			WithIncorrectValue("vp_token.vp")
 	}
 	if len(presentation.CWT.VPMap) == 0 {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp",
-			errors.New("cwt vp map is empty"))
+		return nil, oidc4vperr.NewBadRequestError(errors.New("cwt vp map is empty")).
+			WithIncorrectValue("vp_token.vp")
 	}
 	if presentation.CWT.Message == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp",
-			errors.New("cwt message is missed"))
+		return nil, oidc4vperr.NewBadRequestError(errors.New("cwt message is missed")).
+			WithIncorrectValue("vp_token.vp")
 	}
 
 	return &VPTokenClaims{
@@ -884,7 +963,7 @@ func (c *Controller) validateVPTokenCWT(
 	}, nil
 }
 
-func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
+func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, *oidc4vperr.Error) {
 	opts := []verifiable.PresentationOpt{
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 		verifiable.WithPresProofChecker(c.proofChecker),
@@ -899,7 +978,9 @@ func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
 		opts...,
 	)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("vp_token").
+			WithErrorPrefix("parse and check proof")
 	}
 
 	if presentation.CWT != nil {
@@ -908,22 +989,26 @@ func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
 
 	verificationMethod, err := crypto.GetVerificationMethodFromProof(presentation.Proofs[0])
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.verificationMethod", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("vp_token.verificationMethod")
 	}
 
 	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.didID", err)
+		return nil, oidc4vperr.NewBadRequestError(err).
+			WithIncorrectValue("vp_token.didID")
 	}
 
 	nonce, ok := presentation.Proofs[0]["challenge"].(string)
 	if !ok {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.challenge", errMissedField)
+		return nil, oidc4vperr.NewBadRequestError(errMissedField).
+			WithIncorrectValue("vp_token.challenge")
 	}
 
 	clientID, ok := presentation.Proofs[0]["domain"].(string)
 	if !ok {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.domain", errMissedField)
+		return nil, oidc4vperr.NewBadRequestError(errMissedField).
+			WithIncorrectValue("vp_token.domain")
 	}
 
 	return &VPTokenClaims{
@@ -935,7 +1020,7 @@ func (c *Controller) validateVPToken(vpToken string) (*VPTokenClaims, error) {
 	}, nil
 }
 
-func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, error) {
+func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, *oidc4vperr.Error) {
 	startTime := time.Now().UTC()
 
 	defer func() {
@@ -947,50 +1032,49 @@ func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, e
 	contentType := req.Header.Get("Content-Type")
 
 	if contentType != "application/x-www-form-urlencoded" {
-		return nil, fmt.Errorf("content type is not application/x-www-form-urlencoded")
+		return nil, oidc4vperr.
+			NewBadRequestError(fmt.Errorf("content type is not application/x-www-form-urlencoded"))
 	}
 
 	err := req.ParseForm()
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "body", err)
+		return nil, oidc4vperr.NewBadRequestError(err).WithIncorrectValue("body")
 	}
 
 	res := &rawAuthorizationResponse{}
 
-	err = decodeFormValue(&res.State, "state", req.PostForm)
-	if err != nil {
-		return nil, err
+	oidc4vpErr := decodeFormValue(&res.State, "state", req.PostForm)
+	if oidc4vpErr != nil {
+		return nil, oidc4vpErr
 	}
 
 	var rawInteractionDetails string
-	err = decodeFormValue(&rawInteractionDetails, "interaction_details", req.PostForm)
-	if err == nil {
+	oidc4vpErr = decodeFormValue(&rawInteractionDetails, "interaction_details", req.PostForm)
+	if oidc4vpErr == nil {
 		var rawInteractionDetailsBytes []byte
 
 		rawInteractionDetailsBytes, err = base64.StdEncoding.DecodeString(rawInteractionDetails)
 		if err != nil {
-			return nil, resterr.NewValidationError(
-				resterr.InvalidValue,
-				"interaction_details",
-				fmt.Errorf("base64 decode: %w", err))
+			return nil, oidc4vperr.NewBadRequestError(err).
+				WithIncorrectValue("interaction_details").
+				WithErrorPrefix("base64 decode")
 		}
 
 		err = json.Unmarshal(rawInteractionDetailsBytes, &res.InteractionDetails)
 		if err != nil {
-			return nil, resterr.NewValidationError(
-				resterr.InvalidValue,
-				"interaction_details",
-				fmt.Errorf("json decode: %w", err))
+			return nil, oidc4vperr.NewBadRequestError(err).
+				WithIncorrectValue("interaction_details").
+				WithErrorPrefix("json decode")
 		}
 	}
 
-	err = decodeFormValue(&res.Error, "error", req.PostForm)
-	if err == nil {
+	oidc4vpErr = decodeFormValue(&res.Error, "error", req.PostForm)
+	if oidc4vpErr == nil {
 		// Error authorization response
-		// Spec: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-6.4
-		err = decodeFormValue(&res.ErrorDescription, "error_description", req.PostForm)
-		if err != nil {
-			return nil, err
+		// Spec: https://openid.net/specs/openid-4-verifiable-presentations-1_0-ID2.html#section-6.4
+		oidc4vpErr = decodeFormValue(&res.ErrorDescription, "error_description", req.PostForm)
+		if oidc4vpErr != nil {
+			return nil, oidc4vpErr
 		}
 
 		return res, nil
@@ -998,9 +1082,9 @@ func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, e
 
 	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse state decoded", log.WithState(res.State))
 
-	err = decodeFormValue(&res.IDToken, "id_token", req.PostForm)
-	if err != nil {
-		return nil, err
+	oidc4vpErr = decodeFormValue(&res.IDToken, "id_token", req.PostForm)
+	if oidc4vpErr != nil {
+		return nil, oidc4vpErr
 	}
 
 	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse id_token decoded",
@@ -1008,9 +1092,9 @@ func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, e
 
 	var vpTokenStr string
 
-	err = decodeFormValue(&vpTokenStr, "vp_token", req.PostForm)
-	if err != nil {
-		return nil, err
+	oidc4vpErr = decodeFormValue(&vpTokenStr, "vp_token", req.PostForm)
+	if oidc4vpErr != nil {
+		return nil, oidc4vpErr
 	}
 
 	res.VPToken = getVPTokens(vpTokenStr)
@@ -1018,9 +1102,9 @@ func decodeAuthorizationResponse(ctx echo.Context) (*rawAuthorizationResponse, e
 	logger.Debugc(ctx.Request().Context(), "AuthorizationResponse vp_token decoded")
 
 	if req.PostForm.Has("presentation_submission") {
-		err = decodeFormValue(&res.PresentationSubmission, "presentation_submission", req.PostForm)
-		if err != nil {
-			return nil, err
+		oidc4vpErr = decodeFormValue(&res.PresentationSubmission, "presentation_submission", req.PostForm)
+		if oidc4vpErr != nil {
+			return nil, oidc4vpErr
 		}
 	}
 
@@ -1040,14 +1124,14 @@ func getVPTokens(tokenStr string) []string {
 	return tokens
 }
 
-func decodeFormValue(output *string, valName string, values url.Values) error {
+func decodeFormValue(output *string, valName string, values url.Values) *oidc4vperr.Error {
 	val := values[valName]
 	if len(val) == 0 {
-		return resterr.NewValidationError(resterr.InvalidValue, valName, fmt.Errorf("value is missed"))
+		return oidc4vperr.NewBadRequestError(fmt.Errorf("value is missed")).WithIncorrectValue(valName)
 	}
 
 	if len(val) > 1 {
-		return resterr.NewValidationError(resterr.InvalidValue, valName, fmt.Errorf("value is duplicated"))
+		return oidc4vperr.NewBadRequestError(fmt.Errorf("value is duplicated")).WithIncorrectValue(valName)
 	}
 
 	*output = val[0]
@@ -1058,22 +1142,19 @@ func (c *Controller) accessProfile(profileID, profileVersion, tenantID string) (
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "data not found") {
-			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-				fmt.Errorf("profile with given id %q, doesn't exist", profileID))
+			return nil, fmt.Errorf("profile with given id %q, doesn't exist", profileID)
 		}
 
-		return nil, resterr.NewSystemError(resterr.VerifierProfileSvcComponent, "GetProfile", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	if profile == nil {
-		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-			fmt.Errorf("profile with given id %q, doesn't exist", profileID))
+		return nil, fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion)
 	}
 
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != tenantID {
-		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-			fmt.Errorf("profile with given org id %q, doesn't exist", tenantID))
+		return nil, fmt.Errorf("profile with given org id %q, doesn't exist", tenantID)
 	}
 
 	return profile, nil
@@ -1086,7 +1167,15 @@ func createFailedEventPayload(orgID, profileID, profileVersion string, e error) 
 		ProfileVersion: profileVersion,
 	}
 
-	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
+	var oidc4vpErr *oidc4vperr.Error
+
+	if errors.As(e, &oidc4vpErr) {
+		ep.Error = oidc4vpErr.Error()
+		ep.ErrorCode = oidc4vpErr.Code()
+		ep.ErrorComponent = oidc4vpErr.Component()
+	} else {
+		ep.Error = e.Error()
+	}
 
 	return ep
 }

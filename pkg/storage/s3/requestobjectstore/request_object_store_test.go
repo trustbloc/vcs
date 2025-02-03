@@ -30,9 +30,9 @@ func TestCreate(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
 		uploader.EXPECT().PutObject(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
+				_ context.Context,
 				input *s3.PutObjectInput,
-				opts ...func(*s3.Options),
+				_ ...func(*s3.Options),
 			) (*s3.PutObjectOutput, error) {
 				assert.Equal(t, "application/json", *input.ContentType)
 				assert.NotEmpty(t, *input.Key)
@@ -70,9 +70,9 @@ func TestFind(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
 		uploader.EXPECT().GetObject(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx context.Context,
+				_ context.Context,
 				input *s3.GetObjectInput,
-				opts ...func(*s3.Options),
+				_ ...func(*s3.Options),
 			) (*s3.GetObjectOutput, error) {
 				assert.Equal(t, "awesome-bucket", *input.Bucket)
 				assert.Equal(t, "1234", *input.Key)
@@ -105,9 +105,9 @@ func TestDelete(t *testing.T) {
 	uploader := NewMockS3Uploader(gomock.NewController(t))
 	uploader.EXPECT().DeleteObject(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
-			ctx context.Context,
+			_ context.Context,
 			input *s3.DeleteObjectInput,
-			opts ...func(*s3.Options),
+			_ ...func(*s3.Options),
 		) (*s3.DeleteObjectOutput, error) {
 			assert.Equal(t, "awesome-bucket", *input.Bucket)
 			assert.Equal(t, "1234", *input.Key)

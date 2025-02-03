@@ -61,7 +61,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
@@ -92,7 +91,7 @@ func TestAuthorizeCodeGrantFlowWithLDPVProof(t *testing.T) {
 
 func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler(nooptracer.NewTracerProvider().Tracer(""))
+	e.HTTPErrorHandler = handlers.HTTPErrorHandler(nooptracer.NewTracerProvider().Tracer(""))
 
 	opState := "QIn85XAEHwlPyCVRhTww"
 
@@ -213,11 +212,14 @@ func testAuthorizeCodeGrantFlow(t *testing.T, proofType string) {
 
 	currentTime := time.Now().Unix()
 
+	nonce, ok := token.Extra("c_nonce").(string)
+	require.True(t, ok)
+
 	claims := &oidc4ci.ProofClaims{
 		Issuer:   clientID,
 		IssuedAt: &currentTime,
 		Audience: srv.URL,
-		Nonce:    token.Extra("c_nonce").(string),
+		Nonce:    nonce,
 	}
 
 	proofVal := generateProof(t, proofType, claims, proofCreator, pub)
@@ -321,7 +323,7 @@ func generateProof(
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler(nooptracer.NewTracerProvider().Tracer(""))
+	e.HTTPErrorHandler = handlers.HTTPErrorHandler(nooptracer.NewTracerProvider().Tracer(""))
 
 	srv := httptest.NewServer(e)
 	defer srv.Close()

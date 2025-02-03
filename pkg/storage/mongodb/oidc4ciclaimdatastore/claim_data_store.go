@@ -100,7 +100,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*issuecre
 	err = s.mongoClient.Database().Collection(collectionName).FindOneAndDelete(ctx, bson.M{"_id": id}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, fmt.Errorf("find: %w", err)

@@ -77,12 +77,16 @@ type ServiceInterface interface {
 		customScopes []string,
 		customURLScheme string,
 		profile *profileapi.Verifier,
-	) (*InteractionInfo, error)
-	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, authResponse *AuthorizationResponseParsed) error
+	) (*InteractionInfo, error) // *oidc4vp.Error
+	VerifyOIDCVerifiablePresentation(
+		ctx context.Context,
+		txID TxID,
+		authResponse *AuthorizationResponseParsed,
+	) error // *oidc4vp.Error
 	GetTx(ctx context.Context, id TxID) (*Transaction, error)
 	RetrieveClaims(ctx context.Context, tx *Transaction, profile *profileapi.Verifier) map[string]CredentialMetadata
 	DeleteClaims(ctx context.Context, receivedClaimsID string) error
-	HandleWalletNotification(ctx context.Context, req *WalletNotification) error
+	HandleWalletNotification(ctx context.Context, req *WalletNotification) error // *oidc4vperr.Error
 }
 
 type EventPayload struct {
