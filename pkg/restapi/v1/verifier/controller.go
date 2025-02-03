@@ -569,6 +569,11 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 		return oidc4vpErr.WithComponent(resterr.VerifierOIDC4vpSvcComponent)
 	}
 
+	c.sendOIDC4VPInteractionEvent(
+		ctx, oidc4vp.TxID(rawAuthResp.State), spi.VerifierOIDCInteractionQRScanned, func() *oidc4vp.EventPayload {
+			return &oidc4vp.EventPayload{}
+		})
+
 	if rawAuthResp.Error != "" {
 		// Error authorization response
 		// Spec: https://openid.net/specs/openid-4-verifiable-presentations-1_0-ID2.html#section-6.4
@@ -594,9 +599,7 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 	if oidc4vpErr != nil {
 		oidc4vpErr = oidc4vpErr.WithComponent(resterr.VerifierOIDC4vpSvcComponent)
 
-		if tenantID, authErr := util.GetTenantIDFromRequest(e); authErr == nil {
-			c.sendFailedEvent(ctx, rawAuthResp.State, tenantID, "", "", oidc4vpErr)
-		}
+		c.sendFailedEvent(ctx, rawAuthResp.State, "", "", "", oidc4vpErr)
 
 		return oidc4vpErr
 	}
@@ -1160,6 +1163,44 @@ func (c *Controller) accessProfile(profileID, profileVersion, tenantID string) (
 	return profile, nil
 }
 
+func (c *Controller) sendFailedEvent(ctx context.Context, txnID, orgID, profileID, profileVersion string, e error) {
+	c.sendOIDC4VPInteractionEvent(ctx, oidc4vp.TxID(txnID), spi.VerifierOIDCInteractionFailed,
+		func() *oidc4vp.EventPayload {
+			return createFailedEventPayload(orgID, profileID, profileVersion, e)
+		})
+}
+
+func (c *Controller) sendFailedTxnEvent(ctx context.Context, orgID string, tx *oidc4vp.Transaction, e error) {
+	c.sendOIDC4VPInteractionEvent(ctx, tx.ID, spi.VerifierOIDCInteractionFailed,
+		func() *oidc4vp.EventPayload {
+			ep := createFailedEventPayload(orgID, tx.ProfileID, tx.ProfileVersion, e)
+			ep.PresentationDefinitionID = tx.PresentationDefinition.ID
+
+			return ep
+		})
+}
+
+func (c *Controller) sendOIDC4VPInteractionEvent(
+	ctx context.Context,
+	txnID oidc4vp.TxID,
+	eventType spi.EventType,
+	createPayload func() *oidc4vp.EventPayload,
+) {
+	evt, err := oidc4vp.CreateEvent(eventType, txnID, createPayload())
+	if err != nil {
+		logger.Errorc(ctx, "Error creating failure event", log.WithError(err))
+
+		return
+	}
+
+	err = c.eventSvc.Publish(ctx, c.eventTopic, evt)
+	if err != nil {
+		logger.Errorc(ctx, "Error publishing failure event", log.WithError(err))
+
+		return
+	}
+}
+
 func createFailedEventPayload(orgID, profileID, profileVersion string, e error) *oidc4vp.EventPayload {
 	ep := &oidc4vp.EventPayload{
 		OrgID:          orgID,
@@ -1178,41 +1219,6 @@ func createFailedEventPayload(orgID, profileID, profileVersion string, e error) 
 	}
 
 	return ep
-}
-
-func (c *Controller) sendFailedEvent(ctx context.Context, txnID, orgID, profileID, profileVersion string, e error) {
-	c.sendOIDCInteractionFailedEvent(ctx, oidc4vp.TxID(txnID), func() *oidc4vp.EventPayload {
-		return createFailedEventPayload(orgID, profileID, profileVersion, e)
-	})
-}
-
-func (c *Controller) sendFailedTxnEvent(ctx context.Context, orgID string, tx *oidc4vp.Transaction, e error) {
-	c.sendOIDCInteractionFailedEvent(ctx, tx.ID, func() *oidc4vp.EventPayload {
-		ep := createFailedEventPayload(orgID, tx.ProfileID, tx.ProfileVersion, e)
-		ep.PresentationDefinitionID = tx.PresentationDefinition.ID
-
-		return ep
-	})
-}
-
-func (c *Controller) sendOIDCInteractionFailedEvent(
-	ctx context.Context,
-	txnID oidc4vp.TxID,
-	createPayload func() *oidc4vp.EventPayload,
-) {
-	evt, err := oidc4vp.CreateEvent(spi.VerifierOIDCInteractionFailed, txnID, createPayload())
-	if err != nil {
-		logger.Errorc(ctx, "Error creating failure event", log.WithError(err))
-
-		return
-	}
-
-	err = c.eventSvc.Publish(ctx, c.eventTopic, evt)
-	if err != nil {
-		logger.Errorc(ctx, "Error publishing failure event", log.WithError(err))
-
-		return
-	}
 }
 
 func findPresentationDefinition(

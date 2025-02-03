@@ -63,7 +63,7 @@ func (c *Controller) PresentAuthorizationResponse(e echo.Context) error {
 
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost,
-		c.internalHostURL+oidc4VPCheckEndpoint,
+		c.internalHostURL+oidc4VPCheckEndpoint, // verifier.Controller.CheckAuthorizationResponse()
 		request.Body,
 	)
 	if err != nil {

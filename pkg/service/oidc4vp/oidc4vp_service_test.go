@@ -489,10 +489,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		}
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil, checkFn),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionSucceeded, nil, checkFn),
 		)
 
@@ -573,16 +569,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil, func(t *testing.T, e *spi.Event) {
-				ep, ok := e.Data.(map[string]interface{})
-				assert.True(t, ok)
-
-				_, ok = ep["interaction_details"]
-				assert.False(t, ok)
-			}),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionSucceeded, nil, func(t *testing.T, e *spi.Event) {
 				ep, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -659,10 +645,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Unsupported vp token format", func(t *testing.T) {
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
@@ -754,10 +736,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -846,10 +824,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("VC subject is not much with vp signer", func(t *testing.T) {
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
@@ -1041,10 +1015,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("verification failed", func(t *testing.T) {
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -1095,10 +1065,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Match failed", func(t *testing.T) {
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
@@ -1154,10 +1120,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			Return(errors.New("store error"))
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -1199,10 +1161,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errTrustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return(errors.New("validate error"))
 
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             mockEventSvc,
 			EventTopic:           spi.VerifierEventTopic,
@@ -1242,14 +1200,12 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errExpected := errors.New("injected publish error")
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(2).
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).
 			DoAndReturn(
 				func(ctx context.Context, topic string, messages ...*spi.Event) error {
 					assert.Len(t, messages, 1)
 
 					switch messages[0].Type { //nolint:exhaustive
-					case spi.VerifierOIDCInteractionQRScanned:
-						return nil
 					case spi.VerifierOIDCInteractionSucceeded:
 						return errExpected
 					default:
