@@ -188,7 +188,7 @@ func NewService(cfg *Config) *Service {
 	}
 }
 
-func (s *Service) sendTxEvent(
+func (s *Service) sendTxEvent( //nolint:unused
 	ctx context.Context,
 	eventType spi.EventType,
 	tx *Transaction,
@@ -467,10 +467,6 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		return oidc4vperr.NewBadRequestError(err).WithErrorPrefix("getProfile")
-	}
-
-	if err = s.sendTxEvent(ctx, spi.VerifierOIDCInteractionQRScanned, tx, profile); err != nil {
-		return oidc4vperr.NewBadRequestError(err).WithErrorPrefix("send event")
 	}
 
 	logger.Debugc(ctx, "VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
