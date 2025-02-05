@@ -9,13 +9,13 @@ package oidc4vp
 import (
 	"context"
 	"errors"
-	"github.com/trustbloc/vcs/pkg/event/spi"
 
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 

@@ -87,7 +87,8 @@ func (s *Service) sendOIDCInteractionSucceededEvent(
 	receivedClaims *ReceivedClaims,
 	interactionDetails map[string]interface{},
 ) error {
-	return s.sendOIDCInteractionEvent(ctx, tx, spi.VerifierOIDCInteractionSucceeded, profile, receivedClaims, interactionDetails)
+	return s.sendOIDCInteractionEvent(
+		ctx, tx, spi.VerifierOIDCInteractionSucceeded, profile, receivedClaims, interactionDetails)
 }
 
 func (s *Service) sendOIDCInteractionClaimsRetrievedEvent(
@@ -96,7 +97,8 @@ func (s *Service) sendOIDCInteractionClaimsRetrievedEvent(
 	profile *profileapi.Verifier,
 	receivedClaims *ReceivedClaims,
 ) error {
-	return s.sendOIDCInteractionEvent(ctx, tx, spi.VerifierOIDCInteractionClaimsRetrieved, profile, receivedClaims, nil)
+	return s.sendOIDCInteractionEvent(
+		ctx, tx, spi.VerifierOIDCInteractionClaimsRetrieved, profile, receivedClaims, nil)
 }
 
 func (s *Service) sendOIDCInteractionEvent(
