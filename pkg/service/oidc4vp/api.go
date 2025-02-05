@@ -9,6 +9,7 @@ package oidc4vp
 import (
 	"context"
 	"errors"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/presexch"
@@ -87,6 +88,11 @@ type ServiceInterface interface {
 	RetrieveClaims(ctx context.Context, tx *Transaction, profile *profileapi.Verifier) map[string]CredentialMetadata
 	DeleteClaims(ctx context.Context, receivedClaimsID string) error
 	HandleWalletNotification(ctx context.Context, req *WalletNotification) error // *oidc4vperr.Error
+	SendTransactionEvent(
+		ctx context.Context,
+		txID TxID,
+		eventType spi.EventType,
+	) error
 }
 
 type EventPayload struct {
