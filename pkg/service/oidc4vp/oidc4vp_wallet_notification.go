@@ -12,10 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
 )
@@ -113,41 +110,7 @@ func (s *Service) handleAckNotFound(ctx context.Context, ackData *WalletNotifica
 	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendWalletNotificationEvent(
-	ctx context.Context,
-	tx *Transaction,
-	profile *profileapi.Verifier,
-	notification *WalletNotification,
-) error {
-	// Send event only if notification.Error is known.
-	if _, isValidError := supportedAuthResponseErrTypes[notification.Error]; !isValidError {
-		logger.Infoc(ctx, "Ignoring unsupported error type", zap.String("error", notification.Error))
-		return nil
-	}
-
-	ep := createBaseTxEventPayload(tx, profile)
-
-	// error code, e.g. "access_denied".
-	// List: https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#section-7.5
-	ep.ErrorCode = notification.Error
-
-	// error description, e.g. "no_consent", "no_match_found"
-	ep.Error = notification.ErrorDescription
-
-	ep.ErrorComponent = errorComponentWallet
-	ep.InteractionDetails = notification.InteractionDetails
-
-	spiEventType := s.getEventType(notification.Error, notification.ErrorDescription)
-
-	event, e := CreateEvent(spiEventType, tx.ID, ep)
-	if e != nil {
-		return e
-	}
-
-	return s.eventSvc.Publish(ctx, s.eventTopic, event)
-}
-
-func (s *Service) getEventType(e, errorDescription string) spi.EventType {
+func (s *Service) getWalletNotificationEventType(e, errorDescription string) spi.EventType {
 	if strings.ToLower(e) == authResponseErrTypeAccessDenied {
 		switch strings.ToLower(errorDescription) {
 		case errorDescriptionNoConsent:

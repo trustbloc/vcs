@@ -11,14 +11,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/presexch"
+	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
-	nooptracer "go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestWrapper_InitiateOidcInteraction(t *testing.T) {
@@ -94,4 +95,18 @@ func TestWrapper_HandleWalletNotification(t *testing.T) {
 	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
 	_ = w.HandleWalletNotification(context.Background(), ack)
+}
+
+func TestWrapper_SendTransactionEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	txID := oidc4vp.TxID(uuid.NewString())
+	eventType := spi.VerifierOIDCInteractionQRScanned
+
+	svc := NewMockService(ctrl)
+	svc.EXPECT().SendTransactionEvent(gomock.Any(), txID, eventType).Times(1)
+
+	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
+
+	_ = w.SendTransactionEvent(context.Background(), txID, eventType)
 }
