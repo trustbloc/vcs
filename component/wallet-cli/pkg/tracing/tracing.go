@@ -40,8 +40,9 @@ func Initialize(serviceName string) trace.Tracer {
 	// instrumentation in the future will default to using it.
 	otel.SetTracerProvider(tracerProvider)
 
-	// Propagate trace context via traceparent and tracestate headers (https://www.w3.org/TR/trace-context/).
-	otel.SetTextMapPropagator(propagation.TraceContext{})
+	// Propagate trace context via traceparent and tracestate headers (https://www.w3.org/TR/trace-context/)
+	// and baggage items (https://www.w3.org/TR/baggage/).
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	return tracerProvider.Tracer(tracerName)
 }
