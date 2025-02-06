@@ -17,6 +17,7 @@ import (
 
 	"github.com/trustbloc/vc-go/presexch"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
@@ -106,4 +107,18 @@ func (w *Wrapper) HandleWalletNotification(ctx context.Context, req *oidc4vp.Wal
 	span.SetAttributes(attribute.String("event", req.Error))
 
 	return w.svc.HandleWalletNotification(ctx, req)
+}
+
+func (w *Wrapper) SendTransactionEvent(
+	ctx context.Context,
+	txID oidc4vp.TxID,
+	eventType spi.EventType,
+) error {
+	ctx, span := w.tracer.Start(ctx, "oidc4vp.SendTransactionEvent")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("tx_id", string(txID)))
+	span.SetAttributes(attribute.String("event", string(eventType)))
+
+	return w.svc.SendTransactionEvent(ctx, txID, eventType)
 }

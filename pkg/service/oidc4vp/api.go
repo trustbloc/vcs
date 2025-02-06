@@ -15,6 +15,7 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -87,6 +88,7 @@ type ServiceInterface interface {
 	RetrieveClaims(ctx context.Context, tx *Transaction, profile *profileapi.Verifier) map[string]CredentialMetadata
 	DeleteClaims(ctx context.Context, receivedClaimsID string) error
 	HandleWalletNotification(ctx context.Context, req *WalletNotification) error // *oidc4vperr.Error
+	SendTransactionEvent(ctx context.Context, txID TxID, eventType spi.EventType) error
 }
 
 type EventPayload struct {

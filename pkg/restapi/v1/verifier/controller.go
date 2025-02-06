@@ -569,10 +569,10 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 		return oidc4vpErr.WithComponent(resterr.VerifierOIDC4vpSvcComponent)
 	}
 
-	c.sendOIDC4VPInteractionEvent(
-		ctx, oidc4vp.TxID(rawAuthResp.State), spi.VerifierOIDCInteractionQRScanned, func() *oidc4vp.EventPayload {
-			return &oidc4vp.EventPayload{}
-		})
+	if err := c.oidc4VPService.
+		SendTransactionEvent(ctx, oidc4vp.TxID(rawAuthResp.State), spi.VerifierOIDCInteractionQRScanned); err != nil {
+		logger.Errorc(ctx, "Error publishing qr-scanned event", log.WithError(err))
+	}
 
 	if rawAuthResp.Error != "" {
 		// Error authorization response
@@ -1188,14 +1188,14 @@ func (c *Controller) sendOIDC4VPInteractionEvent(
 ) {
 	evt, err := oidc4vp.CreateEvent(eventType, txnID, createPayload())
 	if err != nil {
-		logger.Errorc(ctx, "Error creating failure event", log.WithError(err))
+		logger.Errorc(ctx, "Error creating interaction event", log.WithError(err))
 
 		return
 	}
 
 	err = c.eventSvc.Publish(ctx, c.eventTopic, evt)
 	if err != nil {
-		logger.Errorc(ctx, "Error publishing failure event", log.WithError(err))
+		logger.Errorc(ctx, "Error publishing interaction event", log.WithError(err))
 
 		return
 	}

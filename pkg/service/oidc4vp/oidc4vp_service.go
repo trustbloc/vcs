@@ -10,7 +10,6 @@ package oidc4vp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -185,66 +184,6 @@ func NewService(cfg *Config) *Service {
 		trustRegistry:        cfg.TrustRegistry,
 		metrics:              metrics,
 		attachmentService:    cfg.AttachmentService,
-	}
-}
-
-func (s *Service) sendTxEvent( //nolint:unused
-	ctx context.Context,
-	eventType spi.EventType,
-	tx *Transaction,
-	profile *profileapi.Verifier,
-) error {
-	event, err := CreateEvent(eventType, tx.ID, createBaseTxEventPayload(tx, profile))
-	if err != nil {
-		return err
-	}
-
-	return s.eventSvc.Publish(ctx, s.eventTopic, event)
-}
-
-func (s *Service) sendOIDCInteractionInitiatedEvent(
-	ctx context.Context,
-	tx *Transaction,
-	profile *profileapi.Verifier,
-	authorizationRequest string,
-) error {
-	ep := createBaseTxEventPayload(tx, profile)
-	ep.AuthorizationRequest = authorizationRequest
-	ep.Filter = getFilter(tx.PresentationDefinition)
-
-	event, err := CreateEvent(spi.VerifierOIDCInteractionInitiated, tx.ID, ep)
-	if err != nil {
-		return err
-	}
-
-	return s.eventSvc.Publish(ctx, s.eventTopic, event)
-}
-
-func (s *Service) sendFailedTransactionEvent(
-	ctx context.Context,
-	tx *Transaction,
-	profile *profileapi.Verifier,
-	e error,
-) {
-	var oidc4vpErr *oidc4vperr.Error
-
-	ep := createBaseTxEventPayload(tx, profile)
-
-	if errors.As(e, &oidc4vpErr) {
-		ep.Error = oidc4vpErr.Error()
-		ep.ErrorCode = oidc4vpErr.Code()
-		ep.ErrorComponent = oidc4vpErr.Component()
-	} else {
-		ep.Error = e.Error()
-	}
-
-	event, e := CreateEvent(spi.VerifierOIDCInteractionFailed, tx.ID, ep)
-	if e != nil {
-		logger.Warnc(ctx, "Failed to send OIDC verifier event. Ignoring..", log.WithError(e))
-	}
-
-	if e := s.eventSvc.Publish(ctx, s.eventTopic, event); e != nil {
-		logger.Warnc(ctx, "Failed to send OIDC verifier event. Ignoring..", log.WithError(e))
 	}
 }
 
@@ -514,8 +453,8 @@ func (s *Service) VerifyOIDCVerifiablePresentation(
 
 	logger.Debugc(ctx, "extractClaimData claims stored")
 
-	err = s.sendOIDCInteractionEvent(
-		ctx, spi.VerifierOIDCInteractionSucceeded, tx, profile, receivedClaims, authResponse.InteractionDetails)
+	err = s.sendOIDCInteractionSucceededEvent(
+		ctx, tx, profile, receivedClaims, authResponse.InteractionDetails)
 	if err != nil {
 		return oidc4vperr.NewBadRequestError(err)
 	}
@@ -665,7 +604,7 @@ func (s *Service) RetrieveClaims(
 
 	logger.Debugc(ctx, "RetrieveClaims succeed")
 
-	err := s.sendOIDCInteractionEvent(ctx, spi.VerifierOIDCInteractionClaimsRetrieved, tx, profile, tx.ReceivedClaims, nil)
+	err := s.sendOIDCInteractionClaimsRetrievedEvent(ctx, tx, profile, tx.ReceivedClaims)
 	if err != nil {
 		logger.Warnc(ctx, "Failed to send event", log.WithError(err))
 	}
@@ -949,52 +888,6 @@ func (s *Service) createRequestObject(
 	}
 }
 
-func (s *Service) sendOIDCInteractionEvent(
-	ctx context.Context,
-	eventType spi.EventType,
-	tx *Transaction,
-	profile *profileapi.Verifier,
-	receivedClaims *ReceivedClaims,
-	interactionDetails map[string]interface{},
-) error {
-	ep := createBaseTxEventPayload(tx, profile)
-
-	ep.InteractionDetails = interactionDetails
-
-	for _, c := range receivedClaims.Credentials {
-		cred := c.Contents()
-
-		subjectID, err := verifiable.SubjectID(cred.Subject)
-		if err != nil {
-			logger.Warnc(ctx, "Unable to extract ID from credential subject: %w", log.WithError(err))
-		}
-
-		var issuerID string
-		if cred.Issuer != nil {
-			issuerID = cred.Issuer.ID
-		}
-
-		ep.Credentials = append(ep.Credentials, &CredentialEventPayload{
-			ID:        cred.ID,
-			Types:     cred.Types,
-			IssuerID:  issuerID,
-			SubjectID: subjectID,
-		})
-	}
-
-	event, err := CreateEvent(eventType, tx.ID, ep)
-	if err != nil {
-		return fmt.Errorf("create OIDC verifier event: %w", err)
-	}
-
-	err = s.eventSvc.Publish(ctx, s.eventTopic, event)
-	if err != nil {
-		return fmt.Errorf("send OIDC verifier event: %w", err)
-	}
-
-	return nil
-}
-
 func getScope(customScopes []string) string {
 	scope := "openid"
 	if len(customScopes) > 0 {
@@ -1026,38 +919,6 @@ func (s *JWSSigner) Headers() jose.Headers {
 	return jose.Headers{
 		jose.HeaderKeyID:     s.keyID,
 		jose.HeaderAlgorithm: s.signer.Alg(),
-	}
-}
-
-func CreateEvent(
-	eventType spi.EventType,
-	transactionID TxID,
-	ep *EventPayload,
-) (*spi.Event, error) {
-	payload, err := json.Marshal(ep)
-	if err != nil {
-		return nil, err
-	}
-
-	event := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/verifier", eventType, payload)
-	event.TransactionID = string(transactionID)
-
-	return event, nil
-}
-
-func createBaseTxEventPayload(tx *Transaction, profile *profileapi.Verifier) *EventPayload {
-	var presentationDefID string
-
-	if tx.PresentationDefinition != nil {
-		presentationDefID = tx.PresentationDefinition.ID
-	}
-
-	return &EventPayload{
-		WebHook:                  profile.WebHook,
-		ProfileID:                profile.ID,
-		ProfileVersion:           profile.Version,
-		OrgID:                    profile.OrganizationID,
-		PresentationDefinitionID: presentationDefID,
 	}
 }
 
