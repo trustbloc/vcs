@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	timeutil "github.com/trustbloc/did-go/doc/util/time"
 	vdr2 "github.com/trustbloc/did-go/vdr"
@@ -43,6 +44,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/cslservice"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
@@ -362,10 +364,10 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 }
 
 func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
-	t.Run("UpdateVCStatus success", func(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		profile := getTestProfile()
 		loader := testutil.DocumentLoader(t)
-		vcStatusStore := newMockVCStatusStore()
+		mockVCStatusStore := newMockVCStatusStore()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
@@ -380,7 +382,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			&cslmanager.Config{
 				CSLVCStore:    cslVCStore,
 				CSLIndexStore: cslIndexStore,
-				VCStatusStore: vcStatusStore,
+				VCStatusStore: mockVCStatusStore,
 				ListSize:      2,
 				KMSRegistry:   mockKMSRegistry,
 				Crypto: vccrypto.New(
@@ -408,7 +410,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			CSLManager:     cslMgr,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
-			VCStatusStore:  vcStatusStore,
+			VCStatusStore:  mockVCStatusStore,
 			EventTopic:     eventTopic,
 			EventPublisher: mockEventPublisher,
 			Crypto:         crypto,
@@ -418,7 +420,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		statusListEntry, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 
-		err = vcStatusStore.Put(ctx, profileID, profileVersion, credID, statusListEntry.TypedID)
+		err = mockVCStatusStore.Put(ctx, profileID, profileVersion, credID, statusListEntry.TypedID)
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
@@ -480,8 +482,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "strconv.ParseBool failed")
+
+		requireOIDC4CIError(t, "bad_request", "", "strconv.ParseBool failed", err)
 	})
 	t.Run("UpdateVCStatus action forbidden error: revoker tries to activate", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -500,8 +502,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorIs(t, err, ErrActionForbidden)
+
+		requireOIDC4CIError(t, "forbidden", "", "client is not allowed to perform the action", err)
 	})
 	t.Run("UpdateVCStatus action forbidden error: activator tries to revoke", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -520,8 +522,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorIs(t, err, ErrActionForbidden)
+		requireOIDC4CIError(t, "forbidden", "", "client is not allowed to perform the action", err)
 	})
 
 	t.Run("UpdateVCStatus profileService.GetProfile error", func(t *testing.T) {
@@ -542,8 +543,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "get profile")
+		requireOIDC4CIError(t, "unauthorized", "", "get profile", err)
 	})
 	t.Run("UpdateVCStatus invalid vc status type error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -563,9 +563,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err,
-			"vc status list version \"RevocationList2020Status\" is not supported by current profile")
+		requireOIDC4CIError(t, "bad_request", "",
+			"vc status list version \"RevocationList2020Status\" is not supported by current profile", err)
 	})
 	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -591,8 +590,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "vcStatusStore.Get failed")
+		requireOIDC4CIError(t, "bad_request", "", "vcStatusStore.Get", err)
 	})
 	t.Run("UpdateVCStatus updateVCStatus error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
@@ -628,8 +626,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "updateVCStatus failed")
+		requireOIDC4CIError(t, "bad_request", "", "updateVCStatus", err)
 	})
 	t.Run("updateVCStatus - ValidateStatus - not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
@@ -1267,4 +1264,16 @@ func TestService_StoreIssuedCredentialMetadata(t *testing.T) {
 		err := s.StoreIssuedCredentialMetadata(ctx, profileID, profileVersion, expectedMetadata)
 		require.Error(t, err)
 	})
+}
+
+func requireOIDC4CIError(t *testing.T, expectedCode string, incorrectValue, errorContains string, err error) {
+	t.Helper()
+
+	var actualErr *oidc4cierr.Error
+
+	assert.ErrorAs(t, err, &actualErr)
+
+	assert.Equal(t, expectedCode, actualErr.Code())
+	assert.Equal(t, incorrectValue, actualErr.IncorrectValue)
+	assert.ErrorContains(t, err, errorContains)
 }
