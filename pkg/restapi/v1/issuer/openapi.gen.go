@@ -2006,6 +2006,8 @@ type PostCredentialsStatusResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *map[string]interface{}
 	JSON400      *externalRef0.PublicAPIErrorResponse
+	JSON401      *externalRef0.PublicAPIErrorResponse
+	JSON403      *externalRef0.PublicAPIErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2634,6 +2636,20 @@ func ParsePostCredentialsStatusResponse(rsp *http.Response) (*PostCredentialsSta
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.PublicAPIErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 

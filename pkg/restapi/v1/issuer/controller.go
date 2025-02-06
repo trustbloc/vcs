@@ -660,12 +660,16 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 
 	if err := ctx.Bind(&body); err != nil {
 		return oidc4cierr.NewBadRequestError(err).
-			WithIncorrectValue("requestBody")
+			WithComponent(resterr.CredentialStatusMgmtComponent).
+			WithIncorrectValue("requestBody").
+			UsePublicAPIResponse()
 	}
 
 	oAuthClientRoles, err := getOAuthClientRolesFromRequest(ctx)
 	if err != nil {
-		return oidc4cierr.NewUnauthorizedError(err)
+		return oidc4cierr.NewUnauthorizedError(err).
+			WithComponent(resterr.CredentialStatusMgmtComponent).
+			UsePublicAPIResponse()
 	}
 
 	if err = c.vcStatusManager.UpdateVCStatus(
@@ -679,7 +683,16 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 			StatusType:       vc.StatusType(body.CredentialStatus.Type),
 		},
 	); err != nil {
-		return oidc4cierr.NewBadRequestError(err).WithErrorPrefix("update vc status")
+		var oidc4ciErr *oidc4cierr.Error
+
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewBadRequestError(err)
+		}
+
+		return oidc4ciErr.
+			WithComponent(resterr.CredentialStatusMgmtComponent).
+			WithErrorPrefix("update vc status").
+			UsePublicAPIResponse()
 	}
 
 	return ctx.NoContent(http.StatusOK)
@@ -1726,7 +1739,7 @@ func getJSONSchema(config *profileapi.VCConfig) (string, error) {
 func getOAuthClientRolesFromRequest(e echo.Context) ([]string, error) {
 	rawRoles := e.Request().Header.Get(clientRoleHeader)
 	if rawRoles == "" {
-		return nil, oidc4cierr.NewForbiddenError(errors.New("missing role"))
+		return nil, errors.New("missing role")
 	}
 
 	return strings.Split(rawRoles, " "), nil

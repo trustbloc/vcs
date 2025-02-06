@@ -32,5 +32,6 @@ const (
 	TransactionStoreComponent              Component = "transaction-store"
 	CryptoJWTSignerComponent               Component = "crypto-jwt-signer"
 	CredentialOfferReferenceStoreComponent Component = "credential-offer-reference-store"
+	CredentialStatusMgmtComponent          Component = "credential-status-management"
 	RedisComponent                         Component = "redis-service"
 )

@@ -87,7 +87,7 @@ type ServiceInterface interface {
 		metadata *CredentialMetadata,
 	) error
 	GetStatusListVC(ctx context.Context, profileGroupID profileapi.ID, statusID string) (*CSL, error)
-	UpdateVCStatus(ctx context.Context, params UpdateVCStatusParams) error
+	UpdateVCStatus(ctx context.Context, params UpdateVCStatusParams) error // oidc4cierr.Error
 	Resolve(ctx context.Context, statusListVCURI string) (*CSL, error)
 }
 

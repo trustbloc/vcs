@@ -222,6 +222,18 @@ paths:
             application/json:
               schema:
                 $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/PublicAPIErrorResponse"
       operationId: post-credentials-status
       description: Updates credential status.
   /refresh/{profileID}/{profileVersion}:

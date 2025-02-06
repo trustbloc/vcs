@@ -500,7 +500,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 
-		requireValidationError(t, "invalid_credential_request", "requestBody", err)
+		requireValidationError(t, "invalid_credential_request", "requestBody", "", err)
 	})
 }
 
@@ -873,7 +873,8 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostCredentialsStatus(c)
 
-		requireValidationError(t, "bad_request", "requestBody", err)
+		requireValidationError(t,
+			"bad_request", "requestBody", resterr.CredentialStatusMgmtComponent, err)
 	})
 
 	t.Run("Failure: missing role", func(t *testing.T) {
@@ -886,6 +887,46 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 
 		err := controller.PostCredentialsStatus(c)
 		requireAuthError(t, err)
+	})
+
+	t.Run("Failure: UpdateVCStatus error: regular error", func(t *testing.T) {
+		mockVCStatusManager.
+			EXPECT().
+			UpdateVCStatus(context.Background(), gomock.Any()).Times(1).
+			Return(errors.New("some error"))
+
+		controller := NewController(&Config{
+			VcStatusManager: mockVCStatusManager,
+		})
+
+		c := echoContext(
+			withOAuthClientRoles("revoker"),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
+
+		err := controller.PostCredentialsStatus(c)
+		requireValidationError(t,
+			"bad_request", "", resterr.CredentialStatusMgmtComponent, err)
+	})
+
+	t.Run("Failure: UpdateVCStatus error: oidc4ci error", func(t *testing.T) {
+		mockVCStatusManager.
+			EXPECT().
+			UpdateVCStatus(context.Background(), gomock.Any()).Times(1).
+			Return(oidc4cierr.NewForbiddenError(errors.New("some error")))
+
+		controller := NewController(&Config{
+			VcStatusManager: mockVCStatusManager,
+		})
+
+		c := echoContext(
+			withOAuthClientRoles("revoker"),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
+
+		err := controller.PostCredentialsStatus(c)
+		requireValidationError(t,
+			"forbidden", "", resterr.CredentialStatusMgmtComponent, err)
 	})
 }
 
@@ -3573,12 +3614,13 @@ func echoContext(opts ...contextOpt) echo.Context {
 	return e.NewContext(req, o.responseWriter)
 }
 
-func requireValidationError(t *testing.T, expectedCode string, incorrectValueName string, actual error) {
+func requireValidationError(t *testing.T, expectedCode string, incorrectValueName string, component resterr.Component, actual error) {
 	var actualErr *oidc4cierr.Error
 	require.ErrorAs(t, actual, &actualErr)
 
 	require.Equal(t, expectedCode, string(actualErr.ErrorCode))
 	require.Equal(t, incorrectValueName, actualErr.IncorrectValue)
+	require.Equal(t, actualErr.Component(), string(component))
 	require.Error(t, actualErr.Err)
 }
 
