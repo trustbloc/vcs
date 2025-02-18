@@ -23,7 +23,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.3.3
-	github.com/trustbloc/logutil-go v1.0.1-0.20250206170452-23e2c2ce673e
+	github.com/trustbloc/logutil-go v1.0.1-0.20250214202847-c43ef95f145d
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
 	github.com/trustbloc/vc-go v1.3.2
 	github.com/trustbloc/vcs/component/echo v0.0.0-00010101000000-000000000000
@@ -117,7 +117,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
-	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

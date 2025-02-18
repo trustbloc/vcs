@@ -11,7 +11,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/trustbloc/cmdutil-go v1.0.0
-	github.com/trustbloc/logutil-go v1.0.1-0.20250206170452-23e2c2ce673e
+	github.com/trustbloc/logutil-go v1.0.1-0.20250214202847-c43ef95f145d
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/otel/trace v1.34.0
 )
