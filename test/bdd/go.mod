@@ -15,7 +15,7 @@ require (
 	github.com/aws/smithy-go v1.22.1
 	github.com/cucumber/godog v0.12.5
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/greenpau/go-calculator v1.0.1
 	github.com/henvic/httpretty v0.1.0
 	github.com/labstack/echo/v4 v4.13.3
@@ -27,7 +27,7 @@ require (
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/did-go v1.3.3
 	github.com/trustbloc/kms-go v1.2.1
-	github.com/trustbloc/logutil-go v1.0.1-0.20250206170452-23e2c2ce673e
+	github.com/trustbloc/logutil-go v1.0.1-0.20250214202847-c43ef95f145d
 	github.com/trustbloc/sidetree-go v1.0.1-0.20240219121130-f4260aff7104
 	github.com/trustbloc/vc-go v1.3.2
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea

@@ -10,7 +10,7 @@ toolchain go1.23.4
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/samber/lo v1.47.0
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.3.3
@@ -52,7 +52,7 @@ require (
 	github.com/tidwall/sjson v1.1.4 // indirect
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
 	github.com/trustbloc/kms-go v1.2.1 // indirect
-	github.com/trustbloc/logutil-go v1.0.1-0.20250206170452-23e2c2ce673e // indirect
+	github.com/trustbloc/logutil-go v1.0.1-0.20250214202847-c43ef95f145d // indirect
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
