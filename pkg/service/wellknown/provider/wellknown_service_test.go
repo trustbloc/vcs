@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
@@ -43,16 +44,19 @@ func TestController_GetOpenIDCredentialIssuerConfig(t *testing.T) {
 			name: "Success",
 			setup: func() {
 				mockTestIssuerProfile = loadProfile(t)
+				keyMgr := mocks.NewMockVCSKeyManager(gomock.NewController(t))
 
 				mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).
 					DoAndReturn(func(config *vcskms.Config) (vcskms.VCSKeyManager, error) {
 						assert.EqualValues(t, "local", config.KMSType)
 						assert.EqualValues(t, "https://example.com", config.Endpoint)
-						return nil, nil
+
+						return keyMgr, nil
 					})
 
 				mockCryptoJWTSigner.EXPECT().NewJWTSigned(gomock.Any(), &vc.Signer{
 					Creator:  "did:orb:bank_issuer#123",
+					KMS:      keyMgr,
 					KMSKeyID: "123",
 					KeyType:  "ECDSASecp256k1DER",
 				}).Return("aa.bb.cc", nil)
@@ -210,9 +214,9 @@ func checkWellKnownOpenIDIssuerConfiguration(
 	assert.Nil(t, res.CredentialIdentifiersSupported)
 	assert.Nil(t, res.SignedMetadata)
 
-	assert.Len(t, res.CredentialConfigurationsSupported.AdditionalProperties, 1)
+	assert.Len(t, *res.CredentialConfigurationsSupported, 1)
 
-	for credentialType, credentialConfigurationSupported := range res.CredentialConfigurationsSupported.AdditionalProperties {
+	for credentialType, credentialConfigurationSupported := range *res.CredentialConfigurationsSupported {
 		assert.Equal(t, map[string]interface{}{
 			"org.iso.18013.5.1.aamva": map[string]interface{}{
 				"organ_donor": map[string]interface{}{},
@@ -248,11 +252,9 @@ func checkWellKnownOpenIDIssuerConfiguration(
 		assert.Equal(t, "ldp_vc", credentialConfigurationSupported.Format)
 		assert.Equal(t, []string{"claimName1", "claimName2", "claimName3"}, lo.FromPtr(credentialConfigurationSupported.Order))
 
-		expectedProofTypeSupported := issuer.CredentialConfigurationsSupported_ProofTypesSupported{
-			AdditionalProperties: map[string]issuer.ProofTypeSupported{
-				"jwt": {
-					ProofSigningAlgValuesSupported: []string{"ECDSASecp256k1DER"},
-				},
+		expectedProofTypeSupported := map[string]issuer.ProofTypeSupported{
+			"jwt": {
+				ProofSigningAlgValuesSupported: []string{"ECDSASecp256k1DER"},
 			},
 		}
 
@@ -342,11 +344,11 @@ func TestBuildWithDynamic(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 
-		assert.Len(t, resp.CredentialConfigurationsSupported.AdditionalProperties, 1)
+		assert.Len(t, *resp.CredentialConfigurationsSupported, 1)
 		assert.EqualValues(
 			t,
 			[]string{"SomeType"},
-			resp.CredentialConfigurationsSupported.AdditionalProperties["a"].CredentialDefinition.Type,
+			lo.FromPtr(resp.CredentialConfigurationsSupported)["a"].CredentialDefinition.Type,
 		)
 	})
 }

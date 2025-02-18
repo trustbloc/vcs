@@ -38,12 +38,18 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/refresh"
+)
+
+const (
+	clientRoleHeader = "X-Client-Roles"
 )
 
 var logger = log.New("restapi-issuer")
@@ -152,14 +158,21 @@ func NewController(config *Config) *Controller {
 // POST /issuer/profiles/{profileID}/{profileVersion}/interactions/refresh.
 func (c *Controller) SetCredentialRefreshState(ctx echo.Context, profileID string, profileVersion string) error {
 	var body SetCredentialRefreshStateRequest
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("SetCredentialRefreshState").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			UsePublicAPIResponse()
 	}
 
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent,
-			"PrepareClaimDataAuthorizationRequest", err)
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("get profile").
+			WithOperation("SetCredentialRefreshState").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			UsePublicAPIResponse()
 	}
 
 	txID, err := c.credentialRefreshService.CreateRefreshState(ctx.Request().Context(), &refresh.CreateRefreshStateRequest{
@@ -170,7 +183,11 @@ func (c *Controller) SetCredentialRefreshState(ctx echo.Context, profileID strin
 		CredentialDescription: body.CredentialDescription,
 	})
 	if err != nil {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "SetCredentialRefreshState", err)
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("create refresh state").
+			WithOperation("SetCredentialRefreshState").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			UsePublicAPIResponse()
 	}
 
 	return util.WriteOutput(ctx)(SetCredentialRefreshStateResult{
@@ -186,25 +203,21 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 
 	var body IssueCredentialData
 
-	if err := util.ReadBody(e, &body); err != nil {
-		return err
+	if err := e.Bind(&body); err != nil {
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithIncorrectValue("requestBody")
 	}
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return err
+		return oidc4cierr.NewUnauthorizedError(err)
 	}
 
 	span.SetAttributes(attribute.String("profile_id", profileID))
 
-	credential, err := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
-	if err != nil {
-		var customError *resterr.CustomError
-		if errors.As(err, &customError) {
-			return err
-		}
-
-		return resterr.NewValidationError(resterr.BadRequest, "body", err)
+	credential, issCredErr := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
+	if issCredErr != nil {
+		return issCredErr.WithComponent(resterr.IssueCredentialSvcComponent)
 	}
 
 	return util.WriteOutputWithCode(http.StatusCreated, e)(credential, nil)
@@ -214,22 +227,22 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 func (c *Controller) ValidateRawCredential(
 	finalCredentials map[string]interface{},
 	profile *profileapi.Issuer,
-) error {
+) *oidc4cierr.Error {
 	contextObj, contextObjOk := finalCredentials["@context"]
 	if !contextObjOk {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
-			errors.New("@context must be specified"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("@context must be specified")).
+			WithIncorrectValue("credential.@context")
 	}
 
 	contexts, contextsOk := contextObj.([]interface{})
 	if !contextsOk {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
-			errors.New("@context must be an array"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("@context must be an array")).
+			WithIncorrectValue("credential.@context")
 	}
 
 	if len(contexts) == 0 {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential.@context",
-			errors.New("@context must be specified"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("@context must be specified")).
+			WithIncorrectValue("credential.@context")
 	}
 
 	// required by interop ed25519 signature suite
@@ -246,8 +259,8 @@ func (c *Controller) ValidateRawCredential(
 			id, idOk := idObj.(string)
 
 			if !idOk || strings.Contains(id, " ") {
-				return resterr.NewValidationError(resterr.InvalidValue, "credentialStatus.id",
-					errors.New("id must be a string"))
+				return oidc4cierr.NewInvalidCredentialRequestError(errors.New("id must be a string")).
+					WithIncorrectValue("credentialStatus.id")
 			}
 
 			if id == "" {
@@ -258,26 +271,29 @@ func (c *Controller) ValidateRawCredential(
 
 	credSubObj, credSubObjOk := finalCredentials["credentialSubject"]
 	if !credSubObjOk || credSubObj == nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-			errors.New("credential_subject must be specified"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("credential_subject must be specified")).
+			WithIncorrectValue("credential_subject")
 	}
 
 	credSubjectKind := reflect.TypeOf(credSubObj).Kind()
 	if credSubjectKind != reflect.Map && credSubjectKind != reflect.Array && credSubjectKind != reflect.Slice {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-			errors.New("credential_subject must be an object or an array of objects"))
+		return oidc4cierr.NewInvalidCredentialRequestError(
+			errors.New("credential_subject must be an object or an array of objects")).
+			WithIncorrectValue("credential_subject")
 	}
 
 	if subjects, subjectsOk := credSubObj.([]interface{}); subjectsOk {
 		if len(subjects) == 0 {
-			return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-				errors.New("credential_subject must have at least one subject"))
+			return oidc4cierr.NewInvalidCredentialRequestError(
+				errors.New("credential_subject must have at least one subject")).
+				WithIncorrectValue("credential_subject")
 		}
 
 		for _, subject := range subjects {
 			if mappedSubject, ok := subject.(map[string]interface{}); !ok || len(mappedSubject) == 0 {
-				return resterr.NewValidationError(resterr.InvalidValue, "credential_subject",
-					errors.New("each credential_subject must have properties"))
+				return oidc4cierr.NewInvalidCredentialRequestError(
+					errors.New("each credential_subject must have properties")).
+					WithIncorrectValue("credential_subject")
 			}
 		}
 	}
@@ -292,10 +308,10 @@ func (c *Controller) issueCredential(
 	body *IssueCredentialData,
 	profileID string,
 	profileVersion string,
-) (*verifiable.Credential, error) {
+) (*verifiable.Credential, *oidc4cierr.Error) {
 	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, oidc4cierr.NewUnauthorizedError(err)
 	}
 
 	var finalCredentials interface{}
@@ -313,7 +329,7 @@ func (c *Controller) issueCredential(
 		// for some reason should be allowed https://w3c.github.io/vc-data-model/#status test suite
 		if v, ok := finalCredentials.(map[string]interface{}); ok {
 			if validationErr := c.ValidateRawCredential(v, profile); validationErr != nil {
-				return nil, validationErr
+				return nil, validationErr.WithErrorPrefix("validate raw credential")
 			}
 
 			if profile.VCConfig.Model == vcsverifiable.V1_1 {
@@ -325,57 +341,66 @@ func (c *Controller) issueCredential(
 	} else {
 		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
 		if tmplErr != nil {
-			return nil, tmplErr
+			return nil, oidc4cierr.NewBadRequestError(tmplErr).WithErrorPrefix("extract credential template")
 		}
 
 		enforceStrictValidation = credentialTemplate.Checks.Strict
 
 		finalCredentials, err = c.buildCredentialsFromTemplate(credentialTemplate, profile, body)
 		if err != nil {
-			return nil, err
+			return nil, oidc4cierr.NewBadRequestError(err).WithErrorPrefix("build credentials from template")
 		}
 	}
 
 	credentialParsed, err := c.parseCredential(ctx, finalCredentials, enforceStrictValidation, profile.VCConfig)
 	if err != nil {
-		return nil, err
+		return nil, oidc4cierr.NewBadRequestError(err).WithErrorPrefix("parse credential")
 	}
 
 	issuer := credentialParsed.Contents().Issuer
 	if issuer != nil && !strings.HasPrefix(issuer.ID, "did:") {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issuer",
-			errors.New("issuer must be a DID"))
+		return nil, oidc4cierr.NewBadRequestError(errors.New("issuer must be a DID")).
+			WithIncorrectValue("credential.issuer")
 	}
 
 	// maybe implement some better handling https://www.w3.org/TR/vc-data-model-2.0/#dfn-url
 	if strings.Contains(credentialParsed.Contents().ID, " ") {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.id",
-			errors.New("id must be a valid URL"))
+		return nil, oidc4cierr.NewBadRequestError(errors.New("id must be a valid URL")).
+			WithIncorrectValue("credential.id")
 	}
 
 	if err = c.ValidateRelatedResources(credentialParsed.CustomField("relatedResource")); err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.relatedResources", err)
+		return nil, oidc4cierr.NewBadRequestError(err).
+			WithIncorrectValue("credential.relatedResources")
 	}
 
 	if err = c.validateCredentialSchemas(credentialParsed); err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.schemas", err)
+		return nil, oidc4cierr.NewBadRequestError(err).
+			WithIncorrectValue("credential.schemas")
 	}
 
 	content := credentialParsed.Contents()
 
 	if content.Issued != nil && content.Expired != nil {
 		if content.Issued.After(content.Expired.Time) || content.Issued.Equal(content.Expired.Time) {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential.issued",
-				errors.New("issued date must be before expiration date"))
+			return nil, oidc4cierr.NewBadRequestError(errors.New("issued date must be before expiration date")).
+				WithIncorrectValue("credential.issued")
 		}
 	}
 
-	credOpts, err := validateIssueCredOptions(body.Options, profile)
-	if err != nil {
-		return nil, fmt.Errorf("validate validateIssueCredOptions failed: %w", err)
+	credOpts, oidcErr := validateIssueCredOptions(body.Options, profile)
+	if oidcErr != nil {
+		return nil, oidcErr.
+			WithErrorPrefix("validateIssueCredOptions failed")
 	}
 
-	return c.signCredential(ctx, credentialParsed, profile, issuecredential.WithCryptoOpts(credOpts))
+	signedCredential, err := c.signCredential(ctx, credentialParsed, profile, issuecredential.WithCryptoOpts(credOpts))
+	if err != nil {
+		return nil, oidc4cierr.NewBadRequestError(err).
+			WithErrorPrefix("sign credential")
+	}
+
+	return signedCredential, nil
 }
 
 func (c *Controller) validateCredentialSchemas(cred *verifiable.Credential) error {
@@ -561,7 +586,7 @@ func (c *Controller) parseCredential(
 		verifiable.WithSchema(schema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+		return nil, fmt.Errorf("validate credential: %w", err)
 	}
 
 	return credential, nil
@@ -575,14 +600,14 @@ func (c *Controller) signCredential(
 ) (*verifiable.Credential, error) {
 	signedVC, err := c.issueCredentialService.IssueCredential(ctx, credential, profile, opts...)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.IssueCredentialSvcComponent, "IssueCredential", err)
+		return nil, fmt.Errorf("issue credential: %w", err)
 	}
 
 	return signedVC, nil
 }
 
 func validateIssueCredOptions(
-	options *IssueCredentialOptions, profile *profileapi.Issuer) ([]crypto.SigningOpts, error) {
+	options *IssueCredentialOptions, profile *profileapi.Issuer) ([]crypto.SigningOpts, *oidc4cierr.Error) {
 	var signingOpts []crypto.SigningOpts
 
 	if options == nil {
@@ -591,8 +616,9 @@ func validateIssueCredOptions(
 
 	if options.CredentialStatus != nil && options.CredentialStatus.Type != "" &&
 		options.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
-			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))
+		return nil, oidc4cierr.NewBadRequestError(
+			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type)).
+			WithIncorrectValue("options.credentialStatus")
 	}
 
 	verificationMethod := options.VerificationMethod
@@ -604,7 +630,8 @@ func validateIssueCredOptions(
 	if options.Created != nil {
 		created, err := time.Parse(time.RFC3339, *options.Created)
 		if err != nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "options.created", err)
+			return nil, oidc4cierr.NewBadRequestError(err).
+				WithIncorrectValue("options.created")
 		}
 		signingOpts = append(signingOpts, crypto.WithCreated(&created))
 	}
@@ -631,21 +658,41 @@ func (c *Controller) GetCredentialsStatus(ctx echo.Context, groupID string, stat
 func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 	var body UpdateCredentialStatusRequest
 
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return oidc4cierr.NewBadRequestError(err).
+			WithComponent(resterr.CredentialStatusMgmtComponent).
+			WithIncorrectValue("requestBody").
+			UsePublicAPIResponse()
 	}
 
-	if err := c.vcStatusManager.UpdateVCStatus(
+	oAuthClientRoles, err := getOAuthClientRolesFromRequest(ctx)
+	if err != nil {
+		return oidc4cierr.NewUnauthorizedError(err).
+			WithComponent(resterr.CredentialStatusMgmtComponent).
+			UsePublicAPIResponse()
+	}
+
+	if err = c.vcStatusManager.UpdateVCStatus(
 		ctx.Request().Context(),
 		credentialstatus.UpdateVCStatusParams{
-			ProfileID:      body.ProfileID,
-			ProfileVersion: body.ProfileVersion,
-			CredentialID:   body.CredentialID,
-			DesiredStatus:  body.CredentialStatus.Status,
-			StatusType:     vc.StatusType(body.CredentialStatus.Type),
+			OAuthClientRoles: oAuthClientRoles,
+			ProfileID:        body.ProfileID,
+			ProfileVersion:   body.ProfileVersion,
+			CredentialID:     body.CredentialID,
+			DesiredStatus:    body.CredentialStatus.Status,
+			StatusType:       vc.StatusType(body.CredentialStatus.Type),
 		},
 	); err != nil {
-		return err
+		var oidc4ciErr *oidc4cierr.Error
+
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewBadRequestError(err)
+		}
+
+		return oidc4ciErr.
+			WithComponent(resterr.CredentialStatusMgmtComponent).
+			WithErrorPrefix("update vc status").
+			UsePublicAPIResponse()
 	}
 
 	return ctx.NoContent(http.StatusOK)
@@ -660,24 +707,36 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		// Don't send a failed event since we have no context for the event, i,e, no tenant ID, etc.
-		return err
+		return oidc4cierr.NewUnauthorizedError(err).UsePublicAPIResponse()
 	}
 
 	span.SetAttributes(attribute.String("profile_id", profileID))
 
 	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
-		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+		oidc4ciErr := oidc4cierr.NewUnauthorizedError(err).
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			WithOperation("InitiateCredentialComposeIssuance")
 
-		return err
+		c.sendFailedEvent(
+			ctx, tenantID, profileID, profileVersion,
+			oidc4ciErr.Error(), oidc4ciErr.Code(), oidc4ciErr.Component())
+
+		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
 	var req InitiateOIDC4CIComposeRequest
 
-	if err = util.ReadBody(e, &req); err != nil {
-		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+	if err = e.Bind(&body); err != nil {
+		oidc4ciErr := oidc4cierr.NewBadRequestError(err).
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			WithOperation("ReadBody")
 
-		return err
+		c.sendFailedEvent(
+			ctx, tenantID, profileID, profileVersion,
+			oidc4ciErr.Error(), oidc4ciErr.Code(), oidc4ciErr.Component())
+
+		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
 	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
@@ -706,9 +765,25 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 		)
 	}
 
-	resp, ct, err := c.initiateIssuance(ctx, issuanceReq, profile)
-	if err != nil {
-		return err
+	mapped := InitiateOIDC4CIRequest{
+		AuthorizationDetails:      body.AuthorizationDetails,
+		ClientInitiateIssuanceUrl: body.ClientInitiateIssuanceUrl,
+		ClientWellknown:           body.ClientWellknown,
+		CredentialConfiguration:   &configs,
+		OpState:                   body.OpState,
+		ResponseType:              body.ResponseType,
+		Scope:                     body.Scope,
+		UserPinRequired:           body.UserPinRequired,
+		WalletInitiatedIssuance:   body.WalletInitiatedIssuance,
+	}
+
+	if body.GrantType != nil {
+		mapped.GrantType = lo.ToPtr(InitiateOIDC4CIRequestGrantType(*body.GrantType))
+	}
+
+	resp, ct, initiateIssErr := c.initiateIssuance(ctx, &mapped, profile)
+	if initiateIssErr != nil {
+		return initiateIssErr.WithOperation("InitiateCredentialComposeIssuance").UsePublicAPIResponse()
 	}
 
 	return util.WriteOutputWithContentType(e)(resp, ct, nil)
@@ -723,24 +798,36 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		// Don't send a failed event since we have no context for the event, i,e, no tenant ID, etc.
-		return err
+		return oidc4cierr.NewUnauthorizedError(err).UsePublicAPIResponse()
 	}
 
 	span.SetAttributes(attribute.String("profile_id", profileID))
 
 	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
-		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+		oidc4ciErr := oidc4cierr.NewUnauthorizedError(err).
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			WithOperation("InitiateCredentialIssuance")
 
-		return err
+		c.sendFailedEvent(
+			ctx, tenantID, profileID, profileVersion,
+			oidc4ciErr.Error(), oidc4ciErr.Code(), oidc4ciErr.Component())
+
+		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
 	var req InitiateOIDC4CIRequest
 
-	if err = util.ReadBody(e, &req); err != nil {
-		c.sendFailedEvent(ctx, tenantID, profileID, profileVersion, err)
+	if err = e.Bind(&body); err != nil {
+		oidc4ciErr := oidc4cierr.NewBadRequestError(err).
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			WithOperation("ReadBody")
 
-		return err
+		c.sendFailedEvent(
+			ctx, tenantID, profileID, profileVersion,
+			oidc4ciErr.Error(), oidc4ciErr.Code(), oidc4ciErr.Component())
+
+		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
 	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
@@ -783,25 +870,17 @@ func (c *Controller) initiateIssuance(
 ) (*InitiateOIDC4CIResponse, string, error) {
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, req, profile)
 	if err != nil {
-		if errors.Is(err, resterr.ErrCredentialTemplateNotFound) ||
-			errors.Is(err, resterr.ErrCredentialTemplateIDRequired) {
-			c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, err)
+		var oidc4ciErr *oidc4cierr.Error
 
-			return nil, "", err
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewBadRequestError(err)
 		}
 
-		var ce *resterr.CustomError
-		if ok := errors.As(err, &ce); ok {
-			c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, err)
+		c.sendFailedEvent(
+			ctx, profile.OrganizationID, profile.ID, profile.Version,
+			err.Error(), oidc4ciErr.Code(), oidc4ciErr.Component())
 
-			return nil, "", err
-		}
-
-		e := resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "InitiateIssuance", err)
-
-		c.sendFailedEvent(ctx, profile.OrganizationID, profile.ID, profile.Version, e)
-
-		return nil, "", e
+		return nil, "", oidc4ciErr
 	}
 
 	return &InitiateOIDC4CIResponse{
@@ -816,29 +895,36 @@ func (c *Controller) initiateIssuance(
 func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 	var body PushAuthorizationDetailsRequest
 
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("PushAuthorizationDetails").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	ad, err := util.ValidateAuthorizationDetails(body.AuthorizationDetails)
 	if err != nil {
-		return err
+		var rfc6749Err *rfc6749.Error
+
+		if !errors.As(err, &rfc6749Err) {
+			rfc6749Err = rfc6749.NewInvalidRequestError(err)
+		}
+
+		return rfc6749Err.
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			WithOperation("PushAuthorizationDetails")
 	}
 
 	if err = c.oidc4ciService.PushAuthorizationDetails(ctx.Request().Context(), body.OpState, ad); err != nil {
-		if errors.Is(err, resterr.ErrCredentialTypeNotSupported) {
-			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type", err)
+		var rfc6749Err *rfc6749.Error
+
+		if !errors.As(err, &rfc6749Err) {
+			rfc6749Err = rfc6749.NewInvalidRequestError(err)
 		}
 
-		if errors.Is(err, resterr.ErrCredentialFormatNotSupported) {
-			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
-		}
-
-		if errors.Is(err, resterr.ErrInvalidCredentialConfigurationID) {
-			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.credential_configuration_id", err)
-		}
-
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PushAuthorizationRequest", err)
+		return rfc6749Err.
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
+			WithOperation("PushAuthorizationDetails")
 	}
 
 	return ctx.NoContent(http.StatusOK)
@@ -849,17 +935,33 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 func (c *Controller) PrepareAuthorizationRequest(ctx echo.Context) error {
 	var body PrepareClaimDataAuthorizationRequest
 
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("PrepareAuthorizationRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
-	return util.WriteOutput(ctx)(c.prepareClaimDataAuthorizationRequest(ctx.Request().Context(), &body))
+	claimDataAuthorizationResponse, err := c.prepareClaimDataAuthorizationRequest(ctx.Request().Context(), &body)
+	if err != nil {
+		var rfc6749Err *rfc6749.Error
+
+		if !errors.As(err, &rfc6749Err) {
+			rfc6749Err = rfc6749.NewInvalidRequestError(err)
+		}
+
+		return rfc6749Err.
+			WithOperation("PrepareAuthorizationRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
+	}
+
+	return util.WriteOutput(ctx)(claimDataAuthorizationResponse, nil)
 }
 
 func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
-) (*PrepareClaimDataAuthorizationResponse, error) {
+) (*PrepareClaimDataAuthorizationResponse, error) { // *rfc6749.Error
 	var (
 		ad  []*issuecredential.AuthorizationDetails
 		err error
@@ -881,12 +983,12 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		},
 	)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
+		return nil, err
 	}
 
 	profile, err := c.profileSvc.GetProfile(resp.ProfileID, resp.ProfileVersion)
 	if err != nil {
-		return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareClaimDataAuthorizationRequest", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
@@ -908,19 +1010,17 @@ func (c *Controller) accessProfile(profileID, profileVersion string) (*profileap
 	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if errors.Is(err, resterr.ErrProfileNotFound) {
-			return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-				fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
+			return nil, fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion)
 		}
 
-		return nil, resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	if profile == nil {
 		logger.Debug("Received null profile from profile service", log.WithError(err),
 			logfields.WithProfileID(profileID), logfields.WithProfileVersion(profileVersion))
 
-		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
+		return nil, fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion)
 	}
 
 	return profile, nil
@@ -937,8 +1037,7 @@ func (c *Controller) accessOIDCProfile(profileID, profileVersion, tenantID strin
 		logger.Debug("Profile's owning org does not match the current tenant ID",
 			logfields.WithProfileID(profileID), logfields.WithProfileVersion(profileVersion))
 
-		return nil, resterr.NewCustomError(resterr.ProfileNotFound,
-			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
+		return nil, fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion)
 	}
 
 	return profile, nil
@@ -949,12 +1048,22 @@ func (c *Controller) accessOIDCProfile(profileID, profileVersion, tenantID strin
 func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
 	var body StoreAuthorizationCodeRequest
 
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("ExchangeAuthorizationCodeRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(),
-		body.OpState, body.Code, body.WalletInitiatedFlow))
+	transactionID, err := c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(),
+		body.OpState, body.Code, body.WalletInitiatedFlow)
+	if err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithOperation("StoreAuthorizationCodeRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
+	}
+
+	return util.WriteOutput(ctx)(transactionID, nil)
 }
 
 // ExchangeAuthorizationCodeRequest Exchanges authorization code.
@@ -962,8 +1071,11 @@ func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
 func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 	var body ExchangeAuthorizationCodeRequest
 
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("ExchangeAuthorizationCodeRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	exchangeAuthorizationCodeResult, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(),
@@ -973,7 +1085,15 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		lo.FromPtr(body.ClientAssertion),
 	)
 	if err != nil {
-		return util.WriteOutput(ctx)(nil, err)
+		var rfc6749Err *rfc6749.Error
+
+		if !errors.As(err, &rfc6749Err) {
+			rfc6749Err = rfc6749.NewInvalidRequestError(err)
+		}
+
+		return util.WriteOutput(ctx)(nil,
+			rfc6749Err.WithOperation("ExchangeAuthorizationCodeRequest").
+				WithComponent(resterr.IssuerOIDC4ciSvcComponent))
 	}
 
 	var authorizationDetailsDTOList []common.AuthorizationDetails
@@ -993,8 +1113,11 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	var body ValidatePreAuthorizedCodeRequest
 
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
+	if err := ctx.Bind(&body); err != nil {
+		return rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("ValidatePreAuthorizedCodeRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	transaction, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
@@ -1005,7 +1128,14 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 		lo.FromPtr(body.ClientAssertion),
 	)
 	if err != nil {
-		return err
+		var rfc6749Err *rfc6749.Error
+		if !errors.As(err, &rfc6749Err) {
+			rfc6749Err = rfc6749.NewInvalidRequestError(err)
+		}
+
+		return rfc6749Err.
+			WithOperation("ValidatePreAuthorizedCodeRequest").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	var authorizationDetailsDTOList []common.AuthorizationDetails
@@ -1029,14 +1159,19 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 func (c *Controller) PrepareCredential(e echo.Context) error {
 	var body PrepareCredential
 
-	if err := util.ReadBody(e, &body); err != nil {
-		return err
+	if err := e.Bind(&body); err != nil {
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("PrepareCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	requestedFormat := lo.FromPtr(body.Format)
 	_, err := common.ValidateVCFormat(common.VCFormat(requestedFormat))
 	if err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+		return oidc4cierr.NewUnsupportedCredentialFormatError(err).
+			WithOperation("PrepareCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	ctx := e.Request().Context()
@@ -1058,25 +1193,30 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	)
 
 	if err != nil {
-		var custom *resterr.CustomError
-		if errors.As(err, &custom) {
-			return custom
+		var oidc4ciErr *oidc4cierr.Error
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewInvalidCredentialRequestError(err)
 		}
 
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential", err)
+		return oidc4ciErr.
+			WithOperation("PrepareCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	if len(preparedCredentials.Credentials) == 0 {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
-			errors.New("empty credentials list"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("empty credentials list")).
+			WithOperation("PrepareCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	profile, err := c.accessProfile(preparedCredentials.ProfileID, preparedCredentials.ProfileVersion)
 	if err != nil {
-		return err
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithOperation("accessProfile").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
-	prepareCredentialResponse, err := c.prepareCredential(
+	prepareCredentialResponse, prepareCredentialErr := c.prepareCredential(
 		ctx,
 		body.TxId,
 		preparedCredentials.NotificationID,
@@ -1084,8 +1224,10 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		preparedCredentials.Credentials,
 		[]*RequestedCredentialResponseEncryption{body.RequestedCredentialResponseEncryption},
 	)
-	if err != nil {
-		return err
+	if prepareCredentialErr != nil {
+		return prepareCredentialErr.
+			WithOperation("PrepareCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	return util.WriteOutput(e)(prepareCredentialResponse[0], nil)
@@ -1098,16 +1240,15 @@ func (c *Controller) prepareCredential(
 	profile *profileapi.Issuer,
 	credentials []*oidc4ci.PrepareCredentialResultData,
 	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
-) ([]PrepareCredentialResult, error) {
+) ([]PrepareCredentialResult, *oidc4cierr.Error) {
 	var result []PrepareCredentialResult
-	var resultErr error
+	var resultErr *oidc4cierr.Error
 	var mut sync.Mutex
 	var wg sync.WaitGroup
 
 	for index1, credentialData1 := range credentials {
 		if credentialData1.Credential == nil {
-			return nil, resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareCredential",
-				errors.New("credentials should not be nil"))
+			return nil, oidc4cierr.NewInvalidCredentialRequestError(errors.New("credentials should not be nil"))
 		}
 
 		credentialData := credentialData1
@@ -1135,7 +1276,7 @@ func (c *Controller) prepareCredential(
 			}
 
 			if singleErr != nil {
-				resultErr = errors.Join(resultErr, singleErr)
+				resultErr = singleErr
 			}
 		}()
 	}
@@ -1157,7 +1298,7 @@ func (c *Controller) issueSingleCredential(
 	profile *profileapi.Issuer,
 	requestedCredentialResponseEncryption []*RequestedCredentialResponseEncryption,
 	index int,
-) (*PrepareCredentialResult, error) {
+) (*PrepareCredentialResult, *oidc4cierr.Error) {
 	if err := c.validateClaims(
 		ctx,
 		profile.VCConfig,
@@ -1165,12 +1306,13 @@ func (c *Controller) issueSingleCredential(
 		credentialData.CredentialTemplate,
 		credentialData.EnforceStrictValidation,
 	); err != nil {
-		return nil, resterr.NewCustomError(resterr.ClaimsValidationErr, err)
+		return nil, oidc4cierr.NewInvalidCredentialRequestError(err).WithErrorPrefix("validate claims")
 	}
 
 	if err := validateCredentialResponseEncryption(profile, requestedCredentialResponseEncryption[index]); err != nil {
-		return nil, resterr.NewValidationError(resterr.OIDCInvalidEncryptionParameters,
-			"credential_response_encryption", err)
+		return nil, oidc4cierr.NewInvalidEncryptionParametersError(err).
+			WithIncorrectValue("credential_response_encryption").
+			WithErrorPrefix("validate encryption params")
 	}
 
 	signedCredential, err := c.signCredential(
@@ -1181,7 +1323,7 @@ func (c *Controller) issueSingleCredential(
 		issuecredential.WithSkipIDPrefix(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, oidc4cierr.NewInvalidCredentialRequestError(err)
 	}
 
 	return &PrepareCredentialResult{
@@ -1203,8 +1345,11 @@ func (c *Controller) issueSingleCredential(
 func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 	var body PrepareBatchCredential
 
-	if err := util.ReadBody(e, &body); err != nil {
-		return err
+	if err := e.Bind(&body); err != nil {
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithErrorPrefix("read body").
+			WithOperation("PrepareBatchCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	ctx := e.Request().Context()
@@ -1217,7 +1362,9 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 		requestedFormat := lo.FromPtr(credentialRequested.Format)
 		_, err := common.ValidateVCFormat(common.VCFormat(requestedFormat))
 		if err != nil {
-			return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+			return oidc4cierr.NewUnsupportedCredentialFormatError(err).
+				WithOperation("PrepareBatchCredential").
+				WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 		}
 
 		credentialRequests = append(credentialRequests, &oidc4ci.PrepareCredentialRequest{
@@ -1241,25 +1388,30 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 	)
 
 	if err != nil {
-		var custom *resterr.CustomError
-		if errors.As(err, &custom) {
-			return custom
+		var oidc4ciErr *oidc4cierr.Error
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewInvalidCredentialRequestError(err)
 		}
 
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential", err)
+		return oidc4ciErr.
+			WithOperation("PrepareBatchCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	if len(preparedCredentials.Credentials) == 0 {
-		return resterr.NewSystemError(resterr.IssuerOIDC4ciSvcComponent, "PrepareBatchCredential",
-			errors.New("empty credentials list"))
+		return oidc4cierr.NewInvalidCredentialRequestError(errors.New("empty credentials list")).
+			WithOperation("PrepareBatchCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	profile, err := c.accessProfile(preparedCredentials.ProfileID, preparedCredentials.ProfileVersion)
 	if err != nil {
-		return err
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithOperation("accessProfile").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
-	prepareCredentialResponse, err := c.prepareCredential(
+	prepareCredentialResponse, prepareCredentialErr := c.prepareCredential(
 		ctx,
 		body.TxId,
 		preparedCredentials.NotificationID,
@@ -1267,8 +1419,10 @@ func (c *Controller) PrepareBatchCredential(e echo.Context) error {
 		preparedCredentials.Credentials,
 		requestedCredentialResponseEncryption,
 	)
-	if err != nil {
-		return err
+	if prepareCredentialErr != nil {
+		return prepareCredentialErr.
+			WithOperation("PrepareBatchCredential").
+			WithComponent(resterr.IssuerOIDC4ciSvcComponent)
 	}
 
 	return util.WriteOutput(e)(prepareCredentialResponse, nil)
@@ -1289,7 +1443,7 @@ func (c *Controller) CredentialIssuanceHistory(
 			extraParams.CredentialID,
 		)
 	if err != nil {
-		return err
+		return oidc4cierr.NewBadRequestError(err).UsePublicAPIResponse()
 	}
 
 	historyData := make([]CredentialIssuanceHistoryData, 0, len(credentialMetadata))
@@ -1446,8 +1600,7 @@ func validateCredentialResponseEncryption(
 	}
 
 	if profile.OIDCConfig.CredentialResponseEncryptionRequired && requested == nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption",
-			errors.New("credential response encryption is required"))
+		return errors.New("credential response encryption is required")
 	}
 
 	alg := ""
@@ -1457,8 +1610,7 @@ func validateCredentialResponseEncryption(
 
 	if len(profile.OIDCConfig.CredentialResponseAlgValuesSupported) > 0 &&
 		!lo.Contains(profile.OIDCConfig.CredentialResponseAlgValuesSupported, alg) {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.alg",
-			fmt.Errorf("alg %s not supported", alg))
+		return fmt.Errorf("alg %s not supported", alg)
 	}
 
 	enc := ""
@@ -1468,8 +1620,7 @@ func validateCredentialResponseEncryption(
 
 	if len(profile.OIDCConfig.CredentialResponseEncValuesSupported) > 0 &&
 		!lo.Contains(profile.OIDCConfig.CredentialResponseEncValuesSupported, enc) {
-		return resterr.NewValidationError(resterr.InvalidValue, "credential_response_encryption.enc",
-			fmt.Errorf("enc %s not supported", enc))
+		return fmt.Errorf("enc %s not supported", enc)
 	}
 
 	return nil
@@ -1480,12 +1631,12 @@ func validateCredentialResponseEncryption(
 func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, profileVersion string) error {
 	issuerProfile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return err
+		return oidc4cierr.NewBadRequestError(err).UsePublicAPIResponse()
 	}
 
 	config, jwtSignedConfig, err := c.openidIssuerConfigProvider.GetOpenIDCredentialIssuerConfig(issuerProfile)
 	if err != nil {
-		return err
+		return oidc4cierr.NewBadRequestError(err).UsePublicAPIResponse()
 	}
 
 	if jwtSignedConfig != "" {
@@ -1503,14 +1654,18 @@ func (c *Controller) OpenidCredentialIssuerConfigV2(ctx echo.Context, profileID,
 	return c.OpenidCredentialIssuerConfig(ctx, profileID, profileVersion)
 }
 
-func (c *Controller) sendFailedEvent(ctx context.Context, orgID, profileID, profileVersion string, e error) {
+func (c *Controller) sendFailedEvent(ctx context.Context,
+	orgID, profileID, profileVersion string,
+	errStr, errCode, errComponent string,
+) {
 	ep := oidc4ci.EventPayload{
 		OrgID:          orgID,
 		ProfileID:      profileID,
 		ProfileVersion: profileVersion,
+		Error:          errStr,
+		ErrorCode:      errCode,
+		ErrorComponent: errComponent,
 	}
-
-	ep.Error, ep.ErrorCode, ep.ErrorComponent = resterr.GetErrorDetails(e)
 
 	payload, err := c.marshal(ep)
 	if err != nil {
@@ -1568,4 +1723,13 @@ func getJSONSchema(config *profileapi.VCConfig) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported VC model: %s", config.Model)
 	}
+}
+
+func getOAuthClientRolesFromRequest(e echo.Context) ([]string, error) {
+	rawRoles := e.Request().Header.Get(clientRoleHeader)
+	if rawRoles == "" {
+		return nil, errors.New("missing role")
+	}
+
+	return strings.Split(rawRoles, " "), nil
 }

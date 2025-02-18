@@ -11,9 +11,11 @@ package credentialstatus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,16 +38,21 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 const (
-	cslRequestTokenName         = "csl"
-	credentialStatusEventSource = "source://vcs/status" //nolint:gosec
+	cslRequestTokenName                 = "csl"
+	credentialStatusEventSource         = "source://vcs/status" //nolint:gosec
+	credentialStatusClientRoleRevoker   = "revoker"
+	credentialStatusClientRoleActivator = "activator"
 )
 
-var logger = log.New("credentialstatus")
+var (
+	logger             = log.New("credentialstatus")
+	errActionForbidden = errors.New("client is not allowed to perform the action")
+)
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -156,33 +163,55 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		logfields.WithProfileVersion(params.ProfileVersion),
 		logfields.WithCredentialID(params.CredentialID))
 
+	statusValue, err := strconv.ParseBool(params.DesiredStatus)
+	if err != nil {
+		return oidc4cierr.NewBadRequestError(err).WithErrorPrefix("strconv.ParseBool failed")
+	}
+
+	if oidc4CiErr := s.checkOAuthClientRole(params.OAuthClientRoles, statusValue); oidc4CiErr != nil {
+		return oidc4CiErr
+	}
+
 	profile, err := s.profileService.GetProfile(params.ProfileID, params.ProfileVersion)
 	if err != nil {
-		return fmt.Errorf("get profile: %w", err)
+		return oidc4cierr.NewUnauthorizedError(err).
+			WithErrorPrefix("get profile")
 	}
 
 	if params.StatusType != profile.VCConfig.Status.Type {
-		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
-			fmt.Errorf(
-				"vc status list version \"%s\" is not supported by current profile", params.StatusType))
+		return oidc4cierr.
+			NewBadRequestError(
+				fmt.Errorf(
+					"vc status list version \"%s\" is not supported by current profile",
+					params.StatusType,
+				))
 	}
 
 	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, profile.Version, params.CredentialID)
 	if err != nil {
-		return fmt.Errorf("vcStatusStore.Get failed: %w", err)
-	}
-
-	statusValue, err := strconv.ParseBool(params.DesiredStatus)
-	if err != nil {
-		return fmt.Errorf("strconv.ParseBool failed: %w", err)
+		return oidc4cierr.NewBadRequestError(err).WithErrorPrefix("vcStatusStore.Get")
 	}
 
 	err = s.updateVCStatus(ctx, typedID, profile.ID, profile.Version, profile.VCConfig.Status.Type, statusValue)
 	if err != nil {
-		return fmt.Errorf("updateVCStatus failed: %w", err)
+		return oidc4cierr.NewBadRequestError(err).WithErrorPrefix("updateVCStatus")
 	}
 
 	logger.Debugc(ctx, "UpdateVCStatus success")
+
+	return nil
+}
+
+func (s *Service) checkOAuthClientRole(oAuthClientRoles []string, statusValue bool) *oidc4cierr.Error {
+	requiredRole := credentialStatusClientRoleActivator
+
+	if statusValue {
+		requiredRole = credentialStatusClientRoleRevoker
+	}
+
+	if !slices.Contains(oAuthClientRoles, requiredRole) {
+		return oidc4cierr.NewForbiddenError(errActionForbidden)
+	}
 
 	return nil
 }
@@ -375,8 +404,13 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 }
 
 // updateVCStatus updates StatusListCredential associated with typedID.
-func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedID, profileID, profileVersion string,
-	vcStatusType vc.StatusType, status bool) error {
+func (s *Service) updateVCStatus(
+	ctx context.Context,
+	typedID *verifiable.TypedID,
+	profileID, profileVersion string,
+	vcStatusType vc.StatusType,
+	status bool,
+) error {
 	vcStatusProcessor, err := statustype.GetVCStatusProcessor(vcStatusType)
 	if err != nil {
 		return fmt.Errorf("get VC status processor failed: %w", err)

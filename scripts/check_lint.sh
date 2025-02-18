@@ -16,9 +16,30 @@ if [ ! $(command -v ${DOCKER_CMD}) ]; then
     exit 0
 fi
 
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/profile/reader/file ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/event ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/healthchecks ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/credentialstatus ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/oidc/fosite ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
+lint_tasks=(
+    "."
+    "component/profile/reader/file"
+    "component/event"
+    "component/healthchecks"
+    "component/credentialstatus"
+    "component/oidc/fosite"
+)
+
+run_lint() {
+    local task_dir=$1
+    ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} \
+        -v $(pwd):/opt/workspace \
+        -w /opt/workspace/$task_dir ${GOLANGCI_LINT_IMAGE} \
+        golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
+}
+
+if [ "$LINT_CONCURRENTLY" = "true" ]; then
+    for task in "${lint_tasks[@]}"; do
+        run_lint "$task" &
+    done
+    wait
+else
+    for task in "${lint_tasks[@]}"; do
+        run_lint "$task"
+    done
+fi

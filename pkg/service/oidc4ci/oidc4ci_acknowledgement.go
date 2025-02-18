@@ -13,14 +13,13 @@ import (
 	"strings"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 type AckService struct {
 	cfg *AckServiceConfig
 }
-
-var ErrAckExpired = errors.New("expired_ack_id")
 
 type AckServiceConfig struct {
 	AckStore   ackStore
@@ -95,11 +94,12 @@ func (s *AckService) Ack(
 		if errors.Is(err, ErrDataNotFound) {
 			return s.handleAckNotFound(ctx, req)
 		}
-		return err
+
+		return oidc4cierr.NewInvalidNotificationIDError(err)
 	}
 
 	if ack.HashedToken != req.HashedToken {
-		return errors.New("invalid token")
+		return oidc4cierr.NewInvalidNotificationIDError(errors.New("invalid token"))
 	}
 
 	eventPayload := &EventPayload{
@@ -115,7 +115,8 @@ func (s *AckService) Ack(
 
 	err = s.sendEvent(ctx, s.AckEventMap(req.Event), ack.TxID, eventPayload)
 	if err != nil {
-		return err
+		return oidc4cierr.NewInvalidNotificationRequestError(err).
+			WithErrorPrefix("send request")
 	}
 
 	ack.CredentialsIssued-- // decrement counter of issued credentials.
@@ -138,14 +139,16 @@ func (s *AckService) Ack(
 func (s *AckService) handleAckNotFound(
 	ctx context.Context,
 	req AckRemote,
-) error {
+) *oidc4cierr.Error {
 	if req.IssuerIdentifier == "" {
-		return errors.New("issuer identifier is empty and ack not found")
+		return oidc4cierr.NewInvalidNotificationRequestError(
+			errors.New("issuer identifier is empty and ack not found"))
 	}
 
 	parts := strings.Split(req.IssuerIdentifier, "/")
 	if len(parts) < issuerIdentifierParts {
-		return errors.New("invalid issuer identifier. expected format https://xxx/{profileID}/{profileVersion}")
+		return oidc4cierr.NewInvalidNotificationRequestError(
+			errors.New("invalid issuer identifier. expected format https://xxx/{profileID}/{profileVersion}"))
 	}
 
 	profileID := parts[len(parts)-2]
@@ -153,7 +156,8 @@ func (s *AckService) handleAckNotFound(
 
 	profile, err := s.cfg.ProfileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return err
+		return oidc4cierr.NewInvalidNotificationRequestError(err).
+			WithErrorPrefix("get profile")
 	}
 
 	eventPayload := &EventPayload{
@@ -171,10 +175,11 @@ func (s *AckService) handleAckNotFound(
 
 	err = s.sendEvent(ctx, spi.IssuerOIDCInteractionAckExpired, req.TxID, eventPayload)
 	if err != nil {
-		return err
+		return oidc4cierr.NewInvalidNotificationRequestError(err).
+			WithErrorPrefix("send request")
 	}
 
-	return ErrAckExpired
+	return oidc4cierr.NewExpiredAckIDError(errors.New("expired_ack_id"))
 }
 
 func (s *AckService) sendEvent(

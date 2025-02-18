@@ -16,11 +16,14 @@
       "endpoint": "/issuer/credentials/status",
       "method": "POST",
       "protected": true,
+      "propagate_roles_header": true,
       "roles_to_validate": [
-        "revoker"
+        "revoker",
+        "activator"
       ],
       "input_headers": [
         "X-Tenant-ID",
+        "X-Client-Roles",
         "Content-Type"
       ]
     },

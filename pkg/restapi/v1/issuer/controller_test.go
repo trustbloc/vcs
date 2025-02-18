@@ -35,8 +35,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -500,7 +500,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 
-		requireValidationError(t, "invalid-value", "requestBody", err)
+		requireValidationError(t, "invalid_credential_request", "requestBody", "", err)
 	})
 }
 
@@ -533,13 +533,13 @@ func TestController_IssueCredentials(t *testing.T) {
 
 		var body IssueCredentialData
 
-		err := util.ReadBody(c, &body)
+		err := c.Bind(&body)
 		require.NoError(t, err)
 
 		verifiableCredentials, err := controller.issueCredential(
 			c.Request().Context(), orgID, &body, profileID, profileVersion)
 
-		require.NoError(t, err)
+		require.Nil(t, err)
 		require.NotNil(t, verifiableCredentials)
 	})
 
@@ -565,12 +565,13 @@ func TestController_IssueCredentials(t *testing.T) {
 
 		var body IssueCredentialData
 
-		err := util.ReadBody(c, &body)
+		err := c.Bind(&body)
 		require.NoError(t, err)
 
 		verifiableCredentials, err := controller.issueCredential(
 			c.Request().Context(), orgID, &body, profileID, profileVersion)
-		require.NoError(t, err)
+
+		require.Nil(t, err)
 		require.NotNil(t, verifiableCredentials)
 	})
 
@@ -595,13 +596,13 @@ func TestController_IssueCredentials(t *testing.T) {
 
 		var body IssueCredentialData
 
-		err := util.ReadBody(c, &body)
+		err := c.Bind(&body)
 		require.NoError(t, err)
 
 		verifiableCredentials, err := controller.issueCredential(
 			c.Request().Context(), orgID, &body, profileID, profileVersion)
 
-		require.NoError(t, err)
+		require.Nil(t, err)
 		require.NotNil(t, verifiableCredentials)
 	})
 
@@ -722,7 +723,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				})
 				ctx := testCase.getCtx()
 				var body IssueCredentialData
-				err := util.ReadBody(ctx, &body)
+				err := ctx.Bind(&body)
 				require.NoError(t, err)
 				verifiableCredentials, err := controller.issueCredential(
 					ctx.Request().Context(), orgID, &body, profileID, profileVersion)
@@ -761,7 +762,7 @@ func TestController_AuthFailed(t *testing.T) {
 		})
 
 		err := controller.PostIssueCredentials(c, profileID, profileVersion)
-		requireCustomError(t, resterr.ProfileNotFound, err)
+		requireAuthError(t, err)
 	})
 }
 
@@ -850,28 +851,82 @@ func Test_validateIssueCredOptions(t *testing.T) {
 
 func TestController_PostCredentialsStatus(t *testing.T) {
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().UpdateVCStatus(context.Background(), gomock.Any()).Return(nil)
 
 	t.Run("Success", func(t *testing.T) {
+		mockVCStatusManager.EXPECT().UpdateVCStatus(context.Background(), gomock.Any()).Times(1).Return(nil)
+
 		controller := NewController(&Config{
-			// KMSRegistry:     kmsRegistry,
-			DocumentLoader:  testutil.DocumentLoader(t),
 			VcStatusManager: mockVCStatusManager,
 		})
 
-		c := echoContext(withRequestBody(
-			[]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)))
+		c := echoContext(
+			withOAuthClientRoles("revoker"),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
 
 		err := controller.PostCredentialsStatus(c)
 		require.NoError(t, err)
 	})
 
-	t.Run("Failed", func(t *testing.T) {
+	t.Run("Failure: read body", func(t *testing.T) {
 		controller := NewController(&Config{})
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostCredentialsStatus(c)
 
-		requireValidationError(t, "invalid-value", "requestBody", err)
+		requireValidationError(t,
+			"bad_request", "requestBody", resterr.CredentialStatusMgmtComponent, err)
+	})
+
+	t.Run("Failure: missing role", func(t *testing.T) {
+		controller := NewController(&Config{})
+
+		c := echoContext(
+			withOAuthClientRoles(""),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
+
+		err := controller.PostCredentialsStatus(c)
+		requireAuthError(t, err)
+	})
+
+	t.Run("Failure: UpdateVCStatus error: regular error", func(t *testing.T) {
+		mockVCStatusManager.
+			EXPECT().
+			UpdateVCStatus(context.Background(), gomock.Any()).Times(1).
+			Return(errors.New("some error"))
+
+		controller := NewController(&Config{
+			VcStatusManager: mockVCStatusManager,
+		})
+
+		c := echoContext(
+			withOAuthClientRoles("revoker"),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
+
+		err := controller.PostCredentialsStatus(c)
+		requireValidationError(t,
+			"bad_request", "", resterr.CredentialStatusMgmtComponent, err)
+	})
+
+	t.Run("Failure: UpdateVCStatus error: oidc4ci error", func(t *testing.T) {
+		mockVCStatusManager.
+			EXPECT().
+			UpdateVCStatus(context.Background(), gomock.Any()).Times(1).
+			Return(oidc4cierr.NewForbiddenError(errors.New("some error")))
+
+		controller := NewController(&Config{
+			VcStatusManager: mockVCStatusManager,
+		})
+
+		c := echoContext(
+			withOAuthClientRoles("revoker"),
+			withRequestBody([]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)),
+		)
+
+		err := controller.PostCredentialsStatus(c)
+		requireValidationError(t,
+			"forbidden", "", resterr.CredentialStatusMgmtComponent, err)
 	})
 }
 
@@ -1239,8 +1294,8 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 							assert.NoError(t, json.Unmarshal(jsonData, ep))
 
-							assert.Equal(t, string(resterr.SystemError), ep.ErrorCode)
-							assert.Equal(t, resterr.IssuerProfileSvcComponent, ep.ErrorComponent)
+							assert.Equal(t, "unauthorized", ep.ErrorCode)
+							assert.Equal(t, resterr.IssuerOIDC4ciSvcComponent, resterr.Component(ep.ErrorComponent))
 
 							return nil
 						},
@@ -1267,13 +1322,13 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 							ep := &oidc4ci.EventPayload{}
 
-							jsonData, errMarshal := json.Marshal(msg.Data.(map[string]interface{}))
+							jsonData, errMarshal := json.Marshal(msg.Data)
 							require.NoError(t, errMarshal)
 
 							assert.NoError(t, json.Unmarshal(jsonData, ep))
 
-							assert.Equal(t, string(resterr.ProfileNotFound), ep.ErrorCode)
-							assert.Empty(t, ep.ErrorComponent)
+							assert.Equal(t, "unauthorized", ep.ErrorCode)
+							assert.Equal(t, resterr.IssuerOIDC4ciSvcComponent, resterr.Component(ep.ErrorComponent))
 
 							return nil
 						},
@@ -1286,11 +1341,31 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				},
 			},
 			{
-				name: "Credential template ID is required",
+				name: "Initiate issuance: *oidc4cierr.Error error",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
-					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, resterr.ErrCredentialTemplateIDRequired) //nolint:lll
-					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4cierr.NewUnauthorizedError(errors.New("some error"))) //nolint:lll
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1).DoAndReturn(
+						func(ctx context.Context, topic string, messages ...*spi.Event) error {
+							assert.Len(t, messages, 1)
+
+							msg := messages[0]
+
+							assert.Equal(t, msg.Type, spi.IssuerOIDCInteractionFailed)
+
+							ep := &oidc4ci.EventPayload{}
+
+							jsonData, errMarshal := json.Marshal(msg.Data)
+							require.NoError(t, errMarshal)
+
+							assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+							assert.Equal(t, "unauthorized", ep.ErrorCode)
+							assert.Equal(t, "unauthorized[http status: 401]: some error", ep.Error)
+
+							return nil
+						},
+					)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
 					require.NoError(t, marshalErr)
@@ -1299,24 +1374,8 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "credential template ID is required")
-				},
-			},
-			{
-				name: "Credential template not found",
-				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
-					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, resterr.ErrCredentialTemplateNotFound) //nolint:lll
-					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
-
-					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
-					require.NoError(t, marshalErr)
-
-					c = echoContext(withRequestBody(r))
-				},
-				check: func(t *testing.T, err error) {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), "credential template not found")
+					require.Contains(t, err.Error(),
+						"unauthorized[operation: InitiateCredentialIssuance; http status: 401]: some error")
 				},
 			},
 			{
@@ -1324,26 +1383,32 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("service error")) //nolint:lll
-					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
+					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1).DoAndReturn(
+						func(ctx context.Context, topic string, messages ...*spi.Event) error {
+							assert.Len(t, messages, 1)
+
+							msg := messages[0]
+
+							assert.Equal(t, msg.Type, spi.IssuerOIDCInteractionFailed)
+
+							ep := &oidc4ci.EventPayload{}
+
+							jsonData, errMarshal := json.Marshal(msg.Data)
+							require.NoError(t, errMarshal)
+
+							assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+							assert.Equal(t, "bad_request", ep.ErrorCode)
+							assert.Equal(t, "service error", ep.Error)
+
+							return nil
+						},
+					)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "service error")
-				},
-			},
-			{
-				name: "Custom error",
-				setup: func() {
-					e := resterr.NewCustomError(resterr.InvalidValue, errors.New("custom error"))
-					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
-					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, e) //nolint:lll
-					mockEventSvc.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).Times(1)
-					c = echoContext(withRequestBody(req))
-				},
-				check: func(t *testing.T, err error) {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), "custom error")
 				},
 			},
 		}
@@ -1440,7 +1505,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				name: "Credential type not supported",
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						resterr.ErrCredentialTypeNotSupported)
+						errors.New("credential type not supported"))
 
 					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 				},
@@ -1452,7 +1517,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				name: "Credential format not supported",
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						resterr.ErrCredentialFormatNotSupported)
+						errors.New("credential format not supported"))
 
 					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 				},
@@ -1464,7 +1529,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				name: "CredentialConfigurationID not supported",
 				setup: func() {
 					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						resterr.ErrInvalidCredentialConfigurationID)
+						errors.New("invalid credential configuration ID"))
 
 					req = fmt.Sprintf(`{"op_state":"opState","authorization_details":%s}`, authorizationDetailsFormatBased) //nolint:lll
 				},
@@ -1704,7 +1769,7 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 	})
 }
 
-func TestController_StoreAuthZCode(t *testing.T) {
+func TestController_StoreAuthorizationCodeRequest(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
@@ -2279,13 +2344,13 @@ func TestController_PrepareCredential(t *testing.T) {
 
 		req := `{"tx_id":"123","types":["UniversityDegreeCredential"],"format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.ErrorContains(t, c.PrepareCredential(ctx), "service error")
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "invalid_credential_request")
 	})
 
-	t.Run("service custom error", func(t *testing.T) {
+	t.Run("service oidc4cierr.Error error", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(
-			nil, resterr.NewCustomError("rand-code", errors.New("rand")))
+			nil, oidc4cierr.NewUnauthorizedError(errors.New("some error")))
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -2293,7 +2358,7 @@ func TestController_PrepareCredential(t *testing.T) {
 
 		req := `{"tx_id":"123","types":["UniversityDegreeCredential"],"format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.ErrorContains(t, c.PrepareCredential(ctx), "rand-code: rand")
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "unauthorized")
 	})
 
 	t.Run("claims JSON schema validation error", func(t *testing.T) {
@@ -2363,7 +2428,8 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 
 		err = c.PrepareCredential(ctx)
-		assert.EqualError(t, err, "invalid-claims: validation error")
+		assert.ErrorContains(t, err, "invalid_credential_request[component: issuer.oidc4ci-service; operation: PrepareCredential; "+
+			"http status: 400]: validate claims: validation error")
 	})
 
 	t.Run("claims JSONLD schema validation error", func(t *testing.T) {
@@ -2428,7 +2494,7 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 
 		err = c.PrepareCredential(ctx)
-		require.ErrorContains(t, err, "invalid-claims")
+		require.ErrorContains(t, err, "invalid_credential_request")
 	})
 
 	t.Run("credential response encryption is required error", func(t *testing.T) {
@@ -2978,10 +3044,10 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 		assert.ErrorContains(t, c.PrepareBatchCredential(ctx), "service error")
 	})
 
-	t.Run("service custom error", func(t *testing.T) {
+	t.Run("service oidc4cierr.Error error", func(t *testing.T) {
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(
-			nil, resterr.NewCustomError("rand-code", errors.New("rand")))
+			nil, oidc4cierr.NewUnauthorizedError(errors.New("invalid_credential_request")))
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -2989,7 +3055,7 @@ func TestController_PrepareBatchCredential(t *testing.T) {
 
 		req := `{"tx_id":"123","credential_requests":[{"types":["UniversityDegreeCredential"],"format":"ldp_vc"}]}`
 		ctx := echoContext(withRequestBody([]byte(req)))
-		assert.ErrorContains(t, c.PrepareBatchCredential(ctx), "rand-code: rand")
+		assert.ErrorContains(t, c.PrepareBatchCredential(ctx), "unauthorized")
 	})
 }
 
@@ -3363,7 +3429,7 @@ func Test_sendFailedEvent(t *testing.T) {
 		}
 
 		require.NotPanics(t, func() {
-			c.sendFailedEvent(context.Background(), "", "", "", errors.New("some error"))
+			c.sendFailedEvent(context.Background(), "", "", "", "", "", "")
 		})
 	})
 
@@ -3374,7 +3440,7 @@ func Test_sendFailedEvent(t *testing.T) {
 		c := NewController(&Config{EventSvc: evtSvc})
 
 		require.NotPanics(t, func() {
-			c.sendFailedEvent(context.Background(), "", "", "", errors.New("some error"))
+			c.sendFailedEvent(context.Background(), "", "", "", "", "", "")
 		})
 	})
 }
@@ -3476,9 +3542,10 @@ func TestValidateRelatedResources(t *testing.T) {
 }
 
 type options struct {
-	tenantID       string
-	requestBody    []byte
-	responseWriter http.ResponseWriter
+	tenantID         string
+	oAuthClientRoles string
+	requestBody      []byte
+	responseWriter   http.ResponseWriter
 }
 
 type contextOpt func(*options)
@@ -3492,6 +3559,12 @@ func withTenantID(tenantID string) contextOpt {
 func withRequestBody(body []byte) contextOpt {
 	return func(o *options) {
 		o.requestBody = body
+	}
+}
+
+func withOAuthClientRoles(roles string) contextOpt {
+	return func(o *options) {
+		o.oAuthClientRoles = roles
 	}
 }
 
@@ -3526,34 +3599,28 @@ func echoContext(opts ...contextOpt) echo.Context {
 		req.Header.Set("X-Tenant-ID", o.tenantID)
 	}
 
+	if o.oAuthClientRoles != "" {
+		req.Header.Set("X-Client-Roles", o.oAuthClientRoles)
+	}
+
 	return e.NewContext(req, o.responseWriter)
 }
 
-func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
+func requireValidationError(t *testing.T, expectedCode string, incorrectValueName string, component resterr.Component, actual error) {
+	var actualErr *oidc4cierr.Error
+	require.ErrorAs(t, actual, &actualErr)
 
-	require.Equal(t, expectedCode, actualErr.Code)
+	require.Equal(t, expectedCode, string(actualErr.ErrorCode))
 	require.Equal(t, incorrectValueName, actualErr.IncorrectValue)
+	require.Equal(t, actualErr.Component(), string(component))
 	require.Error(t, actualErr.Err)
 }
 
 func requireAuthError(t *testing.T, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
+	var actualErr *oidc4cierr.Error
+	require.ErrorAs(t, actual, &actualErr)
 
-	require.Equal(t, resterr.Unauthorized, actualErr.Code)
-}
-
-func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual error) {
-	require.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	require.True(t, errors.As(actual, &actualErr))
-
-	require.Equal(t, expectedCode, actualErr.Code)
-	require.Error(t, actualErr.Err)
+	require.Equal(t, "unauthorized", string(actualErr.ErrorCode))
 }
 
 func getTestAuthorizationDetails(t *testing.T, includeCredentialDefinition bool) *issuecredential.AuthorizationDetails {

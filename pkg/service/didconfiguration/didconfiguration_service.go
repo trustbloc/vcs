@@ -11,6 +11,7 @@ package didconfiguration
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
@@ -21,7 +22,6 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 const (
@@ -105,8 +105,7 @@ func (s *Service) DidConfig(
 	case ProfileTypeVerifier:
 		profile, err := s.verifierProfileService.GetProfile(profileID, profileVersion)
 		if err != nil {
-			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
-				err)
+			return nil, fmt.Errorf("get verification profile: %w", err)
 		}
 
 		if profile.OIDCConfig == nil {
@@ -129,7 +128,6 @@ func (s *Service) DidConfig(
 		}}
 
 		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
-
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +144,7 @@ func (s *Service) DidConfig(
 	case ProfileTypeIssuer:
 		profile, err := s.issuerProfileService.GetProfile(profileID, profileVersion)
 		if err != nil {
-			return nil, resterr.NewValidationError(resterr.SystemError, "profileID", err)
+			return nil, fmt.Errorf("get issuance profile: %w", err)
 		}
 
 		format = profile.VCConfig.Format
@@ -177,8 +175,7 @@ func (s *Service) DidConfig(
 			SDJWT:                   vc.SDJWT{Enable: false},
 		}
 	default:
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",
-			errors.New("profileType should be verifier or issuer"))
+		return nil, errors.New("profileType should be verifier or issuer")
 	}
 	unsignedVC, err := verifiable.CreateCredential(credentialContents, nil)
 	if err != nil {

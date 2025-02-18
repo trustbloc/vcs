@@ -7,13 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package util_test
 
 import (
-	"reflect"
-	"strings"
+	"errors"
 	"testing"
 
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -27,8 +28,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 		name          string
 		args          args
 		want          []*issuecredential.AuthorizationDetails
-		wantErr       bool
-		errorContains string
+		expectedError error
 	}{
 		{
 			name: "Success Based on credentialConfigurationID",
@@ -66,8 +66,6 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					CredentialDefinition:      nil,
 				},
 			},
-			wantErr:       false,
-			errorContains: "",
 		},
 		{
 			name: "Success Based on credentialFormat",
@@ -129,8 +127,6 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			wantErr:       false,
-			errorContains: "",
 		},
 		{
 			name: "Error invalid type",
@@ -141,9 +137,9 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			want:          nil,
-			wantErr:       true,
-			errorContains: "invalid-value[authorization_details.type]: type should be 'openid_credential'",
+			expectedError: rfc6749.
+				NewInvalidRequestError(errors.New("type should be 'openid_credential'")).
+				WithIncorrectValue("authorization_details.type"),
 		},
 		{
 			name: "Error: credentialFormat: invalid format",
@@ -164,10 +160,10 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			want:    nil,
-			wantErr: true,
-			errorContains: "invalid-value[authorization_details.format]: " +
-				"unsupported vc format unknown, use one of next [jwt_vc_json-ld, ldp_vc]",
+			expectedError: rfc6749.
+				NewInvalidRequestError(
+					errors.New("unsupported vc format unknown, use one of next [jwt_vc_json-ld, ldp_vc]")).
+				WithIncorrectValue("authorization_details.format"),
 		},
 		{
 			name: "Error: credentialFormat: empty CredentialDefinition",
@@ -182,9 +178,9 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			want:          nil,
-			wantErr:       true,
-			errorContains: "invalid-value[authorization_details.credential_definition]: not supplied",
+			expectedError: rfc6749.
+				NewInvalidRequestError(errors.New("not supplied")).
+				WithIncorrectValue("authorization_details.credential_definition"),
 		},
 		{
 			name: "Error: neither credentialFormat nor credentialConfigurationID supplied",
@@ -205,27 +201,20 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 					},
 				},
 			},
-			want:    nil,
-			wantErr: true,
-			errorContains: "invalid-value[authorization_details.credential_configuration_id]: " +
-				"neither credentialFormat nor credentialConfigurationID supplied",
+			expectedError: rfc6749.NewInvalidRequestError(
+				errors.New("neither credentialFormat nor credentialConfigurationID supplied")).
+				WithIncorrectValue("authorization_details.credential_configuration_id"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := util.ValidateAuthorizationDetails(tt.args.ad)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateAuthorizationDetails() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				assert.Equal(t, tt.expectedError, err)
 				return
 			}
 
-			if tt.wantErr && !strings.Contains(err.Error(), tt.errorContains) {
-				t.Errorf("ValidateAuthorizationDetails() error = %v, errorContains %v", err, tt.errorContains)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ValidateAuthorizationDetails() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

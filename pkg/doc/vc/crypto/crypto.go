@@ -8,7 +8,6 @@ package crypto
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/piprate/json-gold/ld"
@@ -499,12 +498,6 @@ func (c *Crypto) GetSigner(
 
 // ValidateProofPurpose validates the proof purpose.
 func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
-	// TODO https://github.com/trustbloc/vcs/issues/368 remove check once did:sov returns both
-	//  assertionMethod and authentication
-	if strings.Contains(method, "did:sov") {
-		return nil
-	}
-
 	var vmMatched bool
 
 	switch proofPurpose {

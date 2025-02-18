@@ -59,6 +59,7 @@ var (
 )
 
 const (
+	transactionID         = "TxID1"
 	profileID             = "testProfileID"
 	profileVersion        = "v1.0"
 	customScope           = "customScope"
@@ -84,7 +85,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	txManager.EXPECT().CreateTx(
 		gomock.Any(), gomock.Any(), gomock.Any(), int32(20), int32(10), []string{customScope}).AnyTimes().
 		Return(&oidc4vp.Transaction{
-			ID:                     "TxID1",
+			ID:                     transactionID,
 			ProfileID:              "test4",
 			PresentationDefinition: &presexch.PresentationDefinition{},
 			CustomScopes:           []string{customScope},
@@ -260,7 +261,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "failed to publish request object: fail"))
+				assert.Contains(t, errorMsg, "publish request object: fail")
 			}),
 		)
 
@@ -304,7 +305,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				_, ok = epData["errorComponent"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "initiate oidc interaction: get key manager failed: fail"))
+				assert.Contains(t, errorMsg, "initiate oidc interaction: get key manager failed: fail")
 			}),
 		)
 
@@ -349,7 +350,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				_, ok = epData["errorComponent"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "initiate oidc interaction: get create signer failed"))
+				assert.Contains(t, errorMsg, "initiate oidc interaction: get create signer failed")
 			}),
 		)
 
@@ -386,7 +387,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 				_, ok = epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.True(t, strings.HasPrefix(errorMsg, "unsupported jwt key type invalid"))
+				assert.Contains(t, errorMsg, "unsupported jwt key type invalid")
 			}),
 		)
 
@@ -424,14 +425,14 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	vp, pd, issuer, vdr, loader := newVPWithPD(t, w)
 
 	txManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-		ID:                     "txID1",
+		ID:                     transactionID,
 		ProfileID:              profileID,
 		ProfileVersion:         profileVersion,
 		PresentationDefinition: pd,
 	}, true, nil)
 
 	txManager.EXPECT().StoreReceivedClaims(
-		oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).AnyTimes().Return(nil)
+		oidc4vp.TxID(transactionID), gomock.Any(), int32(20), int32(10)).AnyTimes().Return(nil)
 
 	profileService.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(&profileapi.Verifier{
 		ID:      profileID,
@@ -464,13 +465,13 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1).
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID(transactionID), gomock.Any(), int32(20), int32(10)).Times(1).
 			DoAndReturn(func(
 				txID oidc4vp.TxID,
 				claims *oidc4vp.ReceivedClaims,
@@ -489,10 +490,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		}
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil, checkFn),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionSucceeded, nil, checkFn),
 		)
 
@@ -507,7 +504,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -573,16 +570,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil, func(t *testing.T, e *spi.Event) {
-				ep, ok := e.Data.(map[string]interface{})
-				assert.True(t, ok)
-
-				_, ok = ep["interaction_details"]
-				assert.False(t, ok)
-			}),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionSucceeded, nil, func(t *testing.T, e *spi.Event) {
 				ep, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -606,14 +593,14 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: defs,
 			CustomScopes:           []string{customScope},
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1).
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID(transactionID), gomock.Any(), int32(20), int32(10)).Times(1).
 			DoAndReturn(func(
 				txID oidc4vp.TxID,
 				claims *oidc4vp.ReceivedClaims,
@@ -627,7 +614,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				return nil
 			})
 
-		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: map[string]oidc4vp.Claims{
 					customScope: {
@@ -660,10 +647,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("Unsupported vp token format", func(t *testing.T) {
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -671,7 +654,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, errorMsg, "profile does not support ldp vp_token format")
+				assert.Contains(t, errorMsg, "profile does not support ldp vp_token format")
 
 				_, ok = epData["errorCode"].(string)
 				assert.True(t, ok)
@@ -689,7 +672,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -754,10 +737,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -765,12 +744,12 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, errorMsg, "duplicate presentation ID: ")
+				assert.Contains(t, errorMsg, "duplicate presentation ID: ")
 
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "duplicate-presentation-id", ec)
+				assert.Equal(t, "bad_request", ec)
 			}),
 		)
 
@@ -786,19 +765,19 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: defs,
 		}, true, nil)
 
 		txManager2.EXPECT().StoreReceivedClaims(
-			oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).AnyTimes().Return(nil)
+			oidc4vp.TxID(transactionID), gomock.Any(), int32(20), int32(10)).AnyTimes().Return(nil)
 
 		vp1.ID = ""
 		vp2.ID = ""
 
-		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{
@@ -834,7 +813,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens:          []*oidc4vp.ProcessedVPToken{},
@@ -847,10 +826,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("VC subject is not much with vp signer", func(t *testing.T) {
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -861,7 +836,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "invalid-value", ec)
+				assert.Equal(t, "bad_request", ec)
 			}),
 		)
 
@@ -876,7 +851,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -903,7 +878,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -946,14 +921,14 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		errTxManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
 			CustomScopes:           []string{customScope},
 		}, true, nil)
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -970,14 +945,14 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		errTxManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
 			CustomScopes:           []string{customScope},
 		}, true, nil)
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: map[string]oidc4vp.Claims{
 					"customScope2": {},
@@ -1001,7 +976,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: map[string]oidc4vp.Claims{
 					customScope: {},
@@ -1027,7 +1002,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -1041,10 +1016,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("verification failed", func(t *testing.T) {
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -1052,12 +1023,12 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "presentation verification failed: verification failed", errMsg)
+				assert.Contains(t, errMsg, "presentation verification failed: verification failed")
 
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "system-error", ec)
+				assert.Equal(t, "bad_request", ec)
 
 				errComponent, ok := epData["errorComponent"].(string)
 				assert.True(t, ok)
@@ -1081,7 +1052,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -1096,10 +1067,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("Match failed", func(t *testing.T) {
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
 				epData, ok := e.Data.(map[string]interface{})
 				assert.True(t, ok)
@@ -1107,15 +1074,15 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "presentation definition match: "+
-					"input verifiable presentation must have json-ld context "+
-					"https://identity.foundation/presentation-exchange/submission/v1 or "+
+				assert.Equal(t, "bad_request[component: verifier.presentation-verifier; http status: 400]: "+
+					"presentation definition match: input verifiable presentation must have json-ld "+
+					"context https://identity.foundation/presentation-exchange/submission/v1 or "+
 					"https://identity.foundation/credential-manifest/application/v1", errMsg)
 
 				ec, ok := epData["errorCode"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "presentation-definition-mismatch", ec)
+				assert.Equal(t, "bad_request", ec)
 			}),
 		)
 
@@ -1130,7 +1097,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -1144,18 +1111,14 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	t.Run("Store error", func(t *testing.T) {
 		errTxManager := NewMockTransactionManager(gomock.NewController(t))
 		errTxManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
 		}, true, nil)
 
-		errTxManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).
+		errTxManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID(transactionID), gomock.Any(), int32(20), int32(10)).
 			Return(errors.New("store error"))
-
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
 
 		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
 			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionFailed, nil, func(t *testing.T, e *spi.Event) {
@@ -1165,7 +1128,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				errorMsg, ok := epData["error"].(string)
 				assert.True(t, ok)
 
-				assert.Equal(t, "store error", errorMsg)
+				assert.Equal(t, "bad_request[component: verifier.txn-mgr; "+
+					"operation: store-received-claims; http status: 400]: store received claims: store error", errorMsg)
 			}),
 		)
 
@@ -1180,7 +1144,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -1198,10 +1162,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errTrustRegistry.EXPECT().ValidatePresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return(errors.New("validate error"))
 
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).DoAndReturn(
-			expectedPublishEventFunc(t, spi.VerifierOIDCInteractionQRScanned, nil),
-		)
-
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             mockEventSvc,
 			EventTopic:           spi.VerifierEventTopic,
@@ -1213,7 +1173,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        errTrustRegistry,
 		})
 
-		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = withError.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{
@@ -1230,25 +1190,23 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		txManager2 := NewMockTransactionManager(gomock.NewController(t))
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
-			ID:                     "txID1",
+			ID:                     transactionID,
 			ProfileID:              profileID,
 			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
 		}, true, nil)
 
-		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any(), int32(20), int32(10)).Times(1)
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID(transactionID), gomock.Any(), int32(20), int32(10)).Times(1)
 
 		errExpected := errors.New("injected publish error")
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(2).
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).
 			DoAndReturn(
 				func(ctx context.Context, topic string, messages ...*spi.Event) error {
 					assert.Len(t, messages, 1)
 
 					switch messages[0].Type { //nolint:exhaustive
-					case spi.VerifierOIDCInteractionQRScanned:
-						return nil
 					case spi.VerifierOIDCInteractionSucceeded:
 						return errExpected
 					default:
@@ -1268,7 +1226,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			TrustRegistry:        trustRegistry,
 		})
 
-		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), transactionID,
 			&oidc4vp.AuthorizationResponseParsed{
 				CustomScopeClaims: nil,
 				VPTokens: []*oidc4vp.ProcessedVPToken{{

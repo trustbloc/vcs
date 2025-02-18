@@ -28,7 +28,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -1475,7 +1474,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, resterr.ErrVCOptionsNotConfigured)
+				require.ErrorIs(t, err, oidc4ci.ErrVCOptionsNotConfigured)
 			},
 		},
 		{
@@ -1503,7 +1502,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, resterr.ErrCredentialTemplateNotConfigured)
+				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
 			},
 		},
 		{
@@ -1552,7 +1551,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, resterr.ErrCredentialTemplateNotFound)
+				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotFound)
 			},
 		},
 		{

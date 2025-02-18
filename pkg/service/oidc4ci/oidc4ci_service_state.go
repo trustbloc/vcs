@@ -9,7 +9,6 @@ package oidc4ci
 import (
 	"fmt"
 
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
@@ -42,6 +41,5 @@ func (s *Service) validateStateTransition(
 		return nil
 	}
 
-	return resterr.NewCustomError(resterr.InvalidStateTransition,
-		fmt.Errorf("unexpected transition from %v to %v", oldState, newState))
+	return fmt.Errorf("unexpected transition from %v to %v", oldState, newState)
 }

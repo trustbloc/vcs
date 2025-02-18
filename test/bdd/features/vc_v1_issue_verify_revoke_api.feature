@@ -11,14 +11,31 @@ Feature: Using VC REST API
   @e2e_ldp_jwt_sdjwt_success
   Scenario Outline: Store, retrieve, verify and revoke credential using different kind of profiles (LDP, JWT, SD-JWT).
     Given Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
     And V1 New verifiable credential is issued from "<credential>" under "<issuerProfile>" profile
     And issued credential history is updated
-    And Profile "<verifierProfile>" verifier has been authorized with username "profile-user-verifier-1" and password "profile-user-verifier-1-pwd"
+    # Login with username & password that has role "activator"
+    Then Profile "<issuerProfile>" issuer has been authorized with username "profile-user-activator-1" and password "profile-user-activator-1-pwd"
+    # Attempt to revoke credential with "activator" role
+    And V1 "<issuerProfile>" did unsuccessful attempt to revoke credential: "client is not allowed to perform the action"
+    #   Verify credential is still active
     And V1 verifiable credential is verified under "<verifierProfile>" profile
-
-    Then  V1 verifiable credential is successfully revoked under "<issuerProfile>" profile
+    # Login with username & password that has role "revoker"
+    Then Profile "<issuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
+#    Revoke credential with "revoker" role
+    And  V1 verifiable credential is successfully revoked under "<issuerProfile>" profile
+    # Attempt to activate credential with "revoker" role
+    And V1 "<issuerProfile>" did unsuccessful attempt to activate credential: "client is not allowed to perform the action"
+    # Verify that credential is still revoked
     Then we wait 3 seconds
-    And   V1 revoked credential is unable to be verified under "<verifierProfile>" profile
+    And V1 revoked credential is unable to be verified under "<verifierProfile>" profile
+    # Login with username & password that has role "activator"
+    Then Profile "<issuerProfile>" issuer has been authorized with username "profile-user-activator-1" and password "profile-user-activator-1-pwd"
+    # Activate credential with "activator" role
+    And  V1 verifiable credential is successfully activated under "<issuerProfile>" profile
+    #   Verify credential is active
+    Then we wait 3 seconds
+    And V1 verifiable credential is verified under "<verifierProfile>" profile
 
     Examples:
       | issuerProfile                     | verifierProfile                | credential                      |
@@ -37,7 +54,7 @@ Feature: Using VC REST API
     And   V1 verifiable credential is verified under "<verifierProfile>" profile
 
     Then Profile "<wrongIssuerProfile>" issuer has been authorized with username "profile-user-issuer-1" and password "profile-user-issuer-1-pwd"
-    And V1 "<wrongIssuerProfile>" did unsuccessful attempt to revoke credential
+    And V1 "<wrongIssuerProfile>" did unsuccessful attempt to revoke credential: "no documents in result"
     And   V1 verifiable credential is verified under "<verifierProfile>" profile
 
     Examples:

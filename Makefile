@@ -11,16 +11,16 @@ VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 COGNITO_AUTH_IMAGE_NAME				?= vcs/sample-cognito-auth
-OPENAPIGEN_VERSION 					?=v1.11.0
+OPENAPIGEN_VERSION 					?=v2.4.1
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 GOPROXY ?= https://proxy.golang.org
 
-VC_FRAMEWORK_VERSION				= v1.3.1
+VC_FRAMEWORK_VERSION				= v1.3.2
 KMS_FRAMEWORK_VERSION 				= v1.2.1
-DID_GO_VERSION						= v1.3.2
+DID_GO_VERSION						= v1.3.3
 SIDE_TREE_VERSION					= f4260aff710479ba5fa3f0c61b51d451d9041225
 
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
@@ -35,9 +35,9 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 endif
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.18
-GO_ALPINE_VER ?= 3.18
-GO_VER ?= 1.22
+ALPINE_VER ?= 3.21
+GO_ALPINE_VER ?= 3.21
+GO_VER ?= 1.23
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))
@@ -55,7 +55,7 @@ checks: license lint
 .PHONY: generate
 generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
-	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
+	@GOBIN=$(GOBIN_PATH) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...
 	@cd component/credentialstatus && go generate
 	@cd component/oidc/fosite && go generate ./...

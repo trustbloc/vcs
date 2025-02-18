@@ -50,6 +50,9 @@ import (
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4cierr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc6749"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr/rfc7591"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
@@ -72,11 +75,6 @@ const (
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
 	cNonceSize                 = 15
 	cNonceTTL                  = 5 * time.Minute
-
-	invalidRequestOIDCErr = "invalid_request"
-	invalidGrantOIDCErr   = "invalid_grant"
-	invalidTokenOIDCErr   = "invalid_token"
-	invalidClientOIDCErr  = "invalid_client"
 
 	proofTypeCWT   = "cwt"
 	proofTypeJWT   = "jwt"
@@ -131,7 +129,7 @@ type CwtProofChecker interface {
 }
 
 type AckService interface {
-	Ack(ctx context.Context, req oidc4ci.AckRemote) error
+	Ack(ctx context.Context, req oidc4ci.AckRemote) error // *oidc4cierr.Error
 }
 
 type LDPProofParser interface {
@@ -215,6 +213,12 @@ func NewController(config *Config) *Controller {
 }
 
 // OidcPushedAuthorizationRequest handles OIDC pushed authorization request (POST /oidc/par).
+//
+// Spec: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-5.1.4
+//
+// Success response: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
+//
+// Error responses (resterr.FositeError): https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
 func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 	req := e.Request()
 	ctx := req.Context()
@@ -227,18 +231,24 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 	var par PushedAuthorizationRequest
 
 	if err = e.Bind(&par); err != nil {
-		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
+		logger.Errorc(ctx, "decode PAR", log.WithError(err))
+
+		return resterr.NewFositePARInvalidRequestErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	var ad []common.AuthorizationDetails
 
 	if err = json.Unmarshal([]byte(par.AuthorizationDetails), &ad); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
+		logger.Errorc(ctx, "decode authorization details", log.WithError(err))
+
+		return resterr.NewFositePARInvalidRequestErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	_, err = apiUtil.ValidateAuthorizationDetails(ad)
 	if err != nil {
-		return err
+		logger.Errorc(ctx, "validate authorization details", log.WithError(err))
+
+		return resterr.NewFositePARInvalidRequestErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	r, err := c.issuerInteractionClient.PushAuthorizationDetails(ctx,
@@ -248,13 +258,19 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("push authorization details: %w", err)
+		logger.Errorc(ctx, "push authorization details", log.WithError(err))
+
+		return resterr.NewFositePARUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	defer r.Body.Close()
 
 	if r.StatusCode != http.StatusOK {
-		return fmt.Errorf("push authorization details: status code %d", r.StatusCode)
+		logger.Errorc(ctx,
+			fmt.Sprintf("push authorization details: status code %d", r.StatusCode),
+			log.WithError(rfc6749.Parse(r.Body)))
+
+		return resterr.NewFositePARUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	resp, err := c.oauth2Provider.NewPushedAuthorizeResponse(ctx, ar, new(fosite.DefaultSession))
@@ -268,6 +284,12 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 }
 
 // OidcAuthorize handles OIDC authorization request (GET /oidc/authorize).
+//
+// Spec: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-5.1
+//
+// Success response: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
+//
+// Error responses (resterr.FositeError): https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
 func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) error { //nolint:funlen,gocognit
 	req := e.Request()
 	ctx := req.Context()
@@ -278,8 +300,10 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if lo.FromPtr(params.ClientIdScheme) == discoverableClientIDScheme {
 		if err := c.clientIDSchemeService.Register(ctx, params.ClientId, lo.FromPtr(params.IssuerState)); err != nil {
-			logger.Errorc(ctx, "Failed to register client", log.WithError(err))
-			return resterr.NewSystemError(resterr.ClientIDSchemeSvcComponent, "Register", err)
+			logger.Errorc(ctx, "register discoverable client", log.WithError(err))
+
+			return resterr.NewFositeAuthUnauthorizedClientErr(e, c.oauth2Provider).
+				WithAuthorizeRequester(fosite.NewAuthorizeRequest())
 		}
 	}
 
@@ -300,11 +324,15 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	if params.AuthorizationDetails != nil {
 		var authorizationDetails []common.AuthorizationDetails
 		if err = json.Unmarshal([]byte(*params.AuthorizationDetails), &authorizationDetails); err != nil {
-			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
+			logger.Errorc(ctx, "decode authorization details", log.WithError(err))
+
+			return resterr.NewFositeAuthInvalidRequestErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 		}
 
 		if _, err = apiUtil.ValidateAuthorizationDetails(authorizationDetails); err != nil {
-			return err
+			logger.Errorc(ctx, "validate authorization details", log.WithError(err))
+
+			return resterr.NewFositeAuthInvalidRequestErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 		}
 
 		prepareAuthRequestAuthorizationDetails = lo.ToPtr(authorizationDetails)
@@ -319,22 +347,27 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("prepare claim data authorization: %w", err)
+		logger.Errorc(ctx, "prepare authorization request", log.WithError(err))
+
+		return resterr.NewFositeAuthUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	defer r.Body.Close()
 
 	if r.StatusCode != http.StatusOK {
-		return fmt.Errorf("prepare claim data authorization: status code %d, %w",
-			r.StatusCode,
-			parseInteractionError(r.Body),
-		)
+		logger.Errorc(ctx,
+			fmt.Sprintf("prepare claim data authorization: status code %d", r.StatusCode),
+			log.WithError(rfc6749.Parse(r.Body)))
+
+		return resterr.NewFositeAuthUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	var claimDataAuth issuer.PrepareClaimDataAuthorizationResponse
 
 	if err = json.NewDecoder(r.Body).Decode(&claimDataAuth); err != nil {
-		return fmt.Errorf("decode claim data authorization response: %w", err)
+		logger.Errorc(ctx, "decode claim data authorization response", log.WithError(err))
+
+		return resterr.NewFositeAuthUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	if claimDataAuth.WalletInitiatedFlow != nil {
@@ -348,6 +381,8 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 	if err != nil {
+		logger.Errorc(ctx, "new authorize response", log.WithError(err))
+
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
@@ -362,7 +397,9 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			Parameters:          resp.GetParameters(),
 			WalletInitiatedFlow: claimDataAuth.WalletInitiatedFlow,
 		}); err != nil {
-		return fmt.Errorf("save authorize state: %w", err)
+		logger.Errorc(ctx, "save authorize state", log.WithError(err))
+
+		return resterr.NewFositeAuthUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 	}
 
 	oauthConfig := oauth2.Config{
@@ -385,7 +422,9 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			lo.FromPtr(params.IssuerState),
 		)
 		if err != nil {
-			return err
+			logger.Errorc(ctx, "build Auth code URL with PAR", log.WithError(err))
+
+			return resterr.NewFositeAuthUnauthorizedClientErr(e, c.oauth2Provider).WithAuthorizeRequester(ar)
 		}
 	} else {
 		authCodeURL = oauthConfig.AuthCodeURL(lo.FromPtr(params.IssuerState))
@@ -462,26 +501,25 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 
 	resp, err := c.stateStore.GetAuthorizeState(ctx, params.State)
 	if err != nil {
-		return apiUtil.WriteOutput(e)(nil, err)
+		return rfc6749.NewUnauthorizedClientError(err).UsePublicAPIResponse()
 	}
 
-	storeResp, storeErr := c.issuerInteractionClient.StoreAuthorizationCodeRequest(ctx,
+	storeResp, err := c.issuerInteractionClient.StoreAuthorizationCodeRequest(ctx,
 		issuer.StoreAuthorizationCodeRequestJSONRequestBody{
 			Code:                params.Code,
 			OpState:             params.State,
 			WalletInitiatedFlow: resp.WalletInitiatedFlow,
 		})
-	if storeErr != nil {
-		return storeErr
+	if err != nil {
+		return rfc6749.NewUnauthorizedClientError(err).UsePublicAPIResponse()
 	}
 
 	defer storeResp.Body.Close()
 
 	if storeResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("store authorization code request: status code %d, %w",
-			storeResp.StatusCode,
-			parseInteractionError(storeResp.Body),
-		)
+		return rfc6749.Parse(storeResp.Body).
+			WithErrorPrefix(fmt.Sprintf("store authorization code request: status code %d", storeResp.StatusCode)).
+			UsePublicAPIResponse()
 	}
 
 	responder := &fosite.AuthorizeResponse{}
@@ -499,6 +537,13 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 }
 
 // OidcToken handles OIDC token request (POST /oidc/token).
+//
+// Spec: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-6.1 and
+// https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
+//
+// Success response: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-6.2
+//
+// Error responses: https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
 func (c *Controller) OidcToken(e echo.Context) error {
 	req := e.Request()
 
@@ -531,7 +576,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		)
 
 		if preAuthorizeErr != nil {
-			return preAuthorizeErr
+			return preAuthorizeErr.UsePublicAPIResponse()
 		}
 
 		txID = resp.TxId
@@ -547,23 +592,27 @@ func (c *Controller) OidcToken(e echo.Context) error {
 			},
 		)
 		if errExchange != nil {
-			return fmt.Errorf("exchange authorization code request: %w", errExchange)
+			return rfc6749.NewInvalidGrantError(errExchange).
+				WithErrorPrefix("exchange authorization code request").
+				UsePublicAPIResponse()
 		}
 
 		defer exchangeResp.Body.Close()
 
 		if exchangeResp.StatusCode != http.StatusOK {
-			return fmt.Errorf("exchange authorization code request: status code %d, %w",
-				exchangeResp.StatusCode,
-				parseInteractionError(exchangeResp.Body),
-			)
+			return rfc6749.Parse(exchangeResp.Body).
+				WithErrorPrefix("exchange authorization code request").
+				UsePublicAPIResponse()
 		}
 
 		var exchangeResult issuer.ExchangeAuthorizationCodeResponse
 
 		if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
-			return fmt.Errorf("read exchange auth code response: %w", err)
+			return rfc6749.NewInvalidRequestError(err).
+				WithErrorPrefix("read exchange auth code response").
+				UsePublicAPIResponse()
 		}
+
 		txID = exchangeResult.TxId
 		authorisationDetails = exchangeResult.AuthorizationDetails
 	}
@@ -576,11 +625,13 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	c.setCNonce(responder, nonce)
+
 	if authorisationDetails != nil {
 		c.setAuthorizationDetails(responder, authorisationDetails)
 	}
 
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
+
 	return nil
 }
 
@@ -623,17 +674,25 @@ func mustGenerateNonce() string {
 }
 
 // OidcAcknowledgement handles OIDC4CI acknowledgement request (POST /oidc/notification).
+//
+// Spec: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-10.1
+//
+// Success response: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-10.2
+//
+// Error responses: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-10.3 and
+// https://datatracker.ietf.org/doc/html/rfc6750#section-3.1
 func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	req := e.Request()
 
 	var body AckRequest
 	if err := e.Bind(&body); err != nil {
-		return err
+		return oidc4cierr.NewInvalidNotificationRequestError(err)
 	}
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
-		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
+		// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-10.3-1
+		return resterr.NewFositeAccessTokenInvalidTokenErr(e, c.oauth2Provider)
 	}
 
 	// for now we dont need to introspect token as it can be expired.
@@ -647,8 +706,6 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 	hashedToken := hashToken(token)
 	interactionDetails := lo.FromPtr(body.InteractionDetails)
 
-	var finalErr error
-
 	if err := c.ackService.Ack(ctx, oidc4ci.AckRemote{
 		TxID:               issuecredential.TxID(body.NotificationId),
 		Event:              body.Event,
@@ -657,13 +714,13 @@ func (c *Controller) OidcAcknowledgement(e echo.Context) error {
 		IssuerIdentifier:   lo.FromPtr(body.IssuerIdentifier),
 		InteractionDetails: interactionDetails,
 	}); err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
+		var oidc4ciErr *oidc4cierr.Error
 
-	if finalErr != nil {
-		return apiUtil.WriteOutputWithCode(http.StatusBadRequest, e)(AckErrorResponse{
-			Error: finalErr.Error(),
-		}, nil)
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewInvalidNotificationRequestError(err)
+		}
+
+		return oidc4ciErr
 	}
 
 	return e.NoContent(http.StatusNoContent)
@@ -674,7 +731,7 @@ func (c *Controller) HandleProof(
 	clientID string,
 	credentialReq *CredentialRequest,
 	session *fosite.DefaultSession,
-) (string, string, error) {
+) (string, string, error) { // *oidc4cierr.Error
 	var proofClaims ProofClaims
 
 	proofHeaders := ProofHeaders{
@@ -689,55 +746,64 @@ func (c *Controller) HandleProof(
 		)
 		if err != nil {
 			return "", "",
-				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), fmt.Errorf("parse jwt: %w", err))
+				oidc4cierr.NewInvalidProofError(err).WithErrorPrefix("parse jwt")
 		}
 
 		proofHeaders.Type, _ = jws.Headers.Type()
 		proofHeaders.KeyID, _ = jws.Headers.KeyID()
 
 		if err = json.Unmarshal(rawClaims, &proofClaims); err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid jwt claims"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid jwt claims"))
 		}
 	case proofTypeCWT:
 		cwtBytes, err := hex.DecodeString(lo.FromPtr(credentialReq.Proof.Cwt))
 		if err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid cwt"))
 		}
 
 		cwtParsed, rawClaims, err := cwt.ParseAndCheckProof(cwtBytes, c.cwtVerifier, false)
 		if err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse cwt: %w", err))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(err).WithErrorPrefix("parse cwt")
 		}
 
 		if err = cbor.Unmarshal(rawClaims, &proofClaims); err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid cwt claims"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid cwt claims"))
 		}
 
 		typ, ok := cwtParsed.Headers.Protected[cose.HeaderLabelContentType].(string)
 		if !ok {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE content type"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid COSE content type"))
 		}
 		proofHeaders.Type = typ
 
 		keyBytes, ok := cwtParsed.Headers.Protected[proof.COSEKeyHeader].(string)
 		if !ok {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid COSE_KEY"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid COSE_KEY"))
 		}
 
 		proofHeaders.KeyID = keyBytes
 	case proofTypeLDPVP:
 		if credentialReq.Proof.LdpVp == nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("missing ldp_vp"))
 		}
 
 		rawProof, err := json.Marshal(*credentialReq.Proof.LdpVp)
 		if err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid ldp_vp"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("invalid ldp_vp"))
 		}
 
 		ver, err := c.getDataIntegrityVerifier()
 		if err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("get data integrity verifier: %w", err))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(err).WithErrorPrefix("get data integrity verifier")
 		}
 
 		presentationOpts := []verifiable.PresentationOpt{
@@ -758,13 +824,14 @@ func (c *Controller) HandleProof(
 		presentation, err := c.ldpProofParser.Parse(rawProof, presentationOpts)
 
 		if err != nil {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr,
-				errors.New("can not parse ldp_vp as presentation"))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(errors.New("can not parse ldp_vp as presentation"))
 		}
 
 		if len(presentation.Proofs) != 1 {
-			return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("expected 1 proof, got %d",
-				len(presentation.Proofs)))
+			return "", "",
+				oidc4cierr.NewInvalidCredentialRequestError(
+					fmt.Errorf("expected 1 proof, got %d", len(presentation.Proofs)))
 		}
 
 		proof := presentation.Proofs[0]
@@ -784,7 +851,8 @@ func (c *Controller) HandleProof(
 		if v, ok := proof["created"]; ok {
 			t, timeErr := time.Parse(time.RFC3339, v.(string)) //nolint:errcheck
 			if timeErr != nil {
-				return "", "", resterr.NewOIDCError(invalidRequestOIDCErr, fmt.Errorf("parse created: %w", timeErr))
+				return "", "",
+					oidc4cierr.NewInvalidCredentialRequestError(timeErr).WithErrorPrefix("parse created")
 			}
 			proofClaims.IssuedAt = lo.ToPtr(t.Unix())
 		}
@@ -815,6 +883,12 @@ func (c *Controller) getDataIntegrityVerifier() (*dataintegrity.Verifier, error)
 }
 
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
+//
+// Spec: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-7
+//
+// Success response: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-7.3
+//
+// Error responses: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-7.3.1
 func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	req := e.Request()
 
@@ -824,30 +898,36 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 	var credentialReq CredentialRequest
 
 	if err := e.Bind(&credentialReq); err != nil {
-		return err
+		return oidc4cierr.NewInvalidCredentialRequestError(err).UsePublicAPIResponse()
 	}
 
 	if err := validateCredentialRequest(e, &credentialReq); err != nil {
-		return err
+		return err.UsePublicAPIResponse()
 	}
 
 	span.SetAttributes(attributeutil.JSON("oidc_credential_request", credentialReq))
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
-		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
+		return resterr.NewFositeAccessTokenInvalidTokenErr(e, c.oauth2Provider)
 	}
 
 	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
 	if err != nil {
-		return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
+		return resterr.NewFositeIntrospectTokenInvalidTokenErr(e, c.oauth2Provider)
 	}
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
 	did, aud, err := c.HandleProof(ar.GetClient().GetID(), &credentialReq, session)
 	if err != nil {
-		return err
+		var oidc4ciErr *oidc4cierr.Error
+
+		if !errors.As(err, &oidc4ciErr) {
+			oidc4ciErr = oidc4cierr.NewInvalidCredentialRequestError(err)
+		}
+
+		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
 	var credentialTypes []string
@@ -874,21 +954,25 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 
 	resp, err := c.issuerInteractionClient.PrepareCredential(ctx, prepareCredentialReq)
 	if err != nil {
-		return fmt.Errorf("prepare credential: %w", err)
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithErrorPrefix("prepare credential").
+			UsePublicAPIResponse()
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		finalErr := parsePrepareCredentialErrorResponse(resp)
+		finalErr := oidc4cierr.ParseCredentialEndpointErrorResponse(resp.Body)
 
-		return finalErr
+		return finalErr.UsePublicAPIResponse()
 	}
 
 	var prepareCredentialResult issuer.PrepareCredentialResult
 
 	if err = json.NewDecoder(resp.Body).Decode(&prepareCredentialResult); err != nil {
-		return fmt.Errorf("decode prepare credential result: %w", err)
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithErrorPrefix("decode prepare credential result").
+			UsePublicAPIResponse()
 	}
 
 	nonce := mustGenerateNonce()
@@ -911,14 +995,18 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 			credentialResp,
 			credentialReq.CredentialResponseEncryption,
 		); err != nil {
-			return fmt.Errorf("encrypt credential response: %w", err)
+			return oidc4cierr.NewInvalidCredentialRequestError(err).
+				WithErrorPrefix("encrypt credential response").
+				UsePublicAPIResponse()
 		}
 
 		e.Response().Header().Set("Content-Type", "application/jwt")
 		e.Response().WriteHeader(http.StatusOK)
 
 		if _, err = e.Response().Write([]byte(encryptedResponse)); err != nil {
-			return err
+			return oidc4cierr.NewInvalidCredentialRequestError(err).
+				WithErrorPrefix("write response").
+				UsePublicAPIResponse()
 		}
 
 		return nil
@@ -928,6 +1016,12 @@ func (c *Controller) OidcCredential(e echo.Context) error { //nolint:funlen
 }
 
 // OidcBatchCredential handles OIDC batch credential request (POST /oidc/batch_credential).
+//
+// Spec: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-8
+//
+// Success response: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-8.2
+//
+// Error responses: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-ID1.html#section-8.3
 func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen,gocognit
 	req := e.Request()
 
@@ -937,13 +1031,13 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 	var credentialReq BatchCredentialRequest
 
 	if err := e.Bind(&credentialReq); err != nil {
-		return err
+		return oidc4cierr.NewInvalidCredentialRequestError(err).UsePublicAPIResponse()
 	}
 
 	for _, cr := range credentialReq.CredentialRequests {
 		credentialRequest := cr
 		if err := validateCredentialRequest(e, &credentialRequest); err != nil {
-			return err
+			return err.UsePublicAPIResponse()
 		}
 	}
 
@@ -951,28 +1045,33 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
-		return resterr.NewOIDCError(invalidTokenOIDCErr, errors.New("missing access token"))
+		return resterr.NewFositeAccessTokenInvalidTokenErr(e, c.oauth2Provider)
 	}
 
 	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
 	if err != nil {
-		return resterr.NewOIDCError(invalidTokenOIDCErr, fmt.Errorf("introspect token: %w", err))
+		return resterr.NewFositeIntrospectTokenInvalidTokenErr(e, c.oauth2Provider)
 	}
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	prepareCredentialReq := issuer.PrepareBatchCredentialJSONBody{
+	prepareCredentialReq := issuer.PrepareBatchCredential{
 		TxId:               session.Extra[txIDKey].(string), //nolint:errcheck,
 		HashedToken:        hashToken(token),
 		CredentialRequests: make([]issuer.PrepareCredentialBase, 0, len(credentialReq.CredentialRequests)),
 	}
 
-	var did, aud string
 	for _, cr := range credentialReq.CredentialRequests {
 		credentialRequest := cr
-		did, aud, err = c.HandleProof(ar.GetClient().GetID(), &credentialRequest, session)
-		if err != nil {
-			return err
+		did, aud, handleProofErr := c.HandleProof(ar.GetClient().GetID(), &credentialRequest, session)
+		if handleProofErr != nil {
+			var oidc4ciErr *oidc4cierr.Error
+
+			if !errors.As(handleProofErr, &oidc4ciErr) {
+				oidc4ciErr = oidc4cierr.NewInvalidCredentialRequestError(handleProofErr)
+			}
+
+			return oidc4ciErr.UsePublicAPIResponse()
 		}
 
 		var credentialTypes []string
@@ -1001,30 +1100,36 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 
 	resp, err := c.issuerInteractionClient.PrepareBatchCredential(ctx, prepareCredentialReq)
 	if err != nil {
-		return fmt.Errorf("prepare batch credential: %w", err)
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithErrorPrefix("prepare batch credential").
+			UsePublicAPIResponse()
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		finalErr := parsePrepareCredentialErrorResponse(resp)
+		finalErr := oidc4cierr.ParseCredentialEndpointErrorResponse(resp.Body)
 
-		return finalErr
+		return finalErr.UsePublicAPIResponse()
 	}
 
 	var preparedCredentials []issuer.PrepareCredentialResult
 
 	if err = json.NewDecoder(resp.Body).Decode(&preparedCredentials); err != nil {
-		return fmt.Errorf("decode prepare credential result: %w", err)
+		return oidc4cierr.NewInvalidCredentialRequestError(err).
+			WithErrorPrefix("decode prepare credential result").
+			UsePublicAPIResponse()
 	}
 
 	// A successful Batch Credential Response MUST contain all the requested Credentials.
 	if len(preparedCredentials) != len(credentialReq.CredentialRequests) {
-		return fmt.Errorf(
+		mismatchErr := fmt.Errorf(
 			"credential amount mismatch, requested %d, got %d",
 			len(credentialReq.CredentialRequests),
-			len(preparedCredentials),
-		)
+			len(preparedCredentials))
+
+		return oidc4cierr.NewInvalidCredentialRequestError(mismatchErr).
+			UsePublicAPIResponse()
 	}
 
 	nonce := mustGenerateNonce()
@@ -1035,7 +1140,7 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 	credentialResponseBatch := BatchCredentialResponse{
 		CNonce:              lo.ToPtr(nonce),
 		CNonceExpiresIn:     lo.ToPtr(int(cNonceTTL.Seconds())),
-		CredentialResponses: make([]interface{}, 0, len(preparedCredentials)),
+		CredentialResponses: make([]any, 0, len(preparedCredentials)),
 	}
 
 	for index, credentialData := range preparedCredentials {
@@ -1056,7 +1161,9 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 				credentialResponse,
 				correspondingRequestedCredential.CredentialResponseEncryption,
 			); err != nil {
-				return fmt.Errorf("encrypt batch credential response: %w", err)
+				return oidc4cierr.NewInvalidCredentialRequestError(err).
+					WithErrorPrefix("encrypt batch credential response").
+					UsePublicAPIResponse()
 			}
 
 			credentialResponseBatch.CredentialResponses = append(
@@ -1072,57 +1179,31 @@ func (c *Controller) OidcBatchCredential(e echo.Context) error { //nolint:funlen
 	return apiUtil.WriteOutput(e)(credentialResponseBatch, nil)
 }
 
-func parsePrepareCredentialErrorResponse(resp *http.Response) error {
-	parsedErr := parseInteractionError(resp.Body)
-	finalErr := fmt.Errorf("prepare credential: status code %d, %w",
-		resp.StatusCode,
-		parsedErr)
-
-	var interactionErr *interactionError
-
-	if errors.As(parsedErr, &interactionErr) {
-		switch interactionErr.Code { //nolint:exhaustive
-		case resterr.OIDCCredentialFormatNotSupported:
-			return resterr.NewOIDCError("unsupported_credential_format", finalErr)
-		case resterr.OIDCCredentialTypeNotSupported:
-			return resterr.NewOIDCError("unsupported_credential_type", finalErr)
-		case resterr.OIDCInvalidEncryptionParameters:
-			return resterr.NewOIDCError("invalid_encryption_parameters", finalErr)
-		case resterr.InvalidOrMissingProofOIDCErr:
-			return resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New(interactionErr.Message))
-		case resterr.OIDCInvalidCredentialRequest:
-			return resterr.NewOIDCError(string(resterr.OIDCInvalidCredentialRequest), finalErr)
-		}
-	}
-
-	return finalErr
-}
-
-func validateCredentialRequest(_ echo.Context, req *CredentialRequest) error {
+func validateCredentialRequest(_ echo.Context, req *CredentialRequest) *oidc4cierr.Error {
 	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
 	if err != nil {
-		return resterr.NewOIDCError(invalidRequestOIDCErr, err)
+		return oidc4cierr.NewUnsupportedCredentialFormatError(err)
 	}
 
 	if req.Proof == nil {
-		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing proof type"))
+		return oidc4cierr.NewInvalidProofError(errors.New("missing proof type"))
 	}
 
 	switch req.Proof.ProofType {
 	case "jwt":
 		if lo.FromPtr(req.Proof.Jwt) == "" {
-			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
+			return oidc4cierr.NewInvalidProofError(errors.New("invalid proof type"))
 		}
 	case "cwt":
 		if lo.FromPtr(req.Proof.Cwt) == "" {
-			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing cwt proof"))
+			return oidc4cierr.NewInvalidProofError(errors.New("missing cwt proof"))
 		}
 	case "ldp_vp":
 		if req.Proof.LdpVp == nil {
-			return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("missing ldp_vp proof"))
+			return oidc4cierr.NewInvalidProofError(errors.New("missing ldp_vp proof"))
 		}
 	default:
-		return resterr.NewOIDCError(invalidRequestOIDCErr, errors.New("invalid proof type"))
+		return oidc4cierr.NewInvalidProofError(errors.New("invalid proof type"))
 	}
 
 	return nil
@@ -1167,46 +1248,44 @@ func (c *Controller) validateProofClaims(
 	claims *ProofClaims,
 	headers ProofHeaders,
 	session *fosite.DefaultSession,
-) (string, error) {
+) (string, *oidc4cierr.Error) {
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
+		return "", oidc4cierr.NewInvalidProofError(errors.New("nonce expired"))
 	}
 
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(float64); ok && int64(nonceExp) < time.Now().Unix() {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("nonce expired"))
+		return "", oidc4cierr.NewInvalidProofError(errors.New("nonce expired"))
 	}
 
 	if headers.ProofType != proofTypeLDPVP {
 		if isPreAuthFlow, ok := session.Extra[preAuthKey].(bool); !ok || (!isPreAuthFlow && claims.Issuer != clientID) {
-			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid client_id"))
+			return "", oidc4cierr.NewInvalidProofError(errors.New("invalid client_id"))
 		}
 	}
 
 	if claims.IssuedAt == nil {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("missing iat"))
+		return "", oidc4cierr.NewInvalidProofError(errors.New("missing iat"))
 	}
 
 	if headers.ProofType != proofTypeLDPVP { // ldp_vp checked in parse presentation
 		if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
-			return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid nonce"))
+			return "", oidc4cierr.NewInvalidProofError(errors.New("invalid nonce"))
 		}
 	}
 
 	switch headers.ProofType {
 	case proofTypeJWT:
 		if headers.Type != jwtProofTypHeader {
-			return "",
-				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+			return "", oidc4cierr.NewInvalidProofError(errors.New("invalid typ"))
 		}
 	case proofTypeCWT:
 		if headers.Type != cwtProofTypHeader {
-			return "",
-				resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid typ"))
+			return "", oidc4cierr.NewInvalidProofError(errors.New("invalid typ"))
 		}
 	}
 
 	if headers.KeyID == "" {
-		return "", resterr.NewOIDCError(string(resterr.InvalidOrMissingProofOIDCErr), errors.New("invalid kid"))
+		return "", oidc4cierr.NewInvalidProofError(errors.New("invalid kid"))
 	}
 
 	targetDID := strings.Split(headers.KeyID, "#")[0]
@@ -1230,7 +1309,7 @@ func (c *Controller) oidcPreAuthorizedCode(
 	clientID string,
 	clientAssertionType string,
 	clientAssertion string,
-) (*issuer.ValidatePreAuthorizedCodeResponse, error) {
+) (*issuer.ValidatePreAuthorizedCodeResponse, *rfc6749.Error) {
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 			PreAuthorizedCode:   preAuthorizedCode,
@@ -1240,49 +1319,30 @@ func (c *Controller) oidcPreAuthorizedCode(
 			ClientAssertion:     lo.ToPtr(clientAssertion),
 		})
 	if err != nil {
-		return nil, err
+		return nil, rfc6749.NewInvalidRequestError(err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		parsedErr := parseInteractionError(resp.Body)
-
-		finalErr := fmt.Errorf("validate pre-authorized code request: status code %d, %w",
-			resp.StatusCode,
-			parsedErr,
-		)
-
-		var interactionErr *interactionError
-
-		if ok := errors.As(parsedErr, &interactionErr); ok {
-			switch interactionErr.Code { //nolint:exhaustive
-			case resterr.OIDCPreAuthorizeExpectPin:
-				fallthrough
-			case resterr.OIDCPreAuthorizeDoesNotExpectPin:
-				return nil, resterr.NewOIDCError(invalidRequestOIDCErr, finalErr)
-
-			case resterr.OIDCTxNotFound:
-				fallthrough
-			case resterr.OIDCPreAuthorizeInvalidPin:
-				return nil, resterr.NewOIDCError(invalidGrantOIDCErr, finalErr)
-			case resterr.OIDCPreAuthorizeInvalidClientID:
-				return nil, resterr.NewOIDCError(invalidClientOIDCErr, finalErr)
-			}
-		}
-
-		return nil, finalErr
+		return nil, rfc6749.Parse(resp.Body).
+			WithErrorPrefix("validate pre-authorized code request")
 	}
 
 	var validateResponse issuer.ValidatePreAuthorizedCodeResponse
 	if err = json.NewDecoder(resp.Body).Decode(&validateResponse); err != nil {
-		return nil, err
+		return nil, rfc6749.NewInvalidRequestError(err).
+			WithErrorPrefix("decode validate PreAuthorized code response")
 	}
 
 	return &validateResponse, nil
 }
 
 // OidcRegisterClient registers dynamically an OAuth 2.0 client with the VCS authorization server.
+//
+// Success response: https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.1
+//
+// Error responses: https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.2
 //
 //nolint:funlen,gocognit
 func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profileVersion string) error {
@@ -1297,20 +1357,23 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 	var body RegisterOAuthClientRequest
 
 	if err := e.Bind(&body); err != nil {
-		return err
+		return rfc7591.NewInvalidClientMetadataError(err).
+			WithErrorPrefix("decode reqeust").
+			UsePublicAPIResponse()
 	}
 
 	profile, err := c.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return resterr.NewCustomError(resterr.ProfileNotFound, err)
-		}
-
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return rfc7591.NewInvalidClientMetadataError(err).
+			WithErrorPrefix("get profile").
+			WithOperation("GetProfile").
+			WithComponent(resterr.IssuerProfileSvcComponent).
+			UsePublicAPIResponse()
 	}
 
 	if profile.OIDCConfig == nil || !profile.OIDCConfig.EnableDynamicClientRegistration {
-		return fmt.Errorf("dynamic client registration not supported")
+		return rfc7591.NewInvalidClientMetadataError(fmt.Errorf("dynamic client registration not supported")).
+			UsePublicAPIResponse()
 	}
 
 	data := &clientmanager.ClientMetadata{
@@ -1333,16 +1396,15 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 
 	client, err := c.clientManager.Create(ctx, profileID, profileVersion, data)
 	if err != nil {
-		var regErr *clientmanager.RegistrationError
-
-		if errors.As(err, &regErr) {
-			return &resterr.RegistrationError{
-				Code: string(regErr.Code),
-				Err:  fmt.Errorf("%w", regErr),
-			}
+		var rfc7591Error *rfc7591.Error
+		if !errors.As(err, &rfc7591Error) {
+			rfc7591Error = rfc7591.NewInvalidClientMetadataError(err)
 		}
 
-		return resterr.NewSystemError(resterr.ClientManagerComponent, "Create", err)
+		return rfc7591Error.
+			WithOperation("Create").
+			WithComponent(resterr.ClientManagerComponent).
+			UsePublicAPIResponse()
 	}
 
 	resp := &RegisterOAuthClientResponse{
@@ -1413,7 +1475,10 @@ func (c *Controller) OidcRegisterClient(e echo.Context, profileID string, profil
 
 	b, err := json.Marshal(resp)
 	if err != nil {
-		return fmt.Errorf("marshal register oauth client response: %w", err)
+		return rfc7591.NewInvalidClientMetadataError(err).
+			WithOperation("OidcRegisterClient").
+			WithErrorPrefix("marshal register oauth client response").
+			UsePublicAPIResponse()
 	}
 
 	return e.JSONBlob(http.StatusCreated, b)
@@ -1432,53 +1497,6 @@ func jwksToMap(jwks *gojose.JSONWebKeySet) (*map[string]interface{}, error) {
 	}
 
 	return &m, nil
-}
-
-type interactionError struct { // in fact its CustomError
-	Code           resterr.ErrorCode `json:"code"`
-	Component      string            `json:"component,omitempty"`
-	Operation      string            `json:"operation,omitempty"`
-	IncorrectValue string            `json:"incorrectValue,omitempty"`
-	Message        string            `json:"message,omitempty"`
-}
-
-func (e *interactionError) Error() string {
-	var b strings.Builder
-
-	b.WriteString(fmt.Sprintf("code: %s", e.Code))
-
-	if e.Component != "" {
-		b.WriteString(fmt.Sprintf("; component: %s", e.Component))
-	}
-
-	if e.Operation != "" {
-		b.WriteString(fmt.Sprintf("; operation: %s", e.Operation))
-	}
-
-	if e.IncorrectValue != "" {
-		b.WriteString(fmt.Sprintf("; incorrect value: %s", e.IncorrectValue))
-	}
-
-	if e.Message != "" {
-		b.WriteString(fmt.Sprintf("; message: %s", e.Message))
-	}
-
-	return b.String()
-}
-
-func parseInteractionError(reader io.Reader) error {
-	b, err := io.ReadAll(reader)
-	if err != nil {
-		return fmt.Errorf("read body: %w", err)
-	}
-
-	var e interactionError
-
-	if err = json.Unmarshal(b, &e); err != nil {
-		return errors.New(string(b))
-	}
-
-	return &e
 }
 
 func hashToken(text string) string {

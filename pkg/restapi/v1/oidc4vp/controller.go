@@ -11,13 +11,14 @@ package oidc4vp
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/otel/trace"
+
+	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
 )
 
 var logger = log.New("oidc4vp")
@@ -62,31 +63,33 @@ func (c *Controller) PresentAuthorizationResponse(e echo.Context) error {
 
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost,
-		c.internalHostURL+oidc4VPCheckEndpoint,
+		c.internalHostURL+oidc4VPCheckEndpoint, // verifier.Controller.CheckAuthorizationResponse()
 		request.Body,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return oidc4vperr.NewBadRequestError(err).
+			WithErrorPrefix("create request").
+			UsePublicAPIResponse()
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return oidc4vperr.NewBadRequestError(err).
+			WithErrorPrefix("send request").
+			UsePublicAPIResponse()
 	}
 
 	defer closeResponseBody(e.Request().Context(), resp.Body)
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s", respBytes)
+		return oidc4vperr.Parse(resp.Body).
+			WithErrorPrefix("read presentAuthorization response").
+			UsePublicAPIResponse()
 	}
 
+	// 200 OK https://openid.net/specs/openid-4-verifiable-presentations-1_0-ID2.html#section-6.2-16
 	return nil
 }
 

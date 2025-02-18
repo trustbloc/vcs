@@ -12,11 +12,9 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/trustbloc/vcs/pkg/event/spi"
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
 )
 
 const (
@@ -50,36 +48,47 @@ var supportedAuthResponseErrTypes = map[string]struct{}{ //nolint:gochecknogloba
 }
 
 // HandleWalletNotification handles wallet notifications.
-func (s *Service) HandleWalletNotification(ctx context.Context, req *WalletNotification) error {
+func (s *Service) HandleWalletNotification(ctx context.Context, req *WalletNotification) error { // *oidc4vperr.Error
 	tx, err := s.transactionManager.Get(req.TxID)
 	if err != nil {
 		if errors.Is(err, ErrDataNotFound) {
-			return s.handleAckNotFound(ctx, req)
+			if err = s.handleAckNotFound(ctx, req); err != nil {
+				return oidc4vperr.NewBadRequestError(err)
+			}
+
+			return nil
 		}
 
-		return resterr.NewSystemError(resterr.VerifierTxnMgrComponent, "get-txn",
-			fmt.Errorf("fail to get oidc tx: %w", err))
+		return oidc4vperr.NewBadRequestError(err).
+			WithComponent(resterr.VerifierTxnMgrComponent).
+			WithOperation("get-txn").
+			WithErrorPrefix("fail to get oidc tx")
 	}
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return resterr.NewCustomError(resterr.ProfileNotFound,
-				fmt.Errorf("profile with given id %s_%s, doesn't exist", tx.ProfileID, tx.ProfileVersion))
+			err = fmt.Errorf(
+				"profile with given id %s_%s, doesn't exist", tx.ProfileID, tx.ProfileVersion)
 		}
 
-		return resterr.NewSystemError(resterr.IssuerProfileSvcComponent, "GetProfile", err)
+		return oidc4vperr.
+			NewBadRequestError(err).
+			WithComponent(resterr.VerifierProfileSvcComponent).
+			WithOperation("GetProfile")
 	}
 
-	err = s.sendWalletNotificationEvent(ctx, tx, profile, req)
-	if err != nil {
-		return err
+	if err = s.sendWalletNotificationEvent(ctx, tx, profile, req); err != nil {
+		return oidc4vperr.NewBadRequestError(err).
+			WithErrorPrefix("send wallet notification event")
 	}
 
 	// Delete tx from store.
 	err = s.transactionManager.Delete(req.TxID)
 	if err != nil {
-		return err
+		return oidc4vperr.NewBadRequestError(err).
+			WithComponent(resterr.VerifierTxnMgrComponent).
+			WithOperation("delete")
 	}
 
 	return nil
@@ -101,33 +110,7 @@ func (s *Service) handleAckNotFound(ctx context.Context, ackData *WalletNotifica
 	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendWalletNotificationEvent(
-	ctx context.Context,
-	tx *Transaction,
-	profile *profileapi.Verifier,
-	notification *WalletNotification,
-) error {
-	if _, isValidError := supportedAuthResponseErrTypes[notification.Error]; !isValidError {
-		logger.Infoc(ctx, "Ignoring unsupported error type", zap.String("error", notification.Error))
-		return nil
-	}
-
-	ep := createBaseTxEventPayload(tx, profile)
-
-	ep.Error, ep.ErrorCode, ep.ErrorComponent = notification.ErrorDescription, notification.Error, errorComponentWallet
-	ep.InteractionDetails = notification.InteractionDetails
-
-	spiEventType := s.getEventType(notification.Error, notification.ErrorDescription)
-
-	event, e := CreateEvent(spiEventType, tx.ID, ep)
-	if e != nil {
-		return e
-	}
-
-	return s.eventSvc.Publish(ctx, s.eventTopic, event)
-}
-
-func (s *Service) getEventType(e, errorDescription string) spi.EventType {
+func (s *Service) getWalletNotificationEventType(e, errorDescription string) spi.EventType {
 	if strings.ToLower(e) == authResponseErrTypeAccessDenied {
 		switch strings.ToLower(errorDescription) {
 		case errorDescriptionNoConsent:

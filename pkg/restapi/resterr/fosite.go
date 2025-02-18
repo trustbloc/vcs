@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	FositeAuthorizeError FositeErrorCode = iota
-	FositeAccessError
-	FositeIntrospectionError
-	FositePARError
+	FositeAuthorizeError     FositeErrorCode = iota // Authorize request error
+	FositeAccessError                               // Token request error
+	FositeIntrospectionError                        // Token Introspection error
+	FositePARError                                  // PAR error
 )
 
 type FositeErrorCode int
@@ -44,13 +44,35 @@ type FositeError struct {
 
 func NewFositeError(code FositeErrorCode, ctx echo.Context, w fositeErrorWriter, err error) *FositeError {
 	return &FositeError{
-		err:                err,
-		code:               code,
-		ctx:                ctx,
-		writer:             w,
-		authorizeRequester: nil,
-		accessRequester:    nil,
+		err:    err,
+		code:   code,
+		ctx:    ctx,
+		writer: w,
 	}
+}
+
+func NewFositeAuthUnauthorizedClientErr(ctx echo.Context, w fositeErrorWriter) *FositeError {
+	return NewFositeError(FositeAuthorizeError, ctx, w, fosite.ErrUnauthorizedClient)
+}
+
+func NewFositePARUnauthorizedClientErr(ctx echo.Context, w fositeErrorWriter) *FositeError {
+	return NewFositeError(FositePARError, ctx, w, fosite.ErrUnauthorizedClient)
+}
+
+func NewFositeAuthInvalidRequestErr(ctx echo.Context, w fositeErrorWriter) *FositeError {
+	return NewFositeError(FositeAuthorizeError, ctx, w, fosite.ErrInvalidRequest)
+}
+
+func NewFositePARInvalidRequestErr(ctx echo.Context, w fositeErrorWriter) *FositeError {
+	return NewFositeError(FositePARError, ctx, w, fosite.ErrInvalidRequest)
+}
+
+func NewFositeAccessTokenInvalidTokenErr(ctx echo.Context, w fositeErrorWriter) *FositeError {
+	return NewFositeError(FositeAccessError, ctx, w, fosite.ErrInvalidTokenFormat)
+}
+
+func NewFositeIntrospectTokenInvalidTokenErr(ctx echo.Context, w fositeErrorWriter) *FositeError {
+	return NewFositeError(FositeIntrospectionError, ctx, w, fosite.ErrInvalidTokenFormat)
 }
 
 func (e *FositeError) WithAuthorizeRequester(requester fosite.AuthorizeRequester) *FositeError {
@@ -65,6 +87,10 @@ func (e *FositeError) WithAccessRequester(requester fosite.AccessRequester) *Fos
 
 func (e *FositeError) Error() string {
 	return e.err.Error()
+}
+
+func (e *FositeError) Unwrap() error {
+	return e.err
 }
 
 func (e *FositeError) Write() error {

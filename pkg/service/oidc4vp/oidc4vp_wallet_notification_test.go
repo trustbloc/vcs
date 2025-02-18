@@ -13,6 +13,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
 
@@ -278,11 +279,11 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 						Return(nil, errors.New("some error"))
 				},
 				check: func(t *testing.T, err error) {
-					var sysError *resterr.CustomError
+					var sysError *oidc4vperr.Error
 
-					assert.True(t, errors.As(err, &sysError))
-					assert.Equal(t, sysError.Component, resterr.VerifierTxnMgrComponent)
-					assert.Equal(t, sysError.FailedOperation, "get-txn")
+					assert.ErrorAs(t, err, &sysError)
+					assert.Equal(t, sysError.ErrorComponent, resterr.VerifierTxnMgrComponent)
+					assert.Equal(t, sysError.Operation, "get-txn")
 					assert.ErrorContains(t, sysError.Err, "fail to get oidc tx")
 				},
 			},
@@ -329,10 +330,10 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 						Return(nil, errors.New("not found"))
 				},
 				check: func(t *testing.T, err error) {
-					var sysError *resterr.CustomError
+					var sysError *oidc4vperr.Error
 
-					assert.True(t, errors.As(err, &sysError))
-					assert.Equal(t, sysError.Code, resterr.ProfileNotFound)
+					assert.ErrorAs(t, err, &sysError)
+					assert.Equal(t, sysError.Code(), "bad_request")
 					assert.ErrorContains(t,
 						sysError.Err,
 						fmt.Sprintf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
@@ -359,11 +360,11 @@ func TestService_HandleWalletNotification_EdgeCases(t *testing.T) {
 						Return(nil, errors.New("some error"))
 				},
 				check: func(t *testing.T, err error) {
-					var sysError *resterr.CustomError
+					var sysError *oidc4vperr.Error
 
-					assert.True(t, errors.As(err, &sysError))
-					assert.Equal(t, sysError.Component, resterr.IssuerProfileSvcComponent)
-					assert.Equal(t, sysError.FailedOperation, "GetProfile")
+					assert.ErrorAs(t, err, &sysError)
+					assert.Equal(t, sysError.ErrorComponent, resterr.VerifierProfileSvcComponent)
+					assert.Equal(t, sysError.Operation, "GetProfile")
 					assert.ErrorContains(t, sysError.Err, "some error")
 				},
 			},

@@ -93,7 +93,7 @@ func TestCachingValidator_Validate(t *testing.T) {
 		cv := NewCachingValidator()
 		require.NotNil(t, cv)
 
-		cv.createValidator = func(schema Document) (Validator, error) {
+		cv.createValidator = func(_ Document) (Validator, error) {
 			return nil, errors.New("injected create error")
 		}
 

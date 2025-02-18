@@ -60,7 +60,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*issuecre
 	b, err := clientAPI.Get(ctx, claimDataID).Bytes()
 	if err != nil {
 		if errors.Is(err, redisapi.Nil) {
-			return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+			return nil, resterr.ErrDataNotFound
 		}
 
 		return nil, fmt.Errorf("find key %w", err)
@@ -76,7 +76,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*issuecre
 	}
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
-		return nil, resterr.NewCustomError(resterr.DataNotFound, resterr.ErrDataNotFound)
+		return nil, resterr.ErrDataNotFound
 	}
 
 	claimData := doc.ClaimData

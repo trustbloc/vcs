@@ -55,7 +55,7 @@ func TestController_OidcPresent(t *testing.T) {
 				)
 			},
 			check: func(t *testing.T, _ *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "failed to send request")
+				assert.ErrorContains(t, err, "send request")
 			},
 		},
 		{
@@ -69,7 +69,7 @@ func TestController_OidcPresent(t *testing.T) {
 				)
 			},
 			check: func(t *testing.T, _ *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "failed to read response body")
+				assert.ErrorContains(t, err, "read presentAuthorization response")
 			},
 		},
 		{
@@ -82,7 +82,7 @@ func TestController_OidcPresent(t *testing.T) {
 					}, nil,
 				)
 			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+			check: func(t *testing.T, _ *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err, "error check id token")
 			},
 		},

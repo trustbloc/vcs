@@ -355,39 +355,38 @@ func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) 
 		return errors.New("verifiable presentation doesn't contains proof")
 	}
 
-	// TODO https://github.com/trustbloc/vcs/issues/412 figure out the process when vc has more than one proof
-	proof := vp.Proofs[0]
+	for _, proof := range vp.Proofs {
+		// validate challenge
+		if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, opts.Challenge); validateErr != nil {
+			return validateErr
+		}
 
-	// validate challenge
-	if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, opts.Challenge); validateErr != nil {
-		return validateErr
-	}
+		// validate domain
+		if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, opts.Domain); validateErr != nil {
+			return validateErr
+		}
 
-	// validate domain
-	if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, opts.Domain); validateErr != nil {
-		return validateErr
-	}
+		// get the verification method
+		verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
+		if err != nil {
+			return err
+		}
 
-	// get the verification method
-	verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
-	if err != nil {
-		return err
-	}
+		// get the did doc from verification method
+		didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
+		if err != nil {
+			return err
+		}
 
-	// get the did doc from verification method
-	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
-	if err != nil {
-		return err
-	}
+		// validate if holder matches the controller of verification method
+		if vp.Holder != "" && vp.Holder != didDoc.ID {
+			return fmt.Errorf("controller of verification method doesn't match the holder")
+		}
 
-	// validate if holder matches the controller of verification method
-	if vp.Holder != "" && vp.Holder != didDoc.ID {
-		return fmt.Errorf("controller of verification method doesn't match the holder")
-	}
-
-	// validate proof purpose
-	if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
-		return fmt.Errorf("verifiable presentation proof purpose validation error : %w", err)
+		// validate proof purpose
+		if err = crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
+			return fmt.Errorf("verifiable presentation proof purpose validation error : %w", err)
+		}
 	}
 
 	return nil

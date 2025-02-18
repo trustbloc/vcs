@@ -36,10 +36,10 @@ jobs:
           username: ${{ secrets.CR_USER }}
           password: ${{ secrets.CR_PAT }}
 
-      - name: Setup Go 1.22
+      - name: Setup Go 1.23
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - run: make sample-webhook
 
@@ -51,8 +51,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
-            GO_VER=1.22
+            ALPINE_VER=3.21
+            GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -92,8 +92,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
-            GO_VER=1.22
+            ALPINE_VER=3.21
+            GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -134,8 +134,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
-            GO_VER=1.22
+            ALPINE_VER=3.21
+            GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -175,8 +175,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
-            GO_VER=1.22
+            ALPINE_VER=3.21
+            GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
           tags: |
@@ -202,10 +202,10 @@ jobs:
           echo "IMAGE_TAG"=$TAG >> $GITHUB_ENV
           echo "COMMIT_HASH"=$COMMIT_HASH >> $GITHUB_ENV
 
-      - name: Setup Go 1.22
+      - name: Setup Go 1.23
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - run: make sample-cognito-auth
 
@@ -224,8 +224,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.18
-            GO_VER=1.22
+            ALPINE_VER=3.21
+            GO_VER=1.23
             ALPINE_IMAGE=alpine
           push: true
           tags: |

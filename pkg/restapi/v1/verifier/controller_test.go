@@ -44,7 +44,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	oidc4vperr "github.com/trustbloc/vcs/pkg/restapi/resterr/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -244,11 +244,11 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 		var body VerifyCredentialData
 
-		err := util.ReadBody(c, &body)
+		err := c.Bind(&body)
 		assert.NoError(t, err)
 
 		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
 
@@ -257,7 +257,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 		var body VerifyCredentialData
 
-		err := util.ReadBody(c, &body)
+		err := c.Bind(&body)
 		assert.NoError(t, err)
 
 		body.VerifiableCredential = nil
@@ -273,11 +273,11 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 		var body VerifyCredentialData
 
-		err := util.ReadBody(c, &body)
+		err := c.Bind(&body)
 		assert.NoError(t, err)
 		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
 
@@ -346,7 +346,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 				var body VerifyCredentialData
 
 				e := testCase.getCtx()
-				err := util.ReadBody(e, &body)
+				err := e.Bind(&body)
 				assert.NoError(t, err)
 				rsp, err := failedController.verifyCredential(e.Request().Context(), &body, profileID, profileVersion, tenantID)
 				assert.Error(t, err)
@@ -552,12 +552,12 @@ func TestController_VerifyPresentation(t *testing.T) {
 
 		var body VerifyPresentationData
 
-		err = util.ReadBody(c, &body)
+		err = c.Bind(&body)
 		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.Len(t, rsp.Checks, 1)
 		assert.Len(t, lo.FromPtr(rsp.Errors), 0)
 	})
@@ -572,13 +572,12 @@ func TestController_VerifyPresentation(t *testing.T) {
 
 		var body VerifyPresentationData
 
-		err = util.ReadBody(c, &body)
+		err = c.Bind(&body)
 		assert.NoError(t, err)
 
 		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 
-		assert.NoError(t, err)
 		assert.Len(t, rsp.Checks, 1)
 		assert.Len(t, lo.FromPtr(rsp.Errors), 0)
 	})
@@ -648,7 +647,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 				var body VerifyPresentationData
 
 				e := testCase.getCtx()
-				err := util.ReadBody(e, &body)
+				err := e.Bind(&body)
 				assert.NoError(t, err)
 				rsp, err := failedController.verifyPresentation(e.Request().Context(), &body, profileID, profileVersion, tenantID)
 				assert.Error(t, err)
@@ -703,13 +702,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		ctx := createContextApplicationForm([]byte(body))
 
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
 			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			DocumentLoader: testutil.DocumentLoader(t),
 			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
@@ -753,12 +752,8 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
 		assert.NoError(t, err)
 
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
-
 		c := NewController(&Config{
 			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
@@ -776,7 +771,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 
 		assert.Nil(t, authorisationResponseParsed.CustomScopeClaims)
 		assert.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
@@ -822,12 +817,8 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		presentationSubmission, err := json.Marshal(map[string]interface{}{})
 		assert.NoError(t, err)
 
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
-
 		c := NewController(&Config{
 			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
@@ -842,7 +833,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 
 		assert.Nil(t, authorisationResponseParsed.CustomScopeClaims)
 		assert.Contains(t, authorisationResponseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
@@ -892,12 +883,8 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				Exp:   time.Now().Unix() + 1000,
 			})
 
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
-
 		c := NewController(&Config{
 			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
@@ -911,7 +898,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
 		assert.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
 		assert.Nil(t, responseParsed.InteractionDetails)
@@ -956,12 +943,8 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 				Exp:   time.Now().Unix() + 1000,
 			})
 
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(0)
-
 		c := NewController(&Config{
 			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
 			EventTopic:     spi.VerifierEventTopic,
 			VDR:            signedClaimsJWTResult.VDR,
 			DocumentLoader: testutil.DocumentLoader(t),
@@ -975,7 +958,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			},
 		)
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.Equal(t, customScopeClaims, responseParsed.CustomScopeClaims)
 		assert.Contains(t, responseParsed.VPTokens[0].Presentation.Type, "PresentationSubmission")
 		assert.Nil(t, responseParsed.InteractionDetails)
@@ -997,9 +980,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			ErrorDescription:   "unsupported client_id_scheme",
 			InteractionDetails: map[string]interface{}{"key1": "value1"},
 		}).Return(nil)
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(errors.New("some error"))
 
 		c := NewController(&Config{
 			OIDCVPService: svc,
+			EventTopic:    spi.VerifierEventTopic,
 			Tracer:        nooptracer.NewTracerProvider().Tracer(""),
 		})
 
@@ -1019,9 +1006,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			Error:            "invalid_request",
 			ErrorDescription: "unsupported client_id_scheme",
 		}).Return(errors.New("handle wallet notification error"))
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			OIDCVPService: svc,
+			EventTopic:    spi.VerifierEventTopic,
 			Tracer:        nooptracer.NewTracerProvider().Tracer(""),
 		})
 
@@ -1072,21 +1063,30 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 				msg := messages[0]
 
-				assert.Equal(t, msg.Type, spi.VerifierOIDCInteractionFailed)
-
 				ep := &oidc4ci.EventPayload{}
 
-				jsonData, err := json.Marshal(msg.Data.(map[string]interface{}))
+				jsonData, err := json.Marshal(msg.Data)
 				assert.NoError(t, err)
 
 				assert.NoError(t, json.Unmarshal(jsonData, ep))
 
-				assert.Equal(t, string(resterr.InvalidValue), ep.ErrorCode)
-				assert.Empty(t, ep.ErrorComponent)
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "presentation_submission is missed")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
 
 				return nil
 			},
 		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
@@ -1098,7 +1098,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "presentation_submission", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "presentation_submission", err)
 	})
 
 	t.Run("Presentation submission invalid", func(t *testing.T) {
@@ -1139,7 +1139,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "invalid character")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
@@ -1151,120 +1180,8 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "presentation_submission", err)
-	})
 
-	t.Run("Nonce different", func(t *testing.T) {
-		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
-			&IDTokenClaims{
-				Nonce: validNonce,
-				Aud:   validAud,
-				Exp:   time.Now().Unix() + 1000,
-			},
-		)
-
-		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
-			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Signer,
-			&VPTokenClaims{
-				Nonce: "some_invalid",
-				Aud:   validAud,
-				Exp:   time.Now().Unix() + 1000,
-				Iss:   signedClaimsJWTResult.VerMethodDID,
-				VP: &verifiable.Presentation{
-					Context: []string{
-						"https://www.w3.org/2018/credentials/v1",
-						"https://identity.foundation/presentation-exchange/submission/v1",
-					},
-					Type: []string{
-						"VerifiablePresentation",
-						"PresentationSubmission",
-					},
-				},
-			},
-		)
-
-		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		assert.NoError(t, err)
-
-		body := "vp_token=" + vpToken +
-			"&id_token=" + signedClaimsJWTResult.JWT +
-			"&presentation_submission=" + string(presentationSubmission) +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
-
-		c := NewController(&Config{
-			VDR:            signedClaimsJWTResult.VDR,
-			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
-			EventTopic:     spi.VerifierEventTopic,
-			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
-		})
-
-		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "nonce", err)
-	})
-
-	t.Run("Aud different", func(t *testing.T) {
-		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
-			&IDTokenClaims{
-				Nonce: validNonce,
-				Aud:   validAud,
-				Exp:   time.Now().Unix() + 1000,
-			},
-		)
-
-		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
-			signedClaimsJWTResult.VerMethodDIDKeyID,
-			signedClaimsJWTResult.Signer,
-			&VPTokenClaims{
-				Nonce: validNonce,
-				Aud:   "some_invalid",
-				Exp:   time.Now().Unix() + 1000,
-				Iss:   signedClaimsJWTResult.VerMethodDID,
-				VP: &verifiable.Presentation{
-					Context: []string{
-						"https://www.w3.org/2018/credentials/v1",
-						"https://identity.foundation/presentation-exchange/submission/v1",
-					},
-					Type: []string{
-						"VerifiablePresentation",
-						"PresentationSubmission",
-					},
-				},
-			},
-		)
-
-		presentationSubmission, err := json.Marshal(map[string]interface{}{})
-		assert.NoError(t, err)
-
-		body := "vp_token=" + vpToken +
-			"&id_token=" + signedClaimsJWTResult.JWT +
-			"&presentation_submission=" + string(presentationSubmission) +
-			"&state=txid"
-
-		ctx := createContextApplicationForm([]byte(body))
-
-		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
-
-		c := NewController(&Config{
-			VDR:            signedClaimsJWTResult.VDR,
-			OIDCVPService:  svc,
-			EventSvc:       mockEventSvc,
-			EventTopic:     spi.VerifierEventTopic,
-			DocumentLoader: testutil.DocumentLoader(t),
-			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
-		})
-
-		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue,
-			"aud", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "presentation_submission", err)
 	})
 
 	t.Run("ID token expired", func(t *testing.T) {
@@ -1308,7 +1225,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "token expired")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
@@ -1320,7 +1266,178 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "id_token.exp", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "id_token.exp", err)
+	})
+
+	t.Run("Nonce different", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
+			&IDTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+			},
+		)
+
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Signer,
+			&VPTokenClaims{
+				Nonce: "some_invalid",
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			},
+		)
+
+		presentationSubmission, err := json.Marshal(map[string]interface{}{})
+		assert.NoError(t, err)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
+			"&presentation_submission=" + string(presentationSubmission) +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "nonce should be the same for both id_token and vp_token")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
+
+		c := NewController(&Config{
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  svc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "nonce", err)
+	})
+
+	t.Run("Aud different", func(t *testing.T) {
+		signedClaimsJWTResult := testutil.SignedClaimsJWT(t,
+			&IDTokenClaims{
+				Nonce: validNonce,
+				Aud:   validAud,
+				Exp:   time.Now().Unix() + 1000,
+			},
+		)
+
+		vpToken := testutil.SignedClaimsJWTWithExistingPrivateKey(t,
+			signedClaimsJWTResult.VerMethodDIDKeyID,
+			signedClaimsJWTResult.Signer,
+			&VPTokenClaims{
+				Nonce: validNonce,
+				Aud:   "some_invalid",
+				Exp:   time.Now().Unix() + 1000,
+				Iss:   signedClaimsJWTResult.VerMethodDID,
+				VP: &verifiable.Presentation{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/presentation-exchange/submission/v1",
+					},
+					Type: []string{
+						"VerifiablePresentation",
+						"PresentationSubmission",
+					},
+				},
+			},
+		)
+
+		presentationSubmission, err := json.Marshal(map[string]interface{}{})
+		assert.NoError(t, err)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + signedClaimsJWTResult.JWT +
+			"&presentation_submission=" + string(presentationSubmission) +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		mockEventSvc := NewMockeventService(gomock.NewController(t))
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "aud should be the same for both id_token and vp_token")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
+
+		c := NewController(&Config{
+			VDR:            signedClaimsJWTResult.VDR,
+			OIDCVPService:  svc,
+			EventSvc:       mockEventSvc,
+			EventTopic:     spi.VerifierEventTopic,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         nooptracer.NewTracerProvider().Tracer(""),
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "aud", err)
 	})
 
 	t.Run("ID token invalid signature", func(t *testing.T) {
@@ -1363,7 +1480,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "invalid public key id: public key with KID")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			// Using different key in controller.
@@ -1376,7 +1522,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "id_token", err)
 	})
 
 	t.Run("VP token JWT expired", func(t *testing.T) {
@@ -1420,7 +1566,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "token expired")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
@@ -1432,7 +1607,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token.exp", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "vp_token.exp", err)
 	})
 
 	t.Run("VP token JWT invalid signature", func(t *testing.T) {
@@ -1475,7 +1650,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "parse and check proof: invalid public key id: public key with KID")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			// Using different key in controller.
@@ -1488,7 +1692,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "vp_token", err)
 	})
 
 	t.Run("VP token JWT parse VP failed", func(t *testing.T) {
@@ -1523,7 +1727,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "parse presentation: @context is required")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			VDR:            signedClaimsJWTResult.VDR,
@@ -1535,7 +1768,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token.vp", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "vp_token.vp", err)
 	})
 
 	t.Run("VP token LDP invalid signature", func(t *testing.T) {
@@ -1582,7 +1815,36 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "check linked data proof: proof invalid public key id: public key with KID")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			OIDCVPService:  svc,
@@ -1594,8 +1856,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue,
-			"vp_token.vp", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "vp_token", err)
 	})
 
 	t.Run("VP token LDP challenge (nonce) missed", func(t *testing.T) {
@@ -1642,7 +1903,37 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "bad_request[component: verifier.oidc4vp-service; "+
+						"incorrect value: vp_token.challenge; http status: 400]: missed field")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			OIDCVPService:  svc,
@@ -1654,7 +1945,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token.challenge", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "vp_token.challenge", err)
 	})
 
 	t.Run("VP token LDP domain (audience) missed", func(t *testing.T) {
@@ -1701,7 +1992,37 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		mockEventSvc := NewMockeventService(gomock.NewController(t))
-		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1)
+		mockEventSvc.EXPECT().Publish(gomock.Any(), spi.VerifierEventTopic, gomock.Any()).Times(1).DoAndReturn(
+			func(ctx context.Context, topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+
+				msg := messages[0]
+
+				ep := &oidc4ci.EventPayload{}
+
+				jsonData, err := json.Marshal(msg.Data)
+				assert.NoError(t, err)
+
+				assert.NoError(t, json.Unmarshal(jsonData, ep))
+
+				switch msg.Type {
+				case spi.VerifierOIDCInteractionFailed:
+					assert.Empty(t, ep.OrgID)
+					assert.Equal(t, "bad_request", ep.ErrorCode)
+					assert.Equal(t, resterr.VerifierOIDC4vpSvcComponent, resterr.Component(ep.ErrorComponent))
+					assert.Contains(t, ep.Error, "bad_request[component: verifier.oidc4vp-service; "+
+						"incorrect value: vp_token.domain; http status: 400]: missed field")
+				default:
+					assert.Fail(t, "unexpected event type %s", msg.Type)
+				}
+
+				return nil
+			},
+		)
+
+		svc.EXPECT().
+			SendTransactionEvent(gomock.Any(), oidc4vp.TxID("txid"), spi.VerifierOIDCInteractionQRScanned).
+			Return(nil)
 
 		c := NewController(&Config{
 			OIDCVPService:  svc,
@@ -1713,8 +2034,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue,
-			"vp_token.domain", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "vp_token.domain", err)
 	})
 }
 
@@ -1891,7 +2211,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		requireCustomError(t, resterr.TransactionNotFound, err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierTxnMgrComponent, "", "", err)
 	})
 
 	t.Run("Get Tx system error", func(t *testing.T) {
@@ -1914,7 +2234,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		requireSystemError(t, "verifier.oidc4vp-service", "GetTx", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "", err)
 	})
 
 	t.Run("GetProfile failed", func(t *testing.T) {
@@ -1944,7 +2264,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
-		requireCustomError(t, resterr.ProfileNotFound, err)
+		requireOidc4VpError(t, "bad_request", "", "", "", err)
 	})
 }
 
@@ -1957,7 +2277,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, ar)
 	})
 
@@ -1976,7 +2296,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, ar)
 	})
 
@@ -1988,7 +2308,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, ar)
 
 		assert.Equal(t, ar.State, "txid")
@@ -2004,7 +2324,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		ar, err := decodeAuthorizationResponse(ctx)
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, ar)
 	})
 
@@ -2015,7 +2335,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "state", err)
+		requireOidc4VpError(t, "bad_request", "", "", "state", err)
 	})
 
 	t.Run("Duplicated state", func(t *testing.T) {
@@ -2026,7 +2346,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "state", err)
+		requireOidc4VpError(t, "bad_request", "", "", "state", err)
 	})
 
 	t.Run("Error: interaction_details contains invalid data: base64", func(t *testing.T) {
@@ -2039,7 +2359,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 
 		_, err := decodeAuthorizationResponse(ctx)
 		assert.ErrorContains(t, err, "base64 decode")
-		requireValidationError(t, resterr.InvalidValue, "interaction_details", err)
+		requireOidc4VpError(t, "bad_request", "", "", "interaction_details", err)
 	})
 
 	t.Run("Error: interaction_details contains invalid data: json", func(t *testing.T) {
@@ -2052,7 +2372,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 
 		_, err := decodeAuthorizationResponse(ctx)
 		assert.ErrorContains(t, err, "json decode")
-		requireValidationError(t, resterr.InvalidValue, "interaction_details", err)
+		requireOidc4VpError(t, "bad_request", "", "", "interaction_details", err)
 	})
 
 	t.Run("Error: authorization error response: missed error_description", func(t *testing.T) {
@@ -2062,7 +2382,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "error_description", err)
+		requireOidc4VpError(t, "bad_request", "", "", "error_description", err)
 	})
 
 	t.Run("Error: authorization error response: duplicated error_description", func(t *testing.T) {
@@ -2074,7 +2394,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "error_description", err)
+		requireOidc4VpError(t, "bad_request", "", "", "error_description", err)
 	})
 
 	t.Run("Missed id_token", func(t *testing.T) {
@@ -2084,7 +2404,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+		requireOidc4VpError(t, "bad_request", "", "", "id_token", err)
 	})
 
 	t.Run("Duplicated id_token", func(t *testing.T) {
@@ -2095,7 +2415,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+		requireOidc4VpError(t, "bad_request", "", "", "id_token", err)
 	})
 
 	t.Run("Missed vp_token", func(t *testing.T) {
@@ -2105,7 +2425,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
+		requireOidc4VpError(t, "bad_request", "", "", "vp_token", err)
 	})
 
 	t.Run("Duplicated vp_token", func(t *testing.T) {
@@ -2116,7 +2436,7 @@ func TestController_decodeAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		_, err := decodeAuthorizationResponse(ctx)
-		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
+		requireOidc4VpError(t, "bad_request", "", "", "vp_token", err)
 	})
 }
 
@@ -2330,40 +2650,14 @@ func Test_getVerifyPresentationOptions(t *testing.T) {
 	}
 }
 
-func requireAuthError(t *testing.T, actual error) {
-	assert.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	assert.True(t, errors.As(actual, &actualErr))
+func requireOidc4VpError(t *testing.T, errCode string, component resterr.Component, failedOperation, incorrectValue string, actual error) { //nolint: unparam,lll
+	var actualErr *oidc4vperr.Error
+	assert.ErrorAs(t, actual, &actualErr)
 
-	assert.Equal(t, resterr.Unauthorized, actualErr.Code)
-}
-
-func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
-	assert.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	assert.True(t, errors.As(actual, &actualErr))
-
-	assert.Equal(t, expectedCode, actualErr.Code)
-	assert.Equal(t, incorrectValueName, actualErr.IncorrectValue)
-	assert.Error(t, actualErr.Err)
-}
-
-func requireSystemError(t *testing.T, component, failedOperation string, actual error) { //nolint: unparam
-	assert.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	assert.True(t, errors.As(actual, &actualErr))
-	assert.Equal(t, resterr.SystemError, actualErr.Code)
-	assert.Equal(t, component, actualErr.Component)
-	assert.Equal(t, failedOperation, actualErr.FailedOperation)
-	assert.Error(t, actualErr.Err)
-}
-
-func requireCustomError(t *testing.T, expectedCode resterr.ErrorCode, actual error) {
-	assert.IsType(t, &resterr.CustomError{}, actual)
-	actualErr := &resterr.CustomError{}
-	assert.True(t, errors.As(actual, &actualErr))
-
-	assert.Equal(t, expectedCode, actualErr.Code)
+	assert.Equal(t, errCode, actualErr.Code())
+	assert.Equal(t, component, actualErr.ErrorComponent)
+	assert.Equal(t, failedOperation, actualErr.Operation)
+	assert.Equal(t, incorrectValue, actualErr.IncorrectValue)
 	assert.Error(t, actualErr.Err)
 }
 
@@ -2385,10 +2679,10 @@ func TestController_AuthFailed(t *testing.T) {
 			Tracer: nooptracer.NewTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
-		requireAuthError(t, err)
+		requireOidc4VpError(t, "unauthorized", "", "", "", err)
 
 		err = controller.RetrieveInteractionsClaim(c, "txid")
-		requireAuthError(t, err)
+		requireOidc4VpError(t, "unauthorized", "", "", "", err)
 	})
 
 	t.Run("Invlaid org id", func(t *testing.T) {
@@ -2398,7 +2692,7 @@ func TestController_AuthFailed(t *testing.T) {
 			Tracer: nooptracer.NewTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
-		requireCustomError(t, resterr.ProfileNotFound, err)
+		requireOidc4VpError(t, "unauthorized", resterr.VerifierProfileSvcComponent, "", "", err)
 	})
 }
 
@@ -2448,7 +2742,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
-		requireCustomError(t, resterr.ProfileNotFound, err)
+		requireOidc4VpError(t, "unauthorized", resterr.VerifierProfileSvcComponent, "", "", err)
 	})
 }
 
@@ -2486,7 +2780,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, result)
 	})
 
@@ -2521,7 +2815,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, result)
 	})
 
@@ -2567,7 +2861,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		assert.NoError(t, err)
+		assert.Nil(t, err)
 		assert.NotNil(t, result)
 	})
 
@@ -2610,10 +2904,9 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(),
-			"invalid-value[presentationDefinitionID]: presentation definition id= not found for profile with id=profile-id")
+
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "presentationDefinitionID", err)
 	})
 
 	t.Run("Error - With Presentation Definition and PD filters", func(t *testing.T) {
@@ -2648,9 +2941,9 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "invalid-value[presentationDefinitionFilters]: failed to compile regex")
+
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "presentationDefinitionFilters", err)
 	})
 
 	t.Run("Should have oidc config", func(t *testing.T) {
@@ -2668,7 +2961,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				SigningDID:     &profileapi.SigningDID{},
 			})
 
-		requireValidationError(t, resterr.ConditionNotMet, "profile.OIDCConfig", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "profile.OIDCConfig", err)
 	})
 
 	t.Run("Invalid pd id", func(t *testing.T) {
@@ -2688,7 +2981,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				SigningDID:     &profileapi.SigningDID{},
 			})
 
-		requireValidationError(t, resterr.InvalidValue, "presentationDefinitionID", err)
+		requireOidc4VpError(t, "bad_request", resterr.VerifierOIDC4vpSvcComponent, "", "presentationDefinitionID", err)
 	})
 
 	t.Run("oidc4VPService.InitiateOidcInteraction failed", func(t *testing.T) {
@@ -2714,7 +3007,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 				},
 			})
 
-		requireSystemError(t, "verifier.oidc4vp-service", "InitiateOidcInteraction", err)
+		requireOidc4VpError(t, "bad_request", "", "", "", err)
 	})
 }
 

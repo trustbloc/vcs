@@ -18,6 +18,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -164,7 +165,7 @@ func TestInitiateWalletFlowFromStoreCode(t *testing.T) {
 			},
 		)
 		assert.Empty(t, resp)
-		assert.ErrorContains(t, err, "issuer not found")
+		assert.ErrorIs(t, err, resterr.ErrProfileNotFound)
 	})
 
 	t.Run("success", func(t *testing.T) {
