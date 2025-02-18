@@ -727,7 +727,7 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 
 	var req InitiateOIDC4CIComposeRequest
 
-	if err = e.Bind(&body); err != nil {
+	if err = e.Bind(&req); err != nil {
 		oidc4ciErr := oidc4cierr.NewBadRequestError(err).
 			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
 			WithOperation("ReadBody")
@@ -765,23 +765,7 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 		)
 	}
 
-	mapped := InitiateOIDC4CIRequest{
-		AuthorizationDetails:      body.AuthorizationDetails,
-		ClientInitiateIssuanceUrl: body.ClientInitiateIssuanceUrl,
-		ClientWellknown:           body.ClientWellknown,
-		CredentialConfiguration:   &configs,
-		OpState:                   body.OpState,
-		ResponseType:              body.ResponseType,
-		Scope:                     body.Scope,
-		UserPinRequired:           body.UserPinRequired,
-		WalletInitiatedIssuance:   body.WalletInitiatedIssuance,
-	}
-
-	if body.GrantType != nil {
-		mapped.GrantType = lo.ToPtr(InitiateOIDC4CIRequestGrantType(*body.GrantType))
-	}
-
-	resp, ct, initiateIssErr := c.initiateIssuance(ctx, &mapped, profile)
+	resp, ct, initiateIssErr := c.initiateIssuance(ctx, issuanceReq, profile)
 	if initiateIssErr != nil {
 		return initiateIssErr.WithOperation("InitiateCredentialComposeIssuance").UsePublicAPIResponse()
 	}
@@ -818,7 +802,7 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 
 	var req InitiateOIDC4CIRequest
 
-	if err = e.Bind(&body); err != nil {
+	if err = e.Bind(&req); err != nil {
 		oidc4ciErr := oidc4cierr.NewBadRequestError(err).
 			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
 			WithOperation("ReadBody")
@@ -867,7 +851,7 @@ func (c *Controller) initiateIssuance(
 	ctx context.Context,
 	req *oidc4ci.InitiateIssuanceRequest,
 	profile *profileapi.Issuer,
-) (*InitiateOIDC4CIResponse, string, error) {
+) (*InitiateOIDC4CIResponse, string, *oidc4cierr.Error) {
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, req, profile)
 	if err != nil {
 		var oidc4ciErr *oidc4cierr.Error

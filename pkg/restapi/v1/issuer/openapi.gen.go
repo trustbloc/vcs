@@ -124,7 +124,7 @@ type CredentialStatusOpt struct {
 	Type string `json:"type"`
 }
 
-// Model for exchanging auth code from issuer oauth
+// ExchangeAuthorizationCodeRequest Model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeRequest struct {
 	// ClientAssertion The value MUST contain two JWTs, separated by a "~" character. The first JWT is the client attestation JWT, the second is the client attestation PoP JWT.
 	ClientAssertion *string `json:"client_assertion,omitempty"`
@@ -151,7 +151,7 @@ type InitiateIssuanceCredentialConfiguration struct {
 	// ClaimEndpoint Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint"`
 
-	// Credential description
+	// CredentialDescription Credential description
 	CredentialDescription *string `json:"credential_description,omitempty"`
 
 	// CredentialExpiresAt Date when credentials should be consider as expired
@@ -226,7 +226,7 @@ type InitiateOIDC4CIRequest struct {
 	// AuthorizationDetails Customizes what kind of access Issuer wants to give to VCS.
 	AuthorizationDetails *string `json:"authorization_details,omitempty"`
 
-	// URL of the issuance initiation endpoint of a Wallet. Takes precedence over client_wellknown request parameter. If both client_initiate_issuance_url and client_wellknown are not provided then response initiate issuance URL will contain custom initiate issuance URL in format openid-initiate-issuance://.
+	// ClientInitiateIssuanceUrl URL of the issuance initiation endpoint of a Wallet. Takes precedence over client_wellknown request parameter. If both client_initiate_issuance_url and client_wellknown are not provided then response initiate issuance URL will contain custom initiate issuance URL in format openid-initiate-issuance://.
 	ClientInitiateIssuanceUrl *string `json:"client_initiate_issuance_url,omitempty"`
 
 	// ClientWellknown String containing wallet/holder application OIDC client wellknown configuration URL.
@@ -235,7 +235,7 @@ type InitiateOIDC4CIRequest struct {
 	// CredentialConfiguration An array of objects that describes specifics of the Multiple Credential Issuance.
 	CredentialConfiguration *[]InitiateIssuanceCredentialConfiguration `json:"credential_configuration,omitempty"`
 
-	// Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
+	// GrantType Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps.
 	GrantType *InitiateOIDC4CIRequestGrantType `json:"grant_type,omitempty"`
 
 	// OpState String value created by the Credential Issuer and opaque to the Wallet that is used to bind the sub-sequent authentication request with the Credential Issuer to a context set up during previous steps. If the client receives a value for this parameter, it MUST include it in the subsequent Authentication Request to the Credential Issuer as the op_state parameter value. MUST NOT be used in Authorization Code flow when pre-authorized_code is present.
