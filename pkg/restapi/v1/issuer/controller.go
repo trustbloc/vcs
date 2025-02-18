@@ -839,9 +839,9 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 		issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration, credConfig)
 	}
 
-	resp, ct, err := c.initiateIssuance(ctx, issuanceReq, profile)
-	if err != nil {
-		return err
+	resp, ct, initiateErr := c.initiateIssuance(ctx, issuanceReq, profile)
+	if initiateErr != nil {
+		return initiateErr
 	}
 
 	return util.WriteOutputWithContentType(e)(resp, ct, nil)
