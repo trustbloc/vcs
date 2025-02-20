@@ -173,16 +173,20 @@ func (s *Steps) runOIDC4VCIPreAuth(initiateOIDC4CIResponseData initiateOIDC4VCIR
 
 func (s *Steps) runOIDC4VCIPreAuthWithInvalidClaims() error {
 	initiateIssuanceRequest := issuer.InitiateOIDC4CIRequest{
-		CredentialTemplateId: lo.ToPtr("universityDegreeTemplateID"),
-		ClaimData: &map[string]interface{}{
-			"degree": map[string]string{
-				"type":   "BachelorDegree",
-				"degree": "MIT",
+		CredentialConfiguration: lo.ToPtr([]issuer.InitiateIssuanceCredentialConfiguration{
+			{
+				CredentialTemplateId: lo.ToPtr("universityDegreeTemplateID"),
+				ClaimData: &map[string]interface{}{
+					"degree": map[string]string{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
+					"name":               "Jayden Doe",
+					"spouse":             "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					"totallyRandomField": "abcd",
+				},
 			},
-			"name":               "Jayden Doe",
-			"spouse":             "did:example:c276e12ec21ebfeb1f712ebc6f1",
-			"totallyRandomField": "abcd",
-		},
+		}),
 		GrantType:       lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode),
 		UserPinRequired: lo.ToPtr(true),
 	}
@@ -206,13 +210,17 @@ func (s *Steps) runOIDC4VCIPreAuthWithInvalidClaims() error {
 
 func (s *Steps) initiateCredentialIssuanceWithClaimsSchemaValidationError() error {
 	initiateIssuanceRequest := issuer.InitiateOIDC4CIRequest{
-		CredentialTemplateId: lo.ToPtr("universityDegreeTemplateID"),
-		ClaimData: &map[string]interface{}{
-			"degree": map[string]string{
-				"degree": "MIT",
+		CredentialConfiguration: lo.ToPtr([]issuer.InitiateIssuanceCredentialConfiguration{
+			{
+				CredentialTemplateId: lo.ToPtr("universityDegreeTemplateID"),
+				ClaimData: &map[string]interface{}{
+					"degree": map[string]string{
+						"degree": "MIT",
+					},
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				},
 			},
-			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-		},
+		}),
 		GrantType:       lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode),
 		UserPinRequired: lo.ToPtr(true),
 	}
@@ -329,10 +337,14 @@ func (s *Steps) runOIDC4CIPreAuthWithValidClaims() error {
 		}
 	} else {
 		endpointRequest = &issuer.InitiateOIDC4CIRequest{
-			CredentialTemplateId: &s.issuedCredentialTemplateID,
-			ClaimData:            &claims,
-			UserPinRequired:      lo.ToPtr(true),
-			GrantType:            lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode),
+			CredentialConfiguration: lo.ToPtr([]issuer.InitiateIssuanceCredentialConfiguration{
+				{
+					CredentialTemplateId: &s.issuedCredentialTemplateID,
+					ClaimData:            &claims,
+				},
+			}),
+			UserPinRequired: lo.ToPtr(true),
+			GrantType:       lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode),
 		}
 	}
 
@@ -390,10 +402,14 @@ func (s *Steps) runOIDC4CIPreAuthWithClientAttestation() error {
 	}
 
 	req := issuer.InitiateOIDC4CIRequest{
-		CredentialTemplateId: lo.ToPtr(s.issuedCredentialTemplateID),
-		ClaimData:            &claims,
-		UserPinRequired:      lo.ToPtr(true),
-		GrantType:            lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode),
+		CredentialConfiguration: lo.ToPtr([]issuer.InitiateIssuanceCredentialConfiguration{
+			{
+				CredentialTemplateId: lo.ToPtr(s.issuedCredentialTemplateID),
+				ClaimData:            &claims,
+			},
+		}),
+		UserPinRequired: lo.ToPtr(true),
+		GrantType:       lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeUrnIetfParamsOauthGrantTypePreAuthorizedCode),
 	}
 
 	initiateOIDC4CIResponseData, err := s.initiateCredentialIssuance(req)
@@ -915,13 +931,17 @@ func (s *Steps) runOIDC4VCIAuthWithScopes(scopes string) error {
 	scopesList := strings.Split(scopes, ",")
 
 	initiateIssuanceRequest := issuer.InitiateOIDC4CIRequest{
-		ClaimEndpoint:        lo.ToPtr(claimDataURL + "?credentialType=" + s.issuedCredentialType),
-		CredentialTemplateId: &s.issuedCredentialTemplateID,
-		GrantType:            lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
-		OpState:              lo.ToPtr(uuid.New().String()),
-		ResponseType:         lo.ToPtr("code"),
-		Scope:                lo.ToPtr(append([]string{"openid", "profile"}, scopesList...)),
-		UserPinRequired:      lo.ToPtr(false),
+		CredentialConfiguration: lo.ToPtr([]issuer.InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimEndpoint:        lo.ToPtr(claimDataURL + "?credentialType=" + s.issuedCredentialType),
+				CredentialTemplateId: &s.issuedCredentialTemplateID,
+			},
+		}),
+		GrantType:       lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
+		OpState:         lo.ToPtr(uuid.New().String()),
+		ResponseType:    lo.ToPtr("code"),
+		Scope:           lo.ToPtr(append([]string{"openid", "profile"}, scopesList...)),
+		UserPinRequired: lo.ToPtr(false),
 	}
 
 	resp, err := s.initiateCredentialIssuance(initiateIssuanceRequest)
@@ -1001,7 +1021,9 @@ func (s *Steps) runOIDC4VCIAuthWithInvalidClaims() error {
 	}
 
 	issuanceReq := s.getInitiateIssuanceRequestAuthFlow()
-	issuanceReq.ClaimEndpoint = lo.ToPtr(lo.FromPtr(issuanceReq.ClaimEndpoint) +
+	currentEndpoint := *(*issuanceReq.CredentialConfiguration)[0].ClaimEndpoint
+
+	(*issuanceReq.CredentialConfiguration)[0].ClaimEndpoint = lo.ToPtr(currentEndpoint +
 		fmt.Sprintf("&claim_data=%s", base64.URLEncoding.EncodeToString(claimsDataBytes)))
 
 	resp, err := s.initiateCredentialIssuance(issuanceReq)
@@ -1152,13 +1174,17 @@ func (s *Steps) registerOAuthClient(offerCredentialURL string) (string, error) {
 
 func (s *Steps) getInitiateIssuanceRequestAuthFlow() issuer.InitiateOIDC4CIRequest {
 	return issuer.InitiateOIDC4CIRequest{
-		ClaimEndpoint:        lo.ToPtr(claimDataURL + "?credentialType=" + s.issuedCredentialType),
-		CredentialTemplateId: &s.issuedCredentialTemplateID,
-		GrantType:            lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
-		OpState:              lo.ToPtr(uuid.New().String()),
-		ResponseType:         lo.ToPtr("code"),
-		Scope:                lo.ToPtr([]string{"openid", "profile"}),
-		UserPinRequired:      lo.ToPtr(false),
+		CredentialConfiguration: lo.ToPtr([]issuer.InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimEndpoint:        lo.ToPtr(claimDataURL + "?credentialType=" + s.issuedCredentialType),
+				CredentialTemplateId: &s.issuedCredentialTemplateID,
+			},
+		}),
+		GrantType:       lo.ToPtr(issuer.InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
+		OpState:         lo.ToPtr(uuid.New().String()),
+		ResponseType:    lo.ToPtr("code"),
+		Scope:           lo.ToPtr([]string{"openid", "profile"}),
+		UserPinRequired: lo.ToPtr(false),
 	}
 }
 

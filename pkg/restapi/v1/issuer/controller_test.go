@@ -946,16 +946,20 @@ func TestController_initiateCredentialIssuance_CompatibilityV1(t *testing.T) {
 
 	now := lo.ToPtr(time.Now().UTC())
 	req, err := json.Marshal(&InitiateOIDC4CIRequest{
-		ClaimData: lo.ToPtr(map[string]interface{}{
-			"key": "value",
+		CredentialConfiguration: lo.ToPtr([]InitiateIssuanceCredentialConfiguration{
+			{
+				ClaimData: lo.ToPtr(map[string]interface{}{
+					"key": "value",
+				}),
+				ClaimEndpoint:         lo.ToPtr("https://vcs.pb.example.com/claim"),
+				CredentialDescription: lo.ToPtr("description1"),
+				CredentialExpiresAt:   now,
+				CredentialName:        lo.ToPtr("name1"),
+				CredentialTemplateId:  lo.ToPtr("templateID"),
+			},
 		}),
-		ClaimEndpoint:             lo.ToPtr("https://vcs.pb.example.com/claim"),
 		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
 		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
-		CredentialDescription:     lo.ToPtr("description1"),
-		CredentialExpiresAt:       now,
-		CredentialName:            lo.ToPtr("name1"),
-		CredentialTemplateId:      lo.ToPtr("templateID"),
 		GrantType:                 lo.ToPtr(InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
 		OpState:                   lo.ToPtr("eyJhbGciOiJSU0Et"),
 		ResponseType:              lo.ToPtr("token"),
@@ -1114,7 +1118,6 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 	now := lo.ToPtr(time.Now().UTC())
 	req, err := json.Marshal(&InitiateOIDC4CIRequest{
-		ClaimEndpoint:             lo.ToPtr("https://vcs.pb.example.com/claim"),
 		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
 		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
 		CredentialConfiguration: lo.ToPtr([]InitiateIssuanceCredentialConfiguration{
@@ -1137,14 +1140,8 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				CredentialExpiresAt:   now,
 				CredentialName:        lo.ToPtr("name2"),
 				CredentialTemplateId:  lo.ToPtr("templateID1"),
-				Compose: &DeprecatedComposeOIDC4CICredential{
-					Credential:     nil,
-					IdTemplate:     lo.ToPtr("something"),
-					OverrideIssuer: lo.ToPtr(true),
-				},
 			},
 		}),
-		CredentialExpiresAt:     now,
 		GrantType:               lo.ToPtr(InitiateOIDC4CIRequestGrantTypeAuthorizationCode),
 		OpState:                 lo.ToPtr("eyJhbGciOiJSU0Et"),
 		ResponseType:            lo.ToPtr("token"),
@@ -1197,11 +1194,6 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 					CredentialExpiresAt:   now,
 					CredentialName:        "name2",
 					CredentialDescription: "description2",
-					ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
-						Credential:     nil,
-						IDTemplate:     "something",
-						OverrideIssuer: true,
-					},
 				},
 			},
 		}

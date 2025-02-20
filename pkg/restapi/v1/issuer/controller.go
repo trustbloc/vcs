@@ -725,9 +725,9 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
-	var body InitiateOIDC4CIComposeRequest
+	var req InitiateOIDC4CIComposeRequest
 
-	if err = e.Bind(&body); err != nil {
+	if err = e.Bind(&req); err != nil {
 		oidc4ciErr := oidc4cierr.NewBadRequestError(err).
 			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
 			WithOperation("ReadBody")
@@ -739,38 +739,33 @@ func (c *Controller) InitiateCredentialComposeIssuance(e echo.Context, profileID
 		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
-	var configs []InitiateIssuanceCredentialConfiguration
+	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
+		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
+		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
+		GrantType:                 string(lo.FromPtr(req.GrantType)),
+		ResponseType:              lo.FromPtr(req.ResponseType),
+		Scope:                     lo.FromPtr(req.Scope),
+		OpState:                   lo.FromPtr(req.OpState),
+		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
+		WalletInitiatedIssuance:   lo.FromPtr(req.WalletInitiatedIssuance),
+		CredentialConfiguration:   []oidc4ci.InitiateIssuanceCredentialConfiguration{},
+	}
 
-	for _, compose := range lo.FromPtr(body.Compose) {
-		configs = append(configs, InitiateIssuanceCredentialConfiguration{
-			Compose: &DeprecatedComposeOIDC4CICredential{
-				Credential:              compose.Credential,
-				IdTemplate:              compose.CredentialOverrideId,
-				OverrideIssuer:          compose.CredentialOverrideIssuer,
-				OverrideSubjectDid:      compose.CredentialOverrideSubjectDid,
-				PerformStrictValidation: compose.CredentialPerformStrictValidation,
+	for _, compose := range lo.FromPtr(req.Compose) {
+		issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
+			oidc4ci.InitiateIssuanceCredentialConfiguration{
+				ComposeCredential: &oidc4ci.InitiateIssuanceComposeCredential{
+					Credential:              compose.Credential,
+					IDTemplate:              lo.FromPtr(compose.CredentialOverrideId),
+					OverrideIssuer:          lo.FromPtr(compose.CredentialOverrideIssuer),
+					OverrideSubjectDID:      lo.FromPtr(compose.CredentialOverrideSubjectDid),
+					PerformStrictValidation: lo.FromPtr(compose.CredentialPerformStrictValidation),
+				},
 			},
-			CredentialExpiresAt: compose.CredentialExpiresAt,
-		})
+		)
 	}
 
-	mapped := InitiateOIDC4CIRequest{
-		AuthorizationDetails:      body.AuthorizationDetails,
-		ClientInitiateIssuanceUrl: body.ClientInitiateIssuanceUrl,
-		ClientWellknown:           body.ClientWellknown,
-		CredentialConfiguration:   &configs,
-		OpState:                   body.OpState,
-		ResponseType:              body.ResponseType,
-		Scope:                     body.Scope,
-		UserPinRequired:           body.UserPinRequired,
-		WalletInitiatedIssuance:   body.WalletInitiatedIssuance,
-	}
-
-	if body.GrantType != nil {
-		mapped.GrantType = lo.ToPtr(InitiateOIDC4CIRequestGrantType(*body.GrantType))
-	}
-
-	resp, ct, initiateIssErr := c.initiateIssuance(ctx, &mapped, profile)
+	resp, ct, initiateIssErr := c.initiateIssuance(ctx, issuanceReq, profile)
 	if initiateIssErr != nil {
 		return initiateIssErr.WithOperation("InitiateCredentialComposeIssuance").UsePublicAPIResponse()
 	}
@@ -805,9 +800,9 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
-	var body InitiateOIDC4CIRequest
+	var req InitiateOIDC4CIRequest
 
-	if err = e.Bind(&body); err != nil {
+	if err = e.Bind(&req); err != nil {
 		oidc4ciErr := oidc4cierr.NewBadRequestError(err).
 			WithComponent(resterr.IssuerOIDC4ciSvcComponent).
 			WithOperation("ReadBody")
@@ -819,19 +814,6 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profi
 		return oidc4ciErr.UsePublicAPIResponse()
 	}
 
-	resp, ct, initiateIssErr := c.initiateIssuance(ctx, &body, profile)
-	if initiateIssErr != nil {
-		return initiateIssErr.WithOperation("InitiateCredentialIssuance").UsePublicAPIResponse()
-	}
-
-	return util.WriteOutputWithContentType(e)(resp, ct, nil)
-}
-
-func (c *Controller) initiateIssuance(
-	ctx context.Context,
-	req *InitiateOIDC4CIRequest,
-	profile *profileapi.Issuer,
-) (*InitiateOIDC4CIResponse, string, *oidc4cierr.Error) {
 	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
@@ -854,32 +836,23 @@ func (c *Controller) initiateIssuance(
 			CredentialDescription: lo.FromPtr(multiCredentialIssuance.CredentialDescription),
 		}
 
-		if multiCredentialIssuance.Compose != nil {
-			credConfig.ComposeCredential = &oidc4ci.InitiateIssuanceComposeCredential{
-				Credential:              multiCredentialIssuance.Compose.Credential,
-				IDTemplate:              lo.FromPtr(multiCredentialIssuance.Compose.IdTemplate),
-				OverrideIssuer:          lo.FromPtr(multiCredentialIssuance.Compose.OverrideIssuer),
-				OverrideSubjectDID:      lo.FromPtr(multiCredentialIssuance.Compose.OverrideSubjectDid),
-				PerformStrictValidation: lo.FromPtr(multiCredentialIssuance.Compose.PerformStrictValidation),
-			}
-		}
-
 		issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration, credConfig)
 	}
 
-	if len(issuanceReq.CredentialConfiguration) == 0 { // legacy compatibility
-		issuanceReq.CredentialConfiguration = append(issuanceReq.CredentialConfiguration,
-			oidc4ci.InitiateIssuanceCredentialConfiguration{
-				ClaimData:             lo.FromPtr(req.ClaimData),
-				ClaimEndpoint:         lo.FromPtr(req.ClaimEndpoint),
-				CredentialTemplateID:  lo.FromPtr(req.CredentialTemplateId),
-				CredentialExpiresAt:   req.CredentialExpiresAt,
-				CredentialName:        lo.FromPtr(req.CredentialName),
-				CredentialDescription: lo.FromPtr(req.CredentialDescription),
-			})
+	resp, ct, initiateIssErr := c.initiateIssuance(ctx, issuanceReq, profile)
+	if initiateIssErr != nil {
+		return initiateIssErr.WithOperation("InitiateCredentialIssuance").UsePublicAPIResponse()
 	}
 
-	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
+	return util.WriteOutputWithContentType(e)(resp, ct, nil)
+}
+
+func (c *Controller) initiateIssuance(
+	ctx context.Context,
+	req *oidc4ci.InitiateIssuanceRequest,
+	profile *profileapi.Issuer,
+) (*InitiateOIDC4CIResponse, string, *oidc4cierr.Error) {
+	resp, err := c.oidc4ciService.InitiateIssuance(ctx, req, profile)
 	if err != nil {
 		var oidc4ciErr *oidc4cierr.Error
 
