@@ -17,7 +17,7 @@ require (
 	github.com/ory/dockertest/v3 v3.10.1-0.20240704115616-d229e74b748d
 	github.com/ory/fosite v0.47.0
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
-	github.com/redis/go-redis/v9 v9.6.1
+	github.com/redis/go-redis/v9 v9.6.3
 	github.com/sevenNt/echo-pprof v0.1.1-0.20230131020615-4dd36891e14b
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
