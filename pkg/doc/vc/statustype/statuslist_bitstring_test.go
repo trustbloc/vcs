@@ -267,33 +267,63 @@ func Test_BitstringStatusListProcessor_ValidateStatus(t *testing.T) {
 
 func Test_BitstringStatusListProcessor_CreateVC(t *testing.T) {
 	s := NewBitstringStatusListProcessor()
-	vc, err := s.CreateVC("vcID1", 10, &vcapi.Signer{
-		DID:           "did:example:123",
-		SignatureType: vcsverifiable.Ed25519Signature2018,
-	})
-	require.NoError(t, err)
 
-	vcc := vc.Contents()
-
-	require.NoError(t, err)
-	require.Equal(t, "vcID1", vcc.ID)
-	require.Equal(t, []string{
-		verifiable.V2ContextURI,
-		"https://w3id.org/security/suites/ed25519-2018/v1"}, vcc.Context)
-	require.Equal(t, []string{vcType, StatusListBitstringVCType}, vcc.Types)
-	require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
-	encodeBits, err := bitstring.NewBitString(bitStringSize,
-		bitstring.WithMultibaseEncoding(multibase.Base64url)).EncodeBits()
-	require.NotEmpty(t, vc.ToRawClaimsMap()["validFrom"])
-	require.NoError(t, err)
-	require.Equal(t, []verifiable.Subject{{
-		ID: "vcID1#list",
-		CustomFields: map[string]interface{}{
-			"type":          "BitstringStatusList",
-			"statusPurpose": "revocation",
-			"encodedList":   encodeBits,
+	tests := []struct {
+		statusPurpose string
+		wantErr       string
+	}{
+		{
+			statusPurpose: StatusPurposeRevocation,
 		},
-	}}, vcc.Subject)
+		{
+			statusPurpose: StatusPurposeSuspension,
+		},
+		{
+			statusPurpose: StatusPurposeMessage,
+		},
+		{
+			statusPurpose: "unknown-purpose",
+			wantErr:       "unsupported statusPurpose: unknown-purpose",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.statusPurpose, func(t *testing.T) {
+			vc, err := s.CreateVC("vcID1", 10, test.statusPurpose, &vcapi.Signer{
+				DID:           "did:example:123",
+				SignatureType: vcsverifiable.Ed25519Signature2018,
+			})
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			vcc := vc.Contents()
+
+			require.NoError(t, err)
+			require.Equal(t, "vcID1", vcc.ID)
+			require.Equal(t, []string{
+				verifiable.V2ContextURI,
+				"https://w3id.org/security/suites/ed25519-2018/v1"}, vcc.Context)
+			require.Equal(t, []string{vcType, StatusListBitstringVCType}, vcc.Types)
+			require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
+			encodeBits, err := bitstring.NewBitString(bitStringSize,
+				bitstring.WithMultibaseEncoding(multibase.Base64url)).EncodeBits()
+			require.NotEmpty(t, vc.ToRawClaimsMap()["validFrom"])
+			require.NoError(t, err)
+			require.Equal(t, []verifiable.Subject{{
+				ID: "vcID1#list",
+				CustomFields: map[string]interface{}{
+					"type":          "BitstringStatusList",
+					"statusPurpose": test.statusPurpose,
+					"encodedList":   encodeBits,
+				},
+			}}, vcc.Subject)
+		})
+	}
 }
 
 func Test_BitstringStatusListProcessor_CreateVCStatus(t *testing.T) {
@@ -417,6 +447,36 @@ func Test_BitstringStatusList_IsSet(t *testing.T) {
 	set, err := s.IsSet(vc, 4000)
 	require.NoError(t, err)
 	require.True(t, set)
+}
+
+func Test_BitstringStatusList_GetStatusPurpose(t *testing.T) {
+	s := NewBitstringStatusListProcessor()
+
+	t.Run("revocation -> success", func(t *testing.T) {
+		purpose, err := s.GetStatusPurpose(&verifiable.TypedID{
+			CustomFields: map[string]interface{}{
+				StatusPurpose: StatusPurposeRevocation,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, StatusPurposeRevocation, purpose)
+	})
+
+	t.Run("suspension -> success", func(t *testing.T) {
+		purpose, err := s.GetStatusPurpose(&verifiable.TypedID{
+			CustomFields: map[string]interface{}{
+				StatusPurpose: StatusPurposeSuspension,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, StatusPurposeSuspension, purpose)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		purpose, err := s.GetStatusPurpose(&verifiable.TypedID{})
+		require.ErrorContains(t, err, "statusPurpose must be a non-empty string")
+		require.Empty(t, purpose)
+	})
 }
 
 const bitstringCSLVC = `{

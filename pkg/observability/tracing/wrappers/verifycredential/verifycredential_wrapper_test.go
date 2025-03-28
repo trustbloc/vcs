@@ -49,11 +49,11 @@ func TestWrapper_ValidateVCStatus(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().ValidateVCStatus(gomock.Any(), &verifiable.TypedID{}, &verifiable.Issuer{ID: "issuer"}).Times(1)
+	svc.EXPECT().ValidateVCStatus(gomock.Any(), []*verifiable.TypedID{{}}, &verifiable.Issuer{ID: "issuer"}).Times(1)
 
 	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
-	err := w.ValidateVCStatus(context.Background(), &verifiable.TypedID{}, &verifiable.Issuer{ID: "issuer"})
+	err := w.ValidateVCStatus(context.Background(), []*verifiable.TypedID{{}}, &verifiable.Issuer{ID: "issuer"})
 	require.NoError(t, err)
 }
 

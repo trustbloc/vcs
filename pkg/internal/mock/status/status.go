@@ -33,6 +33,7 @@ type MockVCStatusProcessor struct {
 	VCContext             string
 	Set                   bool
 	IsSetErr              error
+	Purpose               string
 }
 
 func (m *MockVCStatusProcessor) ValidateStatus(_ *verifiable.TypedID) error {
@@ -47,7 +48,7 @@ func (m *MockVCStatusProcessor) GetStatusListIndex(_ *verifiable.TypedID) (int, 
 	return m.StatusListIndex, m.GetStatusListIndexErr
 }
 
-func (m *MockVCStatusProcessor) CreateVC(_ string, _ int, _ *vc.Signer) (*verifiable.Credential, error) {
+func (m *MockVCStatusProcessor) CreateVC(string, int, string, *vc.Signer) (*verifiable.Credential, error) {
 	return m.VC, m.CreateVCErr
 }
 
@@ -65,4 +66,8 @@ func (m *MockVCStatusProcessor) UpdateStatus(*verifiable.Credential, bool, ...in
 
 func (m *MockVCStatusProcessor) IsSet(*verifiable.Credential, int) (bool, error) {
 	return m.Set, m.IsSetErr
+}
+
+func (m *MockVCStatusProcessor) GetStatusPurpose(_ *verifiable.TypedID) (string, error) {
+	return m.Purpose, nil
 }

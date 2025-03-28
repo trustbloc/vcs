@@ -1,0 +1,49 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/examples/v2"
+  ],
+  "id": "http://example.edu/credentials/1872",
+  "type": ["VerifiableCredential", "AlumniCredential"],
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University",
+    "image": "data:image/png;base64,iVBOR"
+  },
+  "validFrom": "2010-01-01T19:23:24Z",
+  "credentialStatus": [
+    {
+      "id": "urn:uuid:44118c22-5b7b-4d1f-8818-01ea041648e2",
+      "statusListCredential": "http://vc-rest-echo.trustbloc.local:8075/issuer/groups/f9af5dcf-23d8-490f-b8cb-d8b83afcb91a/credentials/status/5a8f8941-aeb9-4200-ae03-76556745ec41",
+      "statusListIndex": "5341",
+      "statusPurpose": "revocation",
+      "type": "BitstringStatusListEntry"
+    },
+    {
+      "id": "urn:uuid:44118c22-5b7b-4d1f-8818-11ea021648d2",
+      "statusListCredential": "http://vc-rest-echo.trustbloc.local:8075/issuer/groups/f9af5dcf-23d8-490f-b8cb-d8b83afcb91a/credentials/status/5a8f8941-aeb9-4200-ae03-76556745ec43",
+      "statusListIndex": "1337",
+      "statusPurpose": "suspension",
+      "type": "BitstringStatusListEntry"
+    }
+  ],
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "alumniOf": {
+      "id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+      "name": [{
+        "value": "Example University",
+        "lang": "en"
+      }, {
+        "value": "Exemple d'Université",
+        "lang": "fr"
+      }]
+    }
+  },
+  "termsOfUse": {
+    "type": "TrustFrameworkPolicy",
+    "trustFramework": "Employment&Life",
+    "policyId": "https://policy.example/policies/125",
+    "legalBasis": "professional qualifications directive"
+  }
+}

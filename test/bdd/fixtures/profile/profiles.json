@@ -400,7 +400,8 @@
           "format": "jwt",
           "didMethod": "ion",
           "status": {
-            "type": "BitstringStatusListEntry"
+            "type": "BitstringStatusListEntry",
+            "purpose": ["revocation", "suspension"]
           },
           "sdjwt": {
             "enable": false
@@ -759,7 +760,8 @@
           "format": "ldp",
           "didMethod": "ion",
           "status": {
-            "type": "BitstringStatusListEntry"
+            "type": "BitstringStatusListEntry",
+            "statusPurpose": ["revocation", "suspension"]
           },
           "dataIntegrityProof": {
             "enable": true,
@@ -1310,7 +1312,8 @@
           "format": "jwt",
           "didMethod": "ion",
           "status": {
-            "type": "BitstringStatusListEntry"
+            "type": "BitstringStatusListEntry",
+            "statusPurpose": ["revocation", "suspension"]
           }
         },
         "oidcConfig": {
@@ -2610,7 +2613,8 @@
           "format": "ldp",
           "didMethod": "jwk",
           "status": {
-            "type": "BitstringStatusListEntry"
+            "type": "BitstringStatusListEntry",
+            "statusPurpose": ["revocation", "suspension"]
           }
         },
         "oidcConfig": {
@@ -2973,7 +2977,8 @@
           "format": "jwt",
           "didMethod": "ion",
           "status": {
-            "type": "BitstringStatusListEntry"
+            "type": "BitstringStatusListEntry",
+            "statusPurpose": ["revocation"]
           },
           "sdjwt": {
             "enable": true,
@@ -3386,7 +3391,8 @@
           "format": "jwt",
           "didMethod": "ion",
           "status": {
-            "type": "BitstringStatusListEntry"
+            "type": "BitstringStatusListEntry",
+            "statusPurpose": ["revocation", "suspension"]
           },
           "sdjwt": {
             "version": 5,

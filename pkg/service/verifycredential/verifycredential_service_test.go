@@ -10,6 +10,7 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,6 +27,7 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -77,7 +79,7 @@ func TestService_VerifyCredential(t *testing.T) {
 					ID: "",
 					CustomFields: map[string]interface{}{
 						"statusListIndex": "1",
-						"statusPurpose":   "2",
+						"statusPurpose":   statustype.StatusPurposeRevocation,
 						"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 					},
 				}},
@@ -220,7 +222,7 @@ func TestService_VerifyCredential(t *testing.T) {
 						ID: "",
 						CustomFields: map[string]interface{}{
 							"statusListIndex": "1",
-							"statusPurpose":   "2",
+							"statusPurpose":   statustype.StatusPurposeRevocation,
 							"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 						},
 					}},
@@ -263,7 +265,7 @@ func TestService_VerifyCredential(t *testing.T) {
 						ID: "",
 						CustomFields: map[string]interface{}{
 							"statusListIndex": "1",
-							"statusPurpose":   "2",
+							"statusPurpose":   statustype.StatusPurposeRevocation,
 							"encodedList":     "H4sIAAAAAAAA_2ICBAAA__-hjgw8AQAAAA",
 						},
 					}},
@@ -302,7 +304,7 @@ func TestService_checkVCStatus(t *testing.T) {
 		CustomFields: map[string]interface{}{
 			"statusListIndex":      "1",
 			"statusListCredential": "",
-			"statusPurpose":        "2",
+			"statusPurpose":        statustype.StatusPurposeRevocation,
 		},
 	}
 
@@ -311,14 +313,14 @@ func TestService_checkVCStatus(t *testing.T) {
 		getVCStatusProcessorGetter func() vc.StatusProcessorGetter
 	}
 	type args struct {
-		getVcStatus func() *verifiable.TypedID
+		getVcStatus func() []*verifiable.TypedID
 		issuer      *verifiable.Issuer
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		wantErr bool
+		wantErr string
 	}{
 		{
 			name: "OK",
@@ -332,7 +334,7 @@ func TestService_checkVCStatus(t *testing.T) {
 								ID: "",
 								CustomFields: map[string]interface{}{
 									"statusListIndex": "1",
-									"statusPurpose":   "2",
+									"statusPurpose":   statustype.StatusPurposeRevocation,
 									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 								},
 							}},
@@ -355,12 +357,12 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return validVCStatus
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{validVCStatus}
 				},
 				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
-			wantErr: false,
+			wantErr: "",
 		},
 		{
 			name: "VCStatusProcessorGetter error",
@@ -377,11 +379,11 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{}
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{{}}
 				},
 			},
-			wantErr: true,
+			wantErr: "some error",
 		},
 		{
 			name: "ValidateVCStatus error",
@@ -400,11 +402,11 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{}
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{{}}
 				},
 			},
-			wantErr: true,
+			wantErr: "some error",
 		},
 		{
 			name: "statusListIndex invalid value error",
@@ -423,12 +425,12 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{}
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{{}}
 				},
 				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
-			wantErr: true,
+			wantErr: "some error",
 		},
 		{
 			name: "GetStatusVCURI error",
@@ -447,12 +449,12 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{}
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{{}}
 				},
 				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
-			wantErr: true,
+			wantErr: "some error",
 		},
 		{
 			name: "GetStatusListVC error",
@@ -472,12 +474,12 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return validVCStatus
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{validVCStatus}
 				},
 				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
-			wantErr: true,
+			wantErr: "some error",
 		},
 		{
 			name: "revocationListVC invalid issuer error",
@@ -504,12 +506,12 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return validVCStatus
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{validVCStatus}
 				},
 				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
-			wantErr: true,
+			wantErr: "issuer of the credential do not match status list vc issuer",
 		},
 		{
 			name: "revocationListVC bitString.Get() error",
@@ -522,7 +524,7 @@ func TestService_checkVCStatus(t *testing.T) {
 								ID: "",
 								CustomFields: map[string]interface{}{
 									"statusListIndex": "1",
-									"statusPurpose":   "2",
+									"statusPurpose":   statustype.StatusPurposeRevocation,
 									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
 								},
 							}},
@@ -545,20 +547,108 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 			},
 			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{{
 						ID:   "https://issuer-vcs.sandbox.trustbloc.dev/vc-issuer-test-2/status/1#0",
 						Type: "StatusList2021Entry",
 						CustomFields: map[string]interface{}{
 							"statusListIndex":      "-1",
 							"statusListCredential": "",
-							"statusPurpose":        "2",
+							"statusPurpose":        statustype.StatusPurposeRevocation,
 						},
-					}
+					}}
 				},
 				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
 			},
-			wantErr: true,
+			wantErr: "failed to check if bit is set: injected error",
+		},
+		{
+			name: "revoked error",
+			fields: fields{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(),
+						"https://example.com/status/1").AnyTimes().Return(
+						createVC(t, verifiable.CredentialContents{
+							Subject: []verifiable.Subject{{
+								ID: "",
+								CustomFields: map[string]interface{}{
+									"statusListIndex": "1",
+									"statusPurpose":   statustype.StatusPurposeRevocation,
+									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+								},
+							}},
+							Issuer: &verifiable.Issuer{
+								ID: "did:trustblock:abc",
+							},
+						}), nil)
+
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							StatusVCURI:     "https://example.com/status/1",
+							StatusListIndex: 1,
+							Set:             true,
+							Purpose:         statustype.StatusPurposeRevocation,
+						},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
+				},
+			},
+			args: args{
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{validVCStatus}
+				},
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
+			},
+			wantErr: "revoked",
+		},
+		{
+			name: "suspended error",
+			fields: fields{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(),
+						"https://example.com/status/1").AnyTimes().Return(
+						createVC(t, verifiable.CredentialContents{
+							Subject: []verifiable.Subject{{
+								ID: "",
+								CustomFields: map[string]interface{}{
+									"statusListIndex": "1",
+									"statusPurpose":   statustype.StatusPurposeSuspension,
+									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+								},
+							}},
+							Issuer: &verifiable.Issuer{
+								ID: "did:trustblock:abc",
+							},
+						}), nil)
+
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							StatusVCURI:     "https://example.com/status/1",
+							StatusListIndex: 1,
+							Set:             true,
+							Purpose:         statustype.StatusPurposeSuspension,
+						},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
+				},
+			},
+			args: args{
+				getVcStatus: func() []*verifiable.TypedID {
+					return []*verifiable.TypedID{validVCStatus}
+				},
+				issuer: &verifiable.Issuer{ID: "did:trustblock:abc"},
+			},
+			wantErr: "suspended",
 		},
 	}
 
@@ -569,8 +659,21 @@ func TestService_checkVCStatus(t *testing.T) {
 				statusListVCURIResolver: tt.fields.getStatusListVCGetter(),
 			}
 			err := s.ValidateVCStatus(context.Background(), tt.args.getVcStatus(), tt.args.issuer)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
+			if err == nil && tt.wantErr != "" {
+				t.Errorf("ValidateVCStatus() got no error but expected '%s'", tt.wantErr)
+
+				return
+			}
+
+			if err != nil && tt.wantErr == "" {
+				t.Errorf("ValidateVCStatus() expected no error but got %s", err)
+
+				return
+			}
+
+			if err != nil && !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("ValidateVCStatus() expected error '%s' but got '%s'", tt.wantErr, err)
+
 				return
 			}
 		})

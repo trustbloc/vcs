@@ -115,8 +115,9 @@ type CredentialResponseEncryptionSupported struct {
 
 // CredentialStatus Credential status.
 type CredentialStatus struct {
-	Status string `json:"status"`
-	Type   string `json:"type"`
+	Purpose *string `json:"purpose,omitempty"`
+	Status  string  `json:"status"`
+	Type    string  `json:"type"`
 }
 
 // CredentialStatusOpt Options for issuing credential.

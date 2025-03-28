@@ -61,7 +61,14 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to activate credential: "([^"]*)"$`, e.activateVCWithError)
 	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile$`, e.revokeVC)
 	s.Step(`^V1 verifiable credential is successfully activated under "([^"]*)" profile$`, e.activateVC)
-	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile$`, e.verifyRevokedVC)
+	s.Step(`^V1 revoked credential is unable to be verified under "([^"]*)" profile$`, e.verifyVCRevoked)
+
+	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to suspend credential: "([^"]*)"$`, e.suspendVCWithError)
+	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to unsuspend credential: "([^"]*)"$`, e.unsuspendVCWithError)
+	s.Step(`^V1 verifiable credential is successfully suspended under "([^"]*)" profile$`, e.suspendVC)
+	s.Step(`^V1 verifiable credential is successfully unsuspended under "([^"]*)" profile$`, e.unsuspendVC)
+	s.Step(`^V1 suspended credential is unable to be verified under "([^"]*)" profile$`, e.verifyVCSuspended)
+
 	s.Step(`^V1 verifiable credential is unable to be verified under "([^"]*)" profile error: "([^"]*)"$`, e.verifyVCWithExpectedError)
 	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" using "([^"]*)" concurrent requests$`, e.stressTestForMultipleUsers)
 

@@ -62,7 +62,7 @@ func (w *Wrapper) ValidateCredentialProof(ctx context.Context,
 	return w.svc.ValidateCredentialProof(ctx, vc, proofChallenge, proofDomain, vcInVPValidation, strictValidation)
 }
 
-func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error {
+func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus []*verifiable.TypedID, issuer *verifiable.Issuer) error {
 	ctx, span := w.tracer.Start(ctx, "verifycredential.ValidateCredentialProof")
 	defer span.End()
 

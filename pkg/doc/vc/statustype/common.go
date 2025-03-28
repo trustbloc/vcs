@@ -24,6 +24,7 @@ const (
 	StatusPurposeRevocation = "revocation"
 	StatusPurposeSuspension = "suspension"
 	StatusPurposeMessage    = "statusMessage"
+	DefaultStatusPurpose    = StatusPurposeRevocation
 
 	StatusMessage   = "statusMessage"
 	StatusSize      = "statusSize"

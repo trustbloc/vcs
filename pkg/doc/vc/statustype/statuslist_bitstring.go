@@ -139,13 +139,15 @@ func (s *BitstringStatusListProcessor) ValidateStatus(vcStatus *verifiable.Typed
 }
 
 // CreateVCStatus creates verifiable.TypedID.
-func (s *BitstringStatusListProcessor) CreateVCStatus(index, vcID, purpose string,
-	additionalFields ...vcapi.Field) *verifiable.TypedID {
+func (s *BitstringStatusListProcessor) CreateVCStatus(
+	index, vcID, statusPurpose string,
+	additionalFields ...vcapi.Field,
+) *verifiable.TypedID {
 	vcStatus := &verifiable.TypedID{
 		ID:   uuid.New().URN(),
 		Type: StatusListBitstringEntryType,
 		CustomFields: verifiable.CustomFields{
-			StatusPurpose:        purpose,
+			StatusPurpose:        statusPurpose,
 			StatusListIndex:      index,
 			StatusListCredential: vcID,
 		},
@@ -174,8 +176,18 @@ func (s *BitstringStatusListProcessor) GetVCContext() string {
 }
 
 // CreateVC returns *verifiable.Credential appropriate for BitStringStatusList.
-func (s *BitstringStatusListProcessor) CreateVC(vcID string, listSize int,
-	profile *vcapi.Signer) (*verifiable.Credential, error) {
+func (s *BitstringStatusListProcessor) CreateVC(
+	vcID string,
+	listSize int,
+	statusPurpose string,
+	profile *vcapi.Signer,
+) (*verifiable.Credential, error) {
+	if statusPurpose != StatusPurposeRevocation &&
+		statusPurpose != StatusPurposeSuspension &&
+		statusPurpose != StatusPurposeMessage {
+		return nil, fmt.Errorf("unsupported statusPurpose: %s", statusPurpose)
+	}
+
 	vcc := verifiable.CredentialContents{}
 
 	vcc.Context = vcutil.AppendSignatureTypeContext([]string{verifiable.V2ContextURI}, profile.SignatureType)
@@ -198,11 +210,21 @@ func (s *BitstringStatusListProcessor) CreateVC(vcID string, listSize int,
 	vcc.Subject = toVerifiableSubject(credentialSubject{
 		ID:            vcc.ID + "#list",
 		Type:          StatusListBitstringVCSubjectType,
-		StatusPurpose: StatusPurposeRevocation,
+		StatusPurpose: statusPurpose,
 		EncodedList:   encodeBits,
 	})
 
 	return verifiable.CreateCredential(vcc, nil)
+}
+
+// GetStatusPurpose returns the purpose of the status list.
+func (s *BitstringStatusListProcessor) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, error) {
+	statusPurpose, ok := vcStatus.CustomFields[StatusPurpose].(string)
+	if !ok {
+		return "", fmt.Errorf("%s must be a non-empty string", StatusPurpose)
+	}
+
+	return statusPurpose, nil
 }
 
 func validateStatusMessage(fields *statusFields) error {

@@ -46,7 +46,7 @@ type ServiceInterface interface {
 		strictValidation bool,
 	) error
 
-	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
+	ValidateVCStatus(ctx context.Context, vcStatus []*verifiable.TypedID, issuer *verifiable.Issuer) error
 
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }

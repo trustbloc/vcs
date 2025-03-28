@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"io"
 	"net/http"
 	"os"
@@ -464,24 +465,36 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 
 	perfInfo["_attestation"] = attestationTook
 
-	if !c.disableRevokeTestCase && credential.Contents().Status != nil && credential.Contents().Status.Type != "" {
-		st := time.Now()
-		if err = c.revokeVC(credential); err != nil {
-			return credID, nil, fmt.Errorf("cred id [%v]; can not revokeVc; %w", credID, err)
-		}
+	if !c.disableRevokeTestCase {
+		for _, status := range credential.Contents().Status {
+			statusPurpose, ok := status.CustomFields[statustype.StatusPurpose]
+			if !ok {
+				continue
+			}
 
-		perfInfo["_vp_revoke_credentials"] = time.Since(st)
+			if status.Type != "" || statusPurpose != statustype.StatusPurposeRevocation {
+				continue
+			}
+
+			st := time.Now()
+			if err = c.revokeVC(credential.Contents().ID, status); err != nil {
+				return credID, nil, fmt.Errorf("cred id [%v]; can not revokeVc; %w", credID, err)
+			}
+
+			perfInfo["_vp_revoke_credentials"] = time.Since(st)
+		}
 	}
 
 	return credID, perfInfo, nil
 }
 
-func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
+func (c *TestCase) revokeVC(credentialID string, status *verifiable.TypedID) error {
 	req := &model.UpdateCredentialStatusRequest{
-		CredentialID: cred.Contents().ID,
+		CredentialID: credentialID,
 		CredentialStatus: model.CredentialStatus{
-			Status: "true",
-			Type:   cred.Contents().Status.Type,
+			Status:  "true",
+			Type:    status.Type,
+			Purpose: status.CustomFields[statustype.StatusPurpose].(string),
 		},
 		ProfileID:      c.issuerProfileID,
 		ProfileVersion: c.issuerProfileVersion,

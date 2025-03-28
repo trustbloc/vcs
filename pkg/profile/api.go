@@ -202,6 +202,7 @@ type VCConfig struct {
 type StatusConfig struct {
 	Type    vc.StatusType `json:"type"`
 	Disable bool          `json:"disable"`
+	Purpose []string      `json:"statusPurpose,omitempty"`
 }
 
 // Verifier profile.

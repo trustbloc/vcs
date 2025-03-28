@@ -21,6 +21,8 @@ import (
 var (
 	//go:embed contexts/credentials-examples_v1.jsonld
 	credentialExamples []byte
+	//go:embed contexts/credentials-examples_v2.jsonld
+	credentialExamplesV2 []byte
 	//go:embed contexts/examples_v1.jsonld
 	vcExamples []byte
 	//go:embed contexts/odrl.jsonld
@@ -56,28 +58,32 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *document
 	}
 
 	testContexts := []ldcontext.Document{
-		ldcontext.Document{
+		{
 			URL:     "https://www.w3.org/2018/credentials/examples/v1",
 			Content: credentialExamples,
 		},
-		ldcontext.Document{
+		{
+			URL:     "https://www.w3.org/ns/credentials/examples/v2",
+			Content: credentialExamplesV2,
+		},
+		{
 			URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 			Content: vcExamples,
 		},
-		ldcontext.Document{
+		{
 			URL:     "https://www.w3.org/ns/odrl.jsonld",
 			Content: odrl,
 		},
-		ldcontext.Document{
+		{
 			URL:         "https://w3id.org/citizenship/v1",
 			DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
 			Content:     citizenship,
 		},
-		ldcontext.Document{
+		{
 			URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 			Content: jws2020,
 		},
-		ldcontext.Document{
+		{
 			URL:     "https://w3id.org/vc-status-list-2021/v1",
 			Content: vcStatusList2021,
 		},

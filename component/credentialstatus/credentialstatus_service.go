@@ -64,7 +64,7 @@ type vcCrypto interface {
 }
 
 type vcStatusStore interface {
-	Get(ctx context.Context, profileID, profileVersion, vcID string) (*verifiable.TypedID, error)
+	Get(ctx context.Context, profileID, profileVersion, vcID string, statusPurpose string) (*verifiable.TypedID, error)
 }
 
 type profileService interface {
@@ -84,6 +84,7 @@ type cslManager interface {
 		ctx context.Context,
 		profile *profileapi.Issuer,
 		credentialID string,
+		statusPurpose string,
 	) (*credentialstatus.StatusListEntry, error)
 }
 
@@ -158,10 +159,17 @@ func New(config *Config) (*Service, error) {
 // UpdateVCStatus fetches credential based on UpdateVCStatusParams.CredentialID
 // and updates associated credentialstatus.CSL to UpdateVCStatusParams.DesiredStatus.
 func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.UpdateVCStatusParams) error {
+	statusPurpose := params.StatusPurpose
+	if statusPurpose == "" {
+		statusPurpose = statustype.DefaultStatusPurpose
+	}
+
 	logger.Debugc(ctx, "UpdateVCStatus begin",
 		logfields.WithProfileID(params.ProfileID),
 		logfields.WithProfileVersion(params.ProfileVersion),
-		logfields.WithCredentialID(params.CredentialID))
+		logfields.WithCredentialID(params.CredentialID),
+		logfields.WithStatusPurpose(statusPurpose),
+	)
 
 	statusValue, err := strconv.ParseBool(params.DesiredStatus)
 	if err != nil {
@@ -187,7 +195,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 				))
 	}
 
-	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, profile.Version, params.CredentialID)
+	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, profile.Version, params.CredentialID, statusPurpose)
 	if err != nil {
 		return oidc4cierr.NewBadRequestError(err).WithErrorPrefix("vcStatusStore.Get")
 	}
@@ -222,18 +230,20 @@ func (s *Service) CreateStatusListEntry(
 	profileID profileapi.ID,
 	profileVersion profileapi.Version,
 	credentialID string,
+	statusPurpose string,
 ) (*credentialstatus.StatusListEntry, error) {
 	logger.Debugc(ctx, "CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
 		logfields.WithProfileVersion(profileVersion),
-		logfields.WithCredentialID(credentialID))
+		logfields.WithCredentialID(credentialID),
+		logfields.WithStatusPurpose(statusPurpose))
 
 	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
-	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialID)
+	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialID, statusPurpose)
 	if err != nil {
 		return nil, fmt.Errorf("create CSL entry: %w", err)
 	}

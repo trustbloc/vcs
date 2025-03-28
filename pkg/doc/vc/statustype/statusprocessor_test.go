@@ -54,7 +54,7 @@ func TestGetVCStatusProcessor_UnsupportedVCStatusListType(t *testing.T) {
 
 func TestStatusListProcessor(t *testing.T) {
 	s := NewBitstringStatusListProcessor()
-	vc, err := s.CreateVC("vcID1", 10, &vcapi.Signer{
+	vc, err := s.CreateVC("vcID1", 10, StatusPurposeRevocation, &vcapi.Signer{
 		DID:           "did:example:123",
 		SignatureType: vcsverifiable.Ed25519Signature2018,
 	})

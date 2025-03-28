@@ -66,6 +66,8 @@ type UpdateVCStatusParams struct {
 	DesiredStatus string
 	// vc.StatusType of verifiable.Credential referenced by CredentialID.
 	StatusType vc.StatusType
+	// StatusPurpose specifies the purpose of the status update, e.g. "revocation", "suspension".
+	StatusPurpose string
 }
 
 type StatusListEntry struct {
@@ -79,6 +81,7 @@ type ServiceInterface interface {
 		profileID profileapi.ID,
 		profileVersion profileapi.Version,
 		credentialID string,
+		statusPurpose string,
 	) (*StatusListEntry, error)
 	StoreIssuedCredentialMetadata(
 		ctx context.Context,

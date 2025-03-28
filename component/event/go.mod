@@ -84,7 +84,7 @@ require (
 	github.com/trustbloc/bbs-signature-go v1.0.2 // indirect
 	github.com/trustbloc/did-go v1.3.3 // indirect
 	github.com/trustbloc/kms-go v1.2.1 // indirect
-	github.com/trustbloc/vc-go v1.3.2 // indirect
+	github.com/trustbloc/vc-go v1.3.3-0.20250331132449-489141ce7df5 // indirect
 	github.com/veraison/go-cose v1.3.0-rc.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

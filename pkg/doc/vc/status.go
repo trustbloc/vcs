@@ -47,11 +47,12 @@ type StatusProcessor interface {
 	ValidateStatus(vcStatus *verifiable.TypedID) error
 	GetStatusVCURI(vcStatus *verifiable.TypedID) (string, error)
 	GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error)
-	CreateVC(vcID string, listSize int, profile *Signer) (*verifiable.Credential, error)
-	CreateVCStatus(index, vcID, purpose string, additionalFields ...Field) *verifiable.TypedID
+	CreateVC(vcID string, listSize int, statusPurpose string, profile *Signer) (*verifiable.Credential, error)
+	CreateVCStatus(index, vcID, statusPurpose string, additionalFields ...Field) *verifiable.TypedID
 	GetVCContext() string
 	UpdateStatus(vc *verifiable.Credential, status bool, indexes ...int) (*verifiable.Credential, error)
 	IsSet(vc *verifiable.Credential, index int) (bool, error)
+	GetStatusPurpose(vcStatus *verifiable.TypedID) (string, error)
 }
 
 type StatusProcessorGetter func(vcStatusListType StatusType) (StatusProcessor, error)

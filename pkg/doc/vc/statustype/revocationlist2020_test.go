@@ -94,10 +94,20 @@ func Test_revocationList2020Processor_ValidateStatus(t *testing.T) {
 
 func Test_revocationList2020Processor_CreateVC(t *testing.T) {
 	s := NewRevocationList2020Processor()
-	vc, err := s.CreateVC("vcID1", 10, &vcapi.Signer{
+
+	vc, err := s.CreateVC("vcID1", 10, StatusPurposeSuspension, &vcapi.Signer{
 		DID:           "did:example:123",
 		SignatureType: vcsverifiable.JSONWebSignature2020,
 	})
+	require.ErrorContains(t, err, "unsupported statusPurpose: suspension")
+	require.Nil(t, vc)
+
+	vc, err = s.CreateVC("vcID1", 10, StatusPurposeRevocation, &vcapi.Signer{
+		DID:           "did:example:123",
+		SignatureType: vcsverifiable.JSONWebSignature2020,
+	})
+	require.NoError(t, err)
+
 	vcc := vc.Contents()
 
 	require.NoError(t, err)
@@ -171,4 +181,11 @@ func Test_revocationList2020Processor_GetStatusVCURI(t *testing.T) {
 func Test_revocationList2020Processor_GetVCContext(t *testing.T) {
 	s := NewRevocationList2020Processor()
 	require.Equal(t, "https://w3id.org/vc-revocation-list-2020/v1", s.GetVCContext())
+}
+
+func TestRevocationList2020Processor_GetStatusPurpose(t *testing.T) {
+	s := NewRevocationList2020Processor()
+	purpose, err := s.GetStatusPurpose(&verifiable.TypedID{})
+	require.NoError(t, err)
+	require.Equal(t, StatusPurposeRevocation, purpose)
 }
