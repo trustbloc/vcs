@@ -59,7 +59,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil)
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil).AnyTimes()
 		ctx := context.Background()
 
 		cslIndexStore := newMockCSLIndexStore()
@@ -70,8 +70,13 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 			Put(gomock.Any(), testProfileID, testProfileVersion, credID, gomock.Any()).
 			Times(5).Return(nil)
 
-		listID, err := cslIndexStore.GetLatestListID(context.Background())
+		listIDRevocation, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
+
+		listIDSuspension, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeSuspension)
+		require.NoError(t, err)
+
+		require.NotEqual(t, listIDRevocation, listIDSuspension)
 
 		s, err := New(&Config{
 			CSLIndexStore: cslIndexStore,
@@ -85,36 +90,36 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, listID, testProfile)
+		validateVCStatus(t, cslVCStore, statusID, listIDRevocation, statustype.StatusPurposeRevocation, testProfile)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, listID, testProfile)
+		validateVCStatus(t, cslVCStore, statusID, listIDRevocation, statustype.StatusPurposeRevocation, testProfile)
 
 		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
+		updatedListID, err := cslIndexStore.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		require.NotEqual(t, updatedListID, listID)
+		require.NotEqual(t, updatedListID, listIDRevocation)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
+		validateVCStatus(t, cslVCStore, statusID, updatedListID, statustype.StatusPurposeRevocation, testProfile)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
+		validateVCStatus(t, cslVCStore, statusID, updatedListID, statustype.StatusPurposeRevocation, testProfile)
 
 		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
+		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
-		require.NotEqual(t, listID, updatedListIDSecond)
+		require.NotEqual(t, listIDRevocation, updatedListIDSecond)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateVCStatus(t, cslVCStore, statusID, updatedListIDSecond, testProfile)
+		validateVCStatus(t, cslVCStore, statusID, updatedListIDSecond, statustype.StatusPurposeRevocation, testProfile)
 	})
 
 	t.Run("BitsringStatusList -> success", func(t *testing.T) {
@@ -126,7 +131,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		mockKMSRegistry := NewMockKMSRegistry(ctrl)
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil)
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&vcskms.MockKMS{}, nil).AnyTimes()
 		ctx := context.Background()
 
 		cslIndexStore := newMockCSLIndexStore()
@@ -135,9 +140,12 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		mockVCStatusStore := NewMockVCStatusStore(ctrl)
 		mockVCStatusStore.EXPECT().
 			Put(gomock.Any(), testProfileID, testProfileVersion, credID, gomock.Any()).
-			Times(5).Return(nil)
+			Times(6).Return(nil)
 
-		listID, err := cslIndexStore.GetLatestListID(context.Background())
+		listIDRevocation, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeRevocation)
+		require.NoError(t, err)
+
+		listIDSuspension, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeSuspension)
 		require.NoError(t, err)
 
 		s, err := New(&Config{
@@ -152,36 +160,40 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err := s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeSuspension)
 		require.NoError(t, err)
-		validateBitstringVCStatus(t, cslVCStore, statusID, listID, testProfile)
+		validateBitstringVCStatus(t, cslVCStore, statusID, listIDSuspension, statustype.StatusPurposeSuspension, testProfile)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateBitstringVCStatus(t, cslVCStore, statusID, listID, testProfile)
+		validateBitstringVCStatus(t, cslVCStore, statusID, listIDRevocation, statustype.StatusPurposeRevocation, testProfile)
+
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
+		require.NoError(t, err)
+		validateBitstringVCStatus(t, cslVCStore, statusID, listIDRevocation, statustype.StatusPurposeRevocation, testProfile)
 
 		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
+		updatedListID, err := cslIndexStore.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		require.NotEqual(t, updatedListID, listID)
+		require.NotEqual(t, updatedListID, listIDRevocation)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
+		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListID, statustype.StatusPurposeRevocation, testProfile)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListID, testProfile)
+		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListID, statustype.StatusPurposeRevocation, testProfile)
 
 		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
+		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
-		require.NotEqual(t, listID, updatedListIDSecond)
+		require.NotEqual(t, listIDRevocation, updatedListIDSecond)
 
-		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID)
+		statusID, err = s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
-		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListIDSecond, testProfile)
+		validateBitstringVCStatus(t, cslVCStore, statusID, updatedListIDSecond, statustype.StatusPurposeRevocation, testProfile)
 	})
 
 	t.Run("test error get key manager", func(t *testing.T) {
@@ -206,7 +218,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get KMS")
@@ -223,7 +235,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		cslIndexStore := newMockCSLIndexStore()
 		cslVCStore := newMockCSLVCStore()
 
-		_, err := cslIndexStore.GetLatestListID(context.Background())
+		_, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 
 		s, err := New(&Config{
@@ -239,7 +251,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), profile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), profile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "unsupported VCStatusListType")
@@ -264,7 +276,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -290,7 +302,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -312,7 +324,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), profile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), profile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(),
@@ -328,7 +340,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 
 		cslIndexStore := newMockCSLIndexStore()
 
-		_, err := cslIndexStore.GetLatestListID(context.Background())
+		_, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 
 		s, err := New(&Config{
@@ -346,7 +358,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(ctx, testProfile, credID)
+		status, err := s.CreateCSLEntry(ctx, testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get CSL Index Wrapper from store(s): failed to store VC: some error")
@@ -369,7 +381,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
@@ -386,13 +398,13 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		statusProcessor, err := statustype.GetVCStatusProcessor(vc.BitstringStatusList)
 		require.NoError(t, err)
 
-		listID, err := cslIndexStore.GetLatestListID(context.Background())
+		listID, err := cslIndexStore.GetLatestListID(context.Background(), statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 
 		cslURL, err := cslVCStore.GetCSLURL("https://localhost:8080", profile.GroupID, listID)
 		require.NoError(t, err)
 
-		csl, err := statusProcessor.CreateVC(cslURL, 2, &vc.Signer{DID: profile.SigningDID.DID})
+		csl, err := statusProcessor.CreateVC(cslURL, 2, statustype.StatusPurposeRevocation, &vc.Signer{DID: profile.SigningDID.DID})
 		require.NoError(t, err)
 
 		cslBytes, err := csl.MarshalJSON()
@@ -418,7 +430,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), profile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), profile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
@@ -444,7 +456,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store CSL Index Wrapper: some error")
@@ -470,7 +482,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store new list ID: some error")
@@ -501,7 +513,7 @@ func TestCredentialStatusList_CreateCSLEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID)
+		status, err := s.CreateCSLEntry(context.Background(), testProfile, credID, statustype.StatusPurposeRevocation)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store credential status")
@@ -535,13 +547,13 @@ type mockCSLIndexStore struct {
 	getLatestListIDErr    error
 	createLatestListIDErr error
 	updateLatestListIDErr error
-	latestListID          credentialstatus.ListID
+	latestListID          map[string]credentialstatus.ListID
 	s                     map[string]*credentialstatus.CSLIndexWrapper
 }
 
 func newMockCSLIndexStore(opts ...func(*mockCSLIndexStore)) *mockCSLIndexStore {
 	s := &mockCSLIndexStore{
-		latestListID: "",
+		latestListID: make(map[string]credentialstatus.ListID),
 		s:            map[string]*credentialstatus.CSLIndexWrapper{},
 	}
 	for _, f := range opts {
@@ -573,36 +585,39 @@ func (m *mockCSLIndexStore) Get(_ context.Context, cslURL string) (*credentialst
 
 	return w, nil
 }
-func (m *mockCSLIndexStore) createLatestListID() error {
+func (m *mockCSLIndexStore) createLatestListID(statusPurpose string) error {
 	if m.createLatestListIDErr != nil {
 		return m.createLatestListIDErr
 	}
 
-	m.latestListID = credentialstatus.ListID(uuid.NewString())
+	m.latestListID[statusPurpose] = credentialstatus.ListID(uuid.NewString())
 
 	return nil
 }
 
-func (m *mockCSLIndexStore) UpdateLatestListID(_ context.Context, _ credentialstatus.ListID) error {
+func (m *mockCSLIndexStore) UpdateLatestListID(ctx context.Context, id credentialstatus.ListID, statusPurpose string) error {
 	if m.updateLatestListIDErr != nil {
 		return m.updateLatestListIDErr
 	}
-	return m.createLatestListID()
+	return m.createLatestListID(statusPurpose)
 }
 
-func (m *mockCSLIndexStore) GetLatestListID(_ context.Context) (credentialstatus.ListID, error) {
+func (m *mockCSLIndexStore) GetLatestListID(ctx context.Context, statusPurpose string) (credentialstatus.ListID, error) {
 	if m.getLatestListIDErr != nil {
 		return "", m.getLatestListIDErr
 	}
 
-	if m.latestListID == "" {
-		err := m.createLatestListID()
+	listID, ok := m.latestListID[statusPurpose]
+	if !ok {
+		err := m.createLatestListID(statusPurpose)
 		if err != nil {
 			return "", err
 		}
+
+		listID = m.latestListID[statusPurpose]
 	}
 
-	return m.latestListID, nil
+	return listID, nil
 }
 
 type mockCSLVCStore struct {
@@ -795,11 +810,11 @@ func createDIDDoc() *did.Doc {
 }
 
 func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *credentialstatus.StatusListEntry,
-	expectedListID credentialstatus.ListID, profile *profileapi.Issuer) {
+	expectedListID credentialstatus.ListID, expectedStatusPurpose string, profile *profileapi.Issuer) {
 	t.Helper()
 
 	require.Equal(t, string(profile.VCConfig.Status.Type), statusID.TypedID.Type)
-	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose])
+	require.Equal(t, expectedStatusPurpose, statusID.TypedID.CustomFields[statustype.StatusPurpose])
 
 	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
 	require.True(t, ok)
@@ -831,7 +846,7 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 
 	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
 	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"])
-	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose])
+	require.Equal(t, expectedStatusPurpose, credSubject[0].CustomFields[statustype.StatusPurpose])
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"])
 	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	require.NoError(t, err)
@@ -844,11 +859,11 @@ func validateVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *creden
 }
 
 func validateBitstringVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusID *credentialstatus.StatusListEntry,
-	expectedListID credentialstatus.ListID, profile *profileapi.Issuer) {
+	expectedListID credentialstatus.ListID, expectedStatusPurpose string, profile *profileapi.Issuer) {
 	t.Helper()
 
 	require.Equal(t, string(vc.BitstringStatusList), statusID.TypedID.Type)
-	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose])
+	require.Equal(t, expectedStatusPurpose, statusID.TypedID.CustomFields[statustype.StatusPurpose])
 
 	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
 	require.True(t, ok)
@@ -879,7 +894,7 @@ func validateBitstringVCStatus(t *testing.T, cslVCStore *mockCSLVCStore, statusI
 
 	require.Equal(t, existingStatusListVCID+"#list", credSubject[0].ID)
 	require.Equal(t, statustype.StatusListBitstringVCSubjectType, credSubject[0].CustomFields["type"])
-	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose])
+	require.Equal(t, expectedStatusPurpose, credSubject[0].CustomFields[statustype.StatusPurpose])
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"])
 	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string), //nolint:errcheck
 		bitstring.WithMultibaseEncoding(multibase.Base64url))

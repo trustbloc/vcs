@@ -8,15 +8,24 @@ package vcstatusstore
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/internal"
 )
+
+var logger = log.New("bv-status-store")
+
+// ErrNotFound is returned when the requested record is not found.
+var ErrNotFound = errors.New("not found")
 
 const (
 	vcStatusStoreName              = "credentialsstatus"
@@ -38,12 +47,12 @@ type getTypedIDEntity struct {
 
 // Store manages verifiable.TypedID in MongoDB.
 type Store struct {
-	mongoClient *mongodb.Client
+	mongoCollection *mongo.Collection
 }
 
 // NewStore creates Store.
 func NewStore(mongoClient *mongodb.Client) *Store {
-	return &Store{mongoClient: mongoClient}
+	return &Store{mongoCollection: mongoClient.Database().Collection(vcStatusStoreName)}
 }
 
 func (p *Store) Put(
@@ -64,7 +73,7 @@ func (p *Store) Put(
 		return err
 	}
 
-	_, err = p.mongoClient.Database().Collection(vcStatusStoreName).InsertOne(ctx, mongoDBDocument)
+	_, err = p.mongoCollection.InsertOne(ctx, mongoDBDocument)
 	if err != nil {
 		return fmt.Errorf("insert typedID: %w", err)
 	}
@@ -77,21 +86,57 @@ func (p *Store) Get(
 	profileID string,
 	profileVersion string,
 	credentialID string,
+	statusPurpose string,
 ) (*verifiable.TypedID, error) {
-	decodeBytes, err := p.mongoClient.Database().Collection(vcStatusStoreName).FindOne(ctx, bson.D{
+	cursor, err := p.mongoCollection.Find(ctx, bson.D{
 		{Key: credentialIDFieldName, Value: credentialID},
 		{Key: profileIDMongoDBFieldName, Value: profileID},
 		{Key: profileVersionMongoDBFieldName, Value: profileVersion},
-	}).Raw()
+	})
 	if err != nil {
-		return nil, fmt.Errorf("find and decode MongoDB: %w", err)
+		return nil, fmt.Errorf("mongodb find failed: %w", err)
 	}
 
-	var entity getTypedIDEntity
-	err = json.Unmarshal([]byte(decodeBytes.String()), &entity)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode mongoDBDocument: %w", err)
+	defer func() {
+		if e := cursor.Close(ctx); e != nil {
+			logger.Warnc(ctx, "Error closing MongoDB cursor", log.WithError(e))
+		}
+	}()
+
+	var docs []*getTypedIDEntity
+
+	if err = cursor.All(ctx, &docs); err != nil {
+		return nil, fmt.Errorf("cursor get all: %w", err)
 	}
 
-	return entity.TypedID, nil
+	for _, doc := range docs {
+		matches, err := matchesStatusPurpose(doc.TypedID, statusPurpose)
+		if err != nil {
+			return nil, err
+		}
+
+		if matches {
+			return doc.TypedID, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no documents in result: %w", ErrNotFound)
+}
+
+func matchesStatusPurpose(status *verifiable.TypedID, statusPurpose string) (bool, error) {
+	if statusPurpose == "" {
+		// Assume it's the default (revocation) status for backward compatibility
+		statusPurpose = statustype.DefaultStatusPurpose
+	}
+
+	switch vc.StatusType(status.Type) {
+	case vc.StatusList2021VCStatus, vc.BitstringStatusList:
+		return status.CustomFields[statustype.StatusPurpose] == statusPurpose, nil
+
+	case vc.RevocationList2020VCStatus, vc.RevocationList2021VCStatus:
+		return statusPurpose == statustype.StatusPurposeRevocation, nil
+
+	default:
+		return false, fmt.Errorf("unsupported status type: %s", status.Type)
+	}
 }

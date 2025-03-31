@@ -91,21 +91,28 @@ func (s *statusList2021Processor) ValidateStatus(vcStatus *verifiable.TypedID) e
 		return fmt.Errorf("%s field not exist in vc status", StatusListCredential)
 	}
 
-	if vcStatus.CustomFields[StatusPurpose] == nil {
+	statusPurpose, ok := vcStatus.CustomFields[StatusPurpose].(string)
+	if !ok {
 		return fmt.Errorf("%s field not exist in vc status", StatusPurpose)
+	}
+
+	if statusPurpose != StatusPurposeRevocation && statusPurpose != StatusPurposeSuspension {
+		return fmt.Errorf("unsupported statusPurpose: %s", statusPurpose)
 	}
 
 	return nil
 }
 
 // CreateVCStatus creates verifiable.TypedID.
-func (s *statusList2021Processor) CreateVCStatus(index, vcID, purpose string,
-	_ ...vcapi.Field) *verifiable.TypedID {
+func (s *statusList2021Processor) CreateVCStatus(
+	index, vcID, statusPurpose string,
+	_ ...vcapi.Field,
+) *verifiable.TypedID {
 	return &verifiable.TypedID{
 		ID:   uuid.New().URN(),
 		Type: string(vcapi.StatusList2021VCStatus),
 		CustomFields: verifiable.CustomFields{
-			StatusPurpose:        purpose,
+			StatusPurpose:        statusPurpose,
 			StatusListIndex:      index,
 			StatusListCredential: vcID,
 		},
@@ -118,8 +125,16 @@ func (s *statusList2021Processor) GetVCContext() string {
 }
 
 // CreateVC returns *verifiable.Credential appropriate for StatusList2021.
-func (s *statusList2021Processor) CreateVC(vcID string, listSize int,
-	profile *vcapi.Signer) (*verifiable.Credential, error) {
+func (s *statusList2021Processor) CreateVC(
+	vcID string,
+	listSize int,
+	statusPurpose string,
+	profile *vcapi.Signer,
+) (*verifiable.Credential, error) {
+	if statusPurpose != StatusPurposeRevocation && statusPurpose != StatusPurposeSuspension {
+		return nil, fmt.Errorf("unsupported statusPurpose: %s", statusPurpose)
+	}
+
 	vcc := verifiable.CredentialContents{}
 	vcc.Context =
 		vcutil.AppendSignatureTypeContext(
@@ -144,9 +159,19 @@ func (s *statusList2021Processor) CreateVC(vcID string, listSize int,
 	vcc.Subject = toVerifiableSubject(credentialSubject{
 		ID:            vcc.ID + "#list",
 		Type:          StatusList2021VCSubjectType,
-		StatusPurpose: StatusPurposeRevocation,
+		StatusPurpose: statusPurpose,
 		EncodedList:   encodeBits,
 	})
 
 	return verifiable.CreateCredential(vcc, nil)
+}
+
+// GetStatusPurpose returns the purpose of the status list.
+func (s *statusList2021Processor) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, error) {
+	statusPurpose, ok := vcStatus.CustomFields[StatusPurpose].(string)
+	if !ok {
+		return "", fmt.Errorf("%s must be a non-empty string", StatusPurpose)
+	}
+
+	return statusPurpose, nil
 }

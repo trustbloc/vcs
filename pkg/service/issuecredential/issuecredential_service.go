@@ -13,14 +13,20 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vc-go/verifiable"
+
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
+
+var logger = log.New("credential-issuance")
 
 const (
 	defaultCredentialPrefix = "urn:uuid:" //nolint:gosec
@@ -72,6 +78,7 @@ type vcStatusManager interface {
 		profileID profileapi.ID,
 		profileVersion profileapi.Version,
 		credentialID string,
+		statusPurpose string,
 	) (*credentialstatus.StatusListEntry, error)
 	StoreIssuedCredentialMetadata(
 		ctx context.Context,
@@ -101,6 +108,7 @@ func New(config *Config) *Service {
 	}
 }
 
+//nolint:funlen
 func (s *Service) IssueCredential(
 	ctx context.Context,
 	credential *verifiable.Credential,
@@ -142,16 +150,40 @@ func (s *Service) IssueCredential(
 	credential = credential.WithModifiedIssuer(vcutil.CreateIssuer(profile.SigningDID.DID, profile.Name))
 
 	if !profile.VCConfig.Status.Disable {
-		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(
-			ctx, profile.ID, profile.Version, credential.Contents().ID)
-		if err != nil {
-			return nil, fmt.Errorf("add credential status: %w", err)
+		var typeIDs []*verifiable.TypedID
+
+		purposes := lo.Uniq(profile.VCConfig.Status.Purpose)
+		if len(purposes) == 0 {
+			logger.Debugc(ctx, "No status purposes defined in the profile, using 'revocation' status purpose",
+				logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version),
+				logfields.WithStatusType(string(profile.VCConfig.Status.Type)))
+
+			purposes = []string{statustype.DefaultStatusPurpose}
 		}
 
-		if !lo.Contains(credentialContext, statusListEntry.Context) {
-			credentialContext = append(credentialContext, statusListEntry.Context)
+		// Create a status list entry for each status purpose.
+		for _, purpose := range purposes {
+			logger.Debugc(ctx, "Creating status list entry",
+				logfields.WithProfileID(profile.ID),
+				logfields.WithProfileVersion(profile.Version),
+				logfields.WithStatusType(string(profile.VCConfig.Status.Type)),
+				logfields.WithStatusPurpose(purpose))
+
+			statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(
+				ctx, profile.ID, profile.Version, credential.Contents().ID, purpose,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("add credential status: %w", err)
+			}
+
+			if statusListEntry.Context != "" && !lo.Contains(credentialContext, statusListEntry.Context) {
+				credentialContext = append(credentialContext, statusListEntry.Context)
+			}
+
+			typeIDs = append(typeIDs, statusListEntry.TypedID)
 		}
-		credential = credential.WithModifiedStatus(statusListEntry.TypedID)
+
+		credential = credential.WithModifiedStatus(typeIDs...)
 	}
 
 	// update context

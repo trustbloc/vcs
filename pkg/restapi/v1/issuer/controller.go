@@ -681,6 +681,7 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 			CredentialID:     body.CredentialID,
 			DesiredStatus:    body.CredentialStatus.Status,
 			StatusType:       vc.StatusType(body.CredentialStatus.Type),
+			StatusPurpose:    lo.FromPtr(body.CredentialStatus.Purpose),
 		},
 	); err != nil {
 		var oidc4ciErr *oidc4cierr.Error

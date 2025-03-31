@@ -533,8 +533,8 @@ github.com/trustbloc/kms-go v1.2.1 h1:lwBv6/Xs2v/36xesaNeg9VpB5YFCwzqq8wS/8/zV4p
 github.com/trustbloc/kms-go v1.2.1/go.mod h1:ruI68jlF2X+v4c6EuN5Fg8qxJELOs16fV4DQuR7SZ/g=
 github.com/trustbloc/logutil-go v1.0.1-0.20250214202847-c43ef95f145d h1:uNTpELPH6Wv0Q+YdzVXgZcGl+qbjFyMzLkU1dG9P5/M=
 github.com/trustbloc/logutil-go v1.0.1-0.20250214202847-c43ef95f145d/go.mod h1:bJf0bXx7Scf6Ya7a7DLRSoPIsbQklf5ZIpqHelRI47w=
-github.com/trustbloc/vc-go v1.3.2 h1:BOQnDZ4m1epJesm+2ORoDMGT7l9Q0sJj1VI7ro8Q9fY=
-github.com/trustbloc/vc-go v1.3.2/go.mod h1:/sVRjCQy3mehG4CJiX34kETp1xBzaiqq1sku3jjDNUI=
+github.com/trustbloc/vc-go v1.3.3-0.20250331132449-489141ce7df5 h1:UJrRx1bsad0eKzVr8qXWy+0lpVzhNi6atPzGJhy+tGc=
+github.com/trustbloc/vc-go v1.3.3-0.20250331132449-489141ce7df5/go.mod h1:/sVRjCQy3mehG4CJiX34kETp1xBzaiqq1sku3jjDNUI=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=

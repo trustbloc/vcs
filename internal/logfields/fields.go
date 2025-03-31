@@ -42,6 +42,8 @@ const (
 	FieldContext              = "context"
 	FieldIssuerID             = "issuerID"
 	FieldStatusListIssuerID   = "statusListIssuerID"
+	FieldStatusPurpose        = "statusPurpose"
+	FieldStatusType           = "statusType"
 )
 
 // WithAdditionalMessage sets the AdditionalMessage field.
@@ -193,4 +195,14 @@ func WithIssuerID(value string) zap.Field {
 // WithStatusListIssuerID sets the statusListIssuerID field.
 func WithStatusListIssuerID(value string) zap.Field {
 	return zap.String(FieldStatusListIssuerID, value)
+}
+
+// WithStatusPurpose sets the statusPurpose field.
+func WithStatusPurpose(statusPurpose string) zap.Field {
+	return zap.String(FieldStatusPurpose, statusPurpose)
+}
+
+// WithStatusType sets the statusType field.
+func WithStatusType(statusType string) zap.Field {
+	return zap.String(FieldStatusType, statusType)
 }

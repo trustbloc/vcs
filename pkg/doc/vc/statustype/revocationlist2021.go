@@ -96,8 +96,7 @@ func (s *revocationList2021Processor) ValidateStatus(vcStatus *verifiable.TypedI
 
 // CreateVCStatus creates verifiable.TypedID.
 // Doc: https://github.com/w3c-ccg/vc-status-list-2021/releases/tag/v0.0.1
-func (s *revocationList2021Processor) CreateVCStatus(index, vcID, _ string,
-	_ ...vcapi.Field) *verifiable.TypedID {
+func (s *revocationList2021Processor) CreateVCStatus(index, vcID, _ string, _ ...vcapi.Field) *verifiable.TypedID {
 	return &verifiable.TypedID{
 		ID:   uuid.New().URN(),
 		Type: string(vcapi.RevocationList2021VCStatus),
@@ -114,8 +113,18 @@ func (s *revocationList2021Processor) GetVCContext() string {
 }
 
 // CreateVC returns *verifiable.Credential appropriate for StatusList2021v001.
-func (s *revocationList2021Processor) CreateVC(vcID string, listSize int, //nolint:dupl
-	profile *vcapi.Signer) (*verifiable.Credential, error) {
+//
+//nolint:dupl
+func (s *revocationList2021Processor) CreateVC(
+	vcID string,
+	listSize int,
+	statusPurpose string,
+	profile *vcapi.Signer,
+) (*verifiable.Credential, error) {
+	if statusPurpose != StatusPurposeRevocation {
+		return nil, fmt.Errorf("unsupported statusPurpose: %s", statusPurpose)
+	}
+
 	vcc := verifiable.CredentialContents{}
 	vcc.Context =
 		vcutil.AppendSignatureTypeContext(
@@ -144,4 +153,9 @@ func (s *revocationList2021Processor) CreateVC(vcID string, listSize int, //noli
 	})
 
 	return verifiable.CreateCredential(vcc, nil)
+}
+
+// GetStatusPurpose returns the purpose of the status list.
+func (s *revocationList2021Processor) GetStatusPurpose(_ *verifiable.TypedID) (string, error) {
+	return StatusPurposeRevocation, nil
 }

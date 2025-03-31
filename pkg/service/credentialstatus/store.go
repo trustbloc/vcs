@@ -23,9 +23,9 @@ type CSLIndexStore interface {
 	// Get returns CSLIndexWrapper based on URL to the CSL.
 	Get(ctx context.Context, cslURL string) (*CSLIndexWrapper, error)
 	// GetLatestListID returns latest ListID, that is topical on a moment given CSL is creating.
-	GetLatestListID(ctx context.Context) (ListID, error)
+	GetLatestListID(ctx context.Context, statusPurpose string) (ListID, error)
 	// UpdateLatestListID updates underlying ListID.
-	UpdateLatestListID(ctx context.Context, id ListID) error
+	UpdateLatestListID(ctx context.Context, id ListID, statusPurpose string) error
 }
 
 // ListID is used for the pseudo-random shuffling of suffixes of CSL URL during the credential issuance.

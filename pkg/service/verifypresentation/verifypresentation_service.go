@@ -32,7 +32,7 @@ import (
 
 type vcVerifier interface {
 	ValidateCredentialProof(ctx context.Context, vc *verifiable.Credential, proofChallenge, proofDomain string, vcInVPValidation, strictValidation bool) error //nolint:lll
-	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer *verifiable.Issuer) error
+	ValidateVCStatus(ctx context.Context, vcStatus []*verifiable.TypedID, issuer *verifiable.Issuer) error
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
@@ -434,10 +434,10 @@ func (s *Service) validateCredentialsStatus(
 
 		go func() {
 			defer close(ch)
-			typedID, issuer := s.extractCredentialStatus(cred)
+			typedIDs, issuer := s.extractCredentialStatus(cred)
 
-			if typedID != nil {
-				ch <- s.vcVerifier.ValidateVCStatus(ctx, typedID, issuer)
+			if len(typedIDs) > 0 {
+				ch <- s.vcVerifier.ValidateVCStatus(ctx, typedIDs, issuer)
 			}
 		}()
 	}
@@ -452,7 +452,7 @@ func (s *Service) validateCredentialsStatus(
 }
 
 func (s *Service) extractCredentialStatus(
-	cred *verifiable.Credential) (*verifiable.TypedID, *verifiable.Issuer) {
+	cred *verifiable.Credential) ([]*verifiable.TypedID, *verifiable.Issuer) {
 	if cred == nil {
 		return nil, nil
 	}

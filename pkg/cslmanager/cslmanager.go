@@ -96,11 +96,12 @@ func (s *Manager) CreateCSLEntry(
 	ctx context.Context,
 	profile *profileapi.Issuer,
 	credentialID string,
+	statusPurpose string,
 ) (*credentialstatus.StatusListEntry, error) {
 	logger.Debugc(ctx, "CSL Manager - CreateCSLEntry",
 		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
 
-	cslURL, statusBitIndex, err := s.getProfileCSLAndAssignedIndex(ctx, profile)
+	cslURL, statusBitIndex, err := s.getProfileCSLAndAssignedIndex(ctx, profile, statusPurpose)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +112,7 @@ func (s *Manager) CreateCSLEntry(
 	}
 
 	statusListEntry := &credentialstatus.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(statusBitIndex), cslURL, statustype.StatusPurposeRevocation),
+		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(statusBitIndex), cslURL, statusPurpose),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
 
@@ -125,14 +126,17 @@ func (s *Manager) CreateCSLEntry(
 }
 
 func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
-	profile *profileapi.Issuer) (string, int, error) {
+	profile *profileapi.Issuer, statusPurpose string) (string, int, error) {
 	logger.Debugc(ctx, "CSL Manager - CreateCSLEntry",
-		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
+		logfields.WithProfileID(profile.ID),
+		logfields.WithProfileVersion(profile.Version),
+		logfields.WithStatusPurpose(statusPurpose),
+	)
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	indexWrapper, err := s.getCSLIndexWrapper(ctx, profile)
+	indexWrapper, err := s.getCSLIndexWrapper(ctx, profile, statusPurpose)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to get CSL Index Wrapper from store(s): %w", err)
 	}
@@ -145,10 +149,10 @@ func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
 	// append unusedStatusBitIndex to the cslWrapper.UsedIndexes so marking it as "used".
 	indexWrapper.UsedIndexes = append(indexWrapper.UsedIndexes, unusedStatusBitIndex)
 
-	// TODO: Remove
-	logger.Debugc(ctx, "updating CSL Index Wrapper for URL", log.WithURL(indexWrapper.CSLURL))
+	logger.Debugc(ctx, "updating CSL Index Wrapper for URL", log.WithURL(indexWrapper.CSLURL),
+		logfields.WithStatusPurpose(statusPurpose))
 
-	if err = s.updateCSLIndexWrapper(ctx, indexWrapper, profile); err != nil {
+	if err = s.updateCSLIndexWrapper(ctx, indexWrapper, profile, statusPurpose); err != nil {
 		return "", 0, fmt.Errorf("failed to store CSL Index Wrapper: %w", err)
 	}
 
@@ -156,9 +160,9 @@ func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
 }
 
 func (s *Manager) getCSLIndexWrapper(ctx context.Context,
-	profile *profileapi.Issuer) (*credentialstatus.CSLIndexWrapper, error) {
+	profile *profileapi.Issuer, statusPurpose string) (*credentialstatus.CSLIndexWrapper, error) {
 	// get latest ListID - global value
-	latestListID, err := s.cslIndexStore.GetLatestListID(ctx)
+	latestListID, err := s.cslIndexStore.GetLatestListID(ctx, statusPurpose)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
@@ -171,7 +175,7 @@ func (s *Manager) getCSLIndexWrapper(ctx context.Context,
 	indexWrapper, err := s.cslIndexStore.Get(ctx, cslURL)
 	if err != nil {
 		if errors.Is(err, credentialstatus.ErrDataNotFound) {
-			indexWrapper, err = s.createNewVCAndCSLIndexWrapper(ctx, profile, latestListID)
+			indexWrapper, err = s.createNewVCAndCSLIndexWrapper(ctx, profile, latestListID, statusPurpose)
 			if err != nil {
 				return nil, err
 			}
@@ -185,9 +189,11 @@ func (s *Manager) getCSLIndexWrapper(ctx context.Context,
 
 func (s *Manager) updateCSLIndexWrapper(ctx context.Context,
 	wrapper *credentialstatus.CSLIndexWrapper,
-	profile *profileapi.Issuer) error {
-	// TODO: Remove
-	logger.Debugc(ctx, "updating CSL VC with URL", log.WithURL(wrapper.CSLURL))
+	profile *profileapi.Issuer,
+	statusPurpose string,
+) error {
+	logger.Debugc(ctx, "updating CSL VC with URL", log.WithURL(wrapper.CSLURL),
+		logfields.WithStatusPurpose(statusPurpose))
 
 	err := s.cslIndexStore.Upsert(ctx, wrapper.CSLURL, wrapper)
 	if err != nil {
@@ -197,8 +203,14 @@ func (s *Manager) updateCSLIndexWrapper(ctx context.Context,
 	// If amount of used indexes is the same as list size - createCSLIndexWrapper new CSL (ListID, VC and Index Wrapper).
 	// TODO: We should have used indexes > some percent of list size (e.g. 75-90%) in order to avoid collisions.
 	if len(wrapper.UsedIndexes) == s.listSize {
-		logger.Debugc(ctx, "reached size limit for CSL, creating new CSL ...")
-		_, createErr := s.createCSLIndexWrapper(ctx, profile)
+		logger.Debugc(ctx, "reached size limit for CSL, creating new CSL ...",
+			logfields.WithProfileID(profile.ID),
+			logfields.WithProfileVersion(profile.Version),
+			logfields.WithStatusType(string(profile.VCConfig.Status.Type)),
+			logfields.WithStatusPurpose(statusPurpose),
+		)
+
+		_, createErr := s.createCSLIndexWrapper(ctx, profile, statusPurpose)
 		if createErr != nil {
 			return fmt.Errorf("failed to createCSLIndexWrapper new CSL: %w", createErr)
 		}
@@ -208,14 +220,14 @@ func (s *Manager) updateCSLIndexWrapper(ctx context.Context,
 }
 
 func (s *Manager) createCSLIndexWrapper(ctx context.Context,
-	profile *profileapi.Issuer) (*credentialstatus.CSLIndexWrapper, error) {
+	profile *profileapi.Issuer, statusPurpose string) (*credentialstatus.CSLIndexWrapper, error) {
 	newListID := credentialstatus.ListID(uuid.NewString())
 
-	if err := s.cslIndexStore.UpdateLatestListID(ctx, newListID); err != nil {
+	if err := s.cslIndexStore.UpdateLatestListID(ctx, newListID, statusPurpose); err != nil {
 		return nil, fmt.Errorf("failed to store new list ID: %w", err)
 	}
 
-	wrapper, err := s.createNewVCAndCSLIndexWrapper(ctx, profile, newListID)
+	wrapper, err := s.createNewVCAndCSLIndexWrapper(ctx, profile, newListID, statusPurpose)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store CSL Index Wrapper: %w", err)
 	}
@@ -226,6 +238,7 @@ func (s *Manager) createCSLIndexWrapper(ctx context.Context,
 func (s *Manager) createNewVCAndCSLIndexWrapper(ctx context.Context,
 	profile *profileapi.Issuer,
 	listID credentialstatus.ListID,
+	statusPurpose string,
 ) (*credentialstatus.CSLIndexWrapper, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
@@ -251,9 +264,11 @@ func (s *Manager) createNewVCAndCSLIndexWrapper(ctx context.Context,
 		return nil, fmt.Errorf("failed to createCSLIndexWrapper CSL URL: %w", err)
 	}
 
-	logger.Debugc(ctx, "creating new CSL VC with URL", log.WithURL(cslURL))
+	logger.Debugc(ctx, "creating new CSL VC with URL", log.WithURL(cslURL),
+		logfields.WithStatusType(string(profile.VCConfig.Status.Type)),
+		logfields.WithStatusPurpose(statusPurpose))
 
-	err = s.createAndStoreVC(ctx, signer, cslURL)
+	err = s.createAndStoreVC(ctx, signer, cslURL, statusPurpose)
 	if err != nil {
 		return nil, err
 	}
@@ -270,13 +285,13 @@ func (s *Manager) createNewVCAndCSLIndexWrapper(ctx context.Context,
 	return indexWrapper, nil
 }
 
-func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslURL string) error {
+func (s *Manager) createAndStoreVC(ctx context.Context, signer *vc.Signer, cslURL string, purpose string) error {
 	processor, err := statustype.GetVCStatusProcessor(signer.VCStatusListType)
 	if err != nil {
 		return fmt.Errorf("failed to get VC status processor: %w", err)
 	}
 
-	vcCred, err := processor.CreateVC(cslURL, s.listSize, signer)
+	vcCred, err := processor.CreateVC(cslURL, s.listSize, purpose, signer)
 	if err != nil {
 		return fmt.Errorf("failed to createCSLIndexWrapper VC: %w", err)
 	}

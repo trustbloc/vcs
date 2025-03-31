@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -182,21 +183,24 @@ func TestLatestListID(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Find non-existing ID", func(t *testing.T) {
-		listID, err := store.GetLatestListID(ctx)
+		revocationListID, err := store.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
+		require.NoError(t, err)
+		assert.NotEmpty(t, revocationListID)
 
-		assert.NotEmpty(t, listID)
-		assert.NoError(t, err)
+		suspensionListID, err := store.GetLatestListID(ctx, statustype.StatusPurposeSuspension)
+		require.NoError(t, err)
+		assert.NotEqual(t, revocationListID, suspensionListID)
 	})
 
 	t.Run("Update - Get LatestListID", func(t *testing.T) {
-		receivedListID, err := store.GetLatestListID(ctx)
+		receivedListID, err := store.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 		require.NotEmpty(t, receivedListID)
 
-		err = store.UpdateLatestListID(ctx, "1")
+		err = store.UpdateLatestListID(ctx, "1", statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 
-		receivedListIDAfterUpdate, err := store.GetLatestListID(ctx)
+		receivedListIDAfterUpdate, err := store.GetLatestListID(ctx, statustype.StatusPurposeRevocation)
 		require.NoError(t, err)
 		require.NotEmpty(t, receivedListIDAfterUpdate)
 		require.NotEqual(t, receivedListID, receivedListIDAfterUpdate)

@@ -1488,8 +1488,10 @@ func (s *Steps) getIssuerOIDCCredentialFormat(credentialType string) vcsverifiab
 }
 
 func checkCredentialStatusType(vc *verifiable.Credential, expected string) error {
-	if vc.Contents().Status.Type != expected {
-		return bddutil.ExpectedStringError(expected, vc.Contents().Status.Type)
+	for _, status := range vc.Contents().Status {
+		if status.Type != expected {
+			return bddutil.ExpectedStringError(expected, status.Type)
+		}
 	}
 
 	return nil

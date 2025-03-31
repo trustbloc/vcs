@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	nooptracer "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 )
 
 const (
@@ -27,11 +29,11 @@ func TestWrapper_CreateStatusListEntry(t *testing.T) {
 
 	svc := NewMockService(ctrl)
 	svc.EXPECT().CreateStatusListEntry(
-		gomock.Any(), profileID, profileVersion, credentialID).Times(1).Return(nil, nil)
+		gomock.Any(), profileID, profileVersion, credentialID, statustype.StatusPurposeRevocation).Times(1).Return(nil, nil)
 
 	w := Wrap(svc, nooptracer.NewTracerProvider().Tracer(""))
 
-	_, err := w.CreateStatusListEntry(context.Background(), profileID, profileVersion, credentialID)
+	_, err := w.CreateStatusListEntry(context.Background(), profileID, profileVersion, credentialID, statustype.StatusPurposeRevocation)
 	require.NoError(t, err)
 }
 

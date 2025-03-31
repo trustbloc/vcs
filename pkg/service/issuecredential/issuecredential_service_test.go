@@ -36,6 +36,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -70,12 +71,12 @@ func TestService_IssueCredential(t *testing.T) {
 
 	ctx := context.Background()
 
-	credential := createCredential(t)
-
 	transactionID := uuid.NewString()
 
 	t.Run("Success LDP", func(t *testing.T) {
 		t.Parallel()
+
+		credential := createCredential(t)
 
 		tests := []struct {
 			name string
@@ -126,7 +127,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 						mockVCStatusManager.EXPECT().
 							CreateStatusListEntry(
-								ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID).
+								ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID, statustype.StatusPurposeRevocation).
 							Times(1).Return(
 							&credentialstatus.StatusListEntry{
 								Context: "https://w3id.org/vc-revocation-list-2020/v1",
@@ -176,7 +177,9 @@ func TestService_IssueCredential(t *testing.T) {
 							issuecredential.WithTransactionID(transactionID),
 						)
 						require.NoError(t, err)
-						validateVC(t, verifiableCredentials, didDoc, sigRepresentationTextCase.sr, vcs.Ldp)
+						validateVC(t, verifiableCredentials, didDoc, sigRepresentationTextCase.sr, vcs.Ldp,
+							[]string{statustype.StatusPurposeRevocation},
+						)
 					})
 				}
 			})
@@ -185,6 +188,8 @@ func TestService_IssueCredential(t *testing.T) {
 
 	t.Run("Success JWT", func(t *testing.T) {
 		t.Parallel()
+
+		credential := createCredential(t)
 
 		tests := []struct {
 			name string
@@ -220,7 +225,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 				mockVCStatusManager.EXPECT().
 					CreateStatusListEntry(
-						ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID).
+						ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID, statustype.StatusPurposeRevocation).
 					Times(1).Return(
 					&credentialstatus.StatusListEntry{
 						Context: "https://w3id.org/vc-revocation-list-2020/v1",
@@ -268,9 +273,96 @@ func TestService_IssueCredential(t *testing.T) {
 					issuecredential.WithTransactionID(transactionID),
 				)
 				require.NoError(t, err)
-				validateVC(t, verifiableCredentials, didDoc, 0, vcs.Jwt)
+				validateVC(t, verifiableCredentials, didDoc, 0, vcs.Jwt, []string{statustype.StatusPurposeRevocation})
 			})
 		}
+	})
+
+	t.Run("Success multi-status", func(t *testing.T) {
+		credential := createCredentialV2(t)
+
+		pubKey, err := keyCreator.Create(kms.ED25519Type)
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:trustblock:abc", pubKey.KeyID)
+
+		crypto := vccrypto.New(
+			&vdrmock.VDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
+
+		mockVCStatusManager.EXPECT().
+			CreateStatusListEntry(
+				ctx, testProfileID, testProfileVersion, "urn:uuid:"+credential.Contents().ID, gomock.Any()).
+			Times(2).DoAndReturn(func(
+			ctx context.Context,
+			profileID profileapi.ID,
+			profileVersion profileapi.Version,
+			credentialID string,
+			statusPurpose string,
+		) (*credentialstatus.StatusListEntry, error) {
+			return &credentialstatus.StatusListEntry{
+				TypedID: &verifiable.TypedID{
+					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#" + statusPurpose,
+					Type: string(vc.BitstringStatusList),
+					CustomFields: map[string]interface{}{
+						"statusPurpose":        statusPurpose,
+						"statusListIndex":      "1212",
+						"statusListCredential": "https://license.example/credentials/status/84",
+					},
+				},
+			}, nil
+		})
+
+		expectedCredentialMetadata := &credentialstatus.CredentialMetadata{
+			CredentialID:   "urn:uuid:" + credential.Contents().ID,
+			Issuer:         didDoc.ID,
+			CredentialType: credential.Contents().Types,
+			TransactionID:  transactionID,
+			IssuanceDate:   credential.Contents().Issued,
+			ExpirationDate: credential.Contents().Expired,
+		}
+
+		mockVCStatusManager.EXPECT().
+			StoreIssuedCredentialMetadata(
+				ctx, testProfileID, testProfileVersion, expectedCredentialMetadata).
+			Times(1).Return(nil)
+
+		service := issuecredential.New(&issuecredential.Config{
+			VCStatusManager: mockVCStatusManager,
+			Crypto:          crypto,
+			KMSRegistry:     kmsRegistry,
+		})
+
+		verifiableCredentials, err := service.IssueCredential(
+			ctx,
+			credential,
+			&profileapi.Issuer{
+				ID:      testProfileID,
+				Version: testProfileVersion,
+				VCConfig: &profileapi.VCConfig{
+					SigningAlgorithm:        vcs.JSONWebSignature2020,
+					KeyType:                 kms.ED25519Type,
+					SignatureRepresentation: verifiable.SignatureProofValue,
+					Format:                  vcs.Ldp,
+					Model:                   "w3c-vc-2.0",
+					Status: profileapi.StatusConfig{
+						Type: "BitStringStatusListEntry",
+						Purpose: []string{
+							statustype.StatusPurposeRevocation,
+							statustype.StatusPurposeSuspension,
+						},
+					},
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID:      didDoc.ID,
+					Creator:  didDoc.VerificationMethod[0].ID,
+					KMSKeyID: pubKey.KeyID,
+				}},
+			issuecredential.WithTransactionID(transactionID),
+		)
+		require.NoError(t, err)
+		validateVC(t, verifiableCredentials, didDoc, verifiable.SignatureProofValue, vcs.Ldp,
+			[]string{statustype.StatusPurposeRevocation, statustype.StatusPurposeSuspension},
+		)
 	})
 
 	t.Run("Error kmsRegistry", func(t *testing.T) {
@@ -294,7 +386,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusListEntry(
-			ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
+			ctx, gomock.Any(), gomock.Any(), gomock.Any(), statustype.StatusPurposeRevocation).Return(nil, errors.New("some error"))
 
 		service := issuecredential.New(&issuecredential.Config{
 			KMSRegistry:     registry,
@@ -317,7 +409,7 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any(), statustype.StatusPurposeRevocation).AnyTimes().Return(
 			&credentialstatus.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
@@ -351,7 +443,7 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any(), statustype.StatusPurposeRevocation).AnyTimes().Return(
 			&credentialstatus.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
@@ -391,7 +483,7 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any(), gomock.Any(), statustype.StatusPurposeRevocation).AnyTimes().Return(
 			&credentialstatus.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
@@ -451,43 +543,82 @@ func createCredential(t *testing.T) *verifiable.Credential {
 	return vcCreated
 }
 
+func createCredentialV2(t *testing.T) *verifiable.Credential {
+	t.Helper()
+
+	vcCreated, err := verifiable.CreateCredential(verifiable.CredentialContents{
+		ID:      "http://example.edu/credentials/1872",
+		Context: []string{verifiable.V2ContextURI},
+		Types:   []string{verifiable.VCType},
+		Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
+		Issued: &util.TimeWrapper{
+			Time: time.Now(),
+		},
+		Issuer: &verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+	}, map[string]interface{}{
+		"first_name": "First name",
+		"last_name":  "Last name",
+		"info":       "Info",
+	})
+	require.NoError(t, err)
+
+	return vcCreated
+}
+
 func validateVC(
-	t *testing.T, vc *verifiable.Credential,
+	t *testing.T, cred *verifiable.Credential,
 	did *did.Doc,
 	sigRepresentation verifiable.SignatureRepresentation,
-	vcFormat vcs.Format) {
+	vcFormat vcs.Format,
+	statusPurposes []string,
+) {
 	t.Helper()
-	require.NotNil(t, vc)
+	require.NotNil(t, cred)
 
-	vcc := vc.Contents()
+	vcc := cred.Contents()
 	require.NotNil(t, vcc.Issuer)
 	require.Equal(t, "did:trustblock:abc", vcc.Issuer.ID)
 	require.True(t, strings.HasPrefix(vcc.ID, "urn:uuid:"))
 
 	if vcFormat == vcs.Jwt {
-		require.True(t, vc.IsJWT())
+		require.True(t, cred.IsJWT())
 		return
 	}
 
-	require.Len(t, vc.Proofs(), 1)
-	verificationMethod, ok := vc.Proofs()[0]["verificationMethod"]
+	require.Len(t, cred.Proofs(), 1)
+	verificationMethod, ok := cred.Proofs()[0]["verificationMethod"]
 	require.True(t, ok)
 	require.Equal(t, verificationMethod, did.VerificationMethod[0].ID)
 	switch sigRepresentation {
 	case verifiable.SignatureProofValue:
-		proofValue, ok := vc.Proofs()[0]["proofValue"]
+		proofValue, ok := cred.Proofs()[0]["proofValue"]
 		require.True(t, ok)
 		require.NotEmpty(t, proofValue)
-		jws, ok := vc.Proofs()[0]["jws"]
+		jws, ok := cred.Proofs()[0]["jws"]
 		require.False(t, ok)
 		require.Empty(t, jws)
 	case verifiable.SignatureJWS:
-		proofValue, ok := vc.Proofs()[0]["proofValue"]
+		proofValue, ok := cred.Proofs()[0]["proofValue"]
 		require.False(t, ok)
 		require.Empty(t, proofValue)
-		jws, ok := vc.Proofs()[0]["jws"]
+		jws, ok := cred.Proofs()[0]["jws"]
 		require.True(t, ok)
 		require.NotEmpty(t, jws)
+	}
+
+	require.Len(t, vcc.Status, len(statusPurposes))
+
+	for i, status := range vcc.Status {
+		switch vc.StatusType(status.Type) {
+		case vc.BitstringStatusList, vc.StatusList2021VCStatus:
+			require.Equal(t, statusPurposes[i], status.CustomFields["statusPurpose"])
+		case vc.RevocationList2020VCStatus, vc.RevocationList2021VCStatus:
+			require.Equal(t, statustype.StatusPurposeRevocation, statusPurposes[i])
+		default:
+			t.Fatalf("unexpected status type: %s", status.Type)
+		}
 	}
 }
 

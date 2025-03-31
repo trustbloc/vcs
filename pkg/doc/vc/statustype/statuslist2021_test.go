@@ -35,7 +35,7 @@ func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
 					CustomFields: map[string]interface{}{
 						"statusListIndex":      "1",
 						"statusListCredential": "",
-						"statusPurpose":        "2",
+						"statusPurpose":        StatusPurposeRevocation,
 					},
 				},
 			},
@@ -64,7 +64,7 @@ func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
 					Type: "StatusList2021Entry",
 					CustomFields: map[string]interface{}{
 						"statusListCredential": "",
-						"statusPurpose":        "2",
+						"statusPurpose":        StatusPurposeRevocation,
 					},
 				},
 			},
@@ -77,7 +77,7 @@ func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
 					Type: "StatusList2021Entry",
 					CustomFields: map[string]interface{}{
 						"statusListIndex": "1",
-						"statusPurpose":   "2",
+						"statusPurpose":   StatusPurposeRevocation,
 					},
 				},
 			},
@@ -91,6 +91,20 @@ func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
 					CustomFields: map[string]interface{}{
 						"statusListIndex":      "1",
 						"statusListCredential": "",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Unsupported status purpose",
+			args: args{
+				vcStatus: &verifiable.TypedID{
+					Type: "StatusList2021Entry",
+					CustomFields: map[string]interface{}{
+						"statusListIndex":      "1",
+						"statusListCredential": "",
+						"statusPurpose":        StatusPurposeMessage,
 					},
 				},
 			},
@@ -110,30 +124,59 @@ func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
 
 func Test_statusList2021Processor_CreateVC(t *testing.T) {
 	s := NewStatusList2021Processor()
-	vc, err := s.CreateVC("vcID1", 10, &vcapi.Signer{
-		DID:           "did:example:123",
-		SignatureType: vcsverifiable.JSONWebSignature2020,
-	})
-	vcc := vc.Contents()
 
-	require.NoError(t, err)
-	require.Equal(t, "vcID1", vcc.ID)
-	require.Equal(t, []string{
-		vcutil.DefVCContext,
-		StatusList2021Context,
-		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"}, vcc.Context)
-	require.Equal(t, []string{vcType, statusList2021VCType}, vcc.Types)
-	require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
-	encodeBits, err := bitstring.NewBitString(bitStringSize).EncodeBits()
-	require.NoError(t, err)
-	require.Equal(t, []verifiable.Subject{{
-		ID: "vcID1#list",
-		CustomFields: map[string]interface{}{
-			"type":          "StatusList2021",
-			"statusPurpose": "revocation",
-			"encodedList":   encodeBits,
+	tests := []struct {
+		statusPurpose string
+		wantErr       string
+	}{
+		{
+			statusPurpose: StatusPurposeRevocation,
 		},
-	}}, vcc.Subject)
+		{
+			statusPurpose: StatusPurposeSuspension,
+		},
+		{
+			statusPurpose: StatusPurposeMessage,
+			wantErr:       "unsupported statusPurpose: statusMessage",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.statusPurpose, func(t *testing.T) {
+			vc, err := s.CreateVC("vcID1", 10, test.statusPurpose, &vcapi.Signer{
+				DID:           "did:example:123",
+				SignatureType: vcsverifiable.JSONWebSignature2020,
+			})
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			vcc := vc.Contents()
+
+			require.NoError(t, err)
+			require.Equal(t, "vcID1", vcc.ID)
+			require.Equal(t, []string{
+				vcutil.DefVCContext,
+				StatusList2021Context,
+				"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"}, vcc.Context)
+			require.Equal(t, []string{vcType, statusList2021VCType}, vcc.Types)
+			require.Equal(t, &verifiable.Issuer{ID: "did:example:123"}, vcc.Issuer)
+			encodeBits, err := bitstring.NewBitString(bitStringSize).EncodeBits()
+			require.NoError(t, err)
+			require.Equal(t, []verifiable.Subject{{
+				ID: "vcID1#list",
+				CustomFields: map[string]interface{}{
+					"type":          "StatusList2021",
+					"statusPurpose": test.statusPurpose,
+					"encodedList":   encodeBits,
+				},
+			}}, vcc.Subject)
+		})
+	}
 }
 
 func Test_statusList2021Processor_CreateVCStatus(t *testing.T) {
@@ -192,4 +235,34 @@ func Test_statusList2021Processor_GetVCContext(t *testing.T) {
 	s := NewStatusList2021Processor()
 
 	require.Equal(t, "https://w3id.org/vc/status-list/2021/v1", s.GetVCContext())
+}
+
+func TestStatusList2021Processor_GetStatusPurpose(t *testing.T) {
+	s := NewStatusList2021Processor()
+
+	t.Run("revocation -> success", func(t *testing.T) {
+		purpose, err := s.GetStatusPurpose(&verifiable.TypedID{
+			CustomFields: map[string]interface{}{
+				StatusPurpose: StatusPurposeRevocation,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, StatusPurposeRevocation, purpose)
+	})
+
+	t.Run("suspension -> success", func(t *testing.T) {
+		purpose, err := s.GetStatusPurpose(&verifiable.TypedID{
+			CustomFields: map[string]interface{}{
+				StatusPurpose: StatusPurposeSuspension,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, StatusPurposeSuspension, purpose)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		purpose, err := s.GetStatusPurpose(&verifiable.TypedID{})
+		require.ErrorContains(t, err, "statusPurpose must be a non-empty string")
+		require.Empty(t, purpose)
+	})
 }

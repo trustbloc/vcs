@@ -230,8 +230,9 @@ type UpdateCredentialStatusRequest struct {
 
 // CredentialStatus Credential status.
 type CredentialStatus struct {
-	Status string `json:"status"`
-	Type   string `json:"type"`
+	Status  string `json:"status"`
+	Type    string `json:"type"`
+	Purpose string `json:"purpose,omitempty"`
 }
 
 // VerifyCredentialResponse is a model for response of credentials verification.

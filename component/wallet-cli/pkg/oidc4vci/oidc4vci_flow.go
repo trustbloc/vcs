@@ -942,19 +942,30 @@ func (f *Flow) parseCredentialsResponse(
 			return nil, fmt.Errorf("add credential to wallet: %w", err)
 		}
 
-		var cslURL, statusListIndex, statusListType string
+		var statusInfo []*statusListInfo
 
-		if vcc := parsedVC.Contents(); vcc.Status != nil && vcc.Status.CustomFields != nil {
-			statusListType = vcc.Status.Type
+		vcc := parsedVC.Contents()
 
-			u, ok := vcc.Status.CustomFields["statusListCredential"].(string)
-			if ok {
-				cslURL = u
+		for _, status := range vcc.Status {
+			csl := &statusListInfo{
+				statusListType: status.Type,
 			}
 
-			sli, ok := vcc.Status.CustomFields["statusListIndex"].(string)
+			statusInfo = append(statusInfo, csl)
+
+			purpose, ok := status.CustomFields["statusPurpose"].(string)
 			if ok {
-				statusListIndex = sli
+				csl.statusPurpose = purpose
+			}
+
+			u, ok := status.CustomFields["statusListCredential"].(string)
+			if ok {
+				csl.cslURL = u
+			}
+
+			index, ok := status.CustomFields["statusListIndex"].(string)
+			if ok {
+				csl.statusListIndex = index
 			}
 		}
 
@@ -962,14 +973,20 @@ func (f *Flow) parseCredentialsResponse(
 			return !strings.EqualFold(item, "VerifiableCredential")
 		}
 
-		slog.Debug("credential added to wallet",
+		debugArgs := []any{
 			"credential_id", parsedVC.Contents().ID,
 			"credential_type", strings.Join(lo.Filter(parsedVC.Contents().Types, predicate), ","),
 			"issuer_id", parsedVC.Contents().Issuer.ID,
-			"csl_url", cslURL,
-			"status_list_index", statusListIndex,
-			"status_list_type", statusListType,
-		)
+		}
+
+		for _, info := range statusInfo {
+			debugArgs = append(debugArgs,
+				"csl_url", info.cslURL,
+				"status_list_index", info.statusListIndex,
+				"status_list_type", info.statusListType)
+		}
+
+		slog.Debug("credential added to wallet", debugArgs...)
 
 		credentials = append(credentials, parsedVC)
 	}
@@ -1411,4 +1428,11 @@ func WithCredentialConfigurationIDs(credentialConfigurationIDs []string) Opt {
 	return func(opts *options) {
 		opts.credentialConfigurationIDs = credentialConfigurationIDs
 	}
+}
+
+type statusListInfo struct {
+	cslURL          string
+	statusListIndex string
+	statusListType  string
+	statusPurpose   string
 }

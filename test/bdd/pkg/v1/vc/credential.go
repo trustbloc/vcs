@@ -10,6 +10,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/trustbloc/vc-go/status"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"io"
 	"net/http"
 	"strings"
@@ -181,7 +184,15 @@ func (e *Steps) verifyVC(profileVersionedID string) error {
 	return nil
 }
 
-func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
+func (e *Steps) verifyVCRevoked(profileVersionedID string) error {
+	return e.verifyVCStatus(profileVersionedID, "revoked")
+}
+
+func (e *Steps) verifyVCSuspended(profileVersionedID string) error {
+	return e.verifyVCStatus(profileVersionedID, "suspended")
+}
+
+func (e *Steps) verifyVCStatus(profileVersionedID, expectedStatus string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	respBytes, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, []int{
@@ -202,12 +213,12 @@ func (e *Steps) verifyRevokedVC(profileVersionedID string) error {
 
 	expectedCheck := model.VerifyCredentialCheckResult{
 		Check:              "credentialStatus",
-		Error:              "revoked",
+		Error:              expectedStatus,
 		VerificationMethod: "",
 	}
 
 	if checks[0] != expectedCheck {
-		return fmt.Errorf("vc is not revoked. Cheks: %+v", checks)
+		return fmt.Errorf("vc is not %s. Checks: %+v", expectedStatus, checks)
 	}
 
 	return nil
@@ -228,7 +239,7 @@ func (e *Steps) verifyVCWithExpectedError(verifierProfileVersionedID, errorMsg s
 }
 
 func (e *Steps) revokeVC(profileVersionedID string) error {
-	return e.updateVCStatus(profileVersionedID, "true")
+	return e.updateVCStatus(profileVersionedID, status.StatusPurposeRevocation, "true")
 }
 
 func (e *Steps) revokeVCWithError(profileVersionedID, errorContains string) error {
@@ -245,7 +256,7 @@ func (e *Steps) revokeVCWithError(profileVersionedID, errorContains string) erro
 }
 
 func (e *Steps) activateVC(profileVersionedID string) error {
-	return e.updateVCStatus(profileVersionedID, "false")
+	return e.updateVCStatus(profileVersionedID, status.StatusPurposeRevocation, "false")
 }
 
 func (e *Steps) activateVCWithError(profileVersionedID, errorContains string) error {
@@ -261,7 +272,41 @@ func (e *Steps) activateVCWithError(profileVersionedID, errorContains string) er
 	return nil
 }
 
-func (e *Steps) updateVCStatus(profileVersionedID, desiredStatus string) error {
+func (e *Steps) suspendVC(profileVersionedID string) error {
+	return e.updateVCStatus(profileVersionedID, status.StatusPurposeSuspension, "true")
+}
+
+func (e *Steps) suspendVCWithError(profileVersionedID, errorContains string) error {
+	err := e.suspendVC(profileVersionedID)
+	if err == nil {
+		return fmt.Errorf("error expected, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), errorContains) {
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+
+	return nil
+}
+
+func (e *Steps) unsuspendVC(profileVersionedID string) error {
+	return e.updateVCStatus(profileVersionedID, status.StatusPurposeSuspension, "false")
+}
+
+func (e *Steps) unsuspendVCWithError(profileVersionedID, errorContains string) error {
+	err := e.unsuspendVC(profileVersionedID)
+	if err == nil {
+		return fmt.Errorf("error expected, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), errorContains) {
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+
+	return nil
+}
+
+func (e *Steps) updateVCStatus(profileVersionedID, statusPurpose, desiredStatus string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	profileID, profileVersion := chunks[0], chunks[1]
 	loader, err := bddutil.DocumentLoader()
@@ -284,8 +329,9 @@ func (e *Steps) updateVCStatus(profileVersionedID, desiredStatus string) error {
 		ProfileVersion: profileVersion,
 		CredentialID:   cred.Contents().ID,
 		CredentialStatus: model.CredentialStatus{
-			Status: desiredStatus,
-			Type:   string(e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type),
+			Status:  desiredStatus,
+			Purpose: statusPurpose,
+			Type:    string(e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type),
 		},
 	}
 
@@ -377,7 +423,7 @@ func (e *Steps) checkVC(vcBytes []byte, profileVersionedID string, checkProof bo
 	vcStatusConf := e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status
 	if !vcStatusConf.Disable {
 		expectedStatusType := vcStatusConf.Type
-		err = checkCredentialStatusType(vcMap, string(expectedStatusType))
+		err = checkCredentialStatusTypeAndPurposes(vcMap, string(expectedStatusType), vcStatusConf.Purpose)
 		if err != nil {
 			return err
 		}
@@ -427,14 +473,28 @@ func (e *Steps) checkSignatureHolder(vcMap map[string]interface{},
 	return nil
 }
 
-func checkCredentialStatusType(vcMap map[string]interface{}, expected string) error {
-	credentialStatusType, err := getCredentialStatusType(vcMap)
+func checkCredentialStatusTypeAndPurposes(vcMap map[string]interface{}, expectedType string, expectedPurposes []string) error {
+	credentialStatusType, purposes, err := getCredentialStatusTypeAndPurpose(vcMap)
 	if err != nil {
 		return err
 	}
 
-	if credentialStatusType != expected {
-		return bddutil.ExpectedStringError(expected, credentialStatusType)
+	if credentialStatusType != expectedType {
+		return bddutil.ExpectedStringError(expectedType, credentialStatusType)
+	}
+
+	if len(expectedPurposes) == 0 {
+		expectedPurposes = []string{statustype.DefaultStatusPurpose}
+	}
+
+	if len(expectedPurposes) != len(purposes) {
+		return bddutil.ExpectedStringError(fmt.Sprintf("%v", expectedPurposes), fmt.Sprintf("%v", purposes))
+	}
+
+	for _, expectedPurpose := range expectedPurposes {
+		if !lo.Contains(purposes, expectedPurpose) {
+			return fmt.Errorf("unable to find purpose %s in VC map", expectedPurpose)
+		}
 	}
 
 	return nil
@@ -468,23 +528,51 @@ func checkIssuer(vcMap map[string]interface{}, expected string) error {
 	return nil
 }
 
-func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
+func getCredentialStatusTypeAndPurpose(vcMap map[string]interface{}) (string, []string, error) {
 	credentialStatus, found := vcMap["credentialStatus"]
 	if !found {
-		return "nil", fmt.Errorf("unable to find credentialStatus in VC map")
+		return "nil", nil, fmt.Errorf("unable to find credentialStatus in VC map")
 	}
 
 	credentialStatusMap, ok := credentialStatus.(map[string]interface{})
+	if ok {
+		credentialStatusType, purpose, err := getStatusTypeAndPurpose(credentialStatusMap)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return credentialStatusType, []string{purpose}, nil
+	}
+
+	credentialStatusArr, ok := credentialStatus.([]interface{})
 	if !ok {
-		return "", fmt.Errorf("unable to assert credentialStatus field type as map[string]interface{}")
+		return "", nil, fmt.Errorf("unable to assert credentialStatus field type as map[string]interface{} or []interface{}")
 	}
 
-	credentialStatusType, found := credentialStatusMap["type"]
-	if !found {
-		return "", fmt.Errorf("unable to find credentialStatus type in VC map")
+	var purposes []string
+	var statusType string
+
+	for _, status := range credentialStatusArr {
+		credentialStatusMap, ok = status.(map[string]interface{})
+		if !ok {
+			return "", nil, fmt.Errorf("unable to assert credentialStatus array element type as map[string]interface{}")
+		}
+
+		st, purpose, err := getStatusTypeAndPurpose(credentialStatusMap)
+		if err != nil {
+			return "", nil, err
+		}
+
+		if statusType == "" {
+			statusType = st
+		} else if statusType != st {
+			return "", nil, fmt.Errorf("status type is not consistent")
+		}
+
+		purposes = append(purposes, purpose)
 	}
 
-	return credentialStatusType.(string), nil
+	return statusType, purposes, nil
 }
 
 func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
@@ -498,4 +586,27 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
+}
+
+func getStatusTypeAndPurpose(credentialStatusMap map[string]interface{}) (string, string, error) {
+	statusType, found := credentialStatusMap["type"].(string)
+	if !found {
+		return "", "", fmt.Errorf("unable to find credentialStatus type in VC map")
+	}
+
+	switch vc.StatusType(statusType) {
+	case vc.StatusList2021VCStatus, vc.BitstringStatusList:
+		purpose, ok := credentialStatusMap["statusPurpose"].(string)
+		if !ok {
+			return "", "", fmt.Errorf("statusPurpose not found for type %s", statusType)
+		}
+
+		return statusType, purpose, nil
+
+	case vc.RevocationList2020VCStatus, vc.RevocationList2021VCStatus:
+		return statusType, statustype.DefaultStatusPurpose, nil
+
+	default:
+		return "", "", fmt.Errorf("unsupported status type: %s", statusType)
+	}
 }

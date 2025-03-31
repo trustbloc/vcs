@@ -54,6 +54,9 @@ func TestStandardFields(t *testing.T) {
 		jsonSchema := "someSchema"
 		issuer1 := "issuer_1"
 		issuer2 := "issuer_2"
+		statusPurpose := "somePurpose"
+		statusType := "someType"
+		contexts := []string{"context1", "context2"}
 
 		logger.Info(
 			"Some message",
@@ -81,6 +84,9 @@ func TestStandardFields(t *testing.T) {
 			WithJSONSchema(jsonSchema),
 			WithIssuerID(issuer1),
 			WithStatusListIssuerID(issuer2),
+			WithStatusPurpose(statusPurpose),
+			WithStatusType(statusType),
+			WithContext(contexts),
 		)
 
 		l := unmarshalLogData(t, stdOut.Bytes())
@@ -108,6 +114,9 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, jsonSchema, l.JSONSchema)
 		require.Equal(t, issuer1, l.Issuer)
 		require.Equal(t, issuer2, l.StatusListIssuerID)
+		require.Equal(t, statusPurpose, l.StatusPurpose)
+		require.Equal(t, statusType, l.StatusType)
+		require.Equal(t, contexts, l.Context)
 	})
 }
 
@@ -148,6 +157,9 @@ type logData struct {
 	JSONSchema           string      `json:"JSONSchema"`
 	Issuer               string      `json:"issuerID"`
 	StatusListIssuerID   string      `json:"statusListIssuerID"`
+	StatusPurpose        string      `json:"statusPurpose"`
+	StatusType           string      `json:"statusType"`
+	Context              []string    `json:"context"`
 }
 
 func unmarshalLogData(t *testing.T, b []byte) *logData {

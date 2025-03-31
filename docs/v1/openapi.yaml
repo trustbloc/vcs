@@ -1557,6 +1557,8 @@ components:
           type: string
         type:
           type: string
+        purpose:
+          type: string
       required:
         - status
         - type

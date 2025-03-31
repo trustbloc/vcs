@@ -899,7 +899,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateVCStatus(
 						context.Background(),
-						&verifiable.TypedID{ID: "TypedID"},
+						[]*verifiable.TypedID{{ID: "TypedID"}},
 						&verifiable.Issuer{ID: "IssuerID"},
 					).Times(1).Return(nil)
 					return mockVerifier
@@ -912,7 +912,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 							"VerifiableCredential",
 							"UniversityDegreeCredential",
 						},
-						Status: &verifiable.TypedID{ID: "TypedID"},
+						Status: []*verifiable.TypedID{{ID: "TypedID"}},
 						Issuer: &verifiable.Issuer{ID: "IssuerID"},
 					}
 
@@ -956,7 +956,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateVCStatus(
 						context.Background(),
-						&verifiable.TypedID{ID: "TypedID"},
+						[]*verifiable.TypedID{{ID: "TypedID"}},
 						&verifiable.Issuer{ID: "IssuerID"},
 					).Times(1).Return(errors.New("some error"))
 					return mockVerifier
@@ -969,7 +969,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 							"VerifiableCredential",
 							"UniversityDegreeCredential",
 						},
-						Status: &verifiable.TypedID{ID: "TypedID"},
+						Status: []*verifiable.TypedID{{ID: "TypedID"}},
 						Issuer: &verifiable.Issuer{ID: "IssuerID"},
 					}
 
