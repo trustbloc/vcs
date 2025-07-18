@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs/test/bdd/attestation
 
-go 1.23
+go 1.23.0
 
 toolchain go1.23.4
 
@@ -15,7 +15,7 @@ require (
 	github.com/trustbloc/cmdutil-go v1.0.0
 	github.com/trustbloc/did-go v1.3.3
 	github.com/trustbloc/vc-go v1.3.3-0.20250331132449-489141ce7df5
-	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
+	golang.org/x/oauth2 v0.27.0
 )
 
 require (
@@ -65,10 +65,8 @@ require (
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.29.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
-	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
