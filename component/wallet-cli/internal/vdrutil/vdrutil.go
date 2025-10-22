@@ -27,7 +27,7 @@ type CreateResult struct {
 	KeyID string
 }
 
-var DefaultVdrUtil = &VDRUtil{} //nolint
+var DefaultVdrUtil = &VDRUtil{}
 
 type VDRUtil struct {
 }

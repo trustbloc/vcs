@@ -196,7 +196,10 @@ func (pm *PromMetrics) register() {
 	}
 }
 
-func newCounter(subsystem, name, help string, labels prometheus.Labels) prometheus.Counter {
+//nolint:unused // currently unused
+func newCounter(subsystem, name,
+	help string,
+	labels prometheus.Labels) prometheus.Counter {
 	return prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace:   metrics.Namespace,
 		Subsystem:   subsystem,

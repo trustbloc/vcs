@@ -245,7 +245,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL)
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
@@ -457,7 +457,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%2C%22UniversityDegreeCredentialIdentifier%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL)
 				require.Equal(t, oidc4ci.ContentTypeApplicationJSON, resp.ContentType)
 			},
 		},
@@ -525,7 +525,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
 				assert.Equal(t, issuecredential.TransactionStateAwaitingIssuerOIDCAuthorization, resp.Tx.State)
-				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL) //nolint
+				require.Equal(t, "https://wallet.example.com/initiate_issuance?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCard%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%22eyJhbGciOiJSU0Et%22%7D%7D%7D", resp.InitiateIssuanceURL)
 			},
 		},
 		{
@@ -630,7 +630,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				assert.Equal(t, "123456789", resp.UserPin)
 				assert.NotNil(t, resp.Tx)
 				require.Equal(t,
-					"openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A6%2C%22description%22%3A%22Pin%22%7D%7D%7D%7D", //nolint
+					"openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A6%2C%22description%22%3A%22Pin%22%7D%7D%7D%7D",
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -718,7 +718,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D",
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -838,7 +838,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D",
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -963,7 +963,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				assert.NotNil(t, resp.Tx)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D",
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -1104,7 +1104,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D", //nolint
+				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Fidp%2Ftest_issuer%22%2C%22credential_configuration_ids%22%3A%5B%22PermanentResidentCardIdentifier%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%7D%7D%7D",
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -1341,7 +1341,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				initialOpState := ""
 				claimData := degreeClaims
 
-				b, err := json.Marshal(testProfile) //nolint
+				b, err := json.Marshal(testProfile)
 				assert.NoError(t, err)
 
 				assert.NoError(t, json.Unmarshal(b, &profile))

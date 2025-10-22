@@ -861,7 +861,7 @@ func validateIDToken(
 	}
 
 	if val := v.Get("_attachments"); val != nil {
-		o, _ := val.Object() //nolint
+		o, _ := val.Object()
 
 		if o != nil {
 			o.Visit(func(k []byte, v *fastjson.Value) {

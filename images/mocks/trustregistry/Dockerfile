@@ -10,7 +10,7 @@ ARG ALPINE_VER
 
 FROM ${GO_IMAGE}:${GO_VER}-alpine${ALPINE_VER} as builder
 
-RUN apk update && apk add git && apk add ca-certificates
+RUN apk help update && apk add git && apk add ca-certificates
 RUN adduser -D -g '' appuser
 COPY . $GOPATH/src/github.com/trustbloc/vcs/test/bdd/trustregistry/
 WORKDIR $GOPATH/src/github.com/trustbloc/vcs/test/bdd/trustregistry/

@@ -26,7 +26,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
-	"github.com/dgraph-io/ristretto"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
@@ -1473,16 +1472,14 @@ func getOAuth2Clients(path string) ([]oauth2client.Client, error) {
 
 func createJSONLDDocumentLoader(mongoClient *mongodb.Client, tlsConfig *tls.Config,
 	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
+	const maxContextItems = int64(100_000)
+
+	cacheImpl, err := ld.NewRistrettoContextCache(maxContextItems)
 	if err != nil {
 		return nil, fmt.Errorf("create ristretto cache: %w", err)
 	}
 
-	ldStore, err := ld.NewStoreProvider(mongoClient, cache)
+	ldStore, err := ld.NewStoreProvider(mongoClient, cacheImpl)
 	if err != nil {
 		return nil, err
 	}

@@ -276,7 +276,7 @@ func TestAckFallback(t *testing.T) {
 				assert.Equal(t, spi.IssuerOIDCInteractionAckExpired, event.Type)
 
 				var dat oidc4ci.EventPayload
-				b, _ := json.Marshal(event.Data) //nolint
+				b, _ := json.Marshal(event.Data)
 				assert.NoError(t, json.Unmarshal(b, &dat))
 
 				assert.Equal(t, "4567", dat.ProfileID)
@@ -337,7 +337,7 @@ func TestAckFallback(t *testing.T) {
 				assert.Equal(t, spi.IssuerOIDCInteractionAckExpired, event.Type)
 
 				var dat oidc4ci.EventPayload
-				b, _ := json.Marshal(event.Data) //nolint
+				b, _ := json.Marshal(event.Data)
 				assert.NoError(t, json.Unmarshal(b, &dat))
 
 				assert.Equal(t, "4567", dat.ProfileID)
@@ -525,7 +525,7 @@ func TestAck(t *testing.T) {
 				assert.Equal(t, spi.IssuerOIDCInteractionAckFailed, event.Type)
 
 				var dat oidc4ci.EventPayload
-				b, _ := json.Marshal(event.Data) //nolint
+				b, _ := json.Marshal(event.Data)
 				assert.NoError(t, json.Unmarshal(b, &dat))
 
 				assert.Equal(t, "profile1", dat.ProfileID)

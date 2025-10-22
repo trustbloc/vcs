@@ -29,7 +29,7 @@ func TestCreate(t *testing.T) {
 			HashedToken: "abcd",
 		}
 
-		b, _ := json.Marshal(obj) //nolint
+		b, _ := json.Marshal(obj)
 
 		// Default expiration.
 		store := ackstore.New(cl, 30)

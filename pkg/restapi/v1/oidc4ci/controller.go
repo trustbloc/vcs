@@ -458,7 +458,7 @@ func (c *Controller) buildAuthCodeURLWithPAR(
 		v.Set("scope", strings.Join(cfg.Scopes, " "))
 	}
 
-	req, err := http.NewRequest(http.MethodPost, parEndpoint, strings.NewReader(v.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, parEndpoint, strings.NewReader(v.Encode()))
 	if err != nil {
 		return "", fmt.Errorf("new request: %w", err)
 	}

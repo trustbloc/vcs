@@ -13,7 +13,7 @@ function generate_krakend_config() {
   -e FC_PARTIALS="/etc/krakend/partials" \
   -e FC_SETTINGS="/etc/krakend/settings" \
   -e FC_TEMPLATES="/etc/krakend/templates" \
-  devopsfaith/krakend check -d -t -c krakend.tmpl
+  krakend check -d -t -c /etc/krakend/krakend.tmpl
 
   if [ -x "$(command -v jq)" ]
   then

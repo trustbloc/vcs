@@ -120,7 +120,7 @@ func TestAttachment(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEmbeddedAttachment), &data))
 
-		data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})["type"] = "EmbeddedAttachment" //nolint
+		data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})["type"] = "EmbeddedAttachment"
 		srv := oidc4vp.NewAttachmentService(nil)
 
 		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
@@ -136,7 +136,7 @@ func TestAttachment(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEmbeddedAttachment), &data))
 
-		data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})["type"] = []string{"EmbeddedAttachment"} //nolint
+		data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})["type"] = []string{"EmbeddedAttachment"}
 		srv := oidc4vp.NewAttachmentService(nil)
 
 		resp, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}}, nil)
@@ -251,7 +251,7 @@ func TestValidateEvidences(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
 
-		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}) //nolint
+		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})
 		att["hash"] = "d33d40f7010ce34aa86efd353630309ed5c3d7ffac66d988825cf699f4803ccdf3f033230612f0945332fb580d8af805"
 		att["hash-alg"] = "SHA-384"
 
@@ -313,7 +313,7 @@ func TestValidateEvidences(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
 
-		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}) //nolint
+		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})
 		att["hash-alg"] = "SHA-384"
 
 		srv := oidc4vp.NewAttachmentService(nil)
@@ -332,7 +332,7 @@ func TestValidateEvidences(t *testing.T) {
 			var data map[string]interface{}
 			assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
 
-			delete(data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}), field) //nolint
+			delete(data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}), field)
 			srv := oidc4vp.NewAttachmentService(nil)
 			att, err := srv.GetAttachments(context.TODO(), []verifiable.Subject{{CustomFields: data}},
 				map[string]string{
@@ -348,7 +348,7 @@ func TestValidateEvidences(t *testing.T) {
 		var data map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(sampleVCWithEvidenceAttachment), &data))
 
-		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{}) //nolint
+		att := data["credentialSubject"].(map[string]interface{})["attachment1"].(map[string]interface{})
 		att["hash-alg"] = "Murmur3-NOT-SUPPORTED"
 
 		srv := oidc4vp.NewAttachmentService(nil)

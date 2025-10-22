@@ -28,7 +28,7 @@ import (
 )
 
 // nolint: gochecknoglobals
-var vcsFormatToOIDC4CI = map[vcsverifiable.Format]vcsverifiable.OIDCFormat{ //nolint
+var vcsFormatToOIDC4CI = map[vcsverifiable.Format]vcsverifiable.OIDCFormat{
 	vcsverifiable.Jwt: vcsverifiable.JwtVCJsonLD,
 	vcsverifiable.Ldp: vcsverifiable.LdpVC,
 }

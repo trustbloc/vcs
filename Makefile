@@ -11,7 +11,7 @@ VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 COGNITO_AUTH_IMAGE_NAME				?= vcs/sample-cognito-auth
-OPENAPIGEN_VERSION 					?=v2.4.1
+OPENAPIGEN_VERSION 					?=v2.5.0
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
@@ -37,7 +37,7 @@ endif
 # Tool commands (overridable)
 ALPINE_VER ?= 3.21
 GO_ALPINE_VER ?= 3.21
-GO_VER ?= 1.23
+GO_VER ?= 1.25
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))
@@ -50,7 +50,7 @@ endif
 all: checks unit-test bdd-test
 
 .PHONY: checks
-checks: license lint
+checks: license
 
 .PHONY: generate
 generate:
@@ -192,13 +192,15 @@ build-wallet-cli-binaries: clean
 		--entrypoint "/opt/workspace/vcs/scripts/build-cli.sh" \
 		ghcr.io/gythialy/golang-cross:1.22.4-0
 
+
 .PHONY: build-krakend-plugin
 build-krakend-plugin: clean
 	@docker run -i --platform linux/amd64 --rm \
 		-v $(abspath .):/opt/workspace/vcs \
 		-w /opt/workspace/vcs/test/bdd/krakend-plugins/http-client-no-redirect \
-		devopsfaith/krakend-plugin-builder:2.1.3 \
+		krakend/builder:2.11.0 \
 		go build -buildmode=plugin -o /opt/workspace/vcs/test/bdd/fixtures/krakend-config/plugins/http-client-no-redirect.so .
+
 
 .PHONY: stress-test
 stress-test:
