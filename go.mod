@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs
 
-go 1.25.1
+go 1.25.3
 
 require (
 	github.com/alexliesenfeld/health v0.8.1

@@ -256,6 +256,6 @@ replace (
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 
-go 1.25.1
+go 1.25.3
 
 replace github.com/consensys/gnark-crypto => github.com/consensys/gnark-crypto v0.17.0

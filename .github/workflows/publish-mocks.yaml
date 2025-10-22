@@ -36,7 +36,7 @@ jobs:
           username: ${{ secrets.CR_USER }}
           password: ${{ secrets.CR_PAT }}
 
-      - name: Setup Go 1.25.1
+      - name: Setup Go 1.25.3
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -51,7 +51,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.21
+            ALPINE_VER=3.22
             GO_VER=1.25
             ALPINE_IMAGE=alpine
           push: true
@@ -92,7 +92,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.21
+            ALPINE_VER=3.22
             GO_VER=1.25
             ALPINE_IMAGE=alpine
           push: true
@@ -134,7 +134,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.21
+            ALPINE_VER=3.22
             GO_VER=1.25
             ALPINE_IMAGE=alpine
           push: true
@@ -175,7 +175,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.21
+            ALPINE_VER=3.22
             GO_VER=1.25
             ALPINE_IMAGE=alpine
           push: true
@@ -202,7 +202,7 @@ jobs:
           echo "IMAGE_TAG"=$TAG >> $GITHUB_ENV
           echo "COMMIT_HASH"=$COMMIT_HASH >> $GITHUB_ENV
 
-      - name: Setup Go 1.25.1
+      - name: Setup Go 1.25.3
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -224,7 +224,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             GO_IMAGE=golang
-            ALPINE_VER=3.21
+            ALPINE_VER=3.22
             GO_VER=1.25
             ALPINE_IMAGE=alpine
           push: true
