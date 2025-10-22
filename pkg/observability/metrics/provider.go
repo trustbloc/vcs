@@ -14,7 +14,7 @@ import (
 )
 
 // Logger used by different metrics provider.
-var Logger = log.New("metrics-provider")
+var Logger = log.New("metrics-provider") //nolint:gochecknoglobals // global logger
 
 // Constants used by different metrics provider.
 const (

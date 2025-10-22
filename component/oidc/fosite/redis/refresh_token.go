@@ -16,7 +16,7 @@ import (
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
 )
 
-func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature string, request fosite.Requester) error {
+func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature string, accessSignature string, request fosite.Requester) error {
 	return s.createSession(ctx, dto.RefreshTokenSegment, signature, request, defaultTTL)
 }
 
@@ -66,4 +66,15 @@ func (s *Store) RevokeRefreshTokenMaybeGracePeriod(ctx context.Context, requestI
 	}
 
 	return s.DeleteRefreshTokenSession(ctx, signature)
+}
+
+func (s *Store) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) error {
+	// Revoke the refresh token by requestID
+	if err := s.RevokeRefreshToken(ctx, requestID); err != nil {
+		return err
+	}
+	if err := s.DeleteRefreshTokenSession(ctx, refreshTokenSignature); err != nil {
+		return err
+	}
+	return nil
 }

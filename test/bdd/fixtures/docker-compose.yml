@@ -168,7 +168,7 @@ services:
 
   api-gateway.trustbloc.local:
     container_name: api-gateway.trustbloc.local
-    image: devopsfaith/krakend:${KRAKEND_IMAGE_TAG}
+    image: krakend:${KRAKEND_IMAGE_TAG}
     platform: linux/amd64
     ports:
       - "5566:8080"
@@ -183,7 +183,6 @@ services:
       - ./keys/tls:/etc/tls
     networks:
       - bdd_net
-
 
   cognito-auth:
     container_name: cognito-auth.local

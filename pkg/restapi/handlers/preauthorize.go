@@ -5,11 +5,11 @@ package handlers
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/oauth2"
-	"github.com/ory/x/errorsx"
 	"github.com/samber/lo"
 )
 
@@ -80,7 +80,7 @@ func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(
 
 	refresh, refreshSignature, err := c.RefreshTokenStrategy.GenerateRefreshToken(ctx, requester)
 	if err != nil {
-		return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
+		return errors.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
 	}
 
 	if err = c.CoreStorage.CreateAccessTokenSession(ctx, accessSignature, requester); err != nil {
@@ -88,8 +88,10 @@ func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(
 	}
 
 	if refresh != "" {
-		if err = c.CoreStorage.CreateRefreshTokenSession(ctx, refreshSignature, requester.Sanitize([]string{})); err != nil {
-			return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
+		if err = c.CoreStorage.CreateRefreshTokenSession(ctx, refreshSignature,
+			accessSignature,
+			requester.Sanitize([]string{})); err != nil {
+			return errors.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
 		}
 	}
 

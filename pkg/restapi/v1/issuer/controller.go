@@ -64,7 +64,7 @@ type eventService interface {
 	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
-type issueCredentialService interface {
+type issueCredentialService interface { //nolint:unused // used in tests
 	issuecredential.ServiceInterface
 }
 
@@ -1452,7 +1452,7 @@ func (c *Controller) parseTime(t *utiltime.TimeWrapper) *string {
 		return nil
 	}
 
-	return lo.ToPtr(t.Time.Format(time.RFC3339))
+	return lo.ToPtr(t.Format(time.RFC3339))
 }
 
 func (c *Controller) validateClaims( //nolint:gocognit

@@ -10,7 +10,7 @@ set -e
 echo "Running $0"
 
 DOCKER_CMD=${DOCKER_CMD:-docker}
-GOLANGCI_LINT_IMAGE="golangci/golangci-lint:v1.62.0"
+GOLANGCI_LINT_IMAGE="golangci/golangci-lint:v2.5.0"
 
 if [ ! $(command -v ${DOCKER_CMD}) ]; then
     exit 0
@@ -30,7 +30,7 @@ run_lint() {
     ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} \
         -v $(pwd):/opt/workspace \
         -w /opt/workspace/$task_dir ${GOLANGCI_LINT_IMAGE} \
-        golangci-lint run --timeout 5m --exclude-files '.*_test\.go'
+        golangci-lint run --timeout 5m --tests=false
 }
 
 if [ "$LINT_CONCURRENTLY" = "true" ]; then

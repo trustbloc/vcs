@@ -49,9 +49,9 @@ const (
 	IssuerOIDCInteractionQRScanned EventType = "issuer.oidc-interaction-qr-scanned.v1"
 	// IssuerOIDCInteractionSucceeded Issuer oidc event.
 	IssuerOIDCInteractionSucceeded                    EventType = "issuer.oidc-interaction-succeeded.v1"
-	IssuerOIDCInteractionAuthorizationRequestPrepared EventType = "issuer.oidc-interaction-authorization-request-prepared.v1" //nolint
-	IssuerOIDCInteractionAuthorizationCodeStored      EventType = "issuer.oidc-interaction-authorization-code-stored.v1"      //nolint
-	IssuerOIDCInteractionAuthorizationCodeExchanged   EventType = "issuer.oidc-interaction-authorization-code-exchanged.v1"   //nolint
+	IssuerOIDCInteractionAuthorizationRequestPrepared EventType = "issuer.oidc-interaction-authorization-request-prepared.v1"
+	IssuerOIDCInteractionAuthorizationCodeStored      EventType = "issuer.oidc-interaction-authorization-code-stored.v1"
+	IssuerOIDCInteractionAuthorizationCodeExchanged   EventType = "issuer.oidc-interaction-authorization-code-exchanged.v1"
 	IssuerOIDCInteractionFailed                       EventType = "issuer.oidc-interaction-failed.v1"
 	IssuerOIDCInteractionAckSucceeded                 EventType = "issuer.oidc-interaction-ack-succeeded.v1"
 	IssuerOIDCInteractionAckFailed                    EventType = "issuer.oidc-interaction-ack-failed.v1"
@@ -60,9 +60,9 @@ const (
 
 	CredentialStatusStatusUpdated EventType = "issuer.credential-status-updated.v1" //nolint:gosec
 
-	CredentialRefreshInitiated  EventType = "issuer.credential-refresh-initiated.v1"  //nolint
-	CredentialRefreshSuccessful EventType = "issuer.credential-refresh-successful.v1" //nolint
-	CredentialRefreshFailed     EventType = "issuer.credential-refresh-failed.v1"     //nolint
+	CredentialRefreshInitiated  EventType = "issuer.credential-refresh-initiated.v1"  //nolint:gosec // reason: G101 - false positive
+	CredentialRefreshSuccessful EventType = "issuer.credential-refresh-successful.v1" //nolint:gosec // reason: G101 - false positive
+	CredentialRefreshFailed     EventType = "issuer.credential-refresh-failed.v1"     //nolint:gosec // reason: G101 - false positive
 )
 
 // Payload defines payload.

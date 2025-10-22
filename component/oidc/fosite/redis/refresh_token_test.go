@@ -91,7 +91,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 				Session:           &fosite.DefaultSession{},
 			}
 
-			err = s.CreateRefreshTokenSession(context.TODO(), sign, ses)
+			err = s.CreateRefreshTokenSession(context.TODO(), sign, "", ses)
 			assert.NoError(t, err)
 
 			dbSes, err := s.GetRefreshTokenSession(context.TODO(), sign, ses.Session)
@@ -139,4 +139,76 @@ func TestFailGracePeriod(t *testing.T) {
 	cancel()
 
 	assert.ErrorContains(t, s.RevokeRefreshTokenMaybeGracePeriod(ctx, "2131", "214123"), "context canceled")
+}
+
+func TestRotateRefreshToken_Success(t *testing.T) {
+	pool, redisResource := startRedisContainer(t)
+
+	defer func() {
+		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
+	}()
+
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
+
+	clientManager, mongoDBPool, mongoDBResource := createClientManager(t)
+	defer func() {
+		assert.NoError(t, mongoDBPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	s := NewStore(client, clientManager)
+
+	oauth2Client := &oauth2client.Client{
+		ID:             uuid.New(),
+		Secret:         nil,
+		RotatedSecrets: nil,
+		RedirectURIs:   nil,
+		GrantTypes:     nil,
+		ResponseTypes:  nil,
+		Scopes:         []string{"awesome"},
+		Audience:       nil,
+	}
+
+	_, err = clientManager.InsertClient(context.Background(), oauth2Client)
+	assert.NoError(t, err)
+
+	sign := uuid.New()
+	ses := &fosite.Request{
+		ID:                uuid.New(),
+		Client:            oauth2Client,
+		RequestedScope:    []string{"scope1"},
+		GrantedScope:      []string{"scope1"},
+		RequestedAudience: []string{"aud1"},
+		GrantedAudience:   []string{"aud2"},
+		Lang:              language.Tag{},
+		Session:           &fosite.DefaultSession{},
+	}
+
+	err = s.CreateRefreshTokenSession(context.TODO(), sign, "", ses)
+	assert.NoError(t, err)
+
+	// Rotate should revoke by request ID and delete the session by signature
+	err = s.RotateRefreshToken(context.TODO(), ses.ID, sign)
+	assert.NoError(t, err)
+
+	resp, err := s.GetRefreshTokenSession(context.TODO(), sign, ses.Session)
+	assert.Nil(t, resp)
+	assert.ErrorIs(t, err, dto.ErrDataNotFound)
+}
+
+func TestRotateRefreshToken_Fail_ContextCanceled(t *testing.T) {
+	// Ensure that a canceled context causes an error
+	client, err := redis.New([]string{redisConnString})
+	if err != nil {
+		t.Skipf("redis not available: %v", err)
+	}
+
+	clientManager, _, _ := createClientManager(t)
+	s := NewStore(client, clientManager)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	cancel()
+
+	err = s.RotateRefreshToken(ctx, "2131", "214123")
+	assert.ErrorContains(t, err, "context canceled")
 }

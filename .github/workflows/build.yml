@@ -7,7 +7,7 @@
 name: "build"
 
 env:
-  GO_VERSION: '1.23'
+  GO_VERSION: '1.25'
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   Checks:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
           make checks
 
   UnitTest:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -89,10 +89,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Setup Go 1.23
+      - name: Setup Go 1.25.1
         uses: actions/setup-go@v2
         with:
-          go-version: '1.23'
+          go-version: '1.25'
 
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -138,7 +138,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             ALPINE_VER=3.21
-            GO_VER=1.23
+            GO_VER=1.25
           push: true
           tags: |
             ${{ env.VCS_IMAGE_PREFIX }}:${{ env.IMAGE_TAG }}

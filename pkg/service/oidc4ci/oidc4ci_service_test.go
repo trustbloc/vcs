@@ -4150,7 +4150,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
 
-						credIDs := messages[0].Data.(map[string]interface{})["credentialIDs"].([]any) //nolint
+						credIDs := messages[0].Data.(map[string]interface{})["credentialIDs"].([]any)
 						assert.Len(t, credIDs, 2)
 
 						assert.Contains(t, credIDs[0], "urn:uuid:")

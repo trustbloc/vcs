@@ -210,11 +210,7 @@ func (s *Service) GetRefreshedCredential(
 		credConfig.CredentialExpiresAt = lo.ToPtr(time.Now().UTC().Add(365 * 24 * time.Hour))
 	}
 
-	refreshServiceEnabled := false
-	if issuer.VCConfig != nil {
-		refreshServiceEnabled = true
-	}
-
+	refreshServiceEnabled := issuer.VCConfig != nil
 	updatedCred, err := s.cfg.CredentialIssuer.PrepareCredential(ctx, &issuecredential.PrepareCredentialsRequest{
 		TxID:                    string(tx.ID),
 		ClaimData:               decryptedClaims,

@@ -57,7 +57,7 @@ func TestPopulateTokenEndpoint(t *testing.T) {
 		RefreshTokenStrategy: refreshTokenStrategy,
 	}
 
-	factory := handlers.OAuth2PreAuthorizeFactory( //nolint
+	factory := handlers.OAuth2PreAuthorizeFactory(
 		&fosite.Config{},
 		storageMock,
 		strategy,
@@ -88,7 +88,7 @@ func TestPopulateTokenEndpoint(t *testing.T) {
 		Return(refreshToken, refreshSign, nil)
 
 	storageMock.EXPECT().CreateAccessTokenSession(gomock.Any(), accessSign, originalRequest).Return(nil)
-	storageMock.EXPECT().CreateRefreshTokenSession(gomock.Any(), refreshSign, gomock.Any()).Return(nil)
+	storageMock.EXPECT().CreateRefreshTokenSession(gomock.Any(), refreshSign, gomock.Any(), gomock.Any()).Return(nil)
 
 	responderMock.EXPECT().SetAccessToken(accessToken)
 	responderMock.EXPECT().SetTokenType("bearer")
@@ -171,7 +171,7 @@ func TestCanNotCreteRefreshTokenSession(t *testing.T) {
 	storageMock := NewMockCoreStorage(gomock.NewController(t))
 	storageMock.EXPECT().CreateAccessTokenSession(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)
-	storageMock.EXPECT().CreateRefreshTokenSession(gomock.Any(), gomock.Any(), gomock.Any()).
+	storageMock.EXPECT().CreateRefreshTokenSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(errors.New("store err2"))
 
 	factory := &handlers.PreAuthorizeGrantHandler{

@@ -66,7 +66,7 @@ func (h *Subscriber) start() {
 func (h *Subscriber) listen() {
 	logger.Debug("starting event listener...")
 
-	for { //nolint:gosimple
+	for { // nolint:staticcheck // SA1015: infinite loop
 		select {
 		case e, ok := <-h.eventChan:
 			if !ok {

@@ -560,7 +560,7 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body) //nolint
+		body, _ := io.ReadAll(resp.Body)
 		return "", "", fmt.Errorf("initiate oidc4ci request failed: %v; response: %s", resp.Status, string(body))
 	}
 
@@ -618,7 +618,7 @@ func (c *TestCase) fetchAuthorizationRequest() (string, error) {
 		}()
 	}
 
-	respData, _ := io.ReadAll(resp.Body) //nolint
+	respData, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected http status for fetchAuthorizationRequest. got %v and %v",
 			resp.StatusCode, string(respData))

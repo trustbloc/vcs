@@ -92,7 +92,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 				Session:           &fosite.DefaultSession{},
 			}
 
-			err = s.CreateRefreshTokenSession(context.TODO(), sign, ses)
+			err = s.CreateRefreshTokenSession(context.TODO(), sign, "", ses)
 			assert.NoError(t, err)
 
 			dbSes, err := s.GetRefreshTokenSession(context.TODO(), sign, ses.Session)
