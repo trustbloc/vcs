@@ -4,4 +4,4 @@
 
 module http-client-no-redirect
 
-go 1.25.1
+go 1.25.3

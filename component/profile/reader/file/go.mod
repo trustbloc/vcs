@@ -3,7 +3,7 @@
 
 module github.com/trustbloc/vcs/component/profile/reader/file
 
-go 1.25.1
+go 1.25.3
 
 require (
 	github.com/google/uuid v1.6.0

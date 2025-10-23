@@ -35,8 +35,8 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 endif
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.21
-GO_ALPINE_VER ?= 3.21
+ALPINE_VER ?= 3.22
+GO_ALPINE_VER ?= 3.22
 GO_VER ?= 1.25
 
 OS := $(shell uname)
@@ -198,7 +198,7 @@ build-krakend-plugin: clean
 	@docker run -i --platform linux/amd64 --rm \
 		-v $(abspath .):/opt/workspace/vcs \
 		-w /opt/workspace/vcs/test/bdd/krakend-plugins/http-client-no-redirect \
-		krakend/builder:2.11.0 \
+		krakend/builder:2.11.2 \
 		go build -buildmode=plugin -o /opt/workspace/vcs/test/bdd/fixtures/krakend-config/plugins/http-client-no-redirect.so .
 
 
