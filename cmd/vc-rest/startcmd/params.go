@@ -514,7 +514,10 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 
 	apiGatewayURL := cmdutils.GetUserSetOptionalVarFromString(cmd, apiGatewayURLFlagName, apiGatewayURLEnvKey)
 
+	logger.Info(fmt.Sprintf("Api gatway url %s", apiGatewayURL))
+
 	if len(apiGatewayURL) == 0 {
+		logger.Warn("apiGatewayURL is not set. Using hostURLExternal")
 		apiGatewayURL = hostURLExternal
 	}
 
