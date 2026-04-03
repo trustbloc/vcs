@@ -21,7 +21,7 @@ require (
 	github.com/dgraph-io/ristretto v1.0.0
 	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/getkin/kin-openapi v0.133.0
-	github.com/go-jose/go-jose/v3 v3.0.4
+	github.com/go-jose/go-jose/v3 v3.0.5
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
